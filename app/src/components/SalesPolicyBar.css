@@ -1,0 +1,172 @@
+.sales-policy-bar {
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 24px;
+  z-index: 12;
+  height: 138px;
+  display: grid;
+  grid-template-columns: 1.42fr 1fr 1fr 1.05fr;
+  gap: 10px;
+  font-family: var(--plotflow-brand-font, Arial, Helvetica, sans-serif);
+  color: #fff;
+}
+
+.sales-policy-card {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 38px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1.35px solid rgba(255, 247, 238, .78);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #1f796d 0%, #0c675d 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 4px 11px rgba(8,40,38,.10);
+}
+
+.sales-policy-cap {
+  min-width: 0;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid rgba(69, 58, 43, .10);
+  background: linear-gradient(180deg, #fff4e9 0%, #f8e6d7 100%);
+  color: #2e453f;
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -.35px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.sales-policy-loan-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.sales-policy-loan-option {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 27px minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+}
+
+.sales-policy-loan-option + .sales-policy-loan-option {
+  border-left: 1px solid rgba(255, 247, 238, .64);
+}
+
+.sales-policy-loan-option > span {
+  align-self: end;
+  color: rgba(255,255,255,.96);
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 850;
+}
+
+.sales-policy-discount,
+.sales-policy-big-metric {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+  height: 100%;
+  padding-bottom: 8px;
+}
+
+.sales-policy-discount small,
+.sales-policy-big-metric small {
+  margin: 0 5px 7px 0;
+  color: rgba(255,255,255,.88);
+  font-size: 8px;
+  line-height: .92;
+  font-weight: 750;
+  text-align: center;
+}
+
+.sales-policy-discount strong,
+.sales-policy-big-metric strong,
+.sales-policy-gift-value strong {
+  color: #fff;
+  font-size: 55px;
+  line-height: .78;
+  font-weight: 900;
+  letter-spacing: -2.2px;
+  text-shadow: 0 1px 0 rgba(0,0,0,.08);
+}
+
+.sales-policy-discount b,
+.sales-policy-big-metric b {
+  margin: 0 0 5px 2px;
+  color: #fff;
+  font-size: 27px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.sales-policy-metric-card .sales-policy-big-metric {
+  padding-bottom: 11px;
+}
+
+.sales-policy-metric-card .sales-policy-big-metric small {
+  margin-right: 7px;
+  margin-bottom: 8px;
+  font-size: 8px;
+}
+
+.sales-policy-metric-card .sales-policy-big-metric strong {
+  font-size: 62px;
+}
+
+.sales-policy-metric-card .sales-policy-big-metric b {
+  margin-bottom: 5px;
+  font-size: 29px;
+}
+
+.sales-policy-cap-gift {
+  display: grid;
+  place-content: center;
+  gap: 1px;
+  white-space: normal;
+}
+
+.sales-policy-cap-gift span {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.sales-policy-cap-gift small {
+  color: #5c625c;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.sales-policy-gift-value {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+  padding-bottom: 13px;
+}
+
+.sales-policy-gift-value strong {
+  font-size: 62px;
+}
+
+.sales-policy-gift-value b {
+  margin: 0 0 4px 3px;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+@media print {
+  .sales-policy-bar { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
