@@ -34,10 +34,8 @@ export default function PosterCanvas({
 }) {
   const [persistedOverlay, setPersistedOverlay] = useState(() => readPersistedOverlay(unit?.unitCode));
   const [quickPinMode, setQuickPinMode] = useState(false);
-  const [layoutRevision, setLayoutRevision] = useState(0);
   const hostRef = useRef(null);
   const [posterTarget, setPosterTarget] = useState(null);
-  const [inspectorTarget, setInspectorTarget] = useState(null);
   const [quickControlsTarget, setQuickControlsTarget] = useState(null);
   const [toolbarTarget, setToolbarTarget] = useState(null);
 
@@ -53,18 +51,11 @@ export default function PosterCanvas({
   }, [unit?.unitCode]);
 
   useEffect(() => {
-    const refresh = () => setLayoutRevision((value) => value + 1);
-    window.addEventListener("plotflow-layout-quick-updated", refresh);
-    return () => window.removeEventListener("plotflow-layout-quick-updated", refresh);
-  }, []);
-
-  useEffect(() => {
-    if (isEditing) setQuickPinMode(false);
-  }, [isEditing]);
+    setQuickPinMode(false);
+  }, [unit?.unitCode, isEditing]);
 
   useLayoutEffect(() => {
     setPosterTarget(hostRef.current?.querySelector(".poster-canvas") || null);
-    setInspectorTarget(hostRef.current?.querySelector(".inspector-panel") || null);
     setToolbarTarget(hostRef.current?.querySelector(".studio-toolbar") || null);
     setQuickControlsTarget(document.querySelector(".design-assignment-dock") || null);
   });
@@ -85,7 +76,6 @@ export default function PosterCanvas({
   return (
     <div ref={hostRef} className="plotflow-poster-host" style={{ display: "contents" }}>
       <PosterCanvasBase
-        key={`poster-base-${layoutRevision}`}
         {...props}
         unit={unit}
         assets={baseAssets}
@@ -115,7 +105,6 @@ export default function PosterCanvas({
         <>
           <CampaignBadgeStrip
             artboard={posterTarget}
-            inspectorTarget={inspectorTarget}
             quickControlsTarget={quickControlsTarget}
             isEditing={isEditing}
             quickPinMode={quickPinMode}
@@ -126,6 +115,7 @@ export default function PosterCanvas({
             artboard={posterTarget}
             src={assets.pin3D}
             active={!isEditing && quickPinMode}
+            unitCode={unit?.unitCode}
           />
           <PolicyImageOverlay handover={unit?.handover} />
         </>,
