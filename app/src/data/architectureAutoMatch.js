@@ -124,7 +124,7 @@ export function expectedHouseAssetKey(unit) {
   const parts = [`CH${number}`, canonicalTypeToken(unit, match)];
   if (flags.shophouse) parts.push("SHOPHOUSE");
   else if (flags.split) parts.push("XE_KHE");
-  else if (flags.corner) parts.push("CAN_GOC");
+  // CĂN GÓC is a sales/display characteristic only. It uses the same base house image.
   return parts.join("_");
 }
 
@@ -148,7 +148,8 @@ function isCompatibleHouseVariant(asset, match, unit) {
   if (!wants.semiDetached && !wants.detached && (has.semiDetached || has.detached)) return false;
   if (wants.shophouse !== has.shophouse && (wants.shophouse || has.shophouse)) return false;
   if (wants.split !== has.split && (wants.split || has.split)) return false;
-  if (wants.corner && !has.corner) return false;
+  // Never auto-select a corner-specific asset. Corner units intentionally share the base asset.
+  if (has.corner) return false;
   return true;
 }
 
@@ -157,7 +158,6 @@ function scoreHouseCandidate(asset, match, unit) {
   let score = architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === architectureNumber(match.architectureCode) ? 100 : 0;
   const wants = shapeFlags(unit, match);
   if (wants.split === flags.split) score += 18;
-  if (wants.corner === flags.corner) score += 12;
   if (wants.shophouse === flags.shophouse) score += 12;
   if (wants.semiDetached === flags.semiDetached) score += 12;
   if (wants.detached === flags.detached) score += 12;
