@@ -28,24 +28,33 @@ export default function PolicyImageOverlay({ handover }) {
   if (!src) return null;
 
   return (
-    <img
-      className="plotflow-policy-image"
-      src={src}
-      alt=""
+    <div
+      className="plotflow-policy-frame"
       aria-hidden="true"
-      draggable="false"
       style={{
         position: "absolute",
-        left: "26px",
-        right: "26px",
+        left: "24px",
         bottom: "24px",
-        width: "calc(100% - 52px)",
-        height: "auto",
+        width: "1032px",
+        overflow: "hidden",
         zIndex: 18,
         pointerEvents: "none",
         userSelect: "none",
-        display: "block",
       }}
-    />
+    >
+      <img
+        className="plotflow-policy-image"
+        src={src}
+        alt=""
+        draggable="false"
+        style={{
+          display: "block",
+          width: "112%",
+          height: "auto",
+          maxWidth: "none",
+          marginLeft: "-6%",
+        }}
+      />
+    </div>
   );
 }
