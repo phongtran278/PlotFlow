@@ -6,12 +6,18 @@ const POLICY_IMAGE_BY_HANDOVER = {
   HOAN_THIEN: "/assets/policy/policy-hoan-thien.png",
 };
 
-// Match the exact combined span of the two amenity cards in PosterCanvasBase:
-// amenity1 x=26..541, amenity2 x=553..1054 => real combined span x=26..1054.
+// Exact visible span of the two amenity cards in PosterCanvasBase:
+// amenity1 x=26..541, amenity2 x=553..1054 => combined span x=26..1054.
 const TARGET_LEFT = 26;
 const TARGET_RIGHT = 1054;
 const TARGET_WIDTH = TARGET_RIGHT - TARGET_LEFT;
-const TARGET_BOTTOM = 1912; // 8px safe margin from the 1920px artboard bottom.
+
+// The amenity row ends at y=1437+293=1730. The artboard ends at y=1920.
+// The *visible pixels* of the policy artwork are centered inside this 190px footer region.
+const FOOTER_TOP = 1730;
+const FOOTER_BOTTOM = 1920;
+const FOOTER_HEIGHT = FOOTER_BOTTOM - FOOTER_TOP;
+
 const ALPHA_THRESHOLD = 8;
 const boundsCache = new Map();
 
@@ -88,13 +94,22 @@ function measureVisiblePixelBounds(image) {
 
 function layoutFromBounds(bounds) {
   if (!bounds) return null;
-  const visibleWidth = bounds.maxX - bounds.minX + 1;
-  if (visibleWidth <= 0) return null;
 
+  const visibleWidth = bounds.maxX - bounds.minX + 1;
+  const visibleHeight = bounds.maxY - bounds.minY + 1;
+  if (visibleWidth <= 0 || visibleHeight <= 0) return null;
+
+  // Horizontal sizing is driven only by the actual non-transparent pixels.
   const scale = TARGET_WIDTH / visibleWidth;
+
+  // Center the actual visible policy artwork inside the footer region.
+  // Transparent pixels above/below the artwork do not affect the centering.
+  const scaledVisibleHeight = visibleHeight * scale;
+  const visibleTop = FOOTER_TOP + (FOOTER_HEIGHT - scaledVisibleHeight) / 2;
+
   return {
     left: TARGET_LEFT - bounds.minX * scale,
-    top: TARGET_BOTTOM - (bounds.maxY + 1) * scale,
+    top: visibleTop - bounds.minY * scale,
     width: bounds.naturalWidth * scale,
   };
 }
@@ -122,10 +137,10 @@ export default function PolicyImageOverlay({ handover }) {
         width: `${measuredLayout.width}px`,
       }
     : {
-        // Stable fallback for the first paint; replaced immediately after image load.
+        // First-paint fallback only. onLoad replaces this with pixel-measured placement.
         position: "absolute",
         left: `${TARGET_LEFT}px`,
-        bottom: "8px",
+        top: `${FOOTER_TOP}px`,
         width: `${TARGET_WIDTH}px`,
       };
 
