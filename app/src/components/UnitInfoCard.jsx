@@ -1,8 +1,5 @@
 function sourceText(value) {
   if (value === undefined || value === null || String(value).trim() === "") return "—";
-  // Sheet/Excel is the source of truth. Do not round, truncate, pad, divide or
-  // otherwise reinterpret values here; only convert Vietnamese decimal comma
-  // to the dot used on the poster.
   return String(value).trim().replace(/,/g, ".");
 }
 
@@ -11,9 +8,33 @@ function show(value, suffix = "") {
   return text === "—" ? text : `${text}${suffix}`;
 }
 
+function normalizeText(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toUpperCase();
+}
+
+function displayUnitType(unit) {
+  // Keep the info card commercial and compact. Architecture style belongs in
+  // the large label over the house image, not in this row.
+  const source = `${unit?.type || ""} ${unit?.sourceFeature || ""}`;
+  const normalized = normalizeText(source);
+  let base = "LIỀN KỀ";
+  if (normalized.includes("SONG LAP")) base = "SONG LẬP";
+  else if (normalized.includes("DON LAP")) base = "ĐƠN LẬP";
+
+  // Only surface selling-relevant exceptions. Xẻ khe/sân vườn/etc. stay out of
+  // LOẠI HÌNH unless the data source explicitly classifies them as a sales type.
+  if (normalized.includes("SHOPHOUSE")) return `${base} - SHOPHOUSE`;
+  if (normalized.includes("CAN GOC") || normalized.includes("GOC")) return `${base} - CĂN GÓC`;
+  return base;
+}
+
 export default function UnitInfoCard({ unit }) {
   const leftSpecs = [
-    { label: "KIẾN TRÚC", value: show(unit.architectureLabel || unit.type) },
+    { label: "LOẠI HÌNH", value: displayUnitType(unit) },
     { label: "SỐ TẦNG", value: show(unit.floors) },
     { label: "TCBG", value: show(unit.handover) },
   ];
