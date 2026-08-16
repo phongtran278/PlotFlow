@@ -183,6 +183,17 @@ const badgeSource = path.join(assetSource, "badges");
 copyAlias(badgeSource, (raw, n) => n.includes("hotdeal") || (n.includes("hot") && n.includes("deal")), path.join(uiDir, "badge_hotdeal.png"), "Hot Deal badge");
 copyAlias(badgeSource, (raw, n) => n.includes("veosom") || n.includes("ve o som"), path.join(uiDir, "badge_veosom.png"), "Về ở sớm badge");
 
+// macOS may store Vietnamese filenames in decomposed Unicode (NFD) while browser URLs
+// arrive in composed Unicode (NFC). Create exact NFC aliases that match CampaignBadgeStrip URLs.
+for (const amount of [1, 3, 5, 6, 9]) {
+  copyAlias(
+    badgeSource,
+    (raw, n) => n.startsWith(`${amount} chi`) && n.endsWith(".png"),
+    path.join(assetDest, "badges", `${amount} chỉ.png`),
+    `${amount} chỉ gold badge NFC alias`
+  );
+}
+
 const pinSource = path.join(assetSource, "pin");
 copyAlias(pinSource, (raw, n) => n.includes("pin2d"), path.join(uiDir, "pin_2d.png"), "2D pin");
 copyAlias(pinSource, (raw, n) => n.includes("pin3d"), path.join(uiDir, "pin_3d.png"), "3D pin");
