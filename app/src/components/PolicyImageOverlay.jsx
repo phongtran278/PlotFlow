@@ -34,7 +34,7 @@ export default function PolicyImageOverlay({ handover }) {
       style={{
         position: "absolute",
         left: "24px",
-        bottom: "24px",
+        bottom: "8px",
         width: "1032px",
         overflow: "hidden",
         zIndex: 18,
@@ -49,10 +49,10 @@ export default function PolicyImageOverlay({ handover }) {
         draggable="false"
         style={{
           display: "block",
-          width: "112%",
+          width: "100%",
           height: "auto",
           maxWidth: "none",
-          marginLeft: "-6%",
+          margin: 0,
         }}
       />
     </div>
