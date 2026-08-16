@@ -1,10 +1,7 @@
+import { generatedHouseCatalog } from "./generatedHouseCatalog.js";
+
 const A = "/assets";
 
-// Google occasionally returns HTTP 400/redirect HTML for the normal
-// /export?format=csv endpoint even when the same public sheet is readable
-// through the Visualization endpoint. PlotFlow already converts normal
-// /edit links into export URLs in App.jsx; this small fetch guard makes that
-// connection resilient without asking users to paste a special URL.
 function installGoogleSheetFetchFallback() {
   if (typeof window === "undefined" || typeof window.fetch !== "function") return;
   if (window.__plotflowGoogleSheetFetchPatched) return;
@@ -64,7 +61,6 @@ function installGoogleSheetFetchFallback() {
       }
     }
 
-    // Preserve the most useful HTTP response for App.jsx's existing error UI.
     if (primaryResponse) return primaryResponse;
     return nativeFetch(input, init);
   };
@@ -74,13 +70,19 @@ function installGoogleSheetFetchFallback() {
 
 installGoogleSheetFetchFallback();
 
-export const houseCatalog = [
+const staticHouseCatalog = [
   { id: "HOUSE_CH71_SAN_VUON", name: "CH 71 sân vườn", fileName: "CH 71 san vuon.png", src: `${A}/houses/CH 71 san vuon.png`, group: "House" },
   { id: "HOUSE_CH59_LK_SAN_VUON", name: "CH-59 · LK sân vườn", fileName: "CH-59-LK Sân vườn.jpg", src: `${A}/library/houses/HOUSE_CH59_LK_SAN_VUON.jpg`, group: "House" },
   { id: "HOUSE_CH53_LK_XE_KHE", name: "CH-53 · LK xe khe", fileName: "CH-53-LK xe khe.jpg", src: `${A}/houses/CH-53-LK xe khe.jpg`, group: "House" },
   { id: "HOUSE_CH15_LK_XE_KHE", name: "CH-15 · LK xe khe", fileName: "CH-15-LK xe khe.jpg", src: `${A}/houses/CH-15-LK xe khe.jpg`, group: "House" },
   { id: "HOUSE_CH75_LK_XE_KHE", name: "CH-75 · LK xe khe", fileName: "CH-75-LK xe khe.jpg", src: `${A}/houses/CH-75-LK xe khe.jpg`, group: "House" },
   { id: "HOUSE_CH53_LK", name: "CH-53 · LK", fileName: "CH-53 LK.jpg", src: `${A}/houses/CH-53 LK.jpg`, group: "House" },
+];
+
+const generatedIds = new Set(generatedHouseCatalog.map((item) => item.id));
+export const houseCatalog = [
+  ...generatedHouseCatalog,
+  ...staticHouseCatalog.filter((item) => !generatedIds.has(item.id)),
 ];
 
 export const amenityCatalog = [

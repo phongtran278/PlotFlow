@@ -53,9 +53,7 @@ export function resolveArchitectureMatch(unit) {
   const storedLabel = String(unit?.architectureLabel || "").trim();
   const storedCode = String(unit?.architectureCode || "").trim();
   const sameAsAuto = Boolean(
-    autoMatch &&
-    storedLabel &&
-    normalizeText(storedLabel) === normalizeText(autoMatch.architectureLabel)
+    autoMatch && storedLabel && normalizeText(storedLabel) === normalizeText(autoMatch.architectureLabel)
   );
 
   if ((storedLabel || storedCode) && !sameAsAuto) {
@@ -101,12 +99,33 @@ export function resolveArchitectureMatch(unit) {
 }
 
 function shapeFlags(unit, match) {
-  const unitShape = normalizeText(`${unit?.type || ""} ${match.architectureLabel || ""}`);
+  const unitShape = normalizeText(`${unit?.type || ""} ${unit?.sourceFeature || ""} ${match.architectureLabel || ""}`);
   return {
     split: unitShape.includes("XE_KHE") || unitShape.includes("XEKHE"),
     corner: unitShape.includes("CAN_GOC") || unitShape.includes("GOC"),
+    shophouse: unitShape.includes("SHOPHOUSE"),
     semiDetached: unitShape.includes("SONG_LAP") || unitShape.includes("SONGLAP"),
+    detached: unitShape.includes("DON_LAP") || unitShape.includes("DONLAP"),
   };
+}
+
+function canonicalTypeToken(unit, match) {
+  const flags = shapeFlags(unit, match);
+  if (flags.semiDetached) return "SONG_LAP";
+  if (flags.detached) return "DON_LAP";
+  return "LK";
+}
+
+export function expectedHouseAssetKey(unit) {
+  const match = resolveArchitectureMatch(unit);
+  const number = architectureNumber(match.architectureCode);
+  if (!number) return "";
+  const flags = shapeFlags(unit, match);
+  const parts = [`CH${number}`, canonicalTypeToken(unit, match)];
+  if (flags.shophouse) parts.push("SHOPHOUSE");
+  else if (flags.split) parts.push("XE_KHE");
+  else if (flags.corner) parts.push("CAN_GOC");
+  return parts.join("_");
 }
 
 function assetFlags(asset) {
@@ -114,7 +133,9 @@ function assetFlags(asset) {
   return {
     split: haystack.includes("XE_KHE") || haystack.includes("XEKHE"),
     corner: haystack.includes("CAN_GOC") || haystack.includes("GOC"),
+    shophouse: haystack.includes("SHOPHOUSE"),
     semiDetached: haystack.includes("SONG_LAP") || haystack.includes("SONGLAP") || haystack.includes("BT_"),
+    detached: haystack.includes("DON_LAP") || haystack.includes("DONLAP"),
     haystack,
   };
 }
@@ -122,8 +143,11 @@ function assetFlags(asset) {
 function isCompatibleHouseVariant(asset, match, unit) {
   const wants = shapeFlags(unit, match);
   const has = assetFlags(asset);
+  if (wants.semiDetached !== has.semiDetached) return false;
+  if (wants.detached !== has.detached) return false;
+  if (!wants.semiDetached && !wants.detached && (has.semiDetached || has.detached)) return false;
+  if (wants.shophouse !== has.shophouse && (wants.shophouse || has.shophouse)) return false;
   if (wants.split !== has.split && (wants.split || has.split)) return false;
-  if (wants.semiDetached !== has.semiDetached && (wants.semiDetached || has.semiDetached)) return false;
   if (wants.corner && !has.corner) return false;
   return true;
 }
@@ -133,17 +157,19 @@ function scoreHouseCandidate(asset, match, unit) {
   let score = architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === architectureNumber(match.architectureCode) ? 100 : 0;
   const wants = shapeFlags(unit, match);
   if (wants.split === flags.split) score += 18;
-  if (wants.corner && flags.corner) score += 12;
-  if (wants.semiDetached && flags.semiDetached) score += 12;
-  if (!wants.split && !flags.split) score += 4;
+  if (wants.corner === flags.corner) score += 12;
+  if (wants.shophouse === flags.shophouse) score += 12;
+  if (wants.semiDetached === flags.semiDetached) score += 12;
+  if (wants.detached === flags.detached) score += 12;
   return score;
 }
 
 export function resolveArchitectureHouseAsset(unit, houseCatalog = []) {
   const match = resolveArchitectureMatch(unit);
   const targetNumber = architectureNumber(match.architectureCode);
+  const expectedKey = expectedHouseAssetKey(unit);
   if (!targetNumber) {
-    return { ...match, asset: null, assetStatus: "NONE", suggestedHouseModel: "" };
+    return { ...match, asset: null, assetStatus: "NONE", suggestedHouseModel: "", expectedAssetKey: "" };
   }
 
   const codeCandidates = houseCatalog.filter((asset) =>
@@ -156,7 +182,8 @@ export function resolveArchitectureHouseAsset(unit, houseCatalog = []) {
       ...match,
       asset: null,
       assetStatus: codeCandidates.length ? "MISSING_VARIANT" : "MISSING",
-      suggestedHouseModel: `HOUSE_CH${targetNumber}`,
+      suggestedHouseModel: expectedKey ? `HOUSE_${expectedKey}` : `HOUSE_CH${targetNumber}`,
+      expectedAssetKey: expectedKey,
     };
   }
 
@@ -170,6 +197,7 @@ export function resolveArchitectureHouseAsset(unit, houseCatalog = []) {
     asset,
     assetStatus: "FOUND",
     suggestedHouseModel: asset.id,
+    expectedAssetKey: expectedKey,
   };
 }
 
@@ -192,6 +220,7 @@ export function architectureExportRows(houseCatalog = []) {
       unitCode: item.unitCode,
       architectureCode: item.architectureCode,
       architectureLabel: item.architectureLabel,
+      expectedAssetKey: resolved.expectedAssetKey,
       houseModel: resolved.asset?.id || "",
       houseAssetStatus: resolved.assetStatus,
       architectureSource: "AUTO",

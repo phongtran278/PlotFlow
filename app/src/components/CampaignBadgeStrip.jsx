@@ -25,12 +25,7 @@ function defaultConfig() {
   return {
     gap: DEFAULT_GAP,
     visibleHeight: DEFAULT_VISIBLE_HEIGHT,
-    badges: BADGES.map((badge, index) => ({
-      id: badge.id,
-      enabled: badge.enabled,
-      order: index,
-      scale: 1,
-    })),
+    badges: BADGES.map((badge, index) => ({ id: badge.id, enabled: badge.enabled, order: index, scale: 1 })),
   };
 }
 
@@ -50,15 +45,10 @@ function readConfig() {
       };
     });
 
-    // Gold is one campaign family: keep at most one choice enabled when migrating
-    // older saved settings that may have multiple gold badges switched on.
     let goldSeen = false;
     const badges = merged.map((item) => {
       if (!GOLD_IDS.includes(item.id) || !item.enabled) return item;
-      if (!goldSeen) {
-        goldSeen = true;
-        return item;
-      }
+      if (!goldSeen) { goldSeen = true; return item; }
       return { ...item, enabled: false };
     });
 
@@ -94,11 +84,7 @@ function measureVisibleBounds(image) {
   ctx.drawImage(image, 0, 0);
 
   let data;
-  try {
-    data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  } catch {
-    return null;
-  }
+  try { data = ctx.getImageData(0, 0, canvas.width, canvas.height).data; } catch { return null; }
 
   let minX = canvas.width;
   let minY = canvas.height;
@@ -117,10 +103,7 @@ function measureVisibleBounds(image) {
 
   if (maxX < minX || maxY < minY) return null;
   const result = {
-    minX,
-    minY,
-    maxX,
-    maxY,
+    minX, minY, maxX, maxY,
     width: maxX - minX + 1,
     height: maxY - minY + 1,
     naturalWidth: canvas.width,
@@ -168,15 +151,9 @@ function orderedConfigBadges(config) {
   return [...config.badges].sort((a, b) => a.order - b.order);
 }
 
-export default function CampaignBadgeStrip({
-  artboard,
-  quickControlsTarget,
-  isEditing = false,
-  quickPinMode = false,
-  pinVisible = false,
-  onToggleQuickPin,
-}) {
+export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEditing = false, quickPinMode = false, pinVisible = false, onToggleQuickPin }) {
   const [config, setConfig] = useState(readConfig);
+  const [scaleDrafts, setScaleDrafts] = useState({});
   const [boundsById, setBoundsById] = useState({});
   const [logoVisibleLeft, setLogoVisibleLeft] = useState(28);
   const imageRefs = useRef({});
@@ -219,10 +196,7 @@ export default function CampaignBadgeStrip({
   }
 
   function patchBadge(id, patch) {
-    commit({
-      ...config,
-      badges: config.badges.map((item) => item.id === id ? { ...item, ...patch } : item),
-    });
+    commit({ ...config, badges: config.badges.map((item) => item.id === id ? { ...item, ...patch } : item) });
   }
 
   function setGoldChoice(nextId) {
@@ -240,8 +214,6 @@ export default function CampaignBadgeStrip({
     });
   }
 
-  // Reorder only the badges that are actually visible. Moving left from the first
-  // item wraps to the end; moving right from the last item wraps to the beginning.
   function moveActiveBadge(id, direction) {
     const active = orderedConfigBadges(config).filter((item) => item.enabled);
     if (active.length < 2) return;
@@ -260,8 +232,19 @@ export default function CampaignBadgeStrip({
   }
 
   function setScalePercent(id, raw) {
-    const percent = Math.max(40, Math.min(220, Number(raw) || 100));
+    const parsed = Number(raw);
+    const percent = Math.max(40, Math.min(220, Number.isFinite(parsed) ? parsed : 100));
     patchBadge(id, { scale: percent / 100 });
+    setScaleDrafts((prev) => ({ ...prev, [id]: String(Math.round(percent)) }));
+  }
+
+  function commitScaleDraft(id, fallbackPct) {
+    const raw = scaleDrafts[id];
+    if (raw === undefined || String(raw).trim() === "") {
+      setScaleDrafts((prev) => ({ ...prev, [id]: String(fallbackPct) }));
+      return;
+    }
+    setScalePercent(id, raw);
   }
 
   function handleLoad(id, event) {
@@ -311,10 +294,7 @@ export default function CampaignBadgeStrip({
   const quickControls = !isEditing && quickControlsTarget ? createPortal(
     <section className="campaign-control-card">
       <div className="campaign-control-heading">
-        <div>
-          <span>CAMPAIGN</span>
-          <strong>Quick Arrange</strong>
-        </div>
+        <div><span>CAMPAIGN</span><strong>Quick Arrange</strong></div>
         <label className="campaign-gap-field">
           <span>Gap</span>
           <input type="number" min="0" max="120" value={config.gap} onChange={(event) => commit({ ...config, gap: Math.max(0, Number(event.target.value) || 0) })} />
@@ -349,6 +329,7 @@ export default function CampaignBadgeStrip({
           <div className="campaign-active-caption"><span>ĐANG HIỂN THỊ</span><small>Order · Scale</small></div>
           {active.map((item) => {
             const pct = Math.round(item.scale * 100);
+            const draftValue = Object.prototype.hasOwnProperty.call(scaleDrafts, item.id) ? scaleDrafts[item.id] : String(pct);
             return (
               <div className="campaign-active-row" key={item.id}>
                 <strong>{item.asset.name}</strong>
@@ -358,7 +339,26 @@ export default function CampaignBadgeStrip({
                 </div>
                 <input className="campaign-scale-slider" type="range" min="40" max="220" step="1" value={pct} onChange={(event) => setScalePercent(item.id, event.target.value)} />
                 <label className="campaign-scale-number">
-                  <input type="number" min="40" max="220" step="1" value={pct} onChange={(event) => setScalePercent(item.id, event.target.value)} />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={draftValue}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => {
+                      const next = event.target.value.replace(/[^0-9]/g, "");
+                      setScaleDrafts((prev) => ({ ...prev, [item.id]: next }));
+                    }}
+                    onBlur={() => commitScaleDraft(item.id, pct)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                      if (event.key === "Escape") {
+                        setScaleDrafts((prev) => ({ ...prev, [item.id]: String(pct) }));
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    aria-label={`${item.asset.name} scale percent`}
+                  />
                   <span>%</span>
                 </label>
               </div>

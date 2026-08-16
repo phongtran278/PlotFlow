@@ -109,12 +109,15 @@ export default function PosterCanvas({
 
   const resolvedUnit = withResolvedArchitecture(unit);
   const explicitHouse = findCatalogAsset(houseCatalog, unit?.houseModel);
-  const autoHouse = resolveArchitectureHouseAsset(unit, houseCatalog).asset;
-  const resolvedHouse = explicitHouse || autoHouse || null;
+  const houseResolution = resolveArchitectureHouseAsset(unit, houseCatalog);
+  const resolvedHouse = explicitHouse || houseResolution.asset || null;
   const baseAssets = {
     ...assets,
     badges: [],
-    ...(resolvedHouse ? { houseImage: resolvedHouse.src } : {}),
+    // Important: null is deliberate. If the expected asset is missing, never keep
+    // a default/random house image from the outer assignment layer.
+    houseImage: resolvedHouse?.src || null,
+    houseMissingKey: resolvedHouse ? "" : (houseResolution.suggestedHouseModel || houseResolution.expectedAssetKey || ""),
     ...(manualFloorplanImage ? { floorplanImage: manualFloorplanImage } : {}),
   };
 
