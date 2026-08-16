@@ -1,0 +1,92 @@
+.architecture-auto-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(20, 24, 33, .10);
+  border-radius: 12px;
+  background: rgba(255,255,255,.72);
+}
+
+.architecture-auto-card.is-auto {
+  border-color: rgba(31, 121, 90, .20);
+  background: rgba(31, 121, 90, .045);
+}
+
+.architecture-auto-card.is-manual {
+  border-color: rgba(79, 124, 255, .20);
+  background: rgba(79, 124, 255, .045);
+}
+
+.architecture-auto-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.architecture-auto-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.architecture-auto-head span {
+  color: #9097a2;
+  font-size: 9px;
+  letter-spacing: .11em;
+}
+
+.architecture-auto-head strong {
+  color: #202631;
+  font-size: 15px;
+}
+
+.architecture-auto-head em {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(20,24,33,.07);
+  color: #59616d;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.architecture-auto-card.is-auto .architecture-auto-head em {
+  background: rgba(31, 121, 90, .12);
+  color: #176d50;
+}
+
+.architecture-auto-card.is-manual .architecture-auto-head em {
+  background: rgba(79, 124, 255, .12);
+  color: #315fdd;
+}
+
+.architecture-auto-label {
+  color: #343b47;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.architecture-auto-note {
+  color: #858c97;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.architecture-export-button {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(20,24,33,.10);
+  border-radius: 9px;
+  background: #fff;
+  color: #4b535f;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.architecture-export-button:hover {
+  border-color: rgba(79,124,255,.32);
+  color: #315fdd;
+}
