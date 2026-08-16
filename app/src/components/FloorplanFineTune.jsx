@@ -10,6 +10,7 @@ import {
   logoCatalog,
   pinAssets,
 } from "../data/assetCatalog";
+import { resolveArchitectureHouseAsset } from "../data/architectureAutoMatch.js";
 import { normalizeUnitCode } from "../floorplan/pdfLocator";
 
 export { DEFAULT_FLOORPLAN_VIEW };
@@ -35,9 +36,11 @@ function resolvePosterAssets(unit) {
   const code = normalizeUnitCode(unit.unitCode);
   const saved = loadJson(DESIGN_ASSIGNMENT_KEY, {})[code] || {};
 
-  const house = houseCatalog.find((item) => item.id === saved.houseId)
-    || findCatalogAsset(houseCatalog, unit.houseModel)
-    || houseCatalog[0];
+  // Source houseModel wins. If it is blank, use only an exact compatible auto
+  // architecture match. Never fall back to the first/random house in catalog.
+  const explicitHouse = findCatalogAsset(houseCatalog, unit.houseModel);
+  const autoHouse = resolveArchitectureHouseAsset(unit, houseCatalog).asset;
+  const house = explicitHouse || autoHouse || null;
   const amenity1 = amenityCatalog.find((item) => item.id === saved.amenity1Id)
     || findCatalogAsset(amenityCatalog, unit.amenity1)
     || amenityCatalog[0];
@@ -100,11 +103,9 @@ export default function FloorplanFineTune({
     ? ({ ...DEFAULT_FLOORPLAN_VIEW, ...(initialView || {}) })
     : DEFAULT_FLOORPLAN_VIEW;
 
-  const posterAssets = useMemo(() => resolvePosterAssets(unit), [unit?.unitCode]);
+  const posterAssets = useMemo(() => resolvePosterAssets(unit), [unit?.unitCode, unit?.houseModel, unit?.architectureLabel]);
 
   async function saveComposition(view, overlay) {
-    // Persist before and after App's existing view save. The second write wins over
-    // legacy stale-marking while the custom event refreshes every PosterCanvas.
     persistOverlay(code, overlay);
     await onSave?.(view);
     persistOverlay(code, overlay);
