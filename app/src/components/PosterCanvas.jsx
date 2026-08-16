@@ -6,48 +6,54 @@ import CampaignBadgeStrip from "./CampaignBadgeStrip.jsx";
 import "./CampaignBadgeStrip.css";
 import ArchitectureAutoMatchCard from "./ArchitectureAutoMatchCard.jsx";
 import QuickPinOverlay from "./QuickPinOverlay.jsx";
-import { houseCatalog } from "../data/assetCatalog.js";
+import ManualFloorplanLocator from "./ManualFloorplanLocator.jsx";
+import "./ManualFloorplanLocator.css";
+import { findCatalogAsset, houseCatalog } from "../data/assetCatalog.js";
 import { resolveArchitectureHouseAsset, withResolvedArchitecture } from "../data/architectureAutoMatch.js";
+import { renderPdfPageBase, renderPdfRegion } from "../floorplan/pdfLocator.js";
 
 const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
-const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
+const MANUAL_FLOORPLAN_KEY = "plotflow-manual-floorplans-v1";
 
 function normalizeCode(value) {
-  return String(value || "").toUpperCase().replace(/\s+/g, "").trim();
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function readJson(key) {
+  try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
 }
 
 function readPersistedOverlay(unitCode) {
   const code = normalizeCode(unitCode);
   if (!code) return null;
-  try {
-    const all = JSON.parse(localStorage.getItem(LOT_OVERLAY_KEY) || "{}");
-    const overlay = all?.[code] || null;
-    return overlay?.stale ? null : overlay;
-  } catch {
-    return null;
-  }
+  const overlay = readJson(LOT_OVERLAY_KEY)?.[code] || null;
+  return overlay?.stale ? null : overlay;
 }
 
-function hasSavedHouseOverride(unitCode) {
+function readManualFloorplan(unitCode) {
   const code = normalizeCode(unitCode);
-  if (!code) return false;
-  try {
-    const all = JSON.parse(localStorage.getItem(DESIGN_ASSIGNMENT_KEY) || "{}");
-    return Object.prototype.hasOwnProperty.call(all?.[code] || {}, "houseId");
-  } catch {
-    return false;
-  }
+  return code ? (readJson(MANUAL_FLOORPLAN_KEY)?.[code]?.dataUrl || null) : null;
+}
+
+function saveManualFloorplan(unitCode, payload) {
+  const code = normalizeCode(unitCode);
+  if (!code || !payload?.dataUrl) return;
+  const all = readJson(MANUAL_FLOORPLAN_KEY);
+  all[code] = payload;
+  try { localStorage.setItem(MANUAL_FLOORPLAN_KEY, JSON.stringify(all)); } catch { /* optional cache */ }
 }
 
 function normalizeSidebarPriceText() {
   document.querySelectorAll(".unit-select > span:last-child").forEach((node) => {
     const text = String(node.textContent || "").trim();
-    if (!text || text === "—" || !text.toLowerCase().includes("tỷ")) return;
-    const raw = text.replace(/tỷ/gi, "").trim().replace(/,/g, ".");
-    const value = Number(raw);
-    if (!Number.isFinite(value)) return;
-    const truncated = Math.trunc((value + Number.EPSILON) * 1000) / 1000;
-    const next = `${truncated.toFixed(3)} tỷ`;
+    if (!text || text === "—") return;
+    const next = text.replace(/,/g, ".");
     if (node.textContent !== next) node.textContent = next;
   });
 }
@@ -59,10 +65,14 @@ export default function PosterCanvas({
   unit,
   assets = {},
   isEditing = false,
+  floorplanStatus,
   ...props
 }) {
   const [persistedOverlay, setPersistedOverlay] = useState(() => readPersistedOverlay(unit?.unitCode));
   const [quickPinMode, setQuickPinMode] = useState(false);
+  const [manualLocatorOpen, setManualLocatorOpen] = useState(false);
+  const [manualFloorplanImage, setManualFloorplanImage] = useState(() => readManualFloorplan(unit?.unitCode));
+  const [manualLocatorBusy, setManualLocatorBusy] = useState(false);
   const hostRef = useRef(null);
   const [posterTarget, setPosterTarget] = useState(null);
   const [quickControlsTarget, setQuickControlsTarget] = useState(null);
@@ -81,6 +91,8 @@ export default function PosterCanvas({
 
   useEffect(() => {
     setQuickPinMode(false);
+    setManualLocatorOpen(false);
+    setManualFloorplanImage(readManualFloorplan(unit?.unitCode));
   }, [unit?.unitCode, isEditing]);
 
   useLayoutEffect(() => {
@@ -96,22 +108,59 @@ export default function PosterCanvas({
     : (persistedOverlay || lotOverlay);
 
   const resolvedUnit = withResolvedArchitecture(unit);
-  const houseResolution = resolveArchitectureHouseAsset(unit, houseCatalog);
-  const canAutoHouse = Boolean(
-    resolvedUnit &&
-    !String(unit?.houseModel || "").trim() &&
-    !hasSavedHouseOverride(unit?.unitCode) &&
-    houseResolution.asset
-  );
+  const explicitHouse = findCatalogAsset(houseCatalog, unit?.houseModel);
+  const autoHouse = resolveArchitectureHouseAsset(unit, houseCatalog).asset;
+  // Source data is authoritative. Old local assignment values must not block a
+  // houseModel/architecture match coming from Sheet/Excel.
+  const resolvedHouse = explicitHouse || autoHouse || null;
   const baseAssets = {
     ...assets,
     badges: [],
-    ...(canAutoHouse ? { houseImage: houseResolution.asset.src } : {}),
+    ...(resolvedHouse ? { houseImage: resolvedHouse.src } : {}),
+    ...(manualFloorplanImage ? { floorplanImage: manualFloorplanImage } : {}),
   };
 
   function exitLayoutEditing() {
     document.querySelector(".edit-layout-button.active")?.click();
   }
+
+  async function applyManualFloorplan({ pageNumber, x, y, zoom = 180 }) {
+    const pdfDoc = window.__plotflowPdfDoc;
+    if (!pdfDoc) return;
+    try {
+      setManualLocatorBusy(true);
+      const pageBase = await renderPdfPageBase(pdfDoc, pageNumber, 1.7);
+      const pageRender = {
+        ...pageBase,
+        anchorX: x * pageBase.width,
+        anchorY: y * pageBase.height,
+        anchorW: 18,
+        anchorH: 18,
+      };
+      const view = { zoom, offsetX: 0, offsetY: 0, highlight: false };
+      const crop = await renderPdfRegion(pdfDoc, pageRender, view, {
+        outputWidth: 1084,
+        includeHighlight: false,
+        maxRenderScale: 128,
+      });
+      const payload = { dataUrl: crop.dataUrl, pageNumber, x, y, zoom };
+      saveManualFloorplan(unit?.unitCode, payload);
+      setManualFloorplanImage(crop.dataUrl);
+      setManualLocatorOpen(false);
+    } finally {
+      setManualLocatorBusy(false);
+    }
+  }
+
+  const manualControl = !isEditing && quickControlsTarget && floorplanStatus === "not_found"
+    ? createPortal(
+        <div className="manual-locator-quick-card">
+          <div><span>FLOORPLAN</span><strong>Auto Locate chưa tìm thấy</strong></div>
+          <button type="button" onClick={() => setManualLocatorOpen(true)}>✎ Manual Locate</button>
+        </div>,
+        quickControlsTarget
+      )
+    : null;
 
   return (
     <div ref={hostRef} className="plotflow-poster-host" style={{ display: "contents" }}>
@@ -125,27 +174,25 @@ export default function PosterCanvas({
       />
 
       {isEditing && toolbarTarget && createPortal(
-        <button
-          type="button"
-          onClick={exitLayoutEditing}
-          style={{
-            marginLeft: "auto",
-            padding: "8px 12px",
-            borderRadius: 9,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
+        <button type="button" onClick={exitLayoutEditing} style={{ marginLeft: "auto", padding: "8px 12px", borderRadius: 9, fontWeight: 700, cursor: "pointer" }}>
           ✓ Exit Edit Layout
         </button>,
         toolbarTarget
       )}
 
-      <ArchitectureAutoMatchCard
-        unit={unit}
-        target={quickControlsTarget}
-        isEditing={isEditing}
-      />
+      <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />
+      {manualControl}
+
+      {manualLocatorOpen && createPortal(
+        <ManualFloorplanLocator
+          pdfDoc={window.__plotflowPdfDoc}
+          initialPage={1}
+          busy={manualLocatorBusy}
+          onCancel={() => setManualLocatorOpen(false)}
+          onPick={applyManualFloorplan}
+        />,
+        document.body
+      )}
 
       {posterTarget && createPortal(
         <>
@@ -157,12 +204,7 @@ export default function PosterCanvas({
             pinVisible={Boolean(assets.pin3D)}
             onToggleQuickPin={() => setQuickPinMode((value) => !value)}
           />
-          <QuickPinOverlay
-            artboard={posterTarget}
-            src={assets.pin3D}
-            active={!isEditing && quickPinMode}
-            unitCode={unit?.unitCode}
-          />
+          <QuickPinOverlay artboard={posterTarget} src={assets.pin3D} active={!isEditing && quickPinMode} unitCode={unit?.unitCode} />
           <PolicyImageOverlay handover={unit?.handover} />
         </>,
         posterTarget
