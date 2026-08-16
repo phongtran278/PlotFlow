@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 
 const STORAGE_KEY = "plotflow-campaign-badges-v1";
 const ARTBOARD_WIDTH = 1080;
-const DEFAULT_TOP = 24;
+const DEFAULT_TOP = 0;
 const DEFAULT_GAP = 18;
 const DEFAULT_VISIBLE_HEIGHT = 156;
 const ALPHA_THRESHOLD = 8;
@@ -154,7 +154,7 @@ function orderedConfigBadges(config) {
   return [...config.badges].sort((a, b) => a.order - b.order);
 }
 
-export default function CampaignBadgeStrip({ artboard, inspectorTarget, isEditing = false }) {
+export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickControlsTarget, isEditing = false }) {
   const [config, setConfig] = useState(readConfig);
   const [boundsById, setBoundsById] = useState({});
   const [logoVisibleLeft, setLogoVisibleLeft] = useState(28);
@@ -224,12 +224,13 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, isEditin
     if (artboard) setLogoVisibleLeft(measureVisibleLogoLeft(artboard));
   }
 
+  const ordered = useMemo(() => orderedConfigBadges(config), [config]);
   const active = useMemo(() => {
-    return orderedConfigBadges(config)
+    return ordered
       .filter((item) => item.enabled)
       .map((item) => ({ ...item, asset: BADGES.find((badge) => badge.id === item.id) }))
       .filter((item) => item.asset);
-  }, [config]);
+  }, [ordered]);
 
   const layouts = useMemo(() => {
     const ready = active.every((item) => boundsById[item.id]);
@@ -268,12 +269,40 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, isEditin
     return next;
   }, [active, boundsById, config.gap, config.visibleHeight, logoVisibleLeft]);
 
+  const quickControls = !isEditing && quickControlsTarget ? createPortal(
+    <div className="dock-campaign-tabs" style={{ display: "grid", gap: 8, padding: "10px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontSize: 10, letterSpacing: ".12em", opacity: .62 }}>CAMPAIGN TABS</span>
+        <small style={{ opacity: .55 }}>Quick show / hide</small>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {ordered.map((item) => {
+          const asset = BADGES.find((badge) => badge.id === item.id);
+          if (!asset) return null;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={item.enabled ? "active" : ""}
+              onClick={() => patchBadge(item.id, { enabled: !item.enabled })}
+              style={{ padding: "7px 9px", borderRadius: 8, fontSize: 11 }}
+            >
+              {asset.name}
+            </button>
+          );
+        })}
+      </div>
+      <small style={{ opacity: .55 }}>Scale, gap và thứ tự chỉnh trong Edit Layout.</small>
+    </div>,
+    quickControlsTarget
+  ) : null;
+
   const controls = isEditing && inspectorTarget ? createPortal(
     <div style={{ borderTop: "1px solid rgba(255,255,255,.12)", padding: "16px 14px 18px", display: "grid", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div>
           <div style={{ fontSize: 10, letterSpacing: ".12em", opacity: .6 }}>CAMPAIGN TABS</div>
-          <strong style={{ fontSize: 13 }}>Pixel-aware badge strip</strong>
+          <strong style={{ fontSize: 13 }}>Advanced layout</strong>
         </div>
         <button type="button" onClick={reset} style={{ padding: "5px 8px" }}>Reset</button>
       </div>
@@ -289,7 +318,7 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, isEditin
       </label>
 
       <div style={{ display: "grid", gap: 8 }}>
-        {orderedConfigBadges(config).map((item) => {
+        {ordered.map((item) => {
           const asset = BADGES.find((badge) => badge.id === item.id);
           return (
             <div key={item.id} style={{ border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: 9, display: "grid", gap: 8 }}>
@@ -308,7 +337,7 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, isEditin
         })}
       </div>
       <small style={{ opacity: .62, lineHeight: 1.45 }}>
-        Gap và vị trí được tính theo pixel thật có nội dung của PNG. Tab đổi size sẽ tự reflow, không đè lên nhau. Mép phải của tab cuối dùng cùng khoảng cách với pixel thật bên trái của logo.
+        Pixel thật trên cùng của badge luôn bám y=0. Gap và vị trí ngang tính theo pixel thật của PNG; đổi size sẽ tự reflow và không đè nhau.
       </small>
     </div>,
     inspectorTarget
@@ -344,6 +373,7 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, isEditin
           />
         );
       })}
+      {quickControls}
       {controls}
     </>
   );
