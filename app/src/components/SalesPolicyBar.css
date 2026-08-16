@@ -18,9 +18,9 @@
   display: grid;
   grid-template-rows: 34px minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid rgba(239, 222, 207, .9);
+  border: 1px solid rgba(239, 222, 207, .92);
   border-radius: 5px;
-  background: linear-gradient(180deg, rgba(10, 116, 91, .97) 0%, rgba(5, 91, 72, .98) 100%);
+  background: transparent;
   box-shadow: none;
 }
 
@@ -55,7 +55,7 @@
 }
 
 .sales-policy-loan-option + .sales-policy-loan-option {
-  border-left: 1px solid rgba(235, 220, 207, .62);
+  border-left: 1px solid rgba(239, 222, 207, .72);
 }
 
 .sales-policy-loan-option > span {
