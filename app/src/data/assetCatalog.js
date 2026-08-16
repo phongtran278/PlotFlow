@@ -3,6 +3,7 @@ import { generatedHouseCatalog } from "./generatedHouseCatalog.js";
 const A = "/assets";
 const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
 const HOUSE_CATALOG_MIGRATION_KEY = "plotflow-house-catalog-generated-only-v1";
+const DECIMAL_SENTINEL = "\u200B";
 
 function migrateLegacyHouseAssignments() {
   if (typeof window === "undefined" || !window.localStorage) return;
@@ -22,6 +23,94 @@ function migrateLegacyHouseAssignments() {
   }
 
   window.localStorage.setItem(HOUSE_CATALOG_MIGRATION_KEY, "1");
+}
+
+function parseCsvRows(text = "") {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (quoted) {
+      if (char === '"' && next === '"') {
+        cell += '"';
+        i += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      quoted = true;
+    } else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n") {
+      row.push(cell.replace(/\r$/, ""));
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  if (cell.length || row.length) {
+    row.push(cell.replace(/\r$/, ""));
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function serializeCsvRows(rows = []) {
+  return rows
+    .map((row) => row.map((value) => {
+      const text = String(value ?? "");
+      if (!/[",\r\n]/.test(text)) return text;
+      return `"${text.replace(/"/g, '""')}"`;
+    }).join(","))
+    .join("\r\n");
+}
+
+function protectDecimalCells(csvText = "") {
+  const rows = parseCsvRows(csvText);
+  if (rows.length < 2) return csvText;
+
+  const decimalLike = /^[-+]?\d+[.,]\d+$/;
+  const protectedRows = rows.map((row, rowIndex) => row.map((value) => {
+    if (rowIndex === 0) return value;
+    const text = String(value ?? "");
+    const trimmed = text.trim();
+    if (!decimalLike.test(trimmed)) return value;
+    // SheetJS may auto-coerce 4.997 -> 4997 and 148.1 -> 1481.
+    // The zero-width sentinel forces text parsing while remaining visually invisible.
+    return `${text}${DECIMAL_SENTINEL}`;
+  }));
+
+  return serializeCsvRows(protectedRows);
+}
+
+async function protectCsvResponse(response) {
+  try {
+    const text = await response.text();
+    const headers = new Headers(response.headers);
+    headers.set("content-type", "text/csv; charset=utf-8");
+    return new Response(protectDecimalCells(text), {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  } catch {
+    return response;
+  }
 }
 
 function installGoogleSheetFetchFallback() {
@@ -53,7 +142,7 @@ function installGoogleSheetFetchFallback() {
     let primaryResponse;
     try {
       primaryResponse = await nativeFetch(input, init);
-      if (await looksLikeCsv(primaryResponse)) return primaryResponse;
+      if (await looksLikeCsv(primaryResponse)) return protectCsvResponse(primaryResponse);
     } catch {
       primaryResponse = null;
     }
@@ -76,7 +165,7 @@ function installGoogleSheetFetchFallback() {
     for (const fallbackUrl of fallbackUrls) {
       try {
         const response = await nativeFetch(fallbackUrl, init);
-        if (await looksLikeCsv(response)) return response;
+        if (await looksLikeCsv(response)) return protectCsvResponse(response);
         primaryResponse = response;
       } catch {
         // Try the next Google Sheets endpoint.

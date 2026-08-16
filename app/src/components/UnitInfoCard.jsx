@@ -1,6 +1,8 @@
 function sourceText(value) {
-  if (value === undefined || value === null || String(value).trim() === "") return "—";
-  return String(value).trim().replace(/,/g, ".");
+  if (value === undefined || value === null) return "—";
+  const text = String(value).replace(/\u200B/g, "").trim();
+  if (!text) return "—";
+  return text.replace(/,/g, ".");
 }
 
 function show(value, suffix = "") {
