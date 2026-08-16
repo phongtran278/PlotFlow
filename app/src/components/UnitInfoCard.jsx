@@ -17,18 +17,16 @@ function normalizeText(value = "") {
 }
 
 function displayUnitType(unit) {
-  // Keep the info card commercial and compact. Architecture style belongs in
-  // the large label over the house image, not in this row.
   const source = `${unit?.type || ""} ${unit?.sourceFeature || ""}`;
   const normalized = normalizeText(source);
   let base = "LIỀN KỀ";
   if (normalized.includes("SONG LAP")) base = "SONG LẬP";
   else if (normalized.includes("DON LAP")) base = "ĐƠN LẬP";
 
-  // Only surface selling-relevant exceptions. Xẻ khe/sân vườn/etc. stay out of
-  // LOẠI HÌNH unless the data source explicitly classifies them as a sales type.
+  // These are selling/property variants, so they belong with the lot/unit info.
   if (normalized.includes("SHOPHOUSE")) return `${base} - SHOPHOUSE`;
   if (normalized.includes("CAN GOC") || normalized.includes("GOC")) return `${base} - CĂN GÓC`;
+  if (normalized.includes("XE KHE") || normalized.includes("XEKHE")) return `${base} - XẺ KHE`;
   return base;
 }
 
