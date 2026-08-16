@@ -31,6 +31,7 @@ function clickUnit(code) {
 }
 
 function statusLabel(status) {
+  if (status === "all") return "All";
   if (status === "ready") return "Ready";
   if (status === "review") return "Review";
   if (status === "not-found") return "Not Found";
