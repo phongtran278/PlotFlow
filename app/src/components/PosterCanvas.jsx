@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import PosterCanvasBase from "./PosterCanvasBase.jsx";
+import SalesPolicyBar from "./SalesPolicyBar.jsx";
 
 const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
 
@@ -21,6 +23,8 @@ function readPersistedOverlay(unitCode) {
 
 export default function PosterCanvas({ lotOverlay, preferLotOverlay = false, previewZoom = 1, unit, ...props }) {
   const [persistedOverlay, setPersistedOverlay] = useState(() => readPersistedOverlay(unit?.unitCode));
+  const hostRef = useRef(null);
+  const [posterTarget, setPosterTarget] = useState(null);
 
   useEffect(() => {
     const sync = () => setPersistedOverlay(readPersistedOverlay(unit?.unitCode));
@@ -33,20 +37,29 @@ export default function PosterCanvas({ lotOverlay, preferLotOverlay = false, pre
     };
   }, [unit?.unitCode]);
 
-  // UnifiedFloorplanEditor uses a dedicated 27% live poster. Prefer its unsaved
-  // overlay so polygon/pin changes are visible instantly; normal preview/export
-  // use the persisted composition as the source of truth.
+  useLayoutEffect(() => {
+    setPosterTarget(hostRef.current?.querySelector(".poster-canvas") || null);
+  });
+
+  // UnifiedFloorplanEditor can prefer its unsaved overlay so polygon/pin changes
+  // are visible instantly; normal preview/export use persisted composition.
   const isUnifiedLivePreview = Math.abs(Number(previewZoom) - 0.27) < 0.0001;
   const effectiveOverlay = (preferLotOverlay || isUnifiedLivePreview)
     ? lotOverlay
     : (persistedOverlay || lotOverlay);
 
   return (
-    <PosterCanvasBase
-      {...props}
-      unit={unit}
-      lotOverlay={effectiveOverlay}
-      previewZoom={previewZoom}
-    />
+    <div ref={hostRef} className="plotflow-poster-host" style={{ display: "contents" }}>
+      <PosterCanvasBase
+        {...props}
+        unit={unit}
+        lotOverlay={effectiveOverlay}
+        previewZoom={previewZoom}
+      />
+      {posterTarget && createPortal(
+        <SalesPolicyBar handover={unit?.handover} />,
+        posterTarget
+      )}
+    </div>
   );
 }
