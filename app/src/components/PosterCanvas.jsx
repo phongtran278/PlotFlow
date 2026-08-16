@@ -6,6 +6,7 @@ import CampaignBadgeStrip from "./CampaignBadgeStrip.jsx";
 import "./CampaignBadgeStrip.css";
 import ArchitectureAutoMatchCard from "./ArchitectureAutoMatchCard.jsx";
 import QuickPinOverlay from "./QuickPinOverlay.jsx";
+import QuickTextOverride, { applyQuickTextOverride, readQuickTextOverride } from "./QuickTextOverride.jsx";
 import ManualFloorplanLocator from "./ManualFloorplanLocator.jsx";
 import "./ManualFloorplanLocator.css";
 import { findCatalogAsset, houseCatalog } from "../data/assetCatalog.js";
@@ -58,6 +59,12 @@ function normalizeSidebarPriceText() {
   });
 }
 
+function missingHousePlaceholder(key = "HOUSE ASSET") {
+  const safe = String(key || "HOUSE ASSET").replace(/[<>&]/g, "");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="578" viewBox="0 0 1080 578"><rect width="1080" height="578" fill="#f3f5f5"/><rect x="32" y="32" width="1016" height="514" rx="24" fill="none" stroke="#c5cdcb" stroke-width="3" stroke-dasharray="12 10"/><text x="540" y="265" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#67716f">MISSING HOUSE ASSET</text><text x="540" y="315" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#2d3634">${safe}</text><text x="540" y="360" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#8b9492">Bổ sung đúng file vào assets/houses rồi chạy npm run setup</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 export default function PosterCanvas({
   lotOverlay,
   preferLotOverlay = false,
@@ -73,6 +80,7 @@ export default function PosterCanvas({
   const [manualLocatorOpen, setManualLocatorOpen] = useState(false);
   const [manualFloorplanImage, setManualFloorplanImage] = useState(() => readManualFloorplan(unit?.unitCode));
   const [manualLocatorBusy, setManualLocatorBusy] = useState(false);
+  const [quickTextOverride, setQuickTextOverride] = useState(() => readQuickTextOverride(unit?.unitCode));
   const hostRef = useRef(null);
   const [posterTarget, setPosterTarget] = useState(null);
   const [quickControlsTarget, setQuickControlsTarget] = useState(null);
@@ -86,6 +94,21 @@ export default function PosterCanvas({
     return () => {
       window.removeEventListener("plotflow-overlay-updated", sync);
       window.removeEventListener("storage", sync);
+    };
+  }, [unit?.unitCode]);
+
+  useEffect(() => {
+    const syncQuickText = (event) => {
+      const eventCode = normalizeCode(event?.detail?.unitCode);
+      if (eventCode && eventCode !== normalizeCode(unit?.unitCode)) return;
+      setQuickTextOverride(readQuickTextOverride(unit?.unitCode));
+    };
+    setQuickTextOverride(readQuickTextOverride(unit?.unitCode));
+    window.addEventListener("plotflow-quick-text-updated", syncQuickText);
+    window.addEventListener("storage", syncQuickText);
+    return () => {
+      window.removeEventListener("plotflow-quick-text-updated", syncQuickText);
+      window.removeEventListener("storage", syncQuickText);
     };
   }, [unit?.unitCode]);
 
@@ -107,17 +130,17 @@ export default function PosterCanvas({
     ? lotOverlay
     : (persistedOverlay || lotOverlay);
 
-  const resolvedUnit = withResolvedArchitecture(unit);
+  const dataResolvedUnit = withResolvedArchitecture(unit);
+  const resolvedUnit = applyQuickTextOverride(dataResolvedUnit, quickTextOverride);
   const explicitHouse = findCatalogAsset(houseCatalog, unit?.houseModel);
   const houseResolution = resolveArchitectureHouseAsset(unit, houseCatalog);
   const resolvedHouse = explicitHouse || houseResolution.asset || null;
+  const missingKey = resolvedHouse ? "" : (houseResolution.suggestedHouseModel || houseResolution.expectedAssetKey || "");
   const baseAssets = {
     ...assets,
     badges: [],
-    // Important: null is deliberate. If the expected asset is missing, never keep
-    // a default/random house image from the outer assignment layer.
-    houseImage: resolvedHouse?.src || null,
-    houseMissingKey: resolvedHouse ? "" : (houseResolution.suggestedHouseModel || houseResolution.expectedAssetKey || ""),
+    houseImage: resolvedHouse?.src || (missingKey ? missingHousePlaceholder(missingKey) : null),
+    houseMissingKey: missingKey,
     ...(manualFloorplanImage ? { floorplanImage: manualFloorplanImage } : {}),
   };
 
@@ -181,6 +204,7 @@ export default function PosterCanvas({
       )}
 
       <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />
+      <QuickTextOverride unit={unit} resolvedUnit={dataResolvedUnit} target={quickControlsTarget} isEditing={isEditing} />
       {manualControl}
 
       {manualLocatorOpen && createPortal(
