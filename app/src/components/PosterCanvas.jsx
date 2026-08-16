@@ -15,6 +15,7 @@ import { renderPdfPageBase, renderPdfRegion } from "../floorplan/pdfLocator.js";
 
 const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
 const MANUAL_FLOORPLAN_KEY = "plotflow-manual-floorplans-v1";
+const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
 
 function normalizeCode(value) {
   return String(value || "")
@@ -40,6 +41,13 @@ function readPersistedOverlay(unitCode) {
 function readManualFloorplan(unitCode) {
   const code = normalizeCode(unitCode);
   return code ? (readJson(MANUAL_FLOORPLAN_KEY)?.[code]?.dataUrl || null) : null;
+}
+
+function readManualHouse(unitCode) {
+  const code = normalizeCode(unitCode);
+  if (!code) return null;
+  const savedHouseId = readJson(DESIGN_ASSIGNMENT_KEY)?.[code]?.houseId;
+  return findCatalogAsset(houseCatalog, savedHouseId);
 }
 
 function saveManualFloorplan(unitCode, payload) {
@@ -132,9 +140,18 @@ export default function PosterCanvas({
 
   const dataResolvedUnit = withResolvedArchitecture(unit);
   const resolvedUnit = applyQuickTextOverride(dataResolvedUnit, quickTextOverride);
-  const explicitHouse = findCatalogAsset(houseCatalog, unit?.houseModel);
+
+  // House priority is intentional:
+  // 1) a house explicitly chosen in the UI for this unit,
+  // 2) the source Sheet/Excel houseModel,
+  // 3) strict architecture auto-match,
+  // 4) explicit Missing placeholder.
+  // This keeps base models such as CH75_LK valid for normal linked houses while
+  // still requiring CH75_LK_XE_KHE only when the unit is actually marked xẻ khe.
+  const manualHouse = readManualHouse(unit?.unitCode);
+  const sheetHouse = findCatalogAsset(houseCatalog, unit?.houseModel);
   const houseResolution = resolveArchitectureHouseAsset(unit, houseCatalog);
-  const resolvedHouse = explicitHouse || houseResolution.asset || null;
+  const resolvedHouse = manualHouse || sheetHouse || houseResolution.asset || null;
   const missingKey = resolvedHouse ? "" : (houseResolution.suggestedHouseModel || houseResolution.expectedAssetKey || "");
   const baseAssets = {
     ...assets,
