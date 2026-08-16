@@ -1,14 +1,79 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { calculateCropRect, FLOORPLAN_FRAME_ASPECT, FLOORPLAN_ZOOM_MAX, FLOORPLAN_ZOOM_MIN } from "../floorplan/pdfLocator";
+import { useMemo } from "react";
+import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditor.jsx";
+import { assetLibrary } from "../data/assetLibrary";
+import {
+  amenityCatalog,
+  badgeCatalog,
+  findCatalogAsset,
+  houseCatalog,
+  logoCatalog,
+  pinAssets,
+} from "../data/assetCatalog";
+import { normalizeUnitCode } from "../floorplan/pdfLocator";
 
-export const DEFAULT_FLOORPLAN_VIEW = {
-  zoom: 100,
-  offsetX: 0,
-  offsetY: 0,
-  highlight: true,
-  highlightOpacity: 0.35,
-  highlightSize: 48,
-};
+export { DEFAULT_FLOORPLAN_VIEW };
+
+const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
+const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
+const FLOORPLAN_OVERRIDE_KEY = "plotflow-floorplan-overrides-v6";
+
+function loadJson(key, fallback = {}) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+  } catch {
+    return fallback;
+  }
+}
+
+function truthy(value) {
+  return ["1", "TRUE", "YES", "Y", "X", "ON"].includes(String(value || "").trim().toUpperCase());
+}
+
+function resolvePosterAssets(unit) {
+  if (!unit) return { badges: [], pin2D: pinAssets.pin2D };
+  const code = normalizeUnitCode(unit.unitCode);
+  const saved = loadJson(DESIGN_ASSIGNMENT_KEY, {})[code] || {};
+
+  const house = houseCatalog.find((item) => item.id === saved.houseId)
+    || findCatalogAsset(houseCatalog, unit.houseModel)
+    || houseCatalog[0];
+  const amenity1 = amenityCatalog.find((item) => item.id === saved.amenity1Id)
+    || findCatalogAsset(amenityCatalog, unit.amenity1)
+    || amenityCatalog[0];
+  const amenity2 = amenityCatalog.find((item) => item.id === saved.amenity2Id)
+    || findCatalogAsset(amenityCatalog, unit.amenity2)
+    || amenityCatalog[1]
+    || amenityCatalog[0];
+  const logo = Object.prototype.hasOwnProperty.call(saved, "logoId")
+    ? logoCatalog.find((item) => item.id === saved.logoId)
+    : (findCatalogAsset(logoCatalog, unit.logoVariant) || logoCatalog.find((item) => item.id === "LOGO_WHITE"));
+
+  const badgeIds = Object.prototype.hasOwnProperty.call(saved, "badges")
+    ? saved.badges
+    : [
+        truthy(unit.showHotDeal) ? "BADGE_HOT_DEAL" : null,
+        truthy(unit.showEarlyMoveIn) ? "BADGE_VE_O_SOM" : null,
+      ].filter(Boolean);
+
+  return {
+    houseImage: house?.src ?? assetLibrary.houses[unit.houseModel] ?? null,
+    floorplanImage: assetLibrary.floorplans[unit.floorplan] ?? null,
+    amenity1Image: amenity1?.src ?? assetLibrary.amenities[unit.amenity1] ?? null,
+    amenity2Image: amenity2?.src ?? assetLibrary.amenities[unit.amenity2] ?? null,
+    logoImage: logo?.src ?? null,
+    badges: (badgeIds || []).map((id) => badgeCatalog.find((item) => item.id === id)).filter(Boolean),
+    pin3D: saved.pin3DVisible ? pinAssets.pin3D : null,
+    pin2D: pinAssets.pin2D,
+  };
+}
+
+function persistOverlay(code, overlay) {
+  if (!code || !overlay) return;
+  const all = loadJson(LOT_OVERLAY_KEY, {});
+  all[code] = { ...overlay, stale: false };
+  localStorage.setItem(LOT_OVERLAY_KEY, JSON.stringify(all));
+  window.dispatchEvent(new CustomEvent("plotflow-overlay-updated", { detail: { unitCode: code } }));
+}
 
 export default function FloorplanFineTune({
   unit,
@@ -20,238 +85,43 @@ export default function FloorplanFineTune({
   onCandidateChange,
   onRenderVectorPreview,
 }) {
-  const [view, setView] = useState({ ...DEFAULT_FLOORPLAN_VIEW, ...initialView });
-  const [drag, setDrag] = useState(null);
-  const stageRef = useRef(null);
-  const renderSequence = useRef(0);
-  const [hqPreview, setHqPreview] = useState(null);
-  const [hqPreviewKey, setHqPreviewKey] = useState("");
-  const [hqState, setHqState] = useState("idle");
+  const code = normalizeUnitCode(unit?.unitCode);
+  const currentIndex = locatorResult?.selectedMatchIndex ?? 0;
+  const savedOverride = loadJson(FLOORPLAN_OVERRIDE_KEY, {})[code] || null;
+  const persistedOverlay = loadJson(LOT_OVERLAY_KEY, {})[code] || null;
 
-  const crop = useMemo(() => {
-    if (!pageRender) return null;
-    return calculateCropRect(pageRender, view, FLOORPLAN_FRAME_ASPECT);
-  }, [pageRender, view]);
+  const sameSavedSource = savedOverride
+    ? (savedOverride.selectedMatchIndex ?? 0) === currentIndex
+    : currentIndex === 0;
 
-  const currentPreviewKey = `${pageRender?.pageNumber || 0}:${Math.round(view.zoom)}:${Math.round(view.offsetX)}:${Math.round(view.offsetY)}`;
+  const initialOverlay = sameSavedSource && !persistedOverlay?.stale ? persistedOverlay : null;
+  const effectiveInitialView = sameSavedSource
+    ? ({ ...DEFAULT_FLOORPLAN_VIEW, ...(initialView || {}) })
+    : DEFAULT_FLOORPLAN_VIEW;
 
-  useEffect(() => {
-    if (!pageRender || !onRenderVectorPreview || drag) return;
+  const posterAssets = useMemo(() => resolvePosterAssets(unit), [unit?.unitCode]);
 
-    const sequence = ++renderSequence.current;
-    const timer = window.setTimeout(async () => {
-      try {
-        setHqState("rendering");
-        const result = await onRenderVectorPreview(view);
-        if (sequence !== renderSequence.current || !result) return;
-        setHqPreview(result);
-        setHqPreviewKey(currentPreviewKey);
-        setHqState("ready");
-      } catch (error) {
-        if (sequence !== renderSequence.current) return;
-        console.error(error);
-        setHqState("error");
-      }
-    }, 170);
-
-    return () => window.clearTimeout(timer);
-  }, [pageRender, view.zoom, view.offsetX, view.offsetY, drag, onRenderVectorPreview]);
-
-  const imageStyle = useMemo(() => {
-    if (!pageRender || !crop) return {};
-    const stageW = 820;
-    const scale = stageW / crop.w;
-    return {
-      width: `${pageRender.width * scale}px`,
-      height: `${pageRender.height * scale}px`,
-      left: `${-crop.x * scale}px`,
-      top: `${-crop.y * scale}px`,
-    };
-  }, [pageRender, crop]);
-
-  const markerStyle = useMemo(() => {
-    if (!pageRender || !crop) return {};
-    const stageW = 820;
-    const scale = stageW / crop.w;
-    return {
-      left: `${(pageRender.anchorX - crop.x) * scale}px`,
-      top: `${(pageRender.anchorY - crop.y) * scale}px`,
-      width: `${view.highlightSize * 2}px`,
-      height: `${view.highlightSize * 1.2}px`,
-      opacity: view.highlight ? view.highlightOpacity : 0,
-    };
-  }, [pageRender, crop, view.highlight, view.highlightOpacity, view.highlightSize]);
-
-  function patch(patchValue) {
-    setView((prev) => {
-      const next = { ...prev, ...patchValue };
-      if (Object.prototype.hasOwnProperty.call(patchValue, "zoom")) {
-        next.zoom = Math.max(FLOORPLAN_ZOOM_MIN, Math.min(FLOORPLAN_ZOOM_MAX, Number(next.zoom) || 100));
-      }
-      return next;
-    });
-  }
-
-  function startDrag(event) {
-    if (!crop) return;
-    event.preventDefault();
-    const stageWidth = stageRef.current?.getBoundingClientRect().width || 820;
-    const sourcePerScreenPixel = crop.w / stageWidth;
-    setDrag({
-      x: event.clientX,
-      y: event.clientY,
-      offsetX: view.offsetX,
-      offsetY: view.offsetY,
-      sourcePerScreenPixel,
-    });
-  }
-
-  function moveDrag(event) {
-    if (!drag) return;
-    patch({
-      offsetX: Math.round(drag.offsetX - (event.clientX - drag.x) * drag.sourcePerScreenPixel),
-      offsetY: Math.round(drag.offsetY - (event.clientY - drag.y) * drag.sourcePerScreenPixel),
-    });
-  }
-
-  function stopDrag() {
-    setDrag(null);
-  }
-
-  if (!locatorResult || !pageRender) {
-    return (
-      <div className="floorplan-finetune-empty">
-        <strong>Không có floorplan để fine-tune.</strong>
-        <button onClick={onCancel}>Back to Poster</button>
-      </div>
-    );
+  async function saveComposition(view, overlay) {
+    // Persist before and after App's existing view save. The second write wins over
+    // legacy stale-marking while the custom event refreshes every PosterCanvas.
+    persistOverlay(code, overlay);
+    await onSave?.(view);
+    persistOverlay(code, overlay);
   }
 
   return (
-    <div className="floorplan-finetune" onMouseMove={moveDrag} onMouseUp={stopDrag} onMouseLeave={stopDrag}>
-      <div className="finetune-topbar">
-        <button className="finetune-back" onClick={onCancel}>← Back to Poster</button>
-        <div>
-          <span>EDIT FLOORPLAN VIEW</span>
-          <strong>{unit.unitCode}</strong>
-        </div>
-        <button className="finetune-save" onClick={() => onSave(view)}>Save Override</button>
-      </div>
-
-      <div className="finetune-workspace">
-        <section className="finetune-canvas-panel">
-          <div
-            ref={stageRef}
-            className={`floorplan-viewport ${drag ? "dragging" : ""}`}
-            onMouseDown={startDrag}
-          >
-            <img
-              src={pageRender.dataUrl}
-              alt={`PDF page ${pageRender.pageNumber}`}
-              className={`floorplan-fast-preview ${hqPreviewKey === currentPreviewKey ? "dimmed" : ""}`}
-              style={imageStyle}
-              draggable={false}
-            />
-            {hqPreview?.dataUrl && hqPreviewKey === currentPreviewKey && (
-              <img
-                src={hqPreview.dataUrl}
-                alt={`HQ vector crop ${unit.unitCode}`}
-                className="floorplan-hq-preview"
-                draggable={false}
-              />
-            )}
-            <div className={`hq-render-badge ${hqState}`}>
-              {hqState === "rendering"
-                ? "Rendering vector HQ…"
-                : hqPreviewKey === currentPreviewKey && hqPreview
-                  ? `Vector HQ · ${hqPreview.renderScale.toFixed(1)}×`
-                  : "Fast preview"}
-            </div>
-            <div className="floorplan-target-marker" style={markerStyle}>
-              <span>{unit.unitCode}</span>
-            </div>
-            <div className="viewport-hint">Drag to reposition</div>
-          </div>
-        </section>
-
-        <aside className="finetune-inspector">
-          <div className="finetune-section">
-            <span className="finetune-label">SOURCE</span>
-            <div className="finetune-stat"><span>Page</span><strong>{pageRender.pageNumber}</strong></div>
-            <div className="finetune-stat"><span>Matches</span><strong>{locatorResult.matches.length}</strong></div>
-          </div>
-
-          {locatorResult.matches.length > 1 && (
-            <div className="finetune-section">
-              <span className="finetune-label">CANDIDATE</span>
-              <div className="candidate-grid">
-                {locatorResult.matches.map((match, index) => (
-                  <button
-                    key={`${match.pageNumber}-${index}`}
-                    className={locatorResult.selectedMatchIndex === index ? "active" : ""}
-                    onClick={() => onCandidateChange(index)}
-                  >
-                    #{index + 1} · Page {match.pageNumber}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="finetune-section">
-            <span className="finetune-label">ZOOM · VECTOR</span>
-            <div className="zoom-stepper zoom-stepper-wide">
-              <button onClick={() => patch({ zoom: view.zoom - 25 })}>−</button>
-              <label className="zoom-number-field">
-                <input
-                  type="number"
-                  min={FLOORPLAN_ZOOM_MIN}
-                  max={FLOORPLAN_ZOOM_MAX}
-                  step="25"
-                  value={Math.round(view.zoom)}
-                  onChange={(e) => patch({ zoom: Number(e.target.value) })}
-                />
-                <span>%</span>
-              </label>
-              <button onClick={() => patch({ zoom: view.zoom + 25 })}>+</button>
-            </div>
-            <input
-              className="finetune-range"
-              type="range"
-              min={FLOORPLAN_ZOOM_MIN}
-              max={FLOORPLAN_ZOOM_MAX}
-              step="10"
-              value={view.zoom}
-              onChange={(e) => patch({ zoom: Number(e.target.value) })}
-            />
-            <div className="zoom-presets">
-              {[100, 250, 500, 1000, 1500, 2000].map((zoom) => (
-                <button key={zoom} className={Math.round(view.zoom) === zoom ? "active" : ""} onClick={() => patch({ zoom })}>
-                  {zoom}%
-                </button>
-              ))}
-            </div>
-            <small className="vector-zoom-note">Pan/zoom dùng preview nhanh; sau khi dừng, PlotFlow render lại trực tiếp từ PDF vector.</small>
-          </div>
-
-          <div className="finetune-section">
-            <span className="finetune-label">POSITION</span>
-            <div className="position-fields">
-              <label><span>X</span><input type="number" value={view.offsetX} onChange={(e) => patch({ offsetX: Number(e.target.value) || 0 })} /></label>
-              <label><span>Y</span><input type="number" value={view.offsetY} onChange={(e) => patch({ offsetY: Number(e.target.value) || 0 })} /></label>
-            </div>
-          </div>
-
-          <div className="finetune-section">
-            <span className="finetune-label">HIGHLIGHT</span>
-            <label className="finetune-toggle"><span>Show target</span><input type="checkbox" checked={view.highlight} onChange={(e) => patch({ highlight: e.target.checked })} /></label>
-            <label className="slider-field"><span>Opacity <b>{Math.round(view.highlightOpacity * 100)}%</b></span><input type="range" min="0.1" max="0.7" step="0.05" value={view.highlightOpacity} onChange={(e) => patch({ highlightOpacity: Number(e.target.value) })} /></label>
-            <label className="slider-field"><span>Size <b>{view.highlightSize}px</b></span><input type="range" min="24" max="100" step="2" value={view.highlightSize} onChange={(e) => patch({ highlightSize: Number(e.target.value) })} /></label>
-          </div>
-
-          <button className="reset-auto-view" onClick={() => setView(DEFAULT_FLOORPLAN_VIEW)}>Reset Auto View</button>
-        </aside>
-      </div>
-    </div>
+    <UnifiedFloorplanEditor
+      unit={unit}
+      locatorResult={locatorResult}
+      pageRender={pageRender}
+      initialView={effectiveInitialView}
+      initialOverlay={initialOverlay}
+      posterAssets={posterAssets}
+      pinSrc={pinAssets.pin2D}
+      onCancel={onCancel}
+      onSave={saveComposition}
+      onCandidateChange={onCandidateChange}
+      onRenderVectorPreview={onRenderVectorPreview}
+    />
   );
 }
