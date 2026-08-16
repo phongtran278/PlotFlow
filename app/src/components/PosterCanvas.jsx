@@ -4,6 +4,7 @@ import PosterCanvasBase from "./PosterCanvasBase.jsx";
 import PolicyImageOverlay from "./PolicyImageOverlay.jsx";
 import CampaignBadgeStrip from "./CampaignBadgeStrip.jsx";
 import "./CampaignBadgeStrip.css";
+import ArchitectureAutoMatchCard from "./ArchitectureAutoMatchCard.jsx";
 import QuickPinOverlay from "./QuickPinOverlay.jsx";
 
 const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
@@ -99,6 +100,12 @@ export default function PosterCanvas({
         </button>,
         toolbarTarget
       )}
+
+      <ArchitectureAutoMatchCard
+        unit={unit}
+        target={quickControlsTarget}
+        isEditing={isEditing}
+      />
 
       {posterTarget && createPortal(
         <>
