@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-import { architectureExportRows, resolveArchitectureMatch } from "../data/architectureAutoMatch.js";
+import { houseCatalog } from "../data/assetCatalog.js";
+import { architectureExportRows, resolveArchitectureHouseAsset, resolveArchitectureMatch } from "../data/architectureAutoMatch.js";
 import "./ArchitectureAutoMatchCard.css";
 
 function percent(value) {
@@ -8,12 +9,14 @@ function percent(value) {
 }
 
 function downloadPilotWorkbook() {
-  const rows = architectureExportRows();
+  const rows = architectureExportRows(houseCatalog);
   const sheet = XLSX.utils.json_to_sheet(rows, {
     header: [
       "unitCode",
       "architectureCode",
       "architectureLabel",
+      "houseModel",
+      "houseAssetStatus",
       "architectureSource",
       "architectureConfidence",
     ],
@@ -22,6 +25,8 @@ function downloadPilotWorkbook() {
     { wch: 14 },
     { wch: 18 },
     { wch: 42 },
+    { wch: 30 },
+    { wch: 20 },
     { wch: 20 },
     { wch: 24 },
   ];
@@ -33,31 +38,40 @@ function downloadPilotWorkbook() {
 export default function ArchitectureAutoMatchCard({ unit, target, isEditing = false }) {
   if (!target || isEditing || !unit) return null;
   const match = resolveArchitectureMatch(unit);
+  const house = resolveArchitectureHouseAsset(unit, houseCatalog);
   const isManual = match.source === "MANUAL";
   const isAuto = match.source === "AUTO";
+  const hasHouse = house.assetStatus === "FOUND";
 
   return createPortal(
     <section className={`architecture-auto-card ${isManual ? "is-manual" : isAuto ? "is-auto" : "is-empty"}`}>
       <div className="architecture-auto-head">
         <div>
-          <span>ARCHITECTURE MATCH</span>
-          <strong>{match.architectureCode || "—"}</strong>
+          <span>ARCHITECTURE</span>
+          <strong>{match.architectureCode || "NO MATCH"}</strong>
         </div>
-        <em>{isManual ? "MANUAL" : isAuto ? `AUTO · ${percent(match.confidence)}` : "NO MATCH"}</em>
+        <em>{isManual ? "MANUAL" : isAuto ? `AUTO ${percent(match.confidence)}` : "—"}</em>
       </div>
 
-      <div className="architecture-auto-label">{match.architectureLabel}</div>
+      <div className="architecture-auto-label">{match.architectureLabel || "Chưa xác định kiến trúc"}</div>
+
+      {match.source !== "NONE" && (
+        <div className={`architecture-house-status ${hasHouse ? "found" : "missing"}`}>
+          <span>{hasHouse ? "✓ HOUSE ASSET" : "⚠ MISSING ASSET"}</span>
+          <strong>{hasHouse ? house.asset.name : match.architectureCode}</strong>
+        </div>
+      )}
 
       <div className="architecture-auto-note">
         {isManual
-          ? "Sheet đang có architectureLabel nên giá trị thủ công được ưu tiên. Refresh data sẽ giữ override này."
+          ? "Đang dùng tên kiến trúc từ Sheet/Excel. Refresh Data sẽ giữ nội dung bạn sửa."
           : isAuto
-            ? "Sheet đang trống kiến trúc → PlotFlow tự match theo unitCode. Nếu sai, chỉ cần điền architectureLabel trong Sheet rồi Refresh Data."
-            : "Mã căn này chưa nằm trong pilot mapping. Có thể bổ sung vào architecture map sau."}
+            ? "Đã auto fill vào poster. Nếu cần tên bán hàng ngắn hơn, sửa architectureLabel trong Sheet/Excel rồi Refresh Data."
+            : "Chưa có mapping cho mã căn này."}
       </div>
 
       <button type="button" className="architecture-export-button" onClick={downloadPilotWorkbook}>
-        ↓ Export Auto-Match Excel · 14 căn
+        ↓ Export data đã auto fill
       </button>
     </section>,
     target
