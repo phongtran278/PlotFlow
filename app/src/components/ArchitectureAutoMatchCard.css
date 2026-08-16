@@ -1,10 +1,13 @@
 .architecture-auto-card {
+  width: 100%;
+  min-width: 0;
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 7px;
+  padding: 11px 12px;
   border: 1px solid rgba(20, 24, 33, .10);
   border-radius: 12px;
   background: rgba(255,255,255,.72);
+  overflow: hidden;
 }
 
 .architecture-auto-card.is-auto {
@@ -21,31 +24,38 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .architecture-auto-head > div {
-  display: grid;
-  gap: 2px;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .architecture-auto-head span {
   color: #9097a2;
-  font-size: 9px;
+  font-size: 8px;
+  font-weight: 750;
   letter-spacing: .11em;
+  white-space: nowrap;
 }
 
 .architecture-auto-head strong {
   color: #202631;
-  font-size: 15px;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .architecture-auto-head em {
+  flex: 0 0 auto;
   padding: 4px 7px;
   border-radius: 999px;
   background: rgba(20,24,33,.07);
   color: #59616d;
-  font-size: 9px;
+  font-size: 8px;
   font-style: normal;
   font-weight: 800;
   white-space: nowrap;
@@ -62,26 +72,66 @@
 }
 
 .architecture-auto-label {
+  min-width: 0;
+  overflow: hidden;
   color: #343b47;
   font-size: 11px;
-  font-weight: 700;
-  line-height: 1.35;
+  font-weight: 750;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.architecture-house-status {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  font-size: 8px;
+}
+
+.architecture-house-status span {
+  flex: 0 0 auto;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.architecture-house-status strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.architecture-house-status.found {
+  background: rgba(31,121,90,.08);
+  color: #176d50;
+}
+
+.architecture-house-status.missing {
+  background: rgba(210,126,31,.10);
+  color: #a45a13;
 }
 
 .architecture-auto-note {
   color: #858c97;
-  font-size: 9px;
-  line-height: 1.45;
+  font-size: 8px;
+  line-height: 1.4;
 }
 
 .architecture-export-button {
   width: 100%;
+  min-width: 0;
   padding: 8px 10px;
   border: 1px solid rgba(20,24,33,.10);
   border-radius: 9px;
   background: #fff;
   color: #4b535f;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 750;
   cursor: pointer;
 }
