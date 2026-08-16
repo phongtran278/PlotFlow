@@ -96,7 +96,7 @@ export default function PosterCanvas({
     : (persistedOverlay || lotOverlay);
 
   const resolvedUnit = withResolvedArchitecture(unit);
-  const houseResolution = resolveArchitectureHouseAsset(resolvedUnit, houseCatalog);
+  const houseResolution = resolveArchitectureHouseAsset(unit, houseCatalog);
   const canAutoHouse = Boolean(
     resolvedUnit &&
     !String(unit?.houseModel || "").trim() &&
@@ -142,7 +142,7 @@ export default function PosterCanvas({
       )}
 
       <ArchitectureAutoMatchCard
-        unit={resolvedUnit}
+        unit={unit}
         target={quickControlsTarget}
         isEditing={isEditing}
       />
