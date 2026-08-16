@@ -110,8 +110,6 @@ export default function PosterCanvas({
   const resolvedUnit = withResolvedArchitecture(unit);
   const explicitHouse = findCatalogAsset(houseCatalog, unit?.houseModel);
   const autoHouse = resolveArchitectureHouseAsset(unit, houseCatalog).asset;
-  // Source data is authoritative. Old local assignment values must not block a
-  // houseModel/architecture match coming from Sheet/Excel.
   const resolvedHouse = explicitHouse || autoHouse || null;
   const baseAssets = {
     ...assets,
@@ -124,8 +122,7 @@ export default function PosterCanvas({
     document.querySelector(".edit-layout-button.active")?.click();
   }
 
-  async function applyManualFloorplan({ pageNumber, x, y, zoom = 180 }) {
-    const pdfDoc = window.__plotflowPdfDoc;
+  async function applyManualFloorplan({ pageNumber, x, y, zoom = 180, pdfDoc }) {
     if (!pdfDoc) return;
     try {
       setManualLocatorBusy(true);
@@ -185,7 +182,6 @@ export default function PosterCanvas({
 
       {manualLocatorOpen && createPortal(
         <ManualFloorplanLocator
-          pdfDoc={window.__plotflowPdfDoc}
           initialPage={1}
           busy={manualLocatorBusy}
           onCancel={() => setManualLocatorOpen(false)}
