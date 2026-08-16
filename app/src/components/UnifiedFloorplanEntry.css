@@ -1,5 +1,6 @@
 .edit-floorplan-top.lot-button,
-.floorplan-lot-edit {
+.floorplan-lot-edit,
+.dock-warning {
   display: none !important;
 }
 
