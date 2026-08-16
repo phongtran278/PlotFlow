@@ -73,6 +73,15 @@ copyAlias(
   "CH-59 canonical house"
 );
 
+// Create stable, space-free font filenames so URLs behave the same on macOS and Windows.
+// The source font files keep their original names in assets/font/.
+const fontSource = path.join(assetSource, "font");
+const fontDest = path.join(assetDest, "font");
+copyAlias(fontSource, (raw, n) => n.includes("gilroy regular") && !n.includes("italic"), path.join(fontDest, "SVN-Gilroy-Regular.otf"), "Gilroy Regular");
+copyAlias(fontSource, (raw, n) => n.includes("gilroy medium") && !n.includes("italic"), path.join(fontDest, "SVN-Gilroy-Medium.otf"), "Gilroy Medium");
+copyAlias(fontSource, (raw, n) => n.includes("gilroy semibold") && !n.includes("italic"), path.join(fontDest, "SVN-Gilroy-SemiBold.otf"), "Gilroy SemiBold");
+copyAlias(fontSource, (raw, n) => n.includes("gilroy bold") && !n.includes("italic"), path.join(fontDest, "SVN-Gilroy-Bold.otf"), "Gilroy Bold");
+
 const logoSource = path.join(assetSource, "logo");
 copyAlias(logoSource, (raw, n) => n.includes("vang") || n.includes("gold") && !n.includes("rose"), path.join(uiDir, "logo_gold.png"), "Gold logo");
 copyAlias(logoSource, (raw, n) => n.includes("den") || n.includes("black"), path.join(uiDir, "logo_black.png"), "Black logo");
