@@ -1,12 +1,11 @@
-// Font brand sẽ bổ sung sau. Chỉ cần sửa file này, không cần chạm App.jsx.
-// Copy font vào: app/public/assets/Font/
-// Sau đó điền đúng filename bên dưới.
+// PlotFlow brand font is bundled with the app so rendering is consistent on macOS and Windows.
+// Font files live in: app/public/assets/font/
 export const brandFont = {
   family: "PlotFlowBrand",
-  regular: "", // ví dụ: /assets/Font/Brand-Regular.otf
-  medium: "",
-  semibold: "",
-  bold: "",
+  regular: "/assets/font/SVN-Gilroy-Regular.otf",
+  medium: "/assets/font/SVN-Gilroy-Medium.otf",
+  semibold: "/assets/font/SVN-Gilroy-SemiBold.otf",
+  bold: "/assets/font/SVN-Gilroy-Bold.otf",
 };
 
 export function buildBrandFontCss(config = brandFont) {
@@ -19,7 +18,7 @@ export function buildBrandFontCss(config = brandFont) {
 
   return faces
     .map(
-      ([src, weight]) => `@font-face { font-family: '${config.family}'; src: url('${src}'); font-weight: ${weight}; font-style: normal; font-display: swap; }`
+      ([src, weight]) => `@font-face { font-family: '${config.family}'; src: url('${src}') format('opentype'); font-weight: ${weight}; font-style: normal; font-display: swap; }`
     )
     .join("\n");
 }
