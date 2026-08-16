@@ -70,20 +70,9 @@ function installGoogleSheetFetchFallback() {
 
 installGoogleSheetFetchFallback();
 
-const staticHouseCatalog = [
-  { id: "HOUSE_CH71_SAN_VUON", name: "CH 71 sân vườn", fileName: "CH 71 san vuon.png", src: `${A}/houses/CH 71 san vuon.png`, group: "House" },
-  { id: "HOUSE_CH59_LK_SAN_VUON", name: "CH-59 · LK sân vườn", fileName: "CH-59-LK Sân vườn.jpg", src: `${A}/library/houses/HOUSE_CH59_LK_SAN_VUON.jpg`, group: "House" },
-  { id: "HOUSE_CH53_LK_XE_KHE", name: "CH-53 · LK xe khe", fileName: "CH-53-LK xe khe.jpg", src: `${A}/houses/CH-53-LK xe khe.jpg`, group: "House" },
-  { id: "HOUSE_CH15_LK_XE_KHE", name: "CH-15 · LK xe khe", fileName: "CH-15-LK xe khe.jpg", src: `${A}/houses/CH-15-LK xe khe.jpg`, group: "House" },
-  { id: "HOUSE_CH75_LK_XE_KHE", name: "CH-75 · LK xe khe", fileName: "CH-75-LK xe khe.jpg", src: `${A}/houses/CH-75-LK xe khe.jpg`, group: "House" },
-  { id: "HOUSE_CH53_LK", name: "CH-53 · LK", fileName: "CH-53 LK.jpg", src: `${A}/houses/CH-53 LK.jpg`, group: "House" },
-];
-
-const generatedIds = new Set(generatedHouseCatalog.map((item) => item.id));
-export const houseCatalog = [
-  ...generatedHouseCatalog,
-  ...staticHouseCatalog.filter((item) => !generatedIds.has(item.id)),
-];
+// Single source of truth: app/tools/sync-assets.mjs scans assets/houses/
+// and regenerates generatedHouseCatalog.js. Do not append legacy/static houses.
+export const houseCatalog = generatedHouseCatalog;
 
 export const amenityCatalog = [
   { id: "AMENITY_VINWONDERS", name: "VinWonders", fileName: "vinwonders.jpg", src: `${A}/amenities/vinwonders.jpg`, group: "Lifestyle" },
