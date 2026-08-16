@@ -35,6 +35,8 @@ export default function PosterCanvas({
   const hostRef = useRef(null);
   const [posterTarget, setPosterTarget] = useState(null);
   const [inspectorTarget, setInspectorTarget] = useState(null);
+  const [quickControlsTarget, setQuickControlsTarget] = useState(null);
+  const [toolbarTarget, setToolbarTarget] = useState(null);
 
   useEffect(() => {
     const sync = () => setPersistedOverlay(readPersistedOverlay(unit?.unitCode));
@@ -50,6 +52,8 @@ export default function PosterCanvas({
   useLayoutEffect(() => {
     setPosterTarget(hostRef.current?.querySelector(".poster-canvas") || null);
     setInspectorTarget(hostRef.current?.querySelector(".inspector-panel") || null);
+    setToolbarTarget(hostRef.current?.querySelector(".studio-toolbar") || null);
+    setQuickControlsTarget(document.querySelector(".design-assignment-dock") || null);
   });
 
   // UnifiedFloorplanEditor can prefer its unsaved overlay so polygon/pin changes
@@ -59,10 +63,13 @@ export default function PosterCanvas({
     ? lotOverlay
     : (persistedOverlay || lotOverlay);
 
-  // CampaignBadgeStrip is now the single source of truth for campaign badges.
-  // Remove the legacy fixed badge slots from PosterCanvasBase so badges can
-  // reorder, resize and reflow without overlapping.
+  // CampaignBadgeStrip is the single source of truth for campaign badges.
+  // Legacy fixed badge slots stay disabled so the strip can reorder/resize/reflow.
   const baseAssets = { ...assets, badges: [] };
+
+  function exitLayoutEditing() {
+    document.querySelector(".edit-layout-button.active")?.click();
+  }
 
   return (
     <div ref={hostRef} className="plotflow-poster-host" style={{ display: "contents" }}>
@@ -74,11 +81,30 @@ export default function PosterCanvas({
         lotOverlay={effectiveOverlay}
         previewZoom={previewZoom}
       />
+
+      {isEditing && toolbarTarget && createPortal(
+        <button
+          type="button"
+          onClick={exitLayoutEditing}
+          style={{
+            marginLeft: "auto",
+            padding: "8px 12px",
+            borderRadius: 9,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          ✓ Exit Edit Layout
+        </button>,
+        toolbarTarget
+      )}
+
       {posterTarget && createPortal(
         <>
           <CampaignBadgeStrip
             artboard={posterTarget}
             inspectorTarget={inspectorTarget}
+            quickControlsTarget={quickControlsTarget}
             isEditing={isEditing}
           />
           <PolicyImageOverlay handover={unit?.handover} />
