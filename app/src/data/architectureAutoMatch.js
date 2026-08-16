@@ -39,8 +39,12 @@ const ARCHITECTURE_BY_UNIT = new Map(
   ARCHITECTURE_AUTO_MATCHES.map((item) => [normalizeUnitCode(item.unitCode), item])
 );
 
+function architectureNumber(value = "") {
+  return String(value).match(/CH\s*[-_ ]?\s*(\d+)/i)?.[1] || "";
+}
+
 function extractArchitectureCode(value = "") {
-  const number = String(value).match(/CH\s*[-_]?\s*(\d+)/i)?.[1];
+  const number = architectureNumber(value);
   return number ? `CH-${number}` : "";
 }
 
@@ -78,14 +82,9 @@ export function resolveArchitectureMatch(unit) {
   };
 }
 
-function architectureToken(value = "") {
-  return normalizeText(value).replace(/^HOUSE_/, "");
-}
-
 function scoreHouseCandidate(asset, match, unit) {
-  const haystack = architectureToken(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`);
-  const code = architectureToken(match.architectureCode);
-  let score = haystack.includes(code) ? 100 : 0;
+  const haystack = normalizeText(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`);
+  let score = architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === architectureNumber(match.architectureCode) ? 100 : 0;
   const unitShape = normalizeText(`${unit?.type || ""} ${match.architectureLabel || ""}`);
 
   const wantsSplit = unitShape.includes("XE_KHE") || unitShape.includes("XEKHE");
@@ -108,13 +107,13 @@ function scoreHouseCandidate(asset, match, unit) {
 
 export function resolveArchitectureHouseAsset(unit, houseCatalog = []) {
   const match = resolveArchitectureMatch(unit);
-  if (!match.architectureCode) {
+  const targetNumber = architectureNumber(match.architectureCode);
+  if (!targetNumber) {
     return { ...match, asset: null, assetStatus: "NONE", suggestedHouseModel: "" };
   }
 
-  const codeToken = architectureToken(match.architectureCode);
   const candidates = houseCatalog.filter((asset) =>
-    architectureToken(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`).includes(codeToken)
+    architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === targetNumber
   );
 
   if (!candidates.length) {
@@ -122,7 +121,7 @@ export function resolveArchitectureHouseAsset(unit, houseCatalog = []) {
       ...match,
       asset: null,
       assetStatus: "MISSING",
-      suggestedHouseModel: `HOUSE_${codeToken}`,
+      suggestedHouseModel: `HOUSE_CH${targetNumber}`,
     };
   }
 
