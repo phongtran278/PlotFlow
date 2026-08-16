@@ -1,19 +1,14 @@
-function show(value, suffix = "") {
+function sourceText(value) {
   if (value === undefined || value === null || String(value).trim() === "") return "—";
-  return `${String(value).trim()}${suffix}`;
+  // Sheet/Excel is the source of truth. Do not round, truncate, pad, divide or
+  // otherwise reinterpret values here; only convert Vietnamese decimal comma
+  // to the dot used on the poster.
+  return String(value).trim().replace(/,/g, ".");
 }
 
-function formatPrice(value) {
-  if (value === undefined || value === null || String(value).trim() === "") return "—";
-  const raw = String(value).trim();
-  let normalized = raw;
-  if (raw.includes(",") && raw.includes(".")) normalized = raw.replace(/,/g, "");
-  else if (raw.includes(",") && !raw.includes(".")) normalized = raw.replace(",", ".");
-  let number = Number(normalized);
-  if (!Number.isFinite(number)) return "—";
-  if (Math.abs(number) >= 1000000) number /= 1000000000;
-  const truncated = Math.trunc((number + Number.EPSILON) * 1000) / 1000;
-  return truncated.toFixed(3);
+function show(value, suffix = "") {
+  const text = sourceText(value);
+  return text === "—" ? text : `${text}${suffix}`;
 }
 
 export default function UnitInfoCard({ unit }) {
@@ -29,6 +24,8 @@ export default function UnitInfoCard({ unit }) {
     { label: "LỘ GIỚI", value: show(unit.roadWidth, "M") },
   ];
 
+  const has36 = unit.price36 !== undefined && unit.price36 !== null && String(unit.price36).trim() !== "";
+
   return (
     <section className="unit-info-card">
       <div className="unit-code-box">{unit.unitCode}</div>
@@ -42,10 +39,7 @@ export default function UnitInfoCard({ unit }) {
         <PriceBox label="GIÁ THANH TOÁN SỚM" value={unit.priceEarly} />
         <PriceBox label="GIÁ HTLS 70% - 18TH" value={unit.price18} />
         <PriceBox label="GIÁ HTLS 70% - 24TH" value={unit.price24} />
-        <PriceBox
-          label={`GIÁ HTLS 70% - ${unit.price36 !== undefined && unit.price36 !== "" ? "36TH" : "30TH"}`}
-          value={unit.price36 !== undefined && unit.price36 !== "" ? unit.price36 : unit.price30}
-        />
+        <PriceBox label={`GIÁ HTLS 70% - ${has36 ? "36TH" : "30TH"}`} value={has36 ? unit.price36 : unit.price30} />
       </div>
 
       <div className="unit-note">
@@ -73,7 +67,7 @@ function PriceBox({ label, value }) {
     <div className="price-box">
       <span className="price-label">{label}</span>
       <div className="price-value">
-        <strong>{formatPrice(value)}</strong>
+        <strong>{sourceText(value)}</strong>
         <span>tỷ</span>
       </div>
     </div>

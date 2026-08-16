@@ -3,7 +3,7 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-const UNIT_CODE_RE = /[A-Z]{1,6}\d{1,5}-\d{1,5}/g;
+const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 export const FLOORPLAN_ZOOM_MIN = 50;
 export const FLOORPLAN_ZOOM_MAX = 2000;
 export const FLOORPLAN_FRAME_WIDTH = 506;
@@ -12,6 +12,9 @@ export const FLOORPLAN_FRAME_ASPECT = FLOORPLAN_FRAME_WIDTH / FLOORPLAN_FRAME_HE
 
 export function normalizeUnitCode(value) {
   return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
     .toUpperCase()
     .replace(/\s+/g, "")
     .trim();
@@ -67,7 +70,9 @@ export async function buildFloorplanIndex(pdfDoc, onProgress) {
     for (const item of content.items) {
       if (!item?.str) continue;
       textItems += 1;
-      const raw = String(item.str).toUpperCase().replace(/\s+/g, "");
+      // Normalize Vietnamese letters (notably Đ → D) before matching so codes
+      // such as ĐLCV2-14 index to the same key as data imported from Sheet/Excel.
+      const raw = normalizeUnitCode(item.str);
       const matches = raw.match(UNIT_CODE_RE) || [];
 
       for (const code of matches) {
