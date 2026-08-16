@@ -8,6 +8,16 @@ function normalizeUnitCode(value = "") {
     .trim();
 }
 
+function normalizeText(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 export const ARCHITECTURE_AUTO_MATCHES = [
   { unitCode: "AS50-08", architectureCode: "CH-53", architectureLabel: "LIỀN KỀ - TÂN CỔ ĐIỂN", confidence: 0.99 },
   { unitCode: "AS80-20", architectureCode: "CH-53", architectureLabel: "LIỀN KỀ - TÂN CỔ ĐIỂN", confidence: 0.99 },
@@ -29,45 +39,163 @@ const ARCHITECTURE_BY_UNIT = new Map(
   ARCHITECTURE_AUTO_MATCHES.map((item) => [normalizeUnitCode(item.unitCode), item])
 );
 
+function architectureNumber(value = "") {
+  return String(value).match(/CH\s*[-_ ]?\s*(\d+)/i)?.[1] || "";
+}
+
+function extractArchitectureCode(value = "") {
+  const number = architectureNumber(value);
+  return number ? `CH-${number}` : "";
+}
+
 export function resolveArchitectureMatch(unit) {
-  const manualLabel = String(unit?.architectureLabel || "").trim();
-  if (manualLabel) {
-    const codeFromLabel = manualLabel.match(/CH\s*[-_]?\s*(\d+)/i)?.[1];
+  const autoMatch = ARCHITECTURE_BY_UNIT.get(normalizeUnitCode(unit?.unitCode));
+  const storedLabel = String(unit?.architectureLabel || "").trim();
+  const storedCode = String(unit?.architectureCode || "").trim();
+  const sameAsAuto = Boolean(
+    autoMatch &&
+    storedLabel &&
+    normalizeText(storedLabel) === normalizeText(autoMatch.architectureLabel)
+  );
+
+  if ((storedLabel || storedCode) && !sameAsAuto) {
     return {
       unitCode: unit?.unitCode || "",
-      architectureCode: codeFromLabel ? `CH-${codeFromLabel}` : "",
-      architectureLabel: manualLabel,
+      architectureCode: extractArchitectureCode(storedCode) || extractArchitectureCode(storedLabel) || autoMatch?.architectureCode || "",
+      architectureLabel: storedLabel || autoMatch?.architectureLabel || storedCode,
       source: "MANUAL",
       confidence: 1,
       isOverride: true,
     };
   }
 
-  const match = ARCHITECTURE_BY_UNIT.get(normalizeUnitCode(unit?.unitCode));
-  if (!match) {
+  if (autoMatch) {
     return {
-      unitCode: unit?.unitCode || "",
-      architectureCode: "",
-      architectureLabel: "Chưa có auto match",
-      source: "NONE",
-      confidence: 0,
+      ...autoMatch,
+      architectureLabel: storedLabel || autoMatch.architectureLabel,
+      architectureCode: extractArchitectureCode(storedCode) || autoMatch.architectureCode,
+      source: "AUTO",
       isOverride: false,
     };
   }
 
+  if (storedLabel || storedCode) {
+    return {
+      unitCode: unit?.unitCode || "",
+      architectureCode: extractArchitectureCode(storedCode) || extractArchitectureCode(storedLabel),
+      architectureLabel: storedLabel || storedCode,
+      source: "MANUAL",
+      confidence: 1,
+      isOverride: true,
+    };
+  }
+
   return {
-    ...match,
-    source: "AUTO",
+    unitCode: unit?.unitCode || "",
+    architectureCode: "",
+    architectureLabel: "",
+    source: "NONE",
+    confidence: 0,
     isOverride: false,
   };
 }
 
-export function architectureExportRows() {
-  return ARCHITECTURE_AUTO_MATCHES.map((item) => ({
-    unitCode: item.unitCode,
-    architectureCode: item.architectureCode,
-    architectureLabel: item.architectureLabel,
-    architectureSource: "AUTO",
-    architectureConfidence: item.confidence,
-  }));
+function shapeFlags(unit, match) {
+  const unitShape = normalizeText(`${unit?.type || ""} ${match.architectureLabel || ""}`);
+  return {
+    split: unitShape.includes("XE_KHE") || unitShape.includes("XEKHE"),
+    corner: unitShape.includes("CAN_GOC") || unitShape.includes("GOC"),
+    semiDetached: unitShape.includes("SONG_LAP") || unitShape.includes("SONGLAP"),
+  };
+}
+
+function assetFlags(asset) {
+  const haystack = normalizeText(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`);
+  return {
+    split: haystack.includes("XE_KHE") || haystack.includes("XEKHE"),
+    corner: haystack.includes("CAN_GOC") || haystack.includes("GOC"),
+    semiDetached: haystack.includes("SONG_LAP") || haystack.includes("SONGLAP") || haystack.includes("BT_"),
+    haystack,
+  };
+}
+
+function isCompatibleHouseVariant(asset, match, unit) {
+  const wants = shapeFlags(unit, match);
+  const has = assetFlags(asset);
+  if (wants.split !== has.split && (wants.split || has.split)) return false;
+  if (wants.semiDetached !== has.semiDetached && (wants.semiDetached || has.semiDetached)) return false;
+  if (wants.corner && !has.corner) return false;
+  return true;
+}
+
+function scoreHouseCandidate(asset, match, unit) {
+  const flags = assetFlags(asset);
+  let score = architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === architectureNumber(match.architectureCode) ? 100 : 0;
+  const wants = shapeFlags(unit, match);
+  if (wants.split === flags.split) score += 18;
+  if (wants.corner && flags.corner) score += 12;
+  if (wants.semiDetached && flags.semiDetached) score += 12;
+  if (!wants.split && !flags.split) score += 4;
+  return score;
+}
+
+export function resolveArchitectureHouseAsset(unit, houseCatalog = []) {
+  const match = resolveArchitectureMatch(unit);
+  const targetNumber = architectureNumber(match.architectureCode);
+  if (!targetNumber) {
+    return { ...match, asset: null, assetStatus: "NONE", suggestedHouseModel: "" };
+  }
+
+  const codeCandidates = houseCatalog.filter((asset) =>
+    architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === targetNumber
+  );
+  const candidates = codeCandidates.filter((asset) => isCompatibleHouseVariant(asset, match, unit));
+
+  if (!candidates.length) {
+    return {
+      ...match,
+      asset: null,
+      assetStatus: codeCandidates.length ? "MISSING_VARIANT" : "MISSING",
+      suggestedHouseModel: `HOUSE_CH${targetNumber}`,
+    };
+  }
+
+  const ranked = candidates
+    .map((asset) => ({ asset, score: scoreHouseCandidate(asset, match, unit) }))
+    .sort((a, b) => b.score - a.score);
+  const asset = ranked[0].asset;
+
+  return {
+    ...match,
+    asset,
+    assetStatus: "FOUND",
+    suggestedHouseModel: asset.id,
+  };
+}
+
+export function withResolvedArchitecture(unit) {
+  const match = resolveArchitectureMatch(unit);
+  if (!unit || match.source === "NONE") return unit;
+  return {
+    ...unit,
+    architectureCode: unit.architectureCode || match.architectureCode,
+    architectureLabel: unit.architectureLabel || match.architectureLabel,
+    architectureSource: unit.architectureSource || match.source,
+    architectureConfidence: unit.architectureConfidence || match.confidence,
+  };
+}
+
+export function architectureExportRows(houseCatalog = []) {
+  return ARCHITECTURE_AUTO_MATCHES.map((item) => {
+    const resolved = resolveArchitectureHouseAsset(item, houseCatalog);
+    return {
+      unitCode: item.unitCode,
+      architectureCode: item.architectureCode,
+      architectureLabel: item.architectureLabel,
+      houseModel: resolved.asset?.id || "",
+      houseAssetStatus: resolved.assetStatus,
+      architectureSource: "AUTO",
+      architectureConfidence: item.confidence,
+    };
+  });
 }

@@ -6,8 +6,11 @@ import CampaignBadgeStrip from "./CampaignBadgeStrip.jsx";
 import "./CampaignBadgeStrip.css";
 import ArchitectureAutoMatchCard from "./ArchitectureAutoMatchCard.jsx";
 import QuickPinOverlay from "./QuickPinOverlay.jsx";
+import { houseCatalog } from "../data/assetCatalog.js";
+import { resolveArchitectureHouseAsset, withResolvedArchitecture } from "../data/architectureAutoMatch.js";
 
 const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
+const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
 
 function normalizeCode(value) {
   return String(value || "").toUpperCase().replace(/\s+/g, "").trim();
@@ -23,6 +26,30 @@ function readPersistedOverlay(unitCode) {
   } catch {
     return null;
   }
+}
+
+function hasSavedHouseOverride(unitCode) {
+  const code = normalizeCode(unitCode);
+  if (!code) return false;
+  try {
+    const all = JSON.parse(localStorage.getItem(DESIGN_ASSIGNMENT_KEY) || "{}");
+    return Object.prototype.hasOwnProperty.call(all?.[code] || {}, "houseId");
+  } catch {
+    return false;
+  }
+}
+
+function normalizeSidebarPriceText() {
+  document.querySelectorAll(".unit-select > span:last-child").forEach((node) => {
+    const text = String(node.textContent || "").trim();
+    if (!text || text === "—" || !text.toLowerCase().includes("tỷ")) return;
+    const raw = text.replace(/tỷ/gi, "").trim().replace(/,/g, ".");
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return;
+    const truncated = Math.trunc((value + Number.EPSILON) * 1000) / 1000;
+    const next = `${truncated.toFixed(3)} tỷ`;
+    if (node.textContent !== next) node.textContent = next;
+  });
 }
 
 export default function PosterCanvas({
@@ -60,6 +87,7 @@ export default function PosterCanvas({
     setPosterTarget(hostRef.current?.querySelector(".poster-canvas") || null);
     setToolbarTarget(hostRef.current?.querySelector(".studio-toolbar") || null);
     setQuickControlsTarget(document.querySelector(".design-assignment-dock") || null);
+    normalizeSidebarPriceText();
   });
 
   const isUnifiedLivePreview = Math.abs(Number(previewZoom) - 0.27) < 0.0001;
@@ -67,7 +95,19 @@ export default function PosterCanvas({
     ? lotOverlay
     : (persistedOverlay || lotOverlay);
 
-  const baseAssets = { ...assets, badges: [] };
+  const resolvedUnit = withResolvedArchitecture(unit);
+  const houseResolution = resolveArchitectureHouseAsset(unit, houseCatalog);
+  const canAutoHouse = Boolean(
+    resolvedUnit &&
+    !String(unit?.houseModel || "").trim() &&
+    !hasSavedHouseOverride(unit?.unitCode) &&
+    houseResolution.asset
+  );
+  const baseAssets = {
+    ...assets,
+    badges: [],
+    ...(canAutoHouse ? { houseImage: houseResolution.asset.src } : {}),
+  };
 
   function exitLayoutEditing() {
     document.querySelector(".edit-layout-button.active")?.click();
@@ -77,7 +117,7 @@ export default function PosterCanvas({
     <div ref={hostRef} className="plotflow-poster-host" style={{ display: "contents" }}>
       <PosterCanvasBase
         {...props}
-        unit={unit}
+        unit={resolvedUnit}
         assets={baseAssets}
         isEditing={isEditing}
         lotOverlay={effectiveOverlay}
