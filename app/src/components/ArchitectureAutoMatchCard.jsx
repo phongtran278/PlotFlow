@@ -1,11 +1,33 @@
 import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
-import { houseCatalog } from "../data/assetCatalog.js";
+import { findCatalogAsset, houseCatalog } from "../data/assetCatalog.js";
 import { architectureExportRows, resolveArchitectureHouseAsset, resolveArchitectureMatch } from "../data/architectureAutoMatch.js";
 import "./ArchitectureAutoMatchCard.css";
 
+const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
+
 function percent(value) {
   return `${Math.round(Math.max(0, Math.min(1, Number(value) || 0)) * 100)}%`;
+}
+
+function normalizeCode(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function readManualHouse(unitCode) {
+  try {
+    const code = normalizeCode(unitCode);
+    const saved = JSON.parse(localStorage.getItem(DESIGN_ASSIGNMENT_KEY) || "{}");
+    return findCatalogAsset(houseCatalog, saved?.[code]?.houseId) || null;
+  } catch {
+    return null;
+  }
 }
 
 function downloadPilotWorkbook() {
@@ -41,9 +63,11 @@ export default function ArchitectureAutoMatchCard({ unit, target, isEditing = fa
   if (!target || isEditing || !unit) return null;
   const match = resolveArchitectureMatch(unit);
   const house = resolveArchitectureHouseAsset(unit, houseCatalog);
+  const manualHouse = readManualHouse(unit.unitCode);
+  const effectiveHouse = manualHouse || house.asset;
   const isManual = match.source === "MANUAL";
   const isAuto = match.source === "AUTO";
-  const hasHouse = house.assetStatus === "FOUND";
+  const hasHouse = Boolean(effectiveHouse);
 
   return createPortal(
     <section className={`architecture-auto-card ${isManual ? "is-manual" : isAuto ? "is-auto" : "is-empty"}`}>
@@ -52,24 +76,26 @@ export default function ArchitectureAutoMatchCard({ unit, target, isEditing = fa
           <span>ARCHITECTURE</span>
           <strong>{match.architectureCode || "NO MATCH"}</strong>
         </div>
-        <em>{isManual ? "MANUAL" : isAuto ? `AUTO ${percent(match.confidence)}` : "—"}</em>
+        <em>{manualHouse ? "HOUSE MANUAL" : isManual ? "MANUAL" : isAuto ? `AUTO ${percent(match.confidence)}` : "—"}</em>
       </div>
 
       <div className="architecture-auto-label">{match.architectureLabel || "Chưa xác định kiến trúc"}</div>
 
       {match.source !== "NONE" && (
         <div className={`architecture-house-status ${hasHouse ? "found" : "missing"}`}>
-          <span>{hasHouse ? "✓ HOUSE ASSET" : "⚠ MISSING ASSET"}</span>
-          <strong>{hasHouse ? house.asset.id : (house.suggestedHouseModel || house.expectedAssetKey || match.architectureCode)}</strong>
+          <span>{manualHouse ? "✓ MANUAL HOUSE" : hasHouse ? "✓ HOUSE ASSET" : "⚠ MISSING ASSET"}</span>
+          <strong>{hasHouse ? effectiveHouse.id : (house.suggestedHouseModel || house.expectedAssetKey || match.architectureCode)}</strong>
         </div>
       )}
 
       <div className="architecture-auto-note">
-        {hasHouse
-          ? `Đã map đúng ${house.asset.id}.`
-          : match.source !== "NONE"
-            ? `Thiếu đúng asset ${house.suggestedHouseModel || house.expectedAssetKey}. Bổ sung file theo key này, PlotFlow sẽ tự nhận.`
-            : "Chưa có mapping cho mã căn này."}
+        {manualHouse
+          ? `Đang dùng ảnh bạn chọn thủ công: ${manualHouse.id}. Manual House ưu tiên hơn auto match.`
+          : hasHouse
+            ? `Đã map đúng ${effectiveHouse.id}.`
+            : match.source !== "NONE"
+              ? `Thiếu đúng asset ${house.suggestedHouseModel || house.expectedAssetKey}. Bổ sung file theo key này, PlotFlow sẽ tự nhận.`
+              : "Chưa có mapping cho mã căn này."}
       </div>
 
       <button type="button" className="architecture-export-button" onClick={downloadPilotWorkbook}>
