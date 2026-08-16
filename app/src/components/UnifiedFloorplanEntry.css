@@ -1,0 +1,26 @@
+.edit-floorplan-top.lot-button,
+.floorplan-lot-edit,
+.dock-warning {
+  display: none !important;
+}
+
+.edit-floorplan-top:not(.lot-button) {
+  font-size: 0 !important;
+}
+
+.edit-floorplan-top:not(.lot-button)::after {
+  content: "⌖ Edit Floorplan";
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.floorplan-edit-view > span,
+.floorplan-edit-view > strong {
+  display: none !important;
+}
+
+.floorplan-edit-view::after {
+  content: "⌖ Edit Floorplan";
+  font-size: 10px;
+  font-weight: 750;
+}
