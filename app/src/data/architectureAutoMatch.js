@@ -50,58 +50,92 @@ function extractArchitectureCode(value = "") {
 
 export function resolveArchitectureMatch(unit) {
   const autoMatch = ARCHITECTURE_BY_UNIT.get(normalizeUnitCode(unit?.unitCode));
-  const manualLabel = String(unit?.architectureLabel || "").trim();
-  const manualCode = String(unit?.architectureCode || "").trim();
+  const storedLabel = String(unit?.architectureLabel || "").trim();
+  const storedCode = String(unit?.architectureCode || "").trim();
+  const sameAsAuto = Boolean(
+    autoMatch &&
+    storedLabel &&
+    normalizeText(storedLabel) === normalizeText(autoMatch.architectureLabel)
+  );
 
-  if (manualLabel || manualCode) {
+  if ((storedLabel || storedCode) && !sameAsAuto) {
     return {
       unitCode: unit?.unitCode || "",
-      architectureCode: extractArchitectureCode(manualCode) || extractArchitectureCode(manualLabel) || autoMatch?.architectureCode || "",
-      architectureLabel: manualLabel || autoMatch?.architectureLabel || manualCode,
+      architectureCode: extractArchitectureCode(storedCode) || extractArchitectureCode(storedLabel) || autoMatch?.architectureCode || "",
+      architectureLabel: storedLabel || autoMatch?.architectureLabel || storedCode,
       source: "MANUAL",
       confidence: 1,
       isOverride: true,
     };
   }
 
-  if (!autoMatch) {
+  if (autoMatch) {
     return {
-      unitCode: unit?.unitCode || "",
-      architectureCode: "",
-      architectureLabel: "",
-      source: "NONE",
-      confidence: 0,
+      ...autoMatch,
+      architectureLabel: storedLabel || autoMatch.architectureLabel,
+      architectureCode: extractArchitectureCode(storedCode) || autoMatch.architectureCode,
+      source: "AUTO",
       isOverride: false,
     };
   }
 
+  if (storedLabel || storedCode) {
+    return {
+      unitCode: unit?.unitCode || "",
+      architectureCode: extractArchitectureCode(storedCode) || extractArchitectureCode(storedLabel),
+      architectureLabel: storedLabel || storedCode,
+      source: "MANUAL",
+      confidence: 1,
+      isOverride: true,
+    };
+  }
+
   return {
-    ...autoMatch,
-    source: "AUTO",
+    unitCode: unit?.unitCode || "",
+    architectureCode: "",
+    architectureLabel: "",
+    source: "NONE",
+    confidence: 0,
     isOverride: false,
   };
 }
 
-function scoreHouseCandidate(asset, match, unit) {
-  const haystack = normalizeText(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`);
-  let score = architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === architectureNumber(match.architectureCode) ? 100 : 0;
+function shapeFlags(unit, match) {
   const unitShape = normalizeText(`${unit?.type || ""} ${match.architectureLabel || ""}`);
+  return {
+    split: unitShape.includes("XE_KHE") || unitShape.includes("XEKHE"),
+    corner: unitShape.includes("CAN_GOC") || unitShape.includes("GOC"),
+    semiDetached: unitShape.includes("SONG_LAP") || unitShape.includes("SONGLAP"),
+  };
+}
 
-  const wantsSplit = unitShape.includes("XE_KHE") || unitShape.includes("XEKHE");
-  const wantsCorner = unitShape.includes("CAN_GOC") || unitShape.includes("GOC");
-  const wantsSemiDetached = unitShape.includes("SONG_LAP") || unitShape.includes("SONGLAP");
-  const hasSplit = haystack.includes("XE_KHE") || haystack.includes("XEKHE");
-  const hasCorner = haystack.includes("CAN_GOC") || haystack.includes("GOC");
-  const hasSemiDetached = haystack.includes("SONG_LAP") || haystack.includes("SONGLAP") || haystack.includes("BT_");
+function assetFlags(asset) {
+  const haystack = normalizeText(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`);
+  return {
+    split: haystack.includes("XE_KHE") || haystack.includes("XEKHE"),
+    corner: haystack.includes("CAN_GOC") || haystack.includes("GOC"),
+    semiDetached: haystack.includes("SONG_LAP") || haystack.includes("SONGLAP") || haystack.includes("BT_"),
+    haystack,
+  };
+}
 
-  if (wantsSplit === hasSplit) score += 18;
-  else if (wantsSplit) score -= 16;
-  else if (hasSplit) score -= 6;
+function isCompatibleHouseVariant(asset, match, unit) {
+  const wants = shapeFlags(unit, match);
+  const has = assetFlags(asset);
+  if (wants.split !== has.split && (wants.split || has.split)) return false;
+  if (wants.semiDetached !== has.semiDetached && (wants.semiDetached || has.semiDetached)) return false;
+  if (wants.corner && !has.corner) return false;
+  return true;
+}
 
-  if (wantsCorner && hasCorner) score += 12;
-  if (wantsSemiDetached && hasSemiDetached) score += 12;
-  if (!wantsSemiDetached && hasSemiDetached) score -= 8;
-
+function scoreHouseCandidate(asset, match, unit) {
+  const flags = assetFlags(asset);
+  let score = architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === architectureNumber(match.architectureCode) ? 100 : 0;
+  const wants = shapeFlags(unit, match);
+  if (wants.split === flags.split) score += 18;
+  if (wants.corner && flags.corner) score += 12;
+  if (wants.semiDetached && flags.semiDetached) score += 12;
+  if (!wants.split && !flags.split) score += 4;
   return score;
 }
 
@@ -112,15 +146,16 @@ export function resolveArchitectureHouseAsset(unit, houseCatalog = []) {
     return { ...match, asset: null, assetStatus: "NONE", suggestedHouseModel: "" };
   }
 
-  const candidates = houseCatalog.filter((asset) =>
+  const codeCandidates = houseCatalog.filter((asset) =>
     architectureNumber(`${asset.id} ${asset.name || ""} ${asset.fileName || ""}`) === targetNumber
   );
+  const candidates = codeCandidates.filter((asset) => isCompatibleHouseVariant(asset, match, unit));
 
   if (!candidates.length) {
     return {
       ...match,
       asset: null,
-      assetStatus: "MISSING",
+      assetStatus: codeCandidates.length ? "MISSING_VARIANT" : "MISSING",
       suggestedHouseModel: `HOUSE_CH${targetNumber}`,
     };
   }
