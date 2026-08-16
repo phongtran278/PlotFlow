@@ -3,9 +3,22 @@ function show(value, suffix = "") {
   return `${String(value).trim()}${suffix}`;
 }
 
+function formatPrice(value) {
+  if (value === undefined || value === null || String(value).trim() === "") return "—";
+  const raw = String(value).trim();
+  let normalized = raw;
+  if (raw.includes(",") && raw.includes(".")) normalized = raw.replace(/,/g, "");
+  else if (raw.includes(",") && !raw.includes(".")) normalized = raw.replace(",", ".");
+  let number = Number(normalized);
+  if (!Number.isFinite(number)) return "—";
+  if (Math.abs(number) >= 1000000) number /= 1000000000;
+  const truncated = Math.trunc((number + Number.EPSILON) * 1000) / 1000;
+  return truncated.toFixed(3);
+}
+
 export default function UnitInfoCard({ unit }) {
   const leftSpecs = [
-    { label: "LOẠI HÌNH", value: show(unit.type) },
+    { label: "KIẾN TRÚC", value: show(unit.architectureLabel || unit.type) },
     { label: "SỐ TẦNG", value: show(unit.floors) },
     { label: "TCBG", value: show(unit.handover) },
   ];
@@ -56,12 +69,11 @@ function SpecColumn({ items }) {
 }
 
 function PriceBox({ label, value }) {
-  const number = Number(value);
   return (
     <div className="price-box">
       <span className="price-label">{label}</span>
       <div className="price-value">
-        <strong>{Number.isFinite(number) ? number.toFixed(3) : "—"}</strong>
+        <strong>{formatPrice(value)}</strong>
         <span>tỷ</span>
       </div>
     </div>
