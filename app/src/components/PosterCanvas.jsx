@@ -19,7 +19,7 @@ function readPersistedOverlay(unitCode) {
   }
 }
 
-export default function PosterCanvas({ lotOverlay, preferLotOverlay = false, unit, ...props }) {
+export default function PosterCanvas({ lotOverlay, preferLotOverlay = false, previewZoom = 1, unit, ...props }) {
   const [persistedOverlay, setPersistedOverlay] = useState(() => readPersistedOverlay(unit?.unitCode));
 
   useEffect(() => {
@@ -33,13 +33,20 @@ export default function PosterCanvas({ lotOverlay, preferLotOverlay = false, uni
     };
   }, [unit?.unitCode]);
 
-  const effectiveOverlay = preferLotOverlay ? lotOverlay : (persistedOverlay || lotOverlay);
+  // UnifiedFloorplanEditor uses a dedicated 27% live poster. Prefer its unsaved
+  // overlay so polygon/pin changes are visible instantly; normal preview/export
+  // use the persisted composition as the source of truth.
+  const isUnifiedLivePreview = Math.abs(Number(previewZoom) - 0.27) < 0.0001;
+  const effectiveOverlay = (preferLotOverlay || isUnifiedLivePreview)
+    ? lotOverlay
+    : (persistedOverlay || lotOverlay);
 
   return (
     <PosterCanvasBase
       {...props}
       unit={unit}
       lotOverlay={effectiveOverlay}
+      previewZoom={previewZoom}
     />
   );
 }
