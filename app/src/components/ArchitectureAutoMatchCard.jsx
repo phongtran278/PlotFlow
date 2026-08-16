@@ -15,6 +15,7 @@ function downloadPilotWorkbook() {
       "unitCode",
       "architectureCode",
       "architectureLabel",
+      "expectedAssetKey",
       "houseModel",
       "houseAssetStatus",
       "architectureSource",
@@ -25,6 +26,7 @@ function downloadPilotWorkbook() {
     { wch: 14 },
     { wch: 18 },
     { wch: 42 },
+    { wch: 28 },
     { wch: 30 },
     { wch: 20 },
     { wch: 20 },
@@ -58,15 +60,15 @@ export default function ArchitectureAutoMatchCard({ unit, target, isEditing = fa
       {match.source !== "NONE" && (
         <div className={`architecture-house-status ${hasHouse ? "found" : "missing"}`}>
           <span>{hasHouse ? "✓ HOUSE ASSET" : "⚠ MISSING ASSET"}</span>
-          <strong>{hasHouse ? house.asset.name : match.architectureCode}</strong>
+          <strong>{hasHouse ? house.asset.id : (house.suggestedHouseModel || house.expectedAssetKey || match.architectureCode)}</strong>
         </div>
       )}
 
       <div className="architecture-auto-note">
-        {isManual
-          ? "Đang dùng tên kiến trúc từ Sheet/Excel. Refresh Data sẽ giữ nội dung bạn sửa."
-          : isAuto
-            ? "Đã auto fill vào poster. Nếu cần tên bán hàng ngắn hơn, sửa architectureLabel trong Sheet/Excel rồi Refresh Data."
+        {hasHouse
+          ? `Đã map đúng ${house.asset.id}.`
+          : match.source !== "NONE"
+            ? `Thiếu đúng asset ${house.suggestedHouseModel || house.expectedAssetKey}. Bổ sung file theo key này, PlotFlow sẽ tự nhận.`
             : "Chưa có mapping cho mã căn này."}
       </div>
 
