@@ -11,13 +11,14 @@ const ALPHA_THRESHOLD = 8;
 const BADGES = [
   { id: "hotdeal", name: "Hot Deal", src: "/assets/badges/hotdeal.png", enabled: true },
   { id: "veosom", name: "Về ở sớm", src: "/assets/badges/veosom.png", enabled: false },
-  { id: "gold1", name: "Tặng 1 chỉ vàng", src: "/assets/badges/1 chỉ.png", enabled: false },
-  { id: "gold3", name: "Tặng 3 chỉ vàng", src: "/assets/badges/3 chỉ.png", enabled: false },
-  { id: "gold5", name: "Tặng 5 chỉ vàng", src: "/assets/badges/5 chỉ.png", enabled: false },
-  { id: "gold6", name: "Tặng 6 chỉ vàng", src: "/assets/badges/6 chỉ.png", enabled: false },
-  { id: "gold9", name: "Tặng 9 chỉ vàng", src: "/assets/badges/9 chỉ.png", enabled: false },
+  { id: "gold1", name: "Tặng 1 chỉ vàng", shortName: "1 chỉ vàng", src: "/assets/badges/1 chỉ.png", enabled: false },
+  { id: "gold3", name: "Tặng 3 chỉ vàng", shortName: "3 chỉ vàng", src: "/assets/badges/3 chỉ.png", enabled: false },
+  { id: "gold5", name: "Tặng 5 chỉ vàng", shortName: "5 chỉ vàng", src: "/assets/badges/5 chỉ.png", enabled: false },
+  { id: "gold6", name: "Tặng 6 chỉ vàng", shortName: "6 chỉ vàng", src: "/assets/badges/6 chỉ.png", enabled: false },
+  { id: "gold9", name: "Tặng 9 chỉ vàng", shortName: "9 chỉ vàng", src: "/assets/badges/9 chỉ.png", enabled: false },
 ];
 
+const GOLD_IDS = BADGES.filter((badge) => badge.id.startsWith("gold")).map((badge) => badge.id);
 const pixelBoundsCache = new Map();
 
 function defaultConfig() {
@@ -39,18 +40,32 @@ function readConfig() {
     if (!raw || !Array.isArray(raw.badges)) return defaultConfig();
     const defaults = defaultConfig();
     const byId = new Map(raw.badges.map((item) => [item.id, item]));
+    const merged = defaults.badges.map((fallback) => {
+      const saved = byId.get(fallback.id) || {};
+      return {
+        id: fallback.id,
+        enabled: typeof saved.enabled === "boolean" ? saved.enabled : fallback.enabled,
+        order: Number.isFinite(Number(saved.order)) ? Number(saved.order) : fallback.order,
+        scale: Number.isFinite(Number(saved.scale)) ? Math.max(0.4, Math.min(2.2, Number(saved.scale))) : 1,
+      };
+    });
+
+    // Gold is one campaign family: keep at most one choice enabled when migrating
+    // older saved settings that may have multiple gold badges switched on.
+    let goldSeen = false;
+    const badges = merged.map((item) => {
+      if (!GOLD_IDS.includes(item.id) || !item.enabled) return item;
+      if (!goldSeen) {
+        goldSeen = true;
+        return item;
+      }
+      return { ...item, enabled: false };
+    });
+
     return {
       gap: Number.isFinite(Number(raw.gap)) ? Math.max(0, Number(raw.gap)) : defaults.gap,
       visibleHeight: Number.isFinite(Number(raw.visibleHeight)) ? Math.max(60, Number(raw.visibleHeight)) : defaults.visibleHeight,
-      badges: defaults.badges.map((fallback) => {
-        const saved = byId.get(fallback.id) || {};
-        return {
-          id: fallback.id,
-          enabled: typeof saved.enabled === "boolean" ? saved.enabled : fallback.enabled,
-          order: Number.isFinite(Number(saved.order)) ? Number(saved.order) : fallback.order,
-          scale: Number.isFinite(Number(saved.scale)) ? Math.max(0.4, Math.min(2.2, Number(saved.scale))) : 1,
-        };
-      }),
+      badges,
     };
   } catch {
     return defaultConfig();
@@ -130,7 +145,6 @@ function paintedImageBox(img, artboard) {
 
   const fit = getComputedStyle(img).objectFit || "fill";
   if (fit !== "contain") return box;
-
   const naturalRatio = img.naturalWidth / img.naturalHeight;
   const boxRatio = box.width / box.height;
   if (naturalRatio > boxRatio) {
@@ -177,8 +191,6 @@ export default function CampaignBadgeStrip({
     };
   }, []);
 
-  // Hide the obsolete BADGES block from the old assignment UI. CampaignBadgeStrip
-  // is now the only badge control surface, so the dock stays clean and non-duplicated.
   useEffect(() => {
     if (!quickControlsTarget) return;
     const legacy = quickControlsTarget.querySelector(".dock-badges");
@@ -213,20 +225,43 @@ export default function CampaignBadgeStrip({
     });
   }
 
-  function moveBadge(id, direction) {
-    const ordered = orderedConfigBadges(config);
-    const index = ordered.findIndex((item) => item.id === id);
-    const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= ordered.length) return;
-    const swapped = [...ordered];
-    [swapped[index], swapped[nextIndex]] = [swapped[nextIndex], swapped[index]];
+  function setGoldChoice(nextId) {
+    const currentGold = config.badges.find((item) => GOLD_IDS.includes(item.id) && item.enabled);
+    const inheritedOrder = currentGold?.order ?? config.badges.find((item) => item.id === nextId)?.order ?? 2;
+    const inheritedScale = currentGold?.scale ?? config.badges.find((item) => item.id === nextId)?.scale ?? 1;
     commit({
       ...config,
-      badges: config.badges.map((item) => ({
-        ...item,
-        order: swapped.findIndex((entry) => entry.id === item.id),
-      })),
+      badges: config.badges.map((item) => {
+        if (!GOLD_IDS.includes(item.id)) return item;
+        if (!nextId) return { ...item, enabled: false };
+        if (item.id === nextId) return { ...item, enabled: true, order: inheritedOrder, scale: inheritedScale };
+        return { ...item, enabled: false };
+      }),
     });
+  }
+
+  // Reorder only the badges that are actually visible. Moving left from the first
+  // item wraps to the end; moving right from the last item wraps to the beginning.
+  function moveActiveBadge(id, direction) {
+    const active = orderedConfigBadges(config).filter((item) => item.enabled);
+    if (active.length < 2) return;
+    const index = active.findIndex((item) => item.id === id);
+    if (index < 0) return;
+    const targetIndex = (index + direction + active.length) % active.length;
+    const target = active[targetIndex];
+    commit({
+      ...config,
+      badges: config.badges.map((item) => {
+        if (item.id === id) return { ...item, order: target.order };
+        if (item.id === target.id) return { ...item, order: active[index].order };
+        return item;
+      }),
+    });
+  }
+
+  function setScalePercent(id, raw) {
+    const percent = Math.max(40, Math.min(220, Number(raw) || 100));
+    patchBadge(id, { scale: percent / 100 });
   }
 
   function handleLoad(id, event) {
@@ -243,21 +278,16 @@ export default function CampaignBadgeStrip({
     .filter((item) => item.enabled)
     .map((item) => ({ ...item, asset: BADGES.find((badge) => badge.id === item.id) }))
     .filter((item) => item.asset), [ordered]);
+  const selectedGold = ordered.find((item) => GOLD_IDS.includes(item.id) && item.enabled)?.id || "";
 
   const layouts = useMemo(() => {
     const ready = active.every((item) => boundsById[item.id]);
     if (!ready || !active.length) return {};
-
     const measured = active.map((item) => {
       const bounds = boundsById[item.id];
       const visibleHeight = config.visibleHeight * item.scale;
       const renderScale = visibleHeight / bounds.height;
-      return {
-        ...item,
-        bounds,
-        renderScale,
-        visibleWidth: bounds.width * renderScale,
-      };
+      return { ...item, bounds, renderScale, visibleWidth: bounds.width * renderScale };
     });
 
     const totalVisibleWidth = measured.reduce((sum, item) => sum + item.visibleWidth, 0)
@@ -279,83 +309,71 @@ export default function CampaignBadgeStrip({
   }, [active, boundsById, config.gap, config.visibleHeight, logoVisibleLeft]);
 
   const quickControls = !isEditing && quickControlsTarget ? createPortal(
-    <div style={{ display: "grid", gap: 12, padding: "12px 0 2px", borderTop: "1px solid rgba(20,24,33,.10)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+    <section className="campaign-control-card">
+      <div className="campaign-control-heading">
         <div>
-          <div style={{ fontSize: 10, letterSpacing: ".12em", opacity: .58 }}>CAMPAIGN TABS</div>
-          <strong style={{ fontSize: 13 }}>Quick Arrange</strong>
+          <span>CAMPAIGN</span>
+          <strong>Quick Arrange</strong>
         </div>
-        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, opacity: .72 }}>
+        <label className="campaign-gap-field">
           <span>Gap</span>
-          <input
-            type="number"
-            min="0"
-            max="120"
-            value={config.gap}
-            onChange={(event) => commit({ ...config, gap: Math.max(0, Number(event.target.value) || 0) })}
-            style={{ width: 58 }}
-          />
-          <span>px</span>
+          <input type="number" min="0" max="120" value={config.gap} onChange={(event) => commit({ ...config, gap: Math.max(0, Number(event.target.value) || 0) })} />
+          <b>px</b>
         </label>
       </div>
 
-      <div style={{ display: "grid", gap: 7 }}>
-        {ordered.map((item) => {
-          const asset = BADGES.find((badge) => badge.id === item.id);
-          if (!asset) return null;
+      <div className="campaign-toggle-grid">
+        {["hotdeal", "veosom"].map((id) => {
+          const item = config.badges.find((badge) => badge.id === id);
+          const asset = BADGES.find((badge) => badge.id === id);
           return (
-            <div key={item.id} style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(96px,1fr) 28px 28px minmax(86px,1fr) 42px",
-              gap: 5,
-              alignItems: "center",
-              padding: "6px 7px",
-              border: item.enabled ? "1px solid rgba(20,95,255,.32)" : "1px solid rgba(20,24,33,.10)",
-              borderRadius: 9,
-              background: item.enabled ? "rgba(20,95,255,.05)" : "transparent",
-            }}>
-              <button
-                type="button"
-                onClick={() => patchBadge(item.id, { enabled: !item.enabled })}
-                style={{ padding: "6px 7px", borderRadius: 7, fontWeight: item.enabled ? 700 : 500 }}
-              >{item.enabled ? "✓ " : "+ "}{asset.name}</button>
-              <button type="button" onClick={() => moveBadge(item.id, -1)} title="Đưa tab sang trái">←</button>
-              <button type="button" onClick={() => moveBadge(item.id, 1)} title="Đưa tab sang phải">→</button>
-              <input
-                type="range"
-                min="50"
-                max="180"
-                step="1"
-                value={Math.round(item.scale * 100)}
-                onChange={(event) => patchBadge(item.id, { scale: Number(event.target.value) / 100 })}
-                title="Phóng to / thu nhỏ tab"
-              />
-              <strong style={{ fontSize: 10, textAlign: "right" }}>{Math.round(item.scale * 100)}%</strong>
-            </div>
+            <button key={id} type="button" className={item?.enabled ? "active" : ""} onClick={() => patchBadge(id, { enabled: !item?.enabled })}>
+              <span>{item?.enabled ? "✓" : "+"}</span>{asset?.name}
+            </button>
           );
         })}
       </div>
 
-      <div style={{ display: "grid", gap: 6, paddingTop: 3 }}>
-        <button
-          type="button"
-          onClick={onToggleQuickPin}
-          disabled={!pinVisible}
-          style={{
-            padding: "9px 10px",
-            borderRadius: 9,
-            fontWeight: 700,
-            background: quickPinMode ? "#145fff" : undefined,
-            color: quickPinMode ? "white" : undefined,
-          }}
-        >{quickPinMode ? "✓ Done arranging 3D Pin" : "✥ Arrange 3D Pin on poster"}</button>
-        <small style={{ opacity: .58, lineHeight: 1.4 }}>
-          {pinVisible
-            ? "Bật Arrange Pin rồi kéo trực tiếp trên poster. Dùng zoom preview phía trên để đặt pin chính xác; kéo chấm góc để đổi kích thước."
-            : "Bật Show 3D Pin trước để đặt vị trí."}
-        </small>
+      <label className="campaign-gold-field">
+        <span>TẶNG VÀNG</span>
+        <select value={selectedGold} onChange={(event) => setGoldChoice(event.target.value)}>
+          <option value="">Không áp dụng</option>
+          {BADGES.filter((badge) => GOLD_IDS.includes(badge.id)).map((badge) => (
+            <option key={badge.id} value={badge.id}>{badge.shortName}</option>
+          ))}
+        </select>
+      </label>
+
+      {active.length > 0 && (
+        <div className="campaign-active-list">
+          <div className="campaign-active-caption"><span>ĐANG HIỂN THỊ</span><small>Order · Scale</small></div>
+          {active.map((item) => {
+            const pct = Math.round(item.scale * 100);
+            return (
+              <div className="campaign-active-row" key={item.id}>
+                <strong>{item.asset.name}</strong>
+                <div className="campaign-order-buttons">
+                  <button type="button" onClick={() => moveActiveBadge(item.id, -1)} title="Di chuyển sang trái, có vòng lặp">←</button>
+                  <button type="button" onClick={() => moveActiveBadge(item.id, 1)} title="Di chuyển sang phải, có vòng lặp">→</button>
+                </div>
+                <input className="campaign-scale-slider" type="range" min="40" max="220" step="1" value={pct} onChange={(event) => setScalePercent(item.id, event.target.value)} />
+                <label className="campaign-scale-number">
+                  <input type="number" min="40" max="220" step="1" value={pct} onChange={(event) => setScalePercent(item.id, event.target.value)} />
+                  <span>%</span>
+                </label>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="campaign-pin-tools">
+        <button type="button" className={quickPinMode ? "active" : ""} onClick={onToggleQuickPin} disabled={!pinVisible}>
+          {quickPinMode ? "✓ Xong đặt 3D Pin" : "✥ Đặt 3D Pin trực tiếp"}
+        </button>
+        <small>{pinVisible ? "Kéo pin ngay trên poster; zoom preview để đặt chính xác." : "Bật Show 3D Pin trước để đặt vị trí."}</small>
       </div>
-    </div>,
+    </section>,
     quickControlsTarget
   ) : null;
 
@@ -364,7 +382,6 @@ export default function CampaignBadgeStrip({
       {BADGES.map((asset) => {
         const item = config.badges.find((badge) => badge.id === asset.id);
         const layout = layouts[asset.id];
-        const shouldRender = Boolean(item?.enabled);
         return (
           <img
             key={asset.id}
@@ -381,7 +398,7 @@ export default function CampaignBadgeStrip({
               width: layout ? `${layout.width}px` : "1px",
               height: layout ? `${layout.height}px` : "1px",
               maxWidth: "none",
-              display: shouldRender ? "block" : "none",
+              display: item?.enabled ? "block" : "none",
               pointerEvents: "none",
               userSelect: "none",
               zIndex: 19,
