@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import PosterCanvasBase from "./PosterCanvasBase.jsx";
 import PolicyImageOverlay from "./PolicyImageOverlay.jsx";
 import CampaignBadgeStrip from "./CampaignBadgeStrip.jsx";
+import "./CampaignBadgeStrip.css";
 import QuickPinOverlay from "./QuickPinOverlay.jsx";
 
 const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
@@ -65,8 +66,6 @@ export default function PosterCanvas({
     ? lotOverlay
     : (persistedOverlay || lotOverlay);
 
-  // CampaignBadgeStrip is the single source of truth for campaign badges.
-  // Legacy fixed badge slots stay disabled so the strip can reorder/resize/reflow.
   const baseAssets = { ...assets, badges: [] };
 
   function exitLayoutEditing() {
