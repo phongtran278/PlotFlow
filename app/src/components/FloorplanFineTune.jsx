@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditor.jsx";
+import "./UnifiedFloorplanEntry.css";
 import { assetLibrary } from "../data/assetLibrary";
 import {
   amenityCatalog,
