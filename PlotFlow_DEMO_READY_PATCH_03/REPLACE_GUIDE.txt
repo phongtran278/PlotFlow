@@ -1,0 +1,49 @@
+PLOTFLOW — DEMO READY PATCH 03
+==============================
+
+Mục tiêu cho demo:
+1. Masterplan PDF trong PlotFlow/masterplan tự được sync và auto-load khi mở app.
+2. Google Sheet nhớ tối đa 10 link gần nhất trong browser.
+3. Recent Sheet hiển thị tên nếu Google trả filename; nếu không sẽ có tên fallback và nút ✎ để đổi tên 1 lần.
+4. Cụm info card xanh feather/fade rõ ở mép trên để hòa artwork.
+5. Subtitle đổi thành: "Đời lắm Phong Trần · Plot smarter."
+
+REPLACE
+-------
+app/src/App.jsx
+app/src/App.css
+app/tools/sync_assets.command
+
+SAU KHI REPLACE
+---------------
+cd /Users/mac/Documents/PlotFlow/app
+chmod +x tools/sync_assets.command
+./tools/sync_assets.command
+npm run dev
+
+MASTERPLAN
+----------
+Script lấy PDF đầu tiên trong:
+PlotFlow/masterplan/
+
+và copy thành:
+PlotFlow/app/public/masterplan/masterplan.pdf
+
+App sẽ tự kiểm tra URL /masterplan/masterplan.pdf và index khi mở.
+Nếu sau này thay PDF: bỏ file mới vào PlotFlow/masterplan/ rồi chạy lại sync_assets.command.
+Nếu cần file khác tạm thời, Link/Upload cũ vẫn còn nguyên.
+
+GOOGLE SHEET HISTORY
+--------------------
+- Sau khi Connect thành công, link được lưu localStorage.
+- Tối đa 10 recent sheets.
+- Click recent item => tự điền link VÀ connect ngay.
+- Click ✎ => đặt tên dễ nhớ.
+- Click × => xóa khỏi recent.
+- Link gần nhất cũng tự điền lại sau khi reload browser.
+
+LƯU Ý
+-----
+Google Sheets CSV không phải lúc nào cũng cho browser đọc tên workbook do header/CORS.
+Nếu app không tự lấy được tên thật, nó hiện "Google Sheet · xxxxxx".
+Bạn chỉ cần bấm ✎ đặt tên một lần; tên đó sẽ được nhớ cho các lần sau.
