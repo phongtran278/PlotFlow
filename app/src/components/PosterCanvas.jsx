@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import PosterCanvasBase from "./PosterCanvasBase.jsx";
 import PolicyImageOverlay from "./PolicyImageOverlay.jsx";
 import CampaignBadgeStrip from "./CampaignBadgeStrip.jsx";
+import QuickPinOverlay from "./QuickPinOverlay.jsx";
 
 const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
 
@@ -32,9 +33,9 @@ export default function PosterCanvas({
   ...props
 }) {
   const [persistedOverlay, setPersistedOverlay] = useState(() => readPersistedOverlay(unit?.unitCode));
+  const [quickPinMode, setQuickPinMode] = useState(false);
   const hostRef = useRef(null);
   const [posterTarget, setPosterTarget] = useState(null);
-  const [inspectorTarget, setInspectorTarget] = useState(null);
   const [quickControlsTarget, setQuickControlsTarget] = useState(null);
   const [toolbarTarget, setToolbarTarget] = useState(null);
 
@@ -49,15 +50,16 @@ export default function PosterCanvas({
     };
   }, [unit?.unitCode]);
 
+  useEffect(() => {
+    setQuickPinMode(false);
+  }, [unit?.unitCode, isEditing]);
+
   useLayoutEffect(() => {
     setPosterTarget(hostRef.current?.querySelector(".poster-canvas") || null);
-    setInspectorTarget(hostRef.current?.querySelector(".inspector-panel") || null);
     setToolbarTarget(hostRef.current?.querySelector(".studio-toolbar") || null);
     setQuickControlsTarget(document.querySelector(".design-assignment-dock") || null);
   });
 
-  // UnifiedFloorplanEditor can prefer its unsaved overlay so polygon/pin changes
-  // are visible instantly; normal preview/export use persisted composition.
   const isUnifiedLivePreview = Math.abs(Number(previewZoom) - 0.27) < 0.0001;
   const effectiveOverlay = (preferLotOverlay || isUnifiedLivePreview)
     ? lotOverlay
@@ -103,9 +105,17 @@ export default function PosterCanvas({
         <>
           <CampaignBadgeStrip
             artboard={posterTarget}
-            inspectorTarget={inspectorTarget}
             quickControlsTarget={quickControlsTarget}
             isEditing={isEditing}
+            quickPinMode={quickPinMode}
+            pinVisible={Boolean(assets.pin3D)}
+            onToggleQuickPin={() => setQuickPinMode((value) => !value)}
+          />
+          <QuickPinOverlay
+            artboard={posterTarget}
+            src={assets.pin3D}
+            active={!isEditing && quickPinMode}
+            unitCode={unit?.unitCode}
           />
           <PolicyImageOverlay handover={unit?.handover} />
         </>,

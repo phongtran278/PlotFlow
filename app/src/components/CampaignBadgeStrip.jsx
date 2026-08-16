@@ -62,7 +62,7 @@ function saveConfig(config) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     window.dispatchEvent(new CustomEvent("plotflow-campaign-badges-updated", { detail: config }));
   } catch {
-    // localStorage is optional; keep the in-memory edit state working.
+    // localStorage is optional.
   }
 }
 
@@ -154,7 +154,14 @@ function orderedConfigBadges(config) {
   return [...config.badges].sort((a, b) => a.order - b.order);
 }
 
-export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickControlsTarget, isEditing = false }) {
+export default function CampaignBadgeStrip({
+  artboard,
+  quickControlsTarget,
+  isEditing = false,
+  quickPinMode = false,
+  pinVisible = false,
+  onToggleQuickPin,
+}) {
   const [config, setConfig] = useState(readConfig);
   const [boundsById, setBoundsById] = useState({});
   const [logoVisibleLeft, setLogoVisibleLeft] = useState(28);
@@ -169,6 +176,17 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickCon
       window.removeEventListener("storage", sync);
     };
   }, []);
+
+  // Hide the obsolete BADGES block from the old assignment UI. CampaignBadgeStrip
+  // is now the only badge control surface, so the dock stays clean and non-duplicated.
+  useEffect(() => {
+    if (!quickControlsTarget) return;
+    const legacy = quickControlsTarget.querySelector(".dock-badges");
+    if (!legacy) return;
+    const previous = legacy.style.display;
+    legacy.style.display = "none";
+    return () => { legacy.style.display = previous; };
+  }, [quickControlsTarget]);
 
   useLayoutEffect(() => {
     if (!artboard) return;
@@ -211,10 +229,6 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickCon
     });
   }
 
-  function reset() {
-    commit(defaultConfig());
-  }
-
   function handleLoad(id, event) {
     const image = event.currentTarget;
     imageRefs.current[id] = image;
@@ -225,12 +239,10 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickCon
   }
 
   const ordered = useMemo(() => orderedConfigBadges(config), [config]);
-  const active = useMemo(() => {
-    return ordered
-      .filter((item) => item.enabled)
-      .map((item) => ({ ...item, asset: BADGES.find((badge) => badge.id === item.id) }))
-      .filter((item) => item.asset);
-  }, [ordered]);
+  const active = useMemo(() => ordered
+    .filter((item) => item.enabled)
+    .map((item) => ({ ...item, asset: BADGES.find((badge) => badge.id === item.id) }))
+    .filter((item) => item.asset), [ordered]);
 
   const layouts = useMemo(() => {
     const ready = active.every((item) => boundsById[item.id]);
@@ -239,13 +251,12 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickCon
     const measured = active.map((item) => {
       const bounds = boundsById[item.id];
       const visibleHeight = config.visibleHeight * item.scale;
-      const scale = visibleHeight / bounds.height;
+      const renderScale = visibleHeight / bounds.height;
       return {
         ...item,
         bounds,
-        scale,
-        visibleWidth: bounds.width * scale,
-        visibleHeight,
+        renderScale,
+        visibleWidth: bounds.width * renderScale,
       };
     });
 
@@ -256,13 +267,11 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickCon
     const next = {};
 
     measured.forEach((item) => {
-      const visibleLeft = visibleCursor;
-      const visibleTop = DEFAULT_TOP;
       next[item.id] = {
-        left: visibleLeft - item.bounds.minX * item.scale,
-        top: visibleTop - item.bounds.minY * item.scale,
-        width: item.bounds.naturalWidth * item.scale,
-        height: item.bounds.naturalHeight * item.scale,
+        left: visibleCursor - item.bounds.minX * item.renderScale,
+        top: DEFAULT_TOP - item.bounds.minY * item.renderScale,
+        width: item.bounds.naturalWidth * item.renderScale,
+        height: item.bounds.naturalHeight * item.renderScale,
       };
       visibleCursor += item.visibleWidth + config.gap;
     });
@@ -270,77 +279,84 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickCon
   }, [active, boundsById, config.gap, config.visibleHeight, logoVisibleLeft]);
 
   const quickControls = !isEditing && quickControlsTarget ? createPortal(
-    <div className="dock-campaign-tabs" style={{ display: "grid", gap: 8, padding: "10px 0" }}>
+    <div style={{ display: "grid", gap: 12, padding: "12px 0 2px", borderTop: "1px solid rgba(20,24,33,.10)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <span style={{ fontSize: 10, letterSpacing: ".12em", opacity: .62 }}>CAMPAIGN TABS</span>
-        <small style={{ opacity: .55 }}>Quick show / hide</small>
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: ".12em", opacity: .58 }}>CAMPAIGN TABS</div>
+          <strong style={{ fontSize: 13 }}>Quick Arrange</strong>
+        </div>
+        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11, opacity: .72 }}>
+          <span>Gap</span>
+          <input
+            type="number"
+            min="0"
+            max="120"
+            value={config.gap}
+            onChange={(event) => commit({ ...config, gap: Math.max(0, Number(event.target.value) || 0) })}
+            style={{ width: 58 }}
+          />
+          <span>px</span>
+        </label>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+
+      <div style={{ display: "grid", gap: 7 }}>
         {ordered.map((item) => {
           const asset = BADGES.find((badge) => badge.id === item.id);
           if (!asset) return null;
           return (
-            <button
-              key={item.id}
-              type="button"
-              className={item.enabled ? "active" : ""}
-              onClick={() => patchBadge(item.id, { enabled: !item.enabled })}
-              style={{ padding: "7px 9px", borderRadius: 8, fontSize: 11 }}
-            >
-              {asset.name}
-            </button>
-          );
-        })}
-      </div>
-      <small style={{ opacity: .55 }}>Scale, gap và thứ tự chỉnh trong Edit Layout.</small>
-    </div>,
-    quickControlsTarget
-  ) : null;
-
-  const controls = isEditing && inspectorTarget ? createPortal(
-    <div style={{ borderTop: "1px solid rgba(255,255,255,.12)", padding: "16px 14px 18px", display: "grid", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <div>
-          <div style={{ fontSize: 10, letterSpacing: ".12em", opacity: .6 }}>CAMPAIGN TABS</div>
-          <strong style={{ fontSize: 13 }}>Advanced layout</strong>
-        </div>
-        <button type="button" onClick={reset} style={{ padding: "5px 8px" }}>Reset</button>
-      </div>
-
-      <label style={{ display: "grid", gridTemplateColumns: "1fr 72px", gap: 8, alignItems: "center", fontSize: 12 }}>
-        <span>Gap giữa tab</span>
-        <input type="number" min="0" max="120" value={config.gap} onChange={(e) => commit({ ...config, gap: Math.max(0, Number(e.target.value) || 0) })} />
-      </label>
-
-      <label style={{ display: "grid", gridTemplateColumns: "1fr 72px", gap: 8, alignItems: "center", fontSize: 12 }}>
-        <span>Base size</span>
-        <input type="number" min="60" max="260" value={config.visibleHeight} onChange={(e) => commit({ ...config, visibleHeight: Math.max(60, Number(e.target.value) || DEFAULT_VISIBLE_HEIGHT) })} />
-      </label>
-
-      <div style={{ display: "grid", gap: 8 }}>
-        {ordered.map((item) => {
-          const asset = BADGES.find((badge) => badge.id === item.id);
-          return (
-            <div key={item.id} style={{ border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: 9, display: "grid", gap: 8 }}>
-              <label style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", fontSize: 12 }}>
-                <span>{asset?.name || item.id}</span>
-                <input type="checkbox" checked={item.enabled} onChange={(e) => patchBadge(item.id, { enabled: e.target.checked })} />
-              </label>
-              <div style={{ display: "grid", gridTemplateColumns: "28px 28px 1fr 50px", gap: 6, alignItems: "center" }}>
-                <button type="button" onClick={() => moveBadge(item.id, -1)} title="Move left">←</button>
-                <button type="button" onClick={() => moveBadge(item.id, 1)} title="Move right">→</button>
-                <input type="range" min="50" max="180" step="1" value={Math.round(item.scale * 100)} onChange={(e) => patchBadge(item.id, { scale: Number(e.target.value) / 100 })} />
-                <strong style={{ fontSize: 11, textAlign: "right" }}>{Math.round(item.scale * 100)}%</strong>
-              </div>
+            <div key={item.id} style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(96px,1fr) 28px 28px minmax(86px,1fr) 42px",
+              gap: 5,
+              alignItems: "center",
+              padding: "6px 7px",
+              border: item.enabled ? "1px solid rgba(20,95,255,.32)" : "1px solid rgba(20,24,33,.10)",
+              borderRadius: 9,
+              background: item.enabled ? "rgba(20,95,255,.05)" : "transparent",
+            }}>
+              <button
+                type="button"
+                onClick={() => patchBadge(item.id, { enabled: !item.enabled })}
+                style={{ padding: "6px 7px", borderRadius: 7, fontWeight: item.enabled ? 700 : 500 }}
+              >{item.enabled ? "✓ " : "+ "}{asset.name}</button>
+              <button type="button" onClick={() => moveBadge(item.id, -1)} title="Đưa tab sang trái">←</button>
+              <button type="button" onClick={() => moveBadge(item.id, 1)} title="Đưa tab sang phải">→</button>
+              <input
+                type="range"
+                min="50"
+                max="180"
+                step="1"
+                value={Math.round(item.scale * 100)}
+                onChange={(event) => patchBadge(item.id, { scale: Number(event.target.value) / 100 })}
+                title="Phóng to / thu nhỏ tab"
+              />
+              <strong style={{ fontSize: 10, textAlign: "right" }}>{Math.round(item.scale * 100)}%</strong>
             </div>
           );
         })}
       </div>
-      <small style={{ opacity: .62, lineHeight: 1.45 }}>
-        Pixel thật trên cùng của badge luôn bám y=0. Gap và vị trí ngang tính theo pixel thật của PNG; đổi size sẽ tự reflow và không đè nhau.
-      </small>
+
+      <div style={{ display: "grid", gap: 6, paddingTop: 3 }}>
+        <button
+          type="button"
+          onClick={onToggleQuickPin}
+          disabled={!pinVisible}
+          style={{
+            padding: "9px 10px",
+            borderRadius: 9,
+            fontWeight: 700,
+            background: quickPinMode ? "#145fff" : undefined,
+            color: quickPinMode ? "white" : undefined,
+          }}
+        >{quickPinMode ? "✓ Done arranging 3D Pin" : "✥ Arrange 3D Pin on poster"}</button>
+        <small style={{ opacity: .58, lineHeight: 1.4 }}>
+          {pinVisible
+            ? "Bật Arrange Pin rồi kéo trực tiếp trên poster. Dùng zoom preview phía trên để đặt pin chính xác; kéo chấm góc để đổi kích thước."
+            : "Bật Show 3D Pin trước để đặt vị trí."}
+        </small>
+      </div>
     </div>,
-    inspectorTarget
+    quickControlsTarget
   ) : null;
 
   return (
@@ -374,7 +390,6 @@ export default function CampaignBadgeStrip({ artboard, inspectorTarget, quickCon
         );
       })}
       {quickControls}
-      {controls}
     </>
   );
 }
