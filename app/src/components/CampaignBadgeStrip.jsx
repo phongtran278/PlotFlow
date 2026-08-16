@@ -155,6 +155,7 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
   const [config, setConfig] = useState(readConfig);
   const [scaleDrafts, setScaleDrafts] = useState({});
   const [boundsById, setBoundsById] = useState({});
+  const [errorById, setErrorById] = useState({});
   const [logoVisibleLeft, setLogoVisibleLeft] = useState(28);
   const imageRefs = useRef({});
 
@@ -215,17 +216,17 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
   }
 
   function moveActiveBadge(id, direction) {
-    const active = orderedConfigBadges(config).filter((item) => item.enabled);
-    if (active.length < 2) return;
-    const index = active.findIndex((item) => item.id === id);
+    const activeItems = orderedConfigBadges(config).filter((item) => item.enabled);
+    if (activeItems.length < 2) return;
+    const index = activeItems.findIndex((item) => item.id === id);
     if (index < 0) return;
-    const targetIndex = (index + direction + active.length) % active.length;
-    const target = active[targetIndex];
+    const targetIndex = (index + direction + activeItems.length) % activeItems.length;
+    const target = activeItems[targetIndex];
     commit({
       ...config,
       badges: config.badges.map((item) => {
         if (item.id === id) return { ...item, order: target.order };
-        if (item.id === target.id) return { ...item, order: active[index].order };
+        if (item.id === target.id) return { ...item, order: activeItems[index].order };
         return item;
       }),
     });
@@ -252,8 +253,20 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
     imageRefs.current[id] = image;
     const bounds = measureVisibleBounds(image);
     if (!bounds) return;
+    setErrorById((prev) => ({ ...prev, [id]: false }));
     setBoundsById((prev) => ({ ...prev, [id]: bounds }));
     if (artboard) setLogoVisibleLeft(measureVisibleLogoLeft(artboard));
+  }
+
+  function handleError(id) {
+    delete imageRefs.current[id];
+    setErrorById((prev) => ({ ...prev, [id]: true }));
+    setBoundsById((prev) => {
+      if (!Object.prototype.hasOwnProperty.call(prev, id)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   const ordered = useMemo(() => orderedConfigBadges(config), [config]);
@@ -264,14 +277,16 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
   const selectedGold = ordered.find((item) => GOLD_IDS.includes(item.id) && item.enabled)?.id || "";
 
   const layouts = useMemo(() => {
-    const ready = active.every((item) => boundsById[item.id]);
-    if (!ready || !active.length) return {};
-    const measured = active.map((item) => {
-      const bounds = boundsById[item.id];
-      const visibleHeight = config.visibleHeight * item.scale;
-      const renderScale = visibleHeight / bounds.height;
-      return { ...item, bounds, renderScale, visibleWidth: bounds.width * renderScale };
-    });
+    const measured = active
+      .filter((item) => boundsById[item.id] && !errorById[item.id])
+      .map((item) => {
+        const bounds = boundsById[item.id];
+        const visibleHeight = config.visibleHeight * item.scale;
+        const renderScale = visibleHeight / bounds.height;
+        return { ...item, bounds, renderScale, visibleWidth: bounds.width * renderScale };
+      });
+
+    if (!measured.length) return {};
 
     const totalVisibleWidth = measured.reduce((sum, item) => sum + item.visibleWidth, 0)
       + Math.max(0, measured.length - 1) * config.gap;
@@ -289,7 +304,7 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
       visibleCursor += item.visibleWidth + config.gap;
     });
     return next;
-  }, [active, boundsById, config.gap, config.visibleHeight, logoVisibleLeft]);
+  }, [active, boundsById, errorById, config.gap, config.visibleHeight, logoVisibleLeft]);
 
   const quickControls = !isEditing && quickControlsTarget ? createPortal(
     <section className="campaign-control-card">
@@ -332,7 +347,7 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
             const draftValue = Object.prototype.hasOwnProperty.call(scaleDrafts, item.id) ? scaleDrafts[item.id] : String(pct);
             return (
               <div className="campaign-active-row" key={item.id}>
-                <strong>{item.asset.name}</strong>
+                <strong>{item.asset.name}{errorById[item.id] ? " · lỗi ảnh" : ""}</strong>
                 <div className="campaign-order-buttons">
                   <button type="button" onClick={() => moveActiveBadge(item.id, -1)} title="Di chuyển sang trái, có vòng lặp">←</button>
                   <button type="button" onClick={() => moveActiveBadge(item.id, 1)} title="Di chuyển sang phải, có vòng lặp">→</button>
@@ -391,6 +406,7 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
             aria-hidden="true"
             draggable="false"
             onLoad={(event) => handleLoad(asset.id, event)}
+            onError={() => handleError(asset.id)}
             style={{
               position: "absolute",
               left: layout ? `${layout.left}px` : "-10000px",
@@ -398,7 +414,7 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
               width: layout ? `${layout.width}px` : "1px",
               height: layout ? `${layout.height}px` : "1px",
               maxWidth: "none",
-              display: item?.enabled ? "block" : "none",
+              display: item?.enabled && !errorById[asset.id] ? "block" : "none",
               pointerEvents: "none",
               userSelect: "none",
               zIndex: 19,
