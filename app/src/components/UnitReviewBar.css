@@ -1,0 +1,346 @@
+/* Review-first unit navigation. The original sidebar unit buttons stay mounted as
+   the source of truth, but are visually replaced by this faster review surface. */
+.unit-selector,
+.unit-list-header:has(+ .unit-selector) {
+  display: none !important;
+}
+
+.unit-review-shell {
+  position: fixed;
+  left: 324px;
+  right: 34px;
+  bottom: 16px;
+  z-index: 82;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.9);
+  border-radius: 18px;
+  background: rgba(249,251,254,.9);
+  box-shadow: 0 20px 55px rgba(39,51,74,.18), inset 0 1px 0 rgba(255,255,255,.96);
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+}
+
+body:has(.layout-studio-mode) .unit-review-shell,
+body:has(.finetune-mode) .unit-review-shell,
+body:has(.lot-editor-shell) .unit-review-shell,
+body.plotflow-zen-mode .unit-review-shell {
+  display: none;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) {
+  padding-bottom: 132px;
+}
+
+.unit-review-topline {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto minmax(142px,auto) auto 1fr auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.unit-review-step,
+.unit-review-all {
+  height: 34px;
+  border: 1px solid rgba(35,45,65,.09);
+  border-radius: 10px;
+  background: rgba(255,255,255,.84);
+  color: #4f5865;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  box-shadow: 0 4px 13px rgba(40,52,76,.05);
+}
+
+.unit-review-step { padding: 0 11px; }
+.unit-review-step span { color: #7f8996; font-size: 14px; }
+.unit-review-step strong,
+.unit-review-all strong { font-size: 9px; font-weight: 780; }
+.unit-review-step:hover:not(:disabled),
+.unit-review-all:hover { background: #fff; border-color: rgba(79,124,255,.25); color: #315fdd; }
+.unit-review-step:disabled { opacity: .34; cursor: default; }
+
+.unit-review-current {
+  min-width: 142px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 10px;
+  background: #20252e;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.unit-review-current > span { color: rgba(255,255,255,.5); font-size: 6.5px; letter-spacing: .12em; }
+.unit-review-current strong { font-size: 10px; letter-spacing: -.1px; }
+.unit-review-current em { margin-left: auto; color: rgba(255,255,255,.58); font-size: 7.5px; font-style: normal; white-space: nowrap; }
+
+.unit-review-mini-summary {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 5px;
+}
+.unit-review-mini-summary span {
+  min-height: 24px;
+  padding: 0 7px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 7.5px;
+  font-weight: 760;
+}
+.unit-review-mini-summary .ready { background: rgba(52,201,129,.10); color: #23835a; }
+.unit-review-mini-summary .review { background: rgba(229,169,52,.12); color: #9a6a15; }
+.unit-review-mini-summary .not-found { background: rgba(211,67,67,.09); color: #ae4848; }
+
+.unit-review-all { padding: 0 10px; }
+.unit-review-all > span { font-size: 12px; }
+.unit-review-all em {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: #edf1f7;
+  color: #7a8491;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-style: normal;
+}
+
+.unit-review-filmstrip {
+  margin-top: 7px;
+  padding: 2px 1px 3px;
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107,118,135,.24) transparent;
+  scroll-snap-type: x proximity;
+}
+.unit-review-filmstrip::-webkit-scrollbar { height: 4px; }
+.unit-review-filmstrip::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(107,118,135,.22); }
+
+.unit-review-chip {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 88px;
+  height: 35px;
+  padding: 0 8px 0 10px;
+  border: 1px solid rgba(38,48,66,.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,.7);
+  color: #57606c;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  scroll-snap-align: center;
+  cursor: pointer;
+  transition: border-color .14s ease, background .14s ease, transform .14s ease, box-shadow .14s ease;
+}
+.unit-review-chip:hover:not(:disabled) { transform: translateY(-1px); background: #fff; border-color: rgba(79,124,255,.22); }
+.unit-review-chip > i { width: 5px; height: 5px; border-radius: 50%; background: #a2aab4; }
+.unit-review-chip > strong { font-size: 8.5px; font-weight: 760; }
+.unit-review-chip > span { margin-left: auto; font-size: 8px; font-weight: 900; }
+.unit-review-chip.ready > i { background: #34c981; }
+.unit-review-chip.review > i { background: #e2a93b; }
+.unit-review-chip.not-found > i { background: #d94343; }
+.unit-review-chip.unindexed > i { background: #a3aab3; }
+.unit-review-chip.ready > span { color: #2b986c; }
+.unit-review-chip.review > span { color: #a57217; }
+.unit-review-chip.not-found > span { color: #b74747; }
+.unit-review-chip.unindexed > span { color: #939ca7; }
+.unit-review-chip.active {
+  border-color: rgba(79,124,255,.7);
+  background: #fff;
+  color: #1f2732;
+  box-shadow: 0 0 0 2px rgba(79,124,255,.11), 0 7px 16px rgba(46,76,145,.09);
+}
+.unit-review-chip:disabled { opacity: .45; cursor: default; }
+
+.unit-review-hint {
+  position: absolute;
+  right: 12px;
+  bottom: -19px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #9aa2ad;
+  font-size: 6.5px;
+  pointer-events: none;
+}
+.unit-review-hint kbd {
+  min-width: 15px;
+  height: 14px;
+  padding: 0 3px;
+  border: 1px solid rgba(50,59,74,.12);
+  border-radius: 4px;
+  background: rgba(255,255,255,.9);
+  color: #697381;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 7px;
+  box-shadow: 0 1px 2px rgba(30,38,54,.05);
+}
+
+.unit-review-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  padding: 42px;
+  display: grid;
+  place-items: center;
+  background: rgba(28,34,44,.34);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.unit-review-modal {
+  width: min(920px, 92vw);
+  max-height: min(760px, 88vh);
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.9);
+  border-radius: 22px;
+  background: rgba(249,251,254,.97);
+  box-shadow: 0 36px 110px rgba(22,29,42,.31), inset 0 1px 0 #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.unit-review-modal-head {
+  padding: 19px 20px 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid rgba(35,45,65,.07);
+}
+.unit-review-modal-head > div > span { color: #8d96a3; font-size: 7px; letter-spacing: .14em; }
+.unit-review-modal-head h3 { margin: 4px 0 3px; color: #222a35; font-size: 20px; letter-spacing: -.45px; }
+.unit-review-modal-head p { margin: 0; color: #8a939f; font-size: 8.5px; }
+.unit-review-modal-head > button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(35,45,65,.08);
+  border-radius: 10px;
+  background: #fff;
+  color: #78818d;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.unit-review-toolbar { padding: 12px 20px; display: grid; grid-template-columns: minmax(220px,1fr) auto; gap: 12px; align-items: center; }
+.unit-review-toolbar > label {
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid rgba(35,45,65,.09);
+  border-radius: 10px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.unit-review-toolbar > label > span { color: #98a0ab; }
+.unit-review-toolbar input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #303844; font-size: 9.5px; }
+
+.unit-review-filters { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.unit-review-filters button {
+  min-height: 31px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #7b8591;
+  font-size: 7.5px;
+  cursor: pointer;
+}
+.unit-review-filters button:hover { background: #fff; }
+.unit-review-filters button.active { border-color: rgba(79,124,255,.16); background: #edf2ff; color: #315fdd; }
+.unit-review-filters em { margin-left: 3px; font-style: normal; opacity: .72; }
+
+.unit-review-grid {
+  min-height: 180px;
+  padding: 2px 20px 20px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  overflow: auto;
+}
+.unit-review-card {
+  position: relative;
+  min-width: 0;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid rgba(35,45,65,.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,.82);
+  color: #4b5562;
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  cursor: pointer;
+}
+.unit-review-card:hover:not(:disabled) { border-color: rgba(79,124,255,.28); background: #fff; box-shadow: 0 8px 20px rgba(38,52,80,.07); }
+.unit-review-card.active { border-color: rgba(79,124,255,.78); box-shadow: 0 0 0 2px rgba(79,124,255,.10); }
+.unit-review-card > div { display: flex; align-items: center; gap: 6px; }
+.unit-review-card i { width: 6px; height: 6px; border-radius: 50%; background: #a4abb4; }
+.unit-review-card.ready i { background: #34c981; }
+.unit-review-card.review i { background: #e2a93b; }
+.unit-review-card.not-found i { background: #d94343; }
+.unit-review-card strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #2b333e; font-size: 9.5px; }
+.unit-review-card > span { color: #6f7985; font-size: 8px; }
+.unit-review-card > em { color: #9aa2ad; font-size: 7px; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unit-review-card:disabled { opacity: .45; cursor: default; }
+.unit-review-empty { grid-column: 1/-1; min-height: 180px; display: grid; place-items: center; color: #9aa2ad; font-size: 9px; }
+
+.unit-review-modal-foot {
+  min-height: 43px;
+  padding: 0 20px;
+  border-top: 1px solid rgba(35,45,65,.07);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #7f8894;
+  font-size: 7.5px;
+}
+.unit-review-modal-foot b { margin-right: 3px; }
+
+/* Keep the existing Focus control reachable without colliding with the review bar. */
+.focus-orb { bottom: 122px !important; }
+
+@media (max-width: 1280px) {
+  .unit-review-shell { left: 310px; right: 20px; }
+  .unit-review-mini-summary { display: none; }
+  .unit-review-topline { grid-template-columns: auto minmax(132px,auto) auto 1fr auto; }
+  .unit-review-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+}
+
+@media (max-width: 980px) {
+  .unit-review-shell { left: 16px; right: 16px; bottom: 12px; }
+  .unit-review-topline { grid-template-columns: auto minmax(128px,1fr) auto auto; }
+  .unit-review-mini-summary { display: none; }
+  .unit-review-step strong { display: none; }
+  .unit-review-all > strong { display: none; }
+  .unit-review-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .focus-orb { bottom: 116px !important; }
+}
+
+@media (max-width: 640px) {
+  .unit-review-shell { padding: 8px; border-radius: 15px; }
+  .unit-review-current > span { display: none; }
+  .unit-review-current { min-width: 0; }
+  .unit-review-filmstrip { gap: 4px; }
+  .unit-review-chip { min-width: 80px; }
+  .unit-review-modal-backdrop { padding: 12px; }
+  .unit-review-modal { width: 100%; max-height: 92vh; }
+  .unit-review-toolbar { grid-template-columns: 1fr; }
+  .unit-review-filters { justify-content: flex-start; }
+  .unit-review-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
