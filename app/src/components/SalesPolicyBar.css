@@ -2,12 +2,12 @@
   position: absolute;
   left: 26px;
   right: 26px;
-  bottom: 24px;
+  bottom: 36px;
   z-index: 12;
-  height: 138px;
+  height: 116px;
   display: grid;
-  grid-template-columns: 1.42fr 1fr 1fr 1.05fr;
-  gap: 10px;
+  grid-template-columns: 1.465fr 1fr 1fr 1fr;
+  gap: 12px;
   font-family: var(--plotflow-brand-font, Arial, Helvetica, sans-serif);
   color: #fff;
 }
@@ -16,28 +16,25 @@
   min-width: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: 38px minmax(0, 1fr);
+  grid-template-rows: 34px minmax(0, 1fr);
   overflow: hidden;
-  border: 1.35px solid rgba(255, 247, 238, .78);
-  border-radius: 8px;
-  background: linear-gradient(180deg, #1f796d 0%, #0c675d 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.10),
-    0 4px 11px rgba(8,40,38,.10);
+  border: 1px solid rgba(239, 222, 207, .9);
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(10, 116, 91, .97) 0%, rgba(5, 91, 72, .98) 100%);
+  box-shadow: none;
 }
 
 .sales-policy-cap {
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 7px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid rgba(69, 58, 43, .10);
-  background: linear-gradient(180deg, #fff4e9 0%, #f8e6d7 100%);
-  color: #2e453f;
-  font-size: 17px;
+  background: #f5e8de;
+  color: #284e46;
+  font-size: 15px;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 800;
   letter-spacing: -.35px;
   text-align: center;
   white-space: nowrap;
@@ -52,21 +49,22 @@
 .sales-policy-loan-option {
   min-width: 0;
   display: grid;
-  grid-template-rows: 27px minmax(0, 1fr);
+  grid-template-rows: 24px minmax(0, 1fr);
   align-items: center;
   justify-items: center;
 }
 
 .sales-policy-loan-option + .sales-policy-loan-option {
-  border-left: 1px solid rgba(255, 247, 238, .64);
+  border-left: 1px solid rgba(235, 220, 207, .62);
 }
 
 .sales-policy-loan-option > span {
   align-self: end;
-  color: rgba(255,255,255,.96);
-  font-size: 13px;
+  color: #fff;
+  font-size: 12px;
   line-height: 1;
-  font-weight: 850;
+  font-weight: 800;
+  letter-spacing: -.1px;
 }
 
 .sales-policy-discount,
@@ -81,11 +79,11 @@
 
 .sales-policy-discount small,
 .sales-policy-big-metric small {
-  margin: 0 5px 7px 0;
-  color: rgba(255,255,255,.88);
-  font-size: 8px;
+  margin: 0 5px 5px 0;
+  color: #fff;
+  font-size: 7px;
   line-height: .92;
-  font-weight: 750;
+  font-weight: 650;
   text-align: center;
 }
 
@@ -93,58 +91,59 @@
 .sales-policy-big-metric strong,
 .sales-policy-gift-value strong {
   color: #fff;
-  font-size: 55px;
-  line-height: .78;
+  font-size: 50px;
+  line-height: .8;
   font-weight: 900;
-  letter-spacing: -2.2px;
-  text-shadow: 0 1px 0 rgba(0,0,0,.08);
+  letter-spacing: -2.3px;
+  text-shadow: none;
 }
 
 .sales-policy-discount b,
 .sales-policy-big-metric b {
-  margin: 0 0 5px 2px;
-  color: #fff;
-  font-size: 27px;
+  margin: 0 0 3px 2px;
+  color: #f3d5c1;
+  font-size: 24px;
   line-height: 1;
   font-weight: 900;
 }
 
 .sales-policy-metric-card .sales-policy-big-metric {
-  padding-bottom: 11px;
+  padding-bottom: 9px;
 }
 
 .sales-policy-metric-card .sales-policy-big-metric small {
-  margin-right: 7px;
-  margin-bottom: 8px;
-  font-size: 8px;
+  margin-right: 5px;
+  margin-bottom: 5px;
+  font-size: 7px;
 }
 
 .sales-policy-metric-card .sales-policy-big-metric strong {
-  font-size: 62px;
+  font-size: 55px;
 }
 
 .sales-policy-metric-card .sales-policy-big-metric b {
-  margin-bottom: 5px;
-  font-size: 29px;
+  margin-bottom: 3px;
+  font-size: 25px;
 }
 
 .sales-policy-cap-gift {
   display: grid;
   place-content: center;
-  gap: 1px;
+  gap: 0;
   white-space: normal;
 }
 
 .sales-policy-cap-gift span {
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1;
+  font-weight: 800;
 }
 
 .sales-policy-cap-gift small {
-  color: #5c625c;
-  font-size: 8px;
+  color: #3b514b;
+  font-size: 7px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 750;
 }
 
 .sales-policy-gift-value {
@@ -152,17 +151,21 @@
   align-items: flex-end;
   justify-content: center;
   min-width: 0;
-  padding-bottom: 13px;
+  padding-bottom: 10px;
 }
 
 .sales-policy-gift-value strong {
-  font-size: 62px;
+  color: #fff;
+  font-size: 57px;
+  line-height: .8;
+  font-weight: 900;
+  letter-spacing: -2.3px;
 }
 
 .sales-policy-gift-value b {
-  margin: 0 0 4px 3px;
-  color: #fff;
-  font-size: 18px;
+  margin: 0 0 3px 4px;
+  color: #f3d5c1;
+  font-size: 17px;
   line-height: 1;
   font-weight: 900;
 }
