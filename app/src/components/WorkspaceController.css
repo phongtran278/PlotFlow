@@ -119,6 +119,8 @@ body.workspace-panel-collapsed .component-stage:not(.layout-studio-mode):not(.fi
 body.workspace-panel-collapsed .design-assignment-dock { display: none !important; }
 
 /* Hand tool */
+body.workspace-hand-tool .component-canvas,
+body.workspace-hand-tool .studio-canvas-scroll,
 body.workspace-space-hand .component-canvas,
 body.workspace-grabbing .component-canvas,
 body.workspace-space-hand .studio-canvas-scroll,
