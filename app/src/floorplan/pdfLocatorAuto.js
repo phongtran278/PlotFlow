@@ -4,11 +4,16 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
+const PREVIEW_RENDER_MAX_WIDTH = 760;
 export const FLOORPLAN_ZOOM_MIN = 50;
 export const FLOORPLAN_ZOOM_MAX = 2000;
 export const FLOORPLAN_FRAME_WIDTH = 506;
 export const FLOORPLAN_FRAME_HEIGHT = 390;
 export const FLOORPLAN_FRAME_ASPECT = FLOORPLAN_FRAME_WIDTH / FLOORPLAN_FRAME_HEIGHT;
+
+function yieldToBrowser() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 export function normalizeUnitCode(value) {
   return String(value || "")
@@ -92,6 +97,7 @@ export async function buildFloorplanIndex(pdfDoc, onProgress) {
     }
 
     onProgress?.({ pageNumber, totalPages: pdfDoc.numPages, textItems, codes: Object.keys(index).length });
+    if (pageNumber < pdfDoc.numPages) await yieldToBrowser();
   }
 
   return index;
@@ -195,9 +201,20 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
   if (!pdfDoc || !pageRender) throw new Error("Thiếu PDF source để render vector HQ.");
 
   const aspect = options.aspect || FLOORPLAN_FRAME_ASPECT;
-  const outputWidth = Math.max(480, Math.round(options.outputWidth || 1626));
+  const requestedOutputWidth = Math.max(480, Math.round(options.outputWidth || 1626));
+  const isScreenPreview = options.includeHighlight === false
+    && !options.maxRenderScale
+    && requestedOutputWidth <= 1084;
+  const outputWidth = isScreenPreview
+    ? Math.min(requestedOutputWidth, PREVIEW_RENDER_MAX_WIDTH)
+    : requestedOutputWidth;
   const outputHeight = Math.round(outputWidth / aspect);
   const crop = calculateCropRect(pageRender, view, aspect);
+
+  // Batch preview may contain dozens of units. Yield between renders so the UI
+  // remains responsive instead of locking the browser until every crop is done.
+  if (isScreenPreview) await yieldToBrowser();
+
   const page = await pdfDoc.getPage(pageRender.pageNumber);
   const cropWidthAtScale1 = crop.w / pageRender.scale;
   const requestedScale = outputWidth / cropWidthAtScale1;
