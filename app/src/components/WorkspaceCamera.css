@@ -1,0 +1,72 @@
+/* Free camera navigation for the normal PlotFlow preview.
+   The artboard is treated as one movable object inside a fixed viewport. */
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll {
+  position: relative !important;
+  overflow: hidden !important;
+  touch-action: none;
+  overscroll-behavior: none;
+  contain: layout paint;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-poster-viewport[data-workspace-camera="true"] {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  width: 1080px !important;
+  min-width: 1080px !important;
+  height: 1920px !important;
+  min-height: 1920px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  display: block !important;
+  transform:
+    translate3d(
+      calc(-50% + var(--workspace-pan-x, 0px)),
+      calc(-50% + var(--workspace-pan-y, 0px)),
+      0
+    )
+    scale(var(--workspace-zoom, .38)) !important;
+  transform-origin: center center !important;
+  will-change: transform;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-poster-viewport[data-workspace-camera="true"] > .poster-canvas {
+  width: 1080px !important;
+  height: 1920px !important;
+  transform: none !important;
+  transform-origin: center center !important;
+  margin: 0 !important;
+}
+
+body.workspace-hand-tool .component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-canvas-scroll,
+body.workspace-space-hand .component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-canvas-scroll {
+  cursor: grab !important;
+}
+
+body.workspace-grabbing .component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-canvas-scroll {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+/* Prevent the old responsive poster transforms from fighting the camera. */
+@media (max-width: 1700px) {
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-poster-viewport[data-workspace-camera="true"] > .poster-canvas {
+    transform: none !important;
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 1350px) {
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-poster-viewport[data-workspace-camera="true"] > .poster-canvas {
+    transform: none !important;
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-poster-viewport[data-workspace-camera="true"] > .poster-canvas {
+    transform: none !important;
+    margin: 0 !important;
+  }
+}
