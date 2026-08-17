@@ -1,0 +1,86 @@
+.pin-scale-control-host { display: block; }
+
+.pin-scale-control {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(35,45,65,.07);
+  display: grid;
+  gap: 8px;
+}
+
+/* The old per-unit checkbox is replaced by a cleaner always-on control. */
+.design-assignment-dock .pin-toggle { display: none !important; }
+
+.pin-scale-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pin-scale-head > div { display: grid; gap: 2px; }
+.pin-scale-head span { color: #9199a5; font-size: 8px; letter-spacing: .11em; }
+.pin-scale-head strong { color: #26835a; font-size: 9px; font-weight: 780; }
+.pin-scale-head button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid rgba(79,124,255,.15);
+  border-radius: 8px;
+  background: rgba(79,124,255,.07);
+  color: #365faf;
+  font-size: 8px;
+  font-weight: 740;
+  cursor: pointer;
+}
+
+.pin-scale-row { display: grid; gap: 6px; }
+.pin-scale-row > label {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid rgba(35,45,65,.07);
+  border-radius: 9px;
+  background: rgba(255,255,255,.75);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pin-scale-row > label > span { color: #68717d; font-size: 8px; font-weight: 700; }
+.pin-scale-row > label > div { display: flex; align-items: center; gap: 2px; }
+.pin-scale-row input {
+  width: 52px;
+  height: 27px;
+  padding: 0 6px;
+  border: 1px solid #dfe4eb;
+  border-radius: 7px;
+  outline: 0;
+  background: #fff;
+  color: #303844;
+  text-align: right;
+  font-size: 9px;
+  font-weight: 780;
+}
+.pin-scale-row b { color: #8e96a1; font-size: 8px; }
+
+.pin-scale-presets { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; }
+.pin-scale-presets button {
+  min-height: 28px;
+  border: 1px solid rgba(35,45,65,.08);
+  border-radius: 7px;
+  background: rgba(255,255,255,.8);
+  color: #737d89;
+  font-size: 7.5px;
+  cursor: pointer;
+}
+.pin-scale-presets button.active { border-color: rgba(79,124,255,.28); background: #edf2ff; color: #315fdd; font-weight: 780; }
+
+.pin-apply-all {
+  min-height: 32px;
+  border: 1px solid rgba(35,45,65,.09);
+  border-radius: 8px;
+  background: #222831;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 760;
+  cursor: pointer;
+}
+.pin-scale-control p { margin: 0; color: #959da7; font-size: 7px; line-height: 1.4; }
