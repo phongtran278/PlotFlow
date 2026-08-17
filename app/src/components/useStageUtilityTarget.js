@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "./StageUtility.css";
 
 const TARGET_CLASS = "stage-utility-tools";
 
