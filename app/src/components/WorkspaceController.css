@@ -1,0 +1,147 @@
+/* Photoshop-lite artwork workspace */
+.workspace-controls-host {
+  order: -1;
+  display: flex;
+  align-items: center;
+}
+
+.workspace-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid rgba(35,45,65,.08);
+  border-radius: 11px;
+  background: rgba(255,255,255,.76);
+  box-shadow: 0 5px 16px rgba(42,55,82,.06);
+  backdrop-filter: blur(14px);
+}
+
+.workspace-controls button,
+.workspace-zoom-field {
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #5f6976;
+  font-size: 9px;
+  font-weight: 760;
+}
+
+.workspace-controls button { padding: 0 8px; cursor: pointer; }
+.workspace-controls button:hover { background: #fff; border-color: rgba(35,45,65,.08); }
+.workspace-tool-toggle { display: flex; gap: 2px; padding-right: 4px; border-right: 1px solid rgba(35,45,65,.08); }
+.workspace-tool-toggle button { width: 30px; padding: 0; font-size: 13px; }
+.workspace-tool-toggle button.active { background: #222831; color: #fff; }
+.workspace-fit { min-width: 36px; }
+.workspace-zoom-step { width: 28px; padding: 0 !important; font-size: 14px !important; }
+.workspace-100 { min-width: 45px; }
+.workspace-panel-toggle { margin-left: 2px; border-left-color: rgba(35,45,65,.08) !important; }
+.workspace-panel-toggle.active { background: #edf2ff !important; color: #315fdd !important; }
+
+.workspace-zoom-field {
+  min-width: 56px;
+  padding: 0 7px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #fff;
+  border-color: rgba(35,45,65,.08);
+}
+.workspace-zoom-field input {
+  width: 34px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #303844;
+  text-align: right;
+  font-size: 9px;
+  font-weight: 780;
+  appearance: textfield;
+}
+.workspace-zoom-field input::-webkit-inner-spin-button,
+.workspace-zoom-field input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.workspace-zoom-field span { color: #8b94a0; font-size: 8px; }
+
+/* Replace the older preview zoom group with the unified workspace toolbar. */
+.preview-zoom-controls { display: none !important; }
+
+/* Give the artwork a real viewport instead of an endlessly growing page. */
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas {
+  height: calc(100vh - 116px);
+  min-height: 620px;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 292px;
+  gap: 16px;
+  align-items: start;
+  justify-content: stretch;
+  overflow: hidden;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas > .layout-studio {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-center,
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: 17px;
+  background: radial-gradient(circle at 50% 24%, rgba(255,255,255,.92), rgba(232,236,242,.82) 72%);
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .design-assignment-dock {
+  position: sticky !important;
+  top: 0 !important;
+  right: auto !important;
+  grid-column: 2;
+  align-self: start;
+  width: 292px;
+  max-height: calc(100vh - 150px);
+  margin: 0;
+  z-index: 35;
+}
+
+body.workspace-panel-collapsed .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas {
+  grid-template-columns: minmax(0, 1fr);
+}
+body.workspace-panel-collapsed .design-assignment-dock { display: none !important; }
+
+/* Hand tool */
+body.workspace-space-hand .component-canvas,
+body.workspace-grabbing .component-canvas,
+body.workspace-space-hand .studio-canvas-scroll,
+body.workspace-grabbing .studio-canvas-scroll { cursor: grab !important; }
+body.workspace-grabbing .component-canvas,
+body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; user-select: none; }
+
+/* Ensure scaled poster has scrollable room at deep zoom levels. */
+.studio-poster-viewport[data-workspace-zoom] {
+  width: max(100%, calc(1080px * var(--studio-zoom)));
+  min-height: calc(1920px * var(--studio-zoom) + 40px);
+  padding: 20px;
+}
+
+@media (max-width: 1320px) {
+  .workspace-controls { gap: 3px; }
+  .workspace-100 { display: none; }
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas { grid-template-columns: minmax(0, 1fr) 260px; }
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .design-assignment-dock { width: 260px; }
+}
+
+@media (max-width: 1080px) {
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas { grid-template-columns: minmax(0, 1fr); }
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .design-assignment-dock { display: none !important; }
+  .workspace-panel-toggle { display: none; }
+}
