@@ -94,16 +94,18 @@ export default function WorkspaceController() {
     const onScroll = () => refreshNavigator();
     scroll.addEventListener("scroll", onScroll, { passive: true });
 
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(refreshNavigator) : null;
-    observer?.observe(scroll);
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(refreshNavigator) : null;
+    resizeObserver?.observe(scroll);
     const viewport = findViewport();
-    if (viewport) observer?.observe(viewport);
+    if (viewport) resizeObserver?.observe(viewport);
 
-    const timer = window.setInterval(refreshNavigator, 450);
+    const contentObserver = new MutationObserver(() => requestAnimationFrame(refreshNavigator));
+    contentObserver.observe(scroll, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+
     return () => {
       scroll.removeEventListener("scroll", onScroll);
-      observer?.disconnect();
-      window.clearInterval(timer);
+      resizeObserver?.disconnect();
+      contentObserver.disconnect();
     };
   }, [navigatorOpen]);
 
@@ -192,9 +194,11 @@ export default function WorkspaceController() {
         viewport.dataset.workspaceZoom = String(zoomRef.current);
       }
     }
+
     reapply();
-    const timer = window.setInterval(reapply, 350);
-    return () => window.clearInterval(timer);
+    const observer = new MutationObserver(() => requestAnimationFrame(reapply));
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
