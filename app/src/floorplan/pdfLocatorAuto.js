@@ -19,8 +19,6 @@ function yieldToBrowser() {
 
 function scheduleIdleRender() {
   if (typeof requestIdleCallback === "function") {
-    // Do not pass a timeout here. A timeout can force PDF raster work to run
-    // while the user is actively panning/zooming, which creates visible jank.
     return new Promise((resolve) => requestIdleCallback(() => resolve()));
   }
   return new Promise((resolve) => setTimeout(resolve, 40));
@@ -255,7 +253,7 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
   }
 
   const crop = calculateCropRect(pageRender, view, aspect);
-  if (isScreenPreview) await scheduleIdleRender();
+  if (isScreenPreview && options.deferToIdle === true) await scheduleIdleRender();
 
   const page = await pdfDoc.getPage(pageRender.pageNumber);
   const cropWidthAtScale1 = crop.w / pageRender.scale;
