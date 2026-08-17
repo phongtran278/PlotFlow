@@ -51,6 +51,20 @@ export default function QuickPinOverlay({ artboard, src, active, unitCode }) {
     setPin(readPinLayout(unitCode));
   }, [unitCode]);
 
+  useEffect(() => {
+    function sync(event) {
+      const eventCode = normalizeCode(event?.detail?.unitCode);
+      if (eventCode && eventCode !== normalizeCode(unitCode)) return;
+      setPin(event?.detail?.pin ? { ...readTemplatePin(), ...event.detail.pin } : readPinLayout(unitCode));
+    }
+    window.addEventListener("plotflow-unit-pin-updated", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("plotflow-unit-pin-updated", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [unitCode]);
+
   // The legacy template pin is hidden whenever the per-unit overlay is present.
   // This makes preview and export use the same saved per-unit placement.
   useEffect(() => {
@@ -158,7 +172,7 @@ export default function QuickPinOverlay({ artboard, src, active, unitCode }) {
             fontSize: 12,
             fontWeight: 700,
             pointerEvents: "none",
-          }}>Drag pin · zoom preview để đặt chính xác</div>
+          }}>Drag pin · scale % có thể chỉnh ở Design Assignment</div>
           <button
             type="button"
             aria-label="Resize 3D pin"
