@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import * as XLSX from "xlsx";
-import { toBlob } from "html-to-image";
-import JSZip from "jszip";
 
 import "./App.css";
 import PosterCanvas from "./components/PosterCanvas";
@@ -34,26 +31,42 @@ import {
 } from "./floorplan/pdfLocator";
 
 const PREVIEW_CACHE_LIMIT = 12;
+const PAGE_CACHE_LIMIT = 4;
+const DEFAULT_MASTER_PDF_URL = "/masterplan/masterplan.pdf";
+const DEFAULT_MASTER_PDF_LABEL = "Masterplan mặc định";
+const SHEET_HISTORY_KEY = "plotflow-sheet-history-r1";
 
-const demoUnits = [
-  {
-    unitCode: "AS76-08",
-    type: "LIỀN KỀ",
-    floors: 4,
-    handover: "GIÃN XÂY",
-    landArea: 50,
-    constructionArea: 148.1,
-    roadWidth: 13,
-    priceEarly: 5.037,
-    price18: 5.485,
-    price24: 5.665,
-    price30: 5.844,
-    houseModel: "TAN_CO_DIEN",
-    floorplan: "AS76_08",
-    amenity1: "AMENITY_1",
-    amenity2: "AMENITY_2",
-  },
-];
+const EMPTY_PREVIEW_UNIT = {
+  unitCode: "",
+  type: "",
+  floors: "",
+  handover: "",
+  landArea: "",
+  constructionArea: "",
+  roadWidth: "",
+  priceEarly: "",
+  price18: "",
+  price24: "",
+  price30: "",
+  price36: "",
+  houseModel: "",
+  floorplan: "",
+  amenity1: "",
+  amenity2: "",
+  architectureLabel: "",
+  logoVariant: "",
+  showHotDeal: "",
+  showEarlyMoveIn: "",
+};
+
+const EMPTY_ASSIGNMENT = {
+  houseId: null,
+  amenity1Id: null,
+  amenity2Id: null,
+  logoId: null,
+  badges: [],
+  pin3DVisible: false,
+};
 
 function normalizeRow(row) {
   return {
@@ -88,7 +101,8 @@ function normalizeRow(row) {
   };
 }
 
-function parseCSV(text) {
+async function parseCSV(text) {
+  const XLSX = await import("xlsx");
   const workbook = XLSX.read(text, { type: "string" });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   return XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map(normalizeRow).filter((unit) => unit.unitCode);
@@ -121,7 +135,8 @@ function truthy(value) {
 }
 
 function resolveDesignAssignment(unit, designAssignments) {
-  const code = normalizeUnitCode(unit?.unitCode);
+  if (!unit?.unitCode) return EMPTY_ASSIGNMENT;
+  const code = normalizeUnitCode(unit.unitCode);
   const saved = designAssignments[code] || {};
   const houseFromSheet = findCatalogAsset(houseCatalog, unit?.houseModel);
   const amenity1FromSheet = findCatalogAsset(amenityCatalog, unit?.amenity1);
@@ -133,17 +148,19 @@ function resolveDesignAssignment(unit, designAssignments) {
   ].filter(Boolean);
 
   return {
-    houseId: saved.houseId ?? houseFromSheet?.id ?? houseCatalog[0]?.id ?? null,
-    amenity1Id: saved.amenity1Id ?? amenity1FromSheet?.id ?? amenityCatalog[0]?.id ?? null,
-    amenity2Id: saved.amenity2Id ?? amenity2FromSheet?.id ?? amenityCatalog[1]?.id ?? amenityCatalog[0]?.id ?? null,
-    logoId: Object.prototype.hasOwnProperty.call(saved, "logoId") ? saved.logoId : (logoFromSheet?.id ?? "LOGO_WHITE"),
+    houseId: Object.prototype.hasOwnProperty.call(saved, "houseId") ? saved.houseId : (houseFromSheet?.id ?? null),
+    amenity1Id: Object.prototype.hasOwnProperty.call(saved, "amenity1Id") ? saved.amenity1Id : (amenity1FromSheet?.id ?? null),
+    amenity2Id: Object.prototype.hasOwnProperty.call(saved, "amenity2Id") ? saved.amenity2Id : (amenity2FromSheet?.id ?? null),
+    logoId: Object.prototype.hasOwnProperty.call(saved, "logoId") ? saved.logoId : (logoFromSheet?.id ?? null),
     badges: Object.prototype.hasOwnProperty.call(saved, "badges") ? saved.badges : sheetBadges,
     pin3DVisible: saved.pin3DVisible ?? false,
   };
 }
 
-function getAssetsForUnit(unit, floorplanImages = {}, assignment = {}) {
-  if (!unit) return { houseImage: null, floorplanImage: null, amenity1Image: null, amenity2Image: null, badges: [] };
+function getAssetsForUnit(unit, floorplanImages = {}, assignment = EMPTY_ASSIGNMENT) {
+  if (!unit?.unitCode) {
+    return { houseImage: null, floorplanImage: null, amenity1Image: null, amenity2Image: null, logoImage: null, badges: [], pin3D: null, pin2D: pinAssets.pin2D };
+  }
   const code = normalizeUnitCode(unit.unitCode);
   const house = houseCatalog.find((item) => item.id === assignment.houseId);
   const amenity1 = amenityCatalog.find((item) => item.id === assignment.amenity1Id);
@@ -151,10 +168,10 @@ function getAssetsForUnit(unit, floorplanImages = {}, assignment = {}) {
   const logo = logoCatalog.find((item) => item.id === assignment.logoId);
   const badges = (assignment.badges || []).map((id) => badgeCatalog.find((item) => item.id === id)).filter(Boolean);
   return {
-    houseImage: house?.src ?? assetLibrary.houses[unit.houseModel] ?? null,
-    floorplanImage: floorplanImages[code] ?? assetLibrary.floorplans[unit.floorplan] ?? null,
-    amenity1Image: amenity1?.src ?? assetLibrary.amenities[unit.amenity1] ?? null,
-    amenity2Image: amenity2?.src ?? assetLibrary.amenities[unit.amenity2] ?? null,
+    houseImage: house?.src ?? (unit.houseModel ? assetLibrary.houses[unit.houseModel] : null) ?? null,
+    floorplanImage: floorplanImages[code] ?? (unit.floorplan ? assetLibrary.floorplans[unit.floorplan] : null) ?? null,
+    amenity1Image: amenity1?.src ?? (unit.amenity1 ? assetLibrary.amenities[unit.amenity1] : null) ?? null,
+    amenity2Image: amenity2?.src ?? (unit.amenity2 ? assetLibrary.amenities[unit.amenity2] : null) ?? null,
     logoImage: logo?.src ?? null,
     badges,
     pin3D: assignment.pin3DVisible ? pinAssets.pin3D : null,
@@ -190,6 +207,7 @@ async function waitForImages(container) {
 }
 
 async function renderUnitToPngBlob(unit, floorplanImages, assignment, lotOverlay, exportScale = 1) {
+  const { toBlob } = await import("html-to-image");
   const exportHost = document.createElement("div");
   Object.assign(exportHost.style, {
     position: "fixed", left: "-100000px", top: "0", width: "1080px", height: "1920px",
@@ -249,16 +267,10 @@ function loadOverrides() {
   }
 }
 
-const SHEET_HISTORY_KEY = "plotflow-sheet-history-r1";
-const DEFAULT_MASTER_PDF_URL = "/masterplan/masterplan.pdf";
-const DEFAULT_MASTER_PDF_LABEL = "Masterplan mặc định";
-
 function loadSheetHistory() {
   try {
     const value = JSON.parse(localStorage.getItem(SHEET_HISTORY_KEY) || "[]");
     if (!Array.isArray(value)) return [];
-
-    // Migrate older history formats safely.
     return value
       .map((item) => {
         if (typeof item === "string") return { url: item, name: "", lastUsed: 0 };
@@ -270,24 +282,6 @@ function loadSheetHistory() {
   } catch {
     return [];
   }
-}
-
-function loadLastSheetUrl() {
-  const raw = localStorage.getItem("plotflow-last-sheet-url-r1") || "";
-  if (!raw || raw === "[object Object]") return "";
-
-  // Recover if an older build accidentally stored JSON instead of the URL.
-  if (raw.trim().startsWith("{")) {
-    try {
-      const parsed = JSON.parse(raw);
-      const candidate = String(parsed?.url || "").trim();
-      return /^https?:\/\//i.test(candidate) ? candidate : "";
-    } catch {
-      return "";
-    }
-  }
-
-  return /^https?:\/\//i.test(raw.trim()) ? raw.trim() : "";
 }
 
 function extractSheetId(url = "") {
@@ -307,13 +301,13 @@ function extractFilenameFromDisposition(value = "") {
 }
 
 function App() {
-  const [units, setUnits] = useState(demoUnits);
-  const [selectedUnitCode, setSelectedUnitCode] = useState(demoUnits[0].unitCode);
-  const [sheetUrl, setSheetUrl] = useState(loadLastSheetUrl);
+  const [units, setUnits] = useState([]);
+  const [selectedUnitCode, setSelectedUnitCode] = useState("");
+  const [sheetUrl, setSheetUrl] = useState("");
   const [sheetHistory, setSheetHistory] = useState(loadSheetHistory);
   const [connectedSheetUrl, setConnectedSheetUrl] = useState("");
-  const [connectionState, setConnectionState] = useState("demo");
-  const [message, setMessage] = useState("Đang dùng demo data.");
+  const [connectionState, setConnectionState] = useState("idle");
+  const [message, setMessage] = useState("Chưa kết nối dữ liệu. Hãy chọn Google Sheet hoặc Excel khi cần.");
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
@@ -335,10 +329,10 @@ function App() {
   const previewGenerationRef = useRef(0);
   const [locatorFileName, setLocatorFileName] = useState("");
   const [locatorSourceMode, setLocatorSourceMode] = useState("link");
-  const [locatorUrl, setLocatorUrl] = useState(() => localStorage.getItem("plotflow-master-pdf-url-v6") || "");
+  const [locatorUrl, setLocatorUrl] = useState("");
   const [connectedLocatorUrl, setConnectedLocatorUrl] = useState("");
   const [locatorState, setLocatorState] = useState("idle");
-  const [locatorMessage, setLocatorMessage] = useState("Đang kiểm tra masterplan mặc định trong project...");
+  const [locatorMessage, setLocatorMessage] = useState("Chưa kết nối masterplan. Chỉ index PDF khi bạn chủ động chọn.");
   const [locatorProgress, setLocatorProgress] = useState({ current: 0, total: 0, codes: 0 });
   const [floorplanIndex, setFloorplanIndex] = useState({});
   const [locatorResults, setLocatorResults] = useState({});
@@ -349,21 +343,21 @@ function App() {
   const [fineTuneLoading, setFineTuneLoading] = useState(false);
 
   const selectedUnit = useMemo(
-    () => units.find((unit) => unit.unitCode === selectedUnitCode) ?? units[0],
+    () => units.find((unit) => unit.unitCode === selectedUnitCode) ?? units[0] ?? null,
     [units, selectedUnitCode]
   );
-
   const selectedCode = normalizeUnitCode(selectedUnit?.unitCode);
-  const selectedLocator = locatorResults[selectedCode] || null;
+  const selectedLocator = selectedCode ? locatorResults[selectedCode] || null : null;
   const selectedAssignment = useMemo(
-    () => resolveDesignAssignment(selectedUnit, designAssignments),
+    () => selectedUnit ? resolveDesignAssignment(selectedUnit, designAssignments) : EMPTY_ASSIGNMENT,
     [selectedUnit, designAssignments]
   );
   const selectedAssets = useMemo(
-    () => getAssetsForUnit(selectedUnit, floorplanImages, selectedAssignment),
+    () => selectedUnit ? getAssetsForUnit(selectedUnit, floorplanImages, selectedAssignment) : getAssetsForUnit(null),
     [selectedUnit, floorplanImages, selectedAssignment]
   );
-  const selectedLotOverlay = lotOverlays[selectedCode] || null;
+  const selectedLotOverlay = selectedCode ? lotOverlays[selectedCode] || null : null;
+  const previewUnit = selectedUnit || EMPTY_PREVIEW_UNIT;
 
   const locatorSummary = useMemo(() => {
     const values = units.map((unit) => locatorResults[normalizeUnitCode(unit.unitCode)]).filter(Boolean);
@@ -381,31 +375,6 @@ function App() {
     style.textContent = `${buildBrandFontCss()}\n:root{--plotflow-brand-font:'${brandFont.family}',Arial,sans-serif;}`;
     document.head.appendChild(style);
     return () => style.remove();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadBundledMasterplan() {
-      if (cancelled) return;
-      // Do not place the internal project URL in the public Link field.
-      // It is loaded directly as the project's default PDF.
-      setLocatorMessage("Đang auto-load masterplan trong project...");
-      const ok = await indexMasterPdf(DEFAULT_MASTER_PDF_URL, DEFAULT_MASTER_PDF_LABEL, "local");
-
-      if (cancelled) return;
-      if (ok) {
-        setConnectedLocatorUrl(DEFAULT_MASTER_PDF_URL);
-        setLocatorFileName(DEFAULT_MASTER_PDF_LABEL);
-        setLocatorMessage((message) => `${message} · Auto-loaded`);
-      } else {
-        setConnectedLocatorUrl("");
-        setLocatorMessage("Chưa auto-load được masterplan mặc định. Hãy chạy Sync Assets hoặc dùng Upload PDF.");
-      }
-    }
-
-    const timer = setTimeout(loadBundledMasterplan, 160);
-    return () => { cancelled = true; clearTimeout(timer); };
   }, []);
 
   function fitPreview() {
@@ -506,7 +475,6 @@ function App() {
       .slice(0, 10);
     setSheetHistory(next);
     localStorage.setItem(SHEET_HISTORY_KEY, JSON.stringify(next));
-    localStorage.setItem("plotflow-last-sheet-url-r1", cleanUrl);
   }
 
   function renameSheetHistory(url) {
@@ -528,7 +496,7 @@ function App() {
   async function fetchSheetData(sourceUrl) {
     const response = await fetch(getGoogleSheetCSVUrl(sourceUrl), { cache: "no-store" });
     if (!response.ok) throw new Error(`Không tải được Google Sheet (${response.status}).`);
-    const importedUnits = parseCSV(await response.text());
+    const importedUnits = await parseCSV(await response.text());
     if (!importedUnits.length) throw new Error("Không tìm thấy căn hợp lệ trong Google Sheet.");
     const disposition = response.headers?.get?.("content-disposition") || "";
     const displayName = extractFilenameFromDisposition(disposition) || fallbackSheetName(sourceUrl);
@@ -570,6 +538,7 @@ function App() {
     if (!file) return;
     try {
       setConnectionState("loading"); setMessage("Đang đọc Excel...");
+      const XLSX = await import("xlsx");
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
       const importedUnits = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" }).map(normalizeRow).filter((u) => u.unitCode);
       if (!importedUnits.length) throw new Error("Không có căn hợp lệ trong Excel.");
@@ -583,11 +552,19 @@ function App() {
 
   async function getPageRender(match) {
     const key = `${match.pageNumber}`;
-    if (!pageCacheRef.current.has(key)) {
-      pageCacheRef.current.set(key, renderPdfPageBase(pdfDocRef.current, match.pageNumber));
+    if (pageCacheRef.current.has(key)) {
+      const cached = pageCacheRef.current.get(key);
+      pageCacheRef.current.delete(key);
+      pageCacheRef.current.set(key, cached);
+      return attachMatchToPageRender(await cached, match);
     }
-    const base = await pageCacheRef.current.get(key);
-    return attachMatchToPageRender(base, match);
+    while (pageCacheRef.current.size >= PAGE_CACHE_LIMIT) {
+      const oldest = pageCacheRef.current.keys().next().value;
+      pageCacheRef.current.delete(oldest);
+    }
+    const task = renderPdfPageBase(pdfDocRef.current, match.pageNumber);
+    pageCacheRef.current.set(key, task);
+    return attachMatchToPageRender(await task, match);
   }
 
   function floorplanPreviewSignature(code, result) {
@@ -603,13 +580,11 @@ function App() {
     const cache = previewCacheRef.current;
     cache.delete(code);
     cache.set(code, { signature, dataUrl });
-
     while (cache.size > PREVIEW_CACHE_LIMIT) {
       const oldest = Array.from(cache.keys()).find((key) => key !== selectedCode) || cache.keys().next().value;
       if (!oldest) break;
       cache.delete(oldest);
     }
-
     setFloorplanImages(Object.fromEntries(Array.from(cache.entries()).map(([key, value]) => [key, value.dataUrl])));
   }
 
@@ -617,7 +592,6 @@ function App() {
     if (!code || !pdfDocRef.current) return null;
     const result = results[code];
     if (!result?.matches?.length) return null;
-
     const signature = floorplanPreviewSignature(code, result);
     const cached = previewCacheRef.current.get(code);
     if (cached?.signature === signature) {
@@ -650,7 +624,10 @@ function App() {
   }
 
   useEffect(() => {
-    if (!pdfDocRef.current || !Object.keys(floorplanIndex).length) return;
+    if (!pdfDocRef.current || !Object.keys(floorplanIndex).length || !units.length) {
+      if (!units.length) setLocatorResults({});
+      return;
+    }
     const nextResults = resolveUnitsAgainstIndex(units, floorplanIndex);
     previewGenerationRef.current += 1;
     previewCacheRef.current.clear();
@@ -670,22 +647,18 @@ function App() {
         if (cancelled) return;
         const selectedIndex = units.findIndex((unit) => normalizeUnitCode(unit.unitCode) === selectedCode);
         if (selectedIndex < 0) return;
-        const preloadCodes = [1, 2]
-          .map((offset) => units[selectedIndex + offset])
-          .filter(Boolean)
-          .map((unit) => normalizeUnitCode(unit.unitCode));
-
+        const nextUnit = units[selectedIndex + 1];
+        if (!nextUnit) return;
+        const preloadCode = normalizeUnitCode(nextUnit.unitCode);
         const preload = async () => {
-          for (const code of preloadCodes) {
-            if (cancelled) return;
-            try { await renderFloorplanPreview(code, locatorResults); } catch (error) { console.debug("Preview preload skipped", error); }
-          }
+          if (cancelled) return;
+          try { await renderFloorplanPreview(preloadCode, locatorResults); } catch (error) { console.debug("Preview preload skipped", error); }
         };
 
         if (typeof requestIdleCallback === "function") {
-          idleId = requestIdleCallback(() => preload(), { timeout: 900 });
+          idleId = requestIdleCallback(() => preload());
         } else {
-          timerId = setTimeout(preload, 180);
+          timerId = setTimeout(preload, 500);
         }
       })
       .catch((error) => {
@@ -704,7 +677,7 @@ function App() {
     try {
       setLocatorState("indexing");
       setLocatorFileName(sourceLabel);
-      setLocatorMessage(sourceType === "link" ? "Đang kết nối PDF từ link..." : sourceType === "local" ? "Đang auto-load masterplan trong project..." : "Đang đọc text vector trong PDF...");
+      setLocatorMessage(sourceType === "link" ? "Đang kết nối PDF từ link..." : sourceType === "local" ? "Đang mở masterplan mặc định..." : "Đang đọc text vector trong PDF...");
       pageCacheRef.current.clear();
       previewGenerationRef.current += 1;
       previewCacheRef.current.clear();
@@ -715,7 +688,6 @@ function App() {
 
       const pdfDoc = await openVectorPdf(source);
       pdfDocRef.current = pdfDoc;
-
       setLocatorProgress({ current: 0, total: pdfDoc.numPages, codes: 0 });
       setLocatorMessage(`PDF connected · ${pdfDoc.numPages} pages · đang index text...`);
 
@@ -732,20 +704,26 @@ function App() {
       console.error(error);
       pdfDocRef.current = null;
       setLocatorState("error");
-
       const rawMessage = String(error?.message || "");
       const linkHint = sourceType === "link"
         ? " Link có thể bị giới hạn quyền truy cập/CORS. Hãy thử link public/direct PDF hoặc Upload PDF."
         : "";
-
       setLocatorMessage(`${rawMessage || "Không đọc được PDF vector."}${linkHint}`);
       return false;
     }
   }
 
+  async function connectBundledMasterplan() {
+    if (locatorState === "indexing") return;
+    const ok = await indexMasterPdf(DEFAULT_MASTER_PDF_URL, DEFAULT_MASTER_PDF_LABEL, "local");
+    if (ok) {
+      setConnectedLocatorUrl(DEFAULT_MASTER_PDF_URL);
+      setLocatorFileName(DEFAULT_MASTER_PDF_LABEL);
+    }
+  }
+
   async function connectMasterPdfLink() {
     if (!locatorUrl.trim() || locatorState === "indexing") return;
-
     try {
       const resolved = resolvePdfSourceUrl(locatorUrl);
       const label = (() => {
@@ -756,12 +734,10 @@ function App() {
           return "Linked Master PDF";
         }
       })();
-
       const ok = await indexMasterPdf(resolved, label, "link");
       if (ok) {
         setConnectedLocatorUrl(locatorUrl.trim());
         setLocatorFileName(label);
-        localStorage.setItem("plotflow-master-pdf-url-v6", locatorUrl.trim());
       }
     } catch (error) {
       setLocatorState("error");
@@ -772,7 +748,6 @@ function App() {
   async function handleMasterPdf(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-
     setConnectedLocatorUrl("");
     await indexMasterPdf(file, file.name, "upload");
     event.target.value = "";
@@ -838,7 +813,6 @@ function App() {
     const code = normalizeUnitCode(unit?.unitCode);
     const result = locatorResults[code];
     if (!result?.matches?.length) return floorplanImages;
-
     const override = overrides[code];
     const index = Math.min(override?.selectedMatchIndex ?? result.selectedMatchIndex ?? 0, result.matches.length - 1);
     const match = result.matches[index];
@@ -870,13 +844,7 @@ function App() {
       setIsExporting(true); setIsLayoutEditing(false); setExportProgress({ current: 1, total: 1 });
       setExportMessage(`Đang xuất ${selectedUnit.unitCode}...`);
       const exportFloorplans = await floorplanImagesForExport(selectedUnit, exportScale);
-      const blob = await renderUnitToPngBlob(
-        selectedUnit,
-        exportFloorplans,
-        selectedAssignment,
-        selectedLotOverlay,
-        exportScale
-      );
+      const blob = await renderUnitToPngBlob(selectedUnit, exportFloorplans, selectedAssignment, selectedLotOverlay, exportScale);
       downloadBlob(blob, `${selectedUnit.unitCode}.png`);
       setExportMessage(`Đã xuất ${selectedUnit.unitCode}.png`);
     } catch (error) { setExportMessage(error.message || "Xuất PNG thất bại."); }
@@ -887,6 +855,7 @@ function App() {
     if (!units.length || isExporting) return;
     try {
       setIsExporting(true); setIsLayoutEditing(false); setExportProgress({ current: 0, total: units.length });
+      const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       for (let index = 0; index < units.length; index += 1) {
         const unit = units[index];
@@ -895,10 +864,7 @@ function App() {
         const code = normalizeUnitCode(unit.unitCode);
         const assignment = resolveDesignAssignment(unit, designAssignments);
         const exportFloorplans = await floorplanImagesForExport(unit, exportScale);
-        zip.file(
-          `${unit.unitCode}.png`,
-          await renderUnitToPngBlob(unit, exportFloorplans, assignment, lotOverlays[code], exportScale)
-        );
+        zip.file(`${unit.unitCode}.png`, await renderUnitToPngBlob(unit, exportFloorplans, assignment, lotOverlays[code], exportScale));
       }
       setExportMessage("Đang đóng gói ZIP...");
       const zipBlob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
@@ -911,6 +877,7 @@ function App() {
   const fineTuneUnit = fineTuneUnitCode ? units.find((unit) => normalizeUnitCode(unit.unitCode) === fineTuneUnitCode) : null;
   const fineTuneResult = fineTuneUnitCode ? locatorResults[fineTuneUnitCode] : null;
   const fineTuneInitialView = fineTuneUnitCode ? overrides[fineTuneUnitCode]?.view || DEFAULT_FLOORPLAN_VIEW : DEFAULT_FLOORPLAN_VIEW;
+  const connectionLabel = connectionState === "connected" ? "Connected" : connectionState === "loading" ? "Loading" : connectionState === "error" ? "Error" : connectionState === "excel" ? "Excel" : "Waiting";
 
   return (
     <div className="plotflow-shell">
@@ -938,7 +905,7 @@ function App() {
           <button type="button" onClick={() => connectGoogleSheet()} disabled={connectionState === "loading" || isExporting}>{connectionState === "loading" ? "Loading..." : "Connect Sheet"}</button>
           <button type="button" className="refresh-button" onClick={refreshGoogleSheet} disabled={connectionState === "loading" || !connectedSheetUrl || isExporting}>↻ Refresh Data</button>
           <div className={`connection-status ${connectionState}`}>
-            <div className="status-line"><span className="status-dot" /><strong>{connectionState === "connected" ? "Connected" : connectionState === "loading" ? "Loading" : connectionState === "error" ? "Error" : connectionState === "excel" ? "Excel" : "Demo"}</strong></div>
+            <div className="status-line"><span className="status-dot" /><strong>{connectionLabel}</strong></div>
             <p>{message}</p>{lastUpdated && <small>Last updated: {formatTime(lastUpdated)}</small>}
           </div>
         </div>
@@ -947,10 +914,8 @@ function App() {
         <label className={`excel-import-button ${isExporting ? "disabled" : ""}`}>Import Excel<input type="file" accept=".xlsx,.xls" onChange={handleExcelImport} disabled={isExporting} hidden /></label>
 
         <div className="locator-card">
-          <div className="unit-list-header"><span>FLOORPLAN LOCATOR</span><strong>V1.3 · AUTO</strong></div>
-          {connectedLocatorUrl === DEFAULT_MASTER_PDF_URL && (
-            <div className="masterplan-auto-note"><strong>✓ Masterplan mặc định</strong><span>Tự load từ project · chỉ Upload khi cần thay file.</span></div>
-          )}
+          <div className="unit-list-header"><span>FLOORPLAN LOCATOR</span><strong>ON DEMAND</strong></div>
+          <button type="button" className="review-issues-button" onClick={connectBundledMasterplan} disabled={locatorState === "indexing"}>{locatorState === "indexing" ? "Indexing..." : "Use Bundled Masterplan"}</button>
 
           <div className="pdf-source-tabs">
             <button type="button" className={locatorSourceMode === "link" ? "active" : ""} onClick={() => setLocatorSourceMode("link")} disabled={locatorState === "indexing"}>Link</button>
@@ -960,8 +925,8 @@ function App() {
           {locatorSourceMode === "link" ? (
             <div className="pdf-link-connect">
               <input type="url" value={locatorUrl} onChange={(e) => setLocatorUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") connectMasterPdfLink(); }} placeholder="Paste direct/public PDF link..." disabled={locatorState === "indexing"} />
-              <button type="button" onClick={connectMasterPdfLink} disabled={!locatorUrl.trim() || locatorState === "indexing"}>{locatorState === "indexing" ? "Indexing..." : connectedLocatorUrl ? "Reconnect & Index" : "Connect & Index"}</button>
-              <small>Google Drive share link được tự chuyển sang file URL khi có thể.</small>
+              <button type="button" onClick={connectMasterPdfLink} disabled={!locatorUrl.trim() || locatorState === "indexing"}>{locatorState === "indexing" ? "Indexing..." : connectedLocatorUrl && connectedLocatorUrl !== DEFAULT_MASTER_PDF_URL ? "Reconnect & Index" : "Connect & Index"}</button>
+              <small>Không tự tải PDF khi mở app để giữ startup nhẹ.</small>
             </div>
           ) : (
             <label className={`master-pdf-button ${locatorState === "indexing" ? "disabled" : ""}`}>
@@ -972,11 +937,8 @@ function App() {
 
           {locatorFileName && (
             <div className="locator-file">
-              <div>
-                <strong>{locatorFileName}</strong>
-                <span>{connectedLocatorUrl === DEFAULT_MASTER_PDF_URL ? "Bundled PDF · Auto-load · Text Anchor Mode" : connectedLocatorUrl ? "Linked PDF · Text Anchor Mode" : "Uploaded PDF · Text Anchor Mode"}</span>
-              </div>
-              <em>{connectedLocatorUrl === DEFAULT_MASTER_PDF_URL ? "AUTO" : connectedLocatorUrl ? "LINK" : "FILE"}</em>
+              <div><strong>{locatorFileName}</strong><span>{connectedLocatorUrl === DEFAULT_MASTER_PDF_URL ? "Bundled PDF · On demand" : connectedLocatorUrl ? "Linked PDF · Text Anchor Mode" : "Uploaded PDF · Text Anchor Mode"}</span></div>
+              <em>{connectedLocatorUrl === DEFAULT_MASTER_PDF_URL ? "LOCAL" : connectedLocatorUrl ? "LINK" : "FILE"}</em>
             </div>
           )}
 
@@ -1008,6 +970,7 @@ function App() {
 
         <div className="unit-list-header"><span>UNITS</span><strong>{units.length}</strong></div>
         <div className="unit-selector">
+          {!units.length && <div className="locator-status idle"><span>Chưa có unit · Connect Sheet hoặc Import Excel.</span></div>}
           {units.map((unit) => {
             const code = normalizeUnitCode(unit.unitCode);
             const result = locatorResults[code];
@@ -1034,7 +997,7 @@ function App() {
             <header className="stage-header">
               <div><span>{isLayoutEditing ? "LAYOUT CALIBRATION" : "COMPONENT PREVIEW"}</span><h2>{isLayoutEditing ? "Edit Layout" : "PlotFlow Preview"}</h2></div>
               <div className="stage-actions">
-                <strong>{selectedUnit?.unitCode}</strong>
+                <strong>{selectedUnit?.unitCode || "NO DATA"}</strong>
                 {!isLayoutEditing && (
                   <div className="preview-zoom-controls">
                     <button type="button" onClick={fitPreview}>Fit</button>
@@ -1050,29 +1013,36 @@ function App() {
               </div>
             </header>
             <div ref={componentCanvasRef} className="component-canvas round1-canvas">
-              {selectedUnit ? (
-                <>
-                  <PosterCanvas unit={selectedUnit} assets={selectedAssets} isEditing={isLayoutEditing} floorplanStatus={selectedLocator?.status} onEditFloorplan={selectedLocator?.matches?.length ? () => openFineTune() : null} onEditLot={selectedLocator?.matches?.length ? () => openLotEditor() : null} onChooseAsset={(type) => setAssetPickerType(type)} lotOverlay={selectedLotOverlay?.stale ? null : selectedLotOverlay} previewZoom={previewZoom} />
+              <PosterCanvas
+                unit={previewUnit}
+                assets={selectedAssets}
+                isEditing={isLayoutEditing}
+                placeholderMode={!selectedUnit}
+                floorplanStatus={selectedLocator?.status}
+                onEditFloorplan={selectedLocator?.matches?.length ? () => openFineTune() : null}
+                onEditLot={selectedLocator?.matches?.length ? () => openLotEditor() : null}
+                onChooseAsset={selectedUnit ? (type) => setAssetPickerType(type) : null}
+                lotOverlay={selectedLotOverlay?.stale ? null : selectedLotOverlay}
+                previewZoom={previewZoom}
+              />
 
-                  {!isLayoutEditing && (
-                    <aside className="design-assignment-dock">
-                      <div className="dock-heading"><span>DESIGN ASSIGNMENT</span><strong>{selectedUnit.unitCode}</strong></div>
-                      <AssetChip label="House" asset={houseCatalog.find((item) => item.id === selectedAssignment.houseId)} onClick={() => setAssetPickerType("house")} />
-                      <AssetChip label="Amenity 01" asset={amenityCatalog.find((item) => item.id === selectedAssignment.amenity1Id)} onClick={() => setAssetPickerType("amenity1")} />
-                      <AssetChip label="Amenity 02" asset={amenityCatalog.find((item) => item.id === selectedAssignment.amenity2Id)} onClick={() => setAssetPickerType("amenity2")} />
-                      <AssetChip label="Logo" asset={logoCatalog.find((item) => item.id === selectedAssignment.logoId)} onClick={() => setAssetPickerType("logo")} emptyLabel="No logo" />
-                      <div className="dock-badges">
-                        <span>BADGES</span>
-                        <button type="button" className={selectedAssignment.badges.includes("BADGE_HOT_DEAL") ? "active" : ""} onClick={() => toggleBadge("BADGE_HOT_DEAL")}>Hot Deal</button>
-                        <button type="button" className={selectedAssignment.badges.includes("BADGE_VE_O_SOM") ? "active" : ""} onClick={() => toggleBadge("BADGE_VE_O_SOM")}>Về ở sớm</button>
-                      </div>
-                      <label className="pin-toggle"><input type="checkbox" checked={selectedAssignment.pin3DVisible} onChange={(e) => patchSelectedAssignment({ pin3DVisible: e.target.checked })} /><span>Show 3D Pin</span></label>
-                      <button type="button" className="dock-layout-button" onClick={() => setIsLayoutEditing(true)}>⌘ Position in Edit Layout</button>
-                      {selectedLotOverlay?.stale && <div className="dock-warning">△ Floorplan view đã đổi · highlight cần review lại.</div>}
-                    </aside>
-                  )}
-                </>
-              ) : <p>Chưa có dữ liệu căn.</p>}
+              {selectedUnit && !isLayoutEditing && (
+                <aside className="design-assignment-dock">
+                  <div className="dock-heading"><span>DESIGN ASSIGNMENT</span><strong>{selectedUnit.unitCode}</strong></div>
+                  <AssetChip label="House" asset={houseCatalog.find((item) => item.id === selectedAssignment.houseId)} onClick={() => setAssetPickerType("house")} emptyLabel="Choose house" />
+                  <AssetChip label="Amenity 01" asset={amenityCatalog.find((item) => item.id === selectedAssignment.amenity1Id)} onClick={() => setAssetPickerType("amenity1")} emptyLabel="Choose amenity" />
+                  <AssetChip label="Amenity 02" asset={amenityCatalog.find((item) => item.id === selectedAssignment.amenity2Id)} onClick={() => setAssetPickerType("amenity2")} emptyLabel="Choose amenity" />
+                  <AssetChip label="Logo" asset={logoCatalog.find((item) => item.id === selectedAssignment.logoId)} onClick={() => setAssetPickerType("logo")} emptyLabel="No logo" />
+                  <div className="dock-badges">
+                    <span>BADGES</span>
+                    <button type="button" className={selectedAssignment.badges.includes("BADGE_HOT_DEAL") ? "active" : ""} onClick={() => toggleBadge("BADGE_HOT_DEAL")}>Hot Deal</button>
+                    <button type="button" className={selectedAssignment.badges.includes("BADGE_VE_O_SOM") ? "active" : ""} onClick={() => toggleBadge("BADGE_VE_O_SOM")}>Về ở sớm</button>
+                  </div>
+                  <label className="pin-toggle"><input type="checkbox" checked={selectedAssignment.pin3DVisible} onChange={(e) => patchSelectedAssignment({ pin3DVisible: e.target.checked })} /><span>Show 3D Pin</span></label>
+                  <button type="button" className="dock-layout-button" onClick={() => setIsLayoutEditing(true)}>⌘ Position in Edit Layout</button>
+                  {selectedLotOverlay?.stale && <div className="dock-warning">△ Floorplan view đã đổi · highlight cần review lại.</div>}
+                </aside>
+              )}
             </div>
           </>
         )}
