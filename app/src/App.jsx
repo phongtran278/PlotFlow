@@ -470,9 +470,6 @@ function App() {
       x: Math.max(0, Math.min(1, (pageRender.anchorX - crop.x) / crop.w)),
       y: Math.max(0, Math.min(1, (pageRender.anchorY - crop.y) / crop.h)),
     };
-    // PATCH 07: Lot editor always uses a fresh canonical crop rendered from the
-    // same PDF view that PosterCanvas uses. This prevents a saved polygon from
-    // shifting because of a stale preview / different crop aspect ratio.
     const clean = await renderPdfRegion(pdfDocRef.current, pageRender, view, {
       outputWidth: 2168,
       aspect: FLOORPLAN_FRAME_ASPECT,
@@ -539,9 +536,6 @@ function App() {
   }
 
   async function connectGoogleSheet(sourceUrl) {
-    // React passes a click event to onClick handlers. Only accept an explicit URL string;
-    // otherwise use the current input value. This prevents "[object Object]" from
-    // being written into the Google Sheet field/localStorage.
     const candidateUrl = typeof sourceUrl === "string" ? sourceUrl : sheetUrl;
     const targetUrl = String(candidateUrl || "").trim();
     if (!targetUrl) return;
@@ -675,6 +669,7 @@ function App() {
       .then(() => {
         if (cancelled) return;
         const selectedIndex = units.findIndex((unit) => normalizeUnitCode(unit.unitCode) === selectedCode);
+        if (selectedIndex < 0) return;
         const preloadCodes = [1, 2]
           .map((offset) => units[selectedIndex + offset])
           .filter(Boolean)
@@ -821,7 +816,9 @@ function App() {
       localStorage.setItem("plotflow-lot-overlays-r1-v9", JSON.stringify(nextLots));
     }
     const hq = await renderPdfRegion(pdfDocRef.current, fineTunePageRender, view, { outputWidth: 1084, aspect: FLOORPLAN_FRAME_ASPECT, includeHighlight: false });
-    commitFloorplanPreview(code, floorplanPreviewSignature(code, { ...result, selectedMatchIndex }), hq.dataUrl);
+    const match = result.matches[selectedMatchIndex];
+    const signature = `${match.pageNumber}:${selectedMatchIndex}:${match.x}:${match.y}:${viewSignature(view)}`;
+    commitFloorplanPreview(code, signature, hq.dataUrl);
     setLocatorResults((prev) => ({ ...prev, [code]: { ...prev[code], status: "ready" } }));
     setFineTuneUnitCode(null); setFineTunePageRender(null);
   }
@@ -956,43 +953,14 @@ function App() {
           )}
 
           <div className="pdf-source-tabs">
-            <button
-              type="button"
-              className={locatorSourceMode === "link" ? "active" : ""}
-              onClick={() => setLocatorSourceMode("link")}
-              disabled={locatorState === "indexing"}
-            >
-              Link
-            </button>
-            <button
-              type="button"
-              className={locatorSourceMode === "upload" ? "active" : ""}
-              onClick={() => setLocatorSourceMode("upload")}
-              disabled={locatorState === "indexing"}
-            >
-              Upload
-            </button>
+            <button type="button" className={locatorSourceMode === "link" ? "active" : ""} onClick={() => setLocatorSourceMode("link")} disabled={locatorState === "indexing"}>Link</button>
+            <button type="button" className={locatorSourceMode === "upload" ? "active" : ""} onClick={() => setLocatorSourceMode("upload")} disabled={locatorState === "indexing"}>Upload</button>
           </div>
 
           {locatorSourceMode === "link" ? (
             <div className="pdf-link-connect">
-              <input
-                type="url"
-                value={locatorUrl}
-                onChange={(e) => setLocatorUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") connectMasterPdfLink();
-                }}
-                placeholder="Paste direct/public PDF link..."
-                disabled={locatorState === "indexing"}
-              />
-              <button
-                type="button"
-                onClick={connectMasterPdfLink}
-                disabled={!locatorUrl.trim() || locatorState === "indexing"}
-              >
-                {locatorState === "indexing" ? "Indexing..." : connectedLocatorUrl ? "Reconnect & Index" : "Connect & Index"}
-              </button>
+              <input type="url" value={locatorUrl} onChange={(e) => setLocatorUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") connectMasterPdfLink(); }} placeholder="Paste direct/public PDF link..." disabled={locatorState === "indexing"} />
+              <button type="button" onClick={connectMasterPdfLink} disabled={!locatorUrl.trim() || locatorState === "indexing"}>{locatorState === "indexing" ? "Indexing..." : connectedLocatorUrl ? "Reconnect & Index" : "Connect & Index"}</button>
               <small>Google Drive share link được tự chuyển sang file URL khi có thể.</small>
             </div>
           ) : (
@@ -1014,11 +982,7 @@ function App() {
 
           <div className={`locator-status ${locatorState}`}>
             <span>{locatorMessage}</span>
-            {locatorState === "indexing" && (
-              <div className="locator-progress">
-                <i style={{ width: `${locatorProgress.total ? (locatorProgress.current / locatorProgress.total) * 100 : 0}%` }} />
-              </div>
-            )}
+            {locatorState === "indexing" && <div className="locator-progress"><i style={{ width: `${locatorProgress.total ? (locatorProgress.current / locatorProgress.total) * 100 : 0}%` }} /></div>}
           </div>
 
           {locatorState === "ready" && (
@@ -1060,29 +1024,10 @@ function App() {
 
       <main className={`component-stage ${isLayoutEditing ? "layout-studio-mode" : ""} ${fineTuneUnitCode ? "finetune-mode" : ""}`}>
         {lotEditorCode ? (
-          <LotHighlightEditor
-            unit={units.find((item) => normalizeUnitCode(item.unitCode) === lotEditorCode)}
-            imageSrc={lotEditorData?.imageSrc}
-            initialOverlay={lotEditorData?.initialOverlay}
-            autoAnchor={lotEditorData?.autoAnchor}
-            viewSignature={lotEditorData?.viewSignature}
-            pinSrc={pinAssets.pin2D}
-            onCancel={() => { setLotEditorCode(null); setLotEditorData(null); }}
-            onSave={saveLotOverlay}
-          />
+          <LotHighlightEditor unit={units.find((item) => normalizeUnitCode(item.unitCode) === lotEditorCode)} imageSrc={lotEditorData?.imageSrc} initialOverlay={lotEditorData?.initialOverlay} autoAnchor={lotEditorData?.autoAnchor} viewSignature={lotEditorData?.viewSignature} pinSrc={pinAssets.pin2D} onCancel={() => { setLotEditorCode(null); setLotEditorData(null); }} onSave={saveLotOverlay} />
         ) : fineTuneUnitCode ? (
           fineTuneLoading ? <div className="finetune-loading">Rendering PDF page…</div> : (
-            <FloorplanFineTune
-              key={`${fineTuneUnitCode}-${fineTuneResult?.selectedMatchIndex || 0}`}
-              unit={fineTuneUnit}
-              locatorResult={fineTuneResult}
-              pageRender={fineTunePageRender}
-              initialView={fineTuneInitialView}
-              onCancel={() => { setFineTuneUnitCode(null); setFineTunePageRender(null); }}
-              onSave={saveFineTune}
-              onCandidateChange={changeFineTuneCandidate}
-              onRenderVectorPreview={renderFineTuneVectorPreview}
-            />
+            <FloorplanFineTune key={`${fineTuneUnitCode}-${fineTuneResult?.selectedMatchIndex || 0}`} unit={fineTuneUnit} locatorResult={fineTuneResult} pageRender={fineTunePageRender} initialView={fineTuneInitialView} onCancel={() => { setFineTuneUnitCode(null); setFineTunePageRender(null); }} onSave={saveFineTune} onCandidateChange={changeFineTuneCandidate} onRenderVectorPreview={renderFineTuneVectorPreview} />
           )
         ) : (
           <>
@@ -1107,17 +1052,7 @@ function App() {
             <div ref={componentCanvasRef} className="component-canvas round1-canvas">
               {selectedUnit ? (
                 <>
-                  <PosterCanvas
-                    unit={selectedUnit}
-                    assets={selectedAssets}
-                    isEditing={isLayoutEditing}
-                    floorplanStatus={selectedLocator?.status}
-                    onEditFloorplan={selectedLocator?.matches?.length ? () => openFineTune() : null}
-                    onEditLot={selectedLocator?.matches?.length ? () => openLotEditor() : null}
-                    onChooseAsset={(type) => setAssetPickerType(type)}
-                    lotOverlay={selectedLotOverlay?.stale ? null : selectedLotOverlay}
-                    previewZoom={previewZoom}
-                  />
+                  <PosterCanvas unit={selectedUnit} assets={selectedAssets} isEditing={isLayoutEditing} floorplanStatus={selectedLocator?.status} onEditFloorplan={selectedLocator?.matches?.length ? () => openFineTune() : null} onEditLot={selectedLocator?.matches?.length ? () => openLotEditor() : null} onChooseAsset={(type) => setAssetPickerType(type)} lotOverlay={selectedLotOverlay?.stale ? null : selectedLotOverlay} previewZoom={previewZoom} />
 
                   {!isLayoutEditing && (
                     <aside className="design-assignment-dock">
@@ -1145,34 +1080,9 @@ function App() {
 
       <FocusDeck />
 
-      <AssetPicker
-        open={assetPickerType === "house"}
-        title="Choose House Model"
-        subtitle="Chọn bằng thumbnail; Sheet vẫn có thể preset bằng tên mẫu nhà."
-        catalog={houseCatalog}
-        value={selectedAssignment.houseId}
-        onSelect={(id) => { patchSelectedAssignment({ houseId: id }); setAssetPickerType(null); }}
-        onClose={() => setAssetPickerType(null)}
-      />
-      <AssetPicker
-        open={assetPickerType === "amenity1" || assetPickerType === "amenity2"}
-        title={assetPickerType === "amenity1" ? "Choose Amenity 01" : "Choose Amenity 02"}
-        subtitle="Featured amenities only."
-        catalog={amenityCatalog}
-        value={assetPickerType === "amenity1" ? selectedAssignment.amenity1Id : selectedAssignment.amenity2Id}
-        onSelect={(id) => { patchSelectedAssignment(assetPickerType === "amenity1" ? { amenity1Id: id } : { amenity2Id: id }); setAssetPickerType(null); }}
-        onClose={() => setAssetPickerType(null)}
-      />
-      <AssetPicker
-        open={assetPickerType === "logo"}
-        title="Choose Project Logo"
-        subtitle="Logo là layer động; có thể hide hoặc đổi variant."
-        catalog={logoCatalog}
-        value={selectedAssignment.logoId}
-        allowNone
-        onSelect={(id) => { patchSelectedAssignment({ logoId: id }); setAssetPickerType(null); }}
-        onClose={() => setAssetPickerType(null)}
-      />
+      <AssetPicker open={assetPickerType === "house"} title="Choose House Model" subtitle="Chọn bằng thumbnail; Sheet vẫn có thể preset bằng tên mẫu nhà." catalog={houseCatalog} value={selectedAssignment.houseId} onSelect={(id) => { patchSelectedAssignment({ houseId: id }); setAssetPickerType(null); }} onClose={() => setAssetPickerType(null)} />
+      <AssetPicker open={assetPickerType === "amenity1" || assetPickerType === "amenity2"} title={assetPickerType === "amenity1" ? "Choose Amenity 01" : "Choose Amenity 02"} subtitle="Featured amenities only." catalog={amenityCatalog} value={assetPickerType === "amenity1" ? selectedAssignment.amenity1Id : selectedAssignment.amenity2Id} onSelect={(id) => { patchSelectedAssignment(assetPickerType === "amenity1" ? { amenity1Id: id } : { amenity2Id: id }); setAssetPickerType(null); }} onClose={() => setAssetPickerType(null)} />
+      <AssetPicker open={assetPickerType === "logo"} title="Choose Project Logo" subtitle="Logo là layer động; có thể hide hoặc đổi variant." catalog={logoCatalog} value={selectedAssignment.logoId} allowNone onSelect={(id) => { patchSelectedAssignment({ logoId: id }); setAssetPickerType(null); }} onClose={() => setAssetPickerType(null)} />
     </div>
   );
 }
