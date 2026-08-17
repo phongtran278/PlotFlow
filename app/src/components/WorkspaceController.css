@@ -3,10 +3,27 @@
   order: -1;
   display: flex;
   align-items: center;
+  position: relative;
+  z-index: 220;
+}
+
+.stage-header {
+  position: relative;
+  z-index: 210;
+  overflow: visible;
+}
+
+.stage-actions {
+  position: relative;
+  z-index: 220;
+  overflow: visible;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .workspace-controls {
   position: relative;
+  z-index: 230;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -70,13 +87,13 @@
   position: absolute;
   top: calc(100% + 9px);
   right: 0;
-  z-index: 140;
+  z-index: 999;
   width: 184px;
   padding: 10px;
   border: 1px solid rgba(35,45,65,.10);
   border-radius: 13px;
-  background: rgba(250,251,253,.97);
-  box-shadow: 0 16px 44px rgba(35,46,66,.18);
+  background: rgba(250,251,253,.99);
+  box-shadow: 0 16px 44px rgba(35,46,66,.22);
   backdrop-filter: blur(18px);
 }
 .workspace-navigator-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
@@ -154,8 +171,9 @@
 }
 
 .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll {
-  overflow: auto;
+  overflow: auto !important;
   overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
   border-radius: 17px;
   background: radial-gradient(circle at 50% 24%, rgba(255,255,255,.92), rgba(232,236,242,.82) 72%);
 }
@@ -187,11 +205,22 @@ body.workspace-grabbing .studio-canvas-scroll { cursor: grab !important; }
 body.workspace-grabbing .component-canvas,
 body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; user-select: none; }
 
-/* Ensure scaled poster has scrollable room at deep zoom levels. */
+/* Keep actual scrollable room around the scaled 1080×1920 artwork. */
 .studio-poster-viewport[data-workspace-zoom] {
-  width: max(100%, calc(1080px * var(--studio-zoom)));
-  min-height: calc(1920px * var(--studio-zoom) + 40px);
-  padding: 20px;
+  width: calc(1080px * var(--studio-zoom) + 96px) !important;
+  min-width: calc(1080px * var(--studio-zoom) + 96px) !important;
+  height: calc(1920px * var(--studio-zoom) + 120px) !important;
+  min-height: calc(1920px * var(--studio-zoom) + 120px) !important;
+  padding: 48px 48px 72px !important;
+  margin: 0 auto !important;
+  overflow: visible !important;
+  display: block !important;
+}
+
+.studio-poster-viewport[data-workspace-zoom] .poster-canvas {
+  transform: scale(var(--studio-zoom)) !important;
+  transform-origin: top left !important;
+  margin: 0 !important;
 }
 
 @media (max-width: 1320px) {
