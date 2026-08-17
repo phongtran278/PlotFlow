@@ -37,8 +37,10 @@ export default function WorkspaceController() {
   const dragRef = useRef(null);
   const navigatorDragRef = useRef(false);
   const zoomRef = useRef(38);
+  const navigatorOpenRef = useRef(false);
 
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { navigatorOpenRef.current = navigatorOpen; }, [navigatorOpen]);
 
   useEffect(() => {
     function syncTarget() {
@@ -57,7 +59,7 @@ export default function WorkspaceController() {
     }
 
     syncTarget();
-    const observer = new MutationObserver(syncTarget);
+    const observer = new MutationObserver(() => requestAnimationFrame(syncTarget));
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, []);
@@ -73,15 +75,16 @@ export default function WorkspaceController() {
   }, [tool]);
 
   function refreshNavigator() {
+    if (!navigatorOpenRef.current) return;
     const scroll = findScrollSurface();
     if (!scroll) return;
-    const scrollWidth = Math.max(1, scroll.scrollWidth);
-    const scrollHeight = Math.max(1, scroll.scrollHeight);
+    const maxLeft = Math.max(1, scroll.scrollWidth - scroll.clientWidth);
+    const maxTop = Math.max(1, scroll.scrollHeight - scroll.clientHeight);
     setNavigator({
-      left: clamp01(scroll.scrollLeft / scrollWidth),
-      top: clamp01(scroll.scrollTop / scrollHeight),
-      width: clamp01(scroll.clientWidth / scrollWidth),
-      height: clamp01(scroll.clientHeight / scrollHeight),
+      left: clamp01(scroll.scrollLeft / maxLeft),
+      top: clamp01(scroll.scrollTop / maxTop),
+      width: clamp01(scroll.clientWidth / Math.max(1, scroll.scrollWidth)),
+      height: clamp01(scroll.clientHeight / Math.max(1, scroll.scrollHeight)),
     });
   }
 
@@ -90,22 +93,18 @@ export default function WorkspaceController() {
     const scroll = findScrollSurface();
     if (!scroll) return undefined;
 
-    refreshNavigator();
-    const onScroll = () => refreshNavigator();
+    requestAnimationFrame(refreshNavigator);
+    const onScroll = () => requestAnimationFrame(refreshNavigator);
     scroll.addEventListener("scroll", onScroll, { passive: true });
 
-    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(refreshNavigator) : null;
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => requestAnimationFrame(refreshNavigator)) : null;
     resizeObserver?.observe(scroll);
     const viewport = findViewport();
     if (viewport) resizeObserver?.observe(viewport);
 
-    const contentObserver = new MutationObserver(() => requestAnimationFrame(refreshNavigator));
-    contentObserver.observe(scroll, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
-
     return () => {
       scroll.removeEventListener("scroll", onScroll);
       resizeObserver?.disconnect();
-      contentObserver.disconnect();
     };
   }, [navigatorOpen]);
 
@@ -119,15 +118,17 @@ export default function WorkspaceController() {
     }
 
     const old = zoomRef.current || next;
-    const centerX = scroll ? (scroll.scrollLeft + scroll.clientWidth / 2) / Math.max(1, scroll.scrollWidth) : 0.5;
-    const centerY = scroll ? (scroll.scrollTop + scroll.clientHeight / 2) / Math.max(1, scroll.scrollHeight) : 0.5;
+    const maxOldLeft = scroll ? Math.max(1, scroll.scrollWidth - scroll.clientWidth) : 1;
+    const maxOldTop = scroll ? Math.max(1, scroll.scrollHeight - scroll.clientHeight) : 1;
+    const centerX = scroll ? clamp01((scroll.scrollLeft + scroll.clientWidth / 2) / Math.max(1, scroll.scrollWidth)) : 0.5;
+    const centerY = scroll ? clamp01((scroll.scrollTop + scroll.clientHeight / 2) / Math.max(1, scroll.scrollHeight)) : 0.5;
 
     viewport.style.setProperty("--studio-zoom", String(next / 100));
     viewport.dataset.workspaceZoom = String(next);
     setZoom(next);
     zoomRef.current = next;
 
-    if (preserveCenter && scroll && old !== next) {
+    if (preserveCenter && scroll && old !== next && (maxOldLeft > 1 || maxOldTop > 1)) {
       requestAnimationFrame(() => {
         scroll.scrollLeft = Math.max(0, centerX * scroll.scrollWidth - scroll.clientWidth / 2);
         scroll.scrollTop = Math.max(0, centerY * scroll.scrollHeight - scroll.clientHeight / 2);
@@ -142,8 +143,8 @@ export default function WorkspaceController() {
     const canvas = document.querySelector(".component-canvas");
     const stage = document.querySelector(".layout-studio") || document.querySelector(".studio-center");
     if (!canvas) return;
-    const availableW = Math.max(260, (stage?.clientWidth || canvas.clientWidth) - 42);
-    const availableH = Math.max(360, canvas.clientHeight - 54);
+    const availableW = Math.max(260, (stage?.clientWidth || canvas.clientWidth) - 56);
+    const availableH = Math.max(360, canvas.clientHeight - 72);
     const fitted = Math.floor(Math.min(availableW / 1080, availableH / 1920) * 100);
     applyZoom(Math.max(MIN_ZOOM, Math.min(100, fitted)), false);
     const scroll = findScrollSurface();
@@ -230,58 +231,64 @@ export default function WorkspaceController() {
       }
     }
 
-    function mousedown(event) {
+    function pointerdown(event) {
       if (event.button !== 0) return;
-      const canvas = event.target?.closest?.(".component-canvas");
-      if (!canvas) return;
+      const scroll = event.target?.closest?.(".studio-canvas-scroll");
+      if (!scroll) return;
       const handActive = tool === "hand" || spaceHeldRef.current;
       if (!handActive) return;
       if (event.target?.closest?.("button,input,label,select,textarea")) return;
-      const scroll = findScrollSurface();
-      if (!scroll) return;
       event.preventDefault();
       dragRef.current = {
         scroll,
+        pointerId: event.pointerId,
         x: event.clientX,
         y: event.clientY,
         left: scroll.scrollLeft,
         top: scroll.scrollTop,
       };
+      scroll.setPointerCapture?.(event.pointerId);
       document.body.classList.add("workspace-grabbing");
     }
 
-    function mousemove(event) {
+    function pointermove(event) {
       const drag = dragRef.current;
-      if (!drag) return;
+      if (!drag || drag.pointerId !== event.pointerId) return;
       drag.scroll.scrollLeft = drag.left - (event.clientX - drag.x);
       drag.scroll.scrollTop = drag.top - (event.clientY - drag.y);
-      refreshNavigator();
+      if (navigatorOpenRef.current) refreshNavigator();
     }
 
-    function mouseup() {
+    function pointerend(event) {
+      const drag = dragRef.current;
+      if (!drag || (event.pointerId != null && drag.pointerId !== event.pointerId)) return;
+      try { drag.scroll.releasePointerCapture?.(drag.pointerId); } catch {}
       dragRef.current = null;
       document.body.classList.remove("workspace-grabbing");
+      if (navigatorOpenRef.current) refreshNavigator();
     }
 
     function wheel(event) {
       if (!(event.metaKey || event.ctrlKey)) return;
-      if (!event.target?.closest?.(".component-canvas")) return;
+      if (!event.target?.closest?.(".studio-canvas-scroll")) return;
       event.preventDefault();
       applyZoom(zoomRef.current + (event.deltaY < 0 ? 10 : -10));
     }
 
     window.addEventListener("keydown", keydown);
     window.addEventListener("keyup", keyup);
-    window.addEventListener("mousemove", mousemove);
-    window.addEventListener("mouseup", mouseup);
-    document.addEventListener("mousedown", mousedown, true);
+    document.addEventListener("pointerdown", pointerdown, true);
+    window.addEventListener("pointermove", pointermove);
+    window.addEventListener("pointerup", pointerend);
+    window.addEventListener("pointercancel", pointerend);
     document.addEventListener("wheel", wheel, { passive: false, capture: true });
     return () => {
       window.removeEventListener("keydown", keydown);
       window.removeEventListener("keyup", keyup);
-      window.removeEventListener("mousemove", mousemove);
-      window.removeEventListener("mouseup", mouseup);
-      document.removeEventListener("mousedown", mousedown, true);
+      document.removeEventListener("pointerdown", pointerdown, true);
+      window.removeEventListener("pointermove", pointermove);
+      window.removeEventListener("pointerup", pointerend);
+      window.removeEventListener("pointercancel", pointerend);
       document.removeEventListener("wheel", wheel, true);
       document.body.classList.remove("workspace-space-hand", "workspace-grabbing");
     };
@@ -323,15 +330,15 @@ export default function WorkspaceController() {
               <div
                 className="workspace-navigator-viewport"
                 style={{
-                  left: `${navigator.left * 100}%`,
-                  top: `${navigator.top * 100}%`,
+                  left: `${navigator.left * (100 - navigator.width * 100)}%`,
+                  top: `${navigator.top * (100 - navigator.height * 100)}%`,
                   width: `${navigator.width * 100}%`,
                   height: `${navigator.height * 100}%`,
                 }}
               />
             </div>
           </div>
-          <small>Kéo khung để đi nhanh · Hand/Space để pan trực tiếp</small>
+          <small>Kéo trên map để đi nhanh · Hand/Space để pan trực tiếp</small>
         </div>
       )}
     </div>,

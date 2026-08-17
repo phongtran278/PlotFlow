@@ -1,0 +1,94 @@
+.lot-editor-shell {
+  height: calc(100vh - 64px);
+  min-height: 680px;
+  overflow: hidden;
+}
+
+.lot-editor-layout {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lot-canvas-wrap {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+}
+
+.lot-canvas-viewport {
+  position: relative;
+  width: min(960px, 100%);
+  max-width: 100%;
+  aspect-ratio: 542 / 375;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 54px rgba(35,47,69,.16);
+  user-select: none;
+  cursor: crosshair;
+  flex: 0 0 auto;
+}
+
+.lot-canvas-viewport.tool-hand,
+.lot-canvas-viewport.space-pan {
+  cursor: grab;
+}
+
+.lot-canvas-viewport.panning {
+  cursor: grabbing;
+}
+
+.lot-canvas-viewport.tool-direct {
+  cursor: default;
+}
+
+.lot-canvas-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.lot-canvas-scene > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.lot-canvas-scene .lot-empty {
+  position: absolute;
+  inset: 0;
+}
+
+.lot-canvas-scene .lot-overlay-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 1180px) {
+  .lot-editor-header {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .lot-view-controls {
+    order: 3;
+    width: 100%;
+  }
+
+  .lot-editor-layout {
+    grid-template-columns: 150px minmax(0,1fr) 190px;
+  }
+}
