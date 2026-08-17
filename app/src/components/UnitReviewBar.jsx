@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./UnitReviewBar.css";
+import "./UnitReviewDrawer.css";
 
 const STATUS_ORDER = ["all", "ready", "review", "not-found", "unindexed"];
 
@@ -41,6 +42,7 @@ function statusLabel(status) {
 export default function UnitReviewBar() {
   const [items, setItems] = useState([]);
   const [allOpen, setAllOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const activeChipRef = useRef(null);
@@ -79,8 +81,8 @@ export default function UnitReviewBar() {
   const selectedItem = items[selectedIndex] || null;
 
   useEffect(() => {
-    activeChipRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-  }, [selectedItem?.code]);
+    if (!collapsed) activeChipRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [selectedItem?.code, collapsed]);
 
   useEffect(() => {
     function keydown(event) {
@@ -135,7 +137,7 @@ export default function UnitReviewBar() {
 
   return (
     <>
-      <section className="unit-review-shell" aria-label="Unit review navigation">
+      <section className={`unit-review-shell ${collapsed ? "collapsed" : "expanded"}`} aria-label="Unit review navigation">
         <div className="unit-review-topline">
           <button type="button" className="unit-review-step" onClick={() => move(-1)} disabled={selectedIndex <= 0 || selectedItem?.disabled}>
             <span>←</span><strong>Prev</strong>
@@ -160,27 +162,34 @@ export default function UnitReviewBar() {
           <button type="button" className="unit-review-all" onClick={() => setAllOpen(true)}>
             <span>⌕</span><strong>All Units</strong><em>{items.length}</em>
           </button>
+
+          <button type="button" className="unit-review-collapse" onClick={() => setCollapsed((value) => !value)} title={collapsed ? "Mở filmstrip review" : "Thu gọn review"}>
+            <span>{collapsed ? "⌃" : "⌄"}</span><strong>{collapsed ? "Review" : "Hide"}</strong>
+          </button>
         </div>
 
-        <div className="unit-review-filmstrip">
-          {items.map((item) => (
-            <button
-              type="button"
-              key={item.code}
-              ref={item.selected ? activeChipRef : null}
-              className={`unit-review-chip ${item.status} ${item.selected ? "active" : ""}`}
-              onClick={() => selectCode(item.code)}
-              disabled={item.disabled}
-              title={`${item.code} · ${statusLabel(item.status)} · ${item.price}`}
-            >
-              <i aria-hidden="true" />
-              <strong>{item.code}</strong>
-              <span>{item.status === "ready" ? "✓" : item.status === "review" ? "△" : item.status === "not-found" ? "×" : "·"}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="unit-review-hint"><kbd>←</kbd><kbd>→</kbd><span>chuyển căn nhanh</span></div>
+        {!collapsed && (
+          <>
+            <div className="unit-review-filmstrip">
+              {items.map((item) => (
+                <button
+                  type="button"
+                  key={item.code}
+                  ref={item.selected ? activeChipRef : null}
+                  className={`unit-review-chip ${item.status} ${item.selected ? "active" : ""}`}
+                  onClick={() => selectCode(item.code)}
+                  disabled={item.disabled}
+                  title={`${item.code} · ${statusLabel(item.status)} · ${item.price}`}
+                >
+                  <i aria-hidden="true" />
+                  <strong>{item.code}</strong>
+                  <span>{item.status === "ready" ? "✓" : item.status === "review" ? "△" : item.status === "not-found" ? "×" : "·"}</span>
+                </button>
+              ))}
+            </div>
+            <div className="unit-review-hint"><kbd>←</kbd><kbd>→</kbd><span>chuyển căn nhanh</span></div>
+          </>
+        )}
       </section>
 
       {allOpen && (

@@ -9,7 +9,7 @@ import QuickPinOverlay from "./QuickPinOverlay.jsx";
 import QuickTextOverride, { applyQuickTextOverride, readQuickTextOverride } from "./QuickTextOverride.jsx";
 import ManualFloorplanLocator from "./ManualFloorplanLocator.jsx";
 import "./ManualFloorplanLocator.css";
-import { findCatalogAsset, houseCatalog } from "../data/assetCatalog.js";
+import { findCatalogAsset, houseCatalog, pinAssets } from "../data/assetCatalog.js";
 import { resolveArchitectureHouseAsset, withResolvedArchitecture } from "../data/architectureAutoMatch.js";
 import { renderPdfPageBase, renderPdfRegion } from "../floorplan/pdfLocator.js";
 
@@ -126,6 +126,16 @@ export default function PosterCanvas({
     setManualFloorplanImage(readManualFloorplan(unit?.unitCode));
   }, [unit?.unitCode, isEditing]);
 
+  useEffect(() => {
+    function openPinArrange(event) {
+      const eventCode = normalizeCode(event?.detail?.unitCode);
+      if (eventCode && eventCode !== normalizeCode(unit?.unitCode)) return;
+      if (!isEditing) setQuickPinMode(true);
+    }
+    window.addEventListener("plotflow-open-pin-arrange", openPinArrange);
+    return () => window.removeEventListener("plotflow-open-pin-arrange", openPinArrange);
+  }, [isEditing, unit?.unitCode]);
+
   useLayoutEffect(() => {
     setPosterTarget(hostRef.current?.querySelector(".poster-canvas") || null);
     setToolbarTarget(hostRef.current?.querySelector(".studio-toolbar") || null);
@@ -141,13 +151,15 @@ export default function PosterCanvas({
   const dataResolvedUnit = withResolvedArchitecture(unit);
   const resolvedUnit = applyQuickTextOverride(dataResolvedUnit, quickTextOverride);
 
+  // 3D Pin is now an always-on default layer. Per-unit position/scale is handled
+  // by QuickPinOverlay; the old checkbox is no longer required for normal use.
+  const effectivePinSrc = assets.pin3D || pinAssets.pin3D;
+
   // House priority is intentional:
   // 1) a house explicitly chosen in the UI for this unit,
   // 2) the source Sheet/Excel houseModel,
   // 3) strict architecture auto-match,
   // 4) explicit Missing placeholder.
-  // This keeps base models such as CH75_LK valid for normal linked houses while
-  // still requiring CH75_LK_XE_KHE only when the unit is actually marked xẻ khe.
   const manualHouse = readManualHouse(unit?.unitCode);
   const sheetHouse = findCatalogAsset(houseCatalog, unit?.houseModel);
   const houseResolution = resolveArchitectureHouseAsset(unit, houseCatalog);
@@ -156,6 +168,7 @@ export default function PosterCanvas({
   const baseAssets = {
     ...assets,
     badges: [],
+    pin3D: effectivePinSrc,
     houseImage: resolvedHouse?.src || (missingKey ? missingHousePlaceholder(missingKey) : null),
     houseMissingKey: missingKey,
     ...(manualFloorplanImage ? { floorplanImage: manualFloorplanImage } : {}),
@@ -241,12 +254,12 @@ export default function PosterCanvas({
             quickControlsTarget={quickControlsTarget}
             isEditing={isEditing}
             quickPinMode={quickPinMode}
-            pinVisible={Boolean(assets.pin3D)}
+            pinVisible={Boolean(effectivePinSrc)}
             onToggleQuickPin={() => setQuickPinMode((value) => !value)}
             unitCode={unit?.unitCode}
             sourceBadges={assets.badges || []}
           />
-          <QuickPinOverlay artboard={posterTarget} src={assets.pin3D} active={!isEditing && quickPinMode} unitCode={unit?.unitCode} />
+          <QuickPinOverlay artboard={posterTarget} src={effectivePinSrc} active={!isEditing && quickPinMode} unitCode={unit?.unitCode} />
           <PolicyImageOverlay handover={unit?.handover} />
         </>,
         posterTarget

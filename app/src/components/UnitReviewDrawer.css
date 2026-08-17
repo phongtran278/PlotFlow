@@ -1,0 +1,74 @@
+/* Compact review drawer: stays out of the artwork until expanded. */
+.unit-review-shell.collapsed {
+  padding: 7px 8px;
+  border-radius: 14px;
+}
+
+.unit-review-shell.collapsed .unit-review-topline { min-height: 34px; }
+.unit-review-shell.collapsed .unit-review-current,
+.unit-review-shell.collapsed .unit-review-step,
+.unit-review-shell.collapsed .unit-review-all { height: 32px; }
+
+.unit-review-collapse {
+  height: 34px;
+  min-width: 70px;
+  padding: 0 9px;
+  border: 1px solid rgba(35,45,65,.09);
+  border-radius: 10px;
+  background: rgba(255,255,255,.9);
+  color: #58616e;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 13px rgba(40,52,76,.05);
+}
+.unit-review-collapse:hover { background: #fff; border-color: rgba(79,124,255,.24); color: #315fdd; }
+.unit-review-collapse span { font-size: 11px; }
+.unit-review-collapse strong { font-size: 8px; }
+
+.unit-review-shell.collapsed .unit-review-topline {
+  grid-template-columns: auto minmax(138px,auto) auto 1fr auto auto;
+}
+.unit-review-shell.expanded .unit-review-topline {
+  grid-template-columns: auto minmax(138px,auto) auto 1fr auto auto;
+}
+
+/* The stage only needs a small bottom safety area while review is collapsed. */
+body:has(.unit-review-shell.collapsed) .component-stage:not(.layout-studio-mode):not(.finetune-mode) {
+  padding-bottom: 66px !important;
+}
+body:has(.unit-review-shell.expanded) .component-stage:not(.layout-studio-mode):not(.finetune-mode) {
+  padding-bottom: 132px !important;
+}
+
+.unit-review-shell.expanded { animation: review-drawer-in .16s ease-out; }
+@keyframes review-drawer-in {
+  from { transform: translateY(7px); opacity: .82; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 1280px) {
+  .unit-review-shell.collapsed .unit-review-topline,
+  .unit-review-shell.expanded .unit-review-topline {
+    grid-template-columns: auto minmax(132px,auto) auto 1fr auto auto;
+  }
+}
+
+@media (max-width: 980px) {
+  .unit-review-shell.collapsed .unit-review-topline,
+  .unit-review-shell.expanded .unit-review-topline {
+    grid-template-columns: auto minmax(122px,1fr) auto auto auto;
+  }
+  .unit-review-collapse strong { display: none; }
+  .unit-review-collapse { min-width: 34px; width: 34px; padding: 0; }
+}
+
+@media (max-width: 640px) {
+  .unit-review-all { display: none; }
+  .unit-review-shell.collapsed .unit-review-topline,
+  .unit-review-shell.expanded .unit-review-topline {
+    grid-template-columns: auto minmax(112px,1fr) auto auto;
+  }
+}
