@@ -8,8 +8,9 @@
   gap: 8px;
 }
 
-/* The old per-unit checkbox is replaced by a cleaner always-on control. */
-.design-assignment-dock .pin-toggle { display: none !important; }
+/* The old checkbox/placement card is replaced by one compact always-on control. */
+.design-assignment-dock .pin-toggle,
+.design-assignment-dock .campaign-pin-tools { display: none !important; }
 
 .pin-scale-head {
   display: flex;
