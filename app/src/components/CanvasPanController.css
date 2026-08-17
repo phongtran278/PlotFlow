@@ -1,0 +1,52 @@
+.canvas-hand-button {
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid rgba(30, 40, 60, .09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .9);
+  color: #555e6b;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.canvas-hand-button span {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.canvas-hand-button strong {
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.canvas-hand-button:hover {
+  background: #fff;
+  color: #343b46;
+}
+
+.canvas-hand-button.active {
+  border-color: rgba(79, 124, 255, .35);
+  background: #edf2ff;
+  color: #315fdd;
+  box-shadow: 0 0 0 2px rgba(79, 124, 255, .08);
+}
+
+.component-canvas.canvas-pan-enabled {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.component-canvas.canvas-pan-enabled * {
+  cursor: grab !important;
+}
+
+.component-canvas.canvas-pan-active,
+.component-canvas.canvas-pan-active * {
+  cursor: grabbing !important;
+}
