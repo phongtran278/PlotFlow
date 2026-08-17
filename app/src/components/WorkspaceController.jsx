@@ -60,6 +60,11 @@ export default function WorkspaceController() {
     return () => document.body.classList.remove("workspace-panel-collapsed");
   }, [panelCollapsed]);
 
+  useEffect(() => {
+    document.body.classList.toggle("workspace-hand-tool", tool === "hand");
+    return () => document.body.classList.remove("workspace-hand-tool");
+  }, [tool]);
+
   function applyZoom(nextZoom, preserveCenter = true) {
     const next = clampZoom(nextZoom);
     const viewport = findViewport();
