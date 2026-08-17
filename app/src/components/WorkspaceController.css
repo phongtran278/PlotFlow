@@ -6,6 +6,7 @@
 }
 
 .workspace-controls {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -36,6 +37,7 @@
 .workspace-fit { min-width: 36px; }
 .workspace-zoom-step { width: 28px; padding: 0 !important; font-size: 14px !important; }
 .workspace-100 { min-width: 45px; }
+.workspace-map-toggle.active { background: #edf2ff !important; color: #315fdd !important; border-color: rgba(79,124,255,.16) !important; }
 .workspace-panel-toggle { margin-left: 2px; border-left-color: rgba(35,45,65,.08) !important; }
 .workspace-panel-toggle.active { background: #edf2ff !important; color: #315fdd !important; }
 
@@ -63,6 +65,63 @@
 .workspace-zoom-field input::-webkit-inner-spin-button,
 .workspace-zoom-field input::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .workspace-zoom-field span { color: #8b94a0; font-size: 8px; }
+
+.workspace-navigator-popover {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 140;
+  width: 184px;
+  padding: 10px;
+  border: 1px solid rgba(35,45,65,.10);
+  border-radius: 13px;
+  background: rgba(250,251,253,.97);
+  box-shadow: 0 16px 44px rgba(35,46,66,.18);
+  backdrop-filter: blur(18px);
+}
+.workspace-navigator-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.workspace-navigator-head span { color: #8e97a3; font-size: 7px; letter-spacing: .13em; }
+.workspace-navigator-head strong { color: #3c4653; font-size: 8px; }
+.workspace-navigator-map {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 7px;
+  border-radius: 10px;
+  background: #e9edf2;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+.workspace-navigator-artwork {
+  position: relative;
+  width: 78px;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(25,116,101,.92) 0 30%, rgba(245,247,249,.96) 30% 54%, rgba(33,121,107,.92) 54% 72%, rgba(245,247,249,.96) 72% 100%);
+  box-shadow: 0 4px 13px rgba(32,44,64,.18);
+}
+.workspace-navigator-artwork::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 48%, rgba(255,255,255,.18) 50%, transparent 52%);
+  pointer-events: none;
+}
+.workspace-navigator-viewport {
+  position: absolute;
+  min-width: 8px;
+  min-height: 8px;
+  border: 2px solid #4f7cff;
+  border-radius: 3px;
+  background: rgba(79,124,255,.10);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.8), 0 2px 7px rgba(46,79,167,.22);
+  pointer-events: none;
+  transform: translateZ(0);
+}
+.workspace-navigator-popover small { display: block; margin-top: 7px; color: #8b94a0; font-size: 7px; line-height: 1.4; }
 
 /* Replace the older preview zoom group with the unified workspace toolbar. */
 .preview-zoom-controls { display: none !important; }
@@ -118,7 +177,7 @@ body.workspace-panel-collapsed .component-stage:not(.layout-studio-mode):not(.fi
 }
 body.workspace-panel-collapsed .design-assignment-dock { display: none !important; }
 
-/* Hand tool */
+/* One Hand tool only: this scrolls the real artwork viewport. */
 body.workspace-hand-tool .component-canvas,
 body.workspace-hand-tool .studio-canvas-scroll,
 body.workspace-space-hand .component-canvas,
