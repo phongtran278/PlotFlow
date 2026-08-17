@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import "./TopUtilityRail.css";
 
 const FOCUS_SECONDS = 25 * 60;
 const BREAK_SECONDS = 5 * 60;
