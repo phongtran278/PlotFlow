@@ -69,7 +69,7 @@ function normalizeSidebarPriceText() {
 
 function missingHousePlaceholder(key = "HOUSE ASSET") {
   const safe = String(key || "HOUSE ASSET").replace(/[<>&]/g, "");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="578" viewBox="0 0 1080 578"><rect width="1080" height="578" fill="#f3f5f5"/><rect x="32" y="32" width="1016" height="514" rx="24" fill="none" stroke="#c5cdcb" stroke-width="3" stroke-dasharray="12 10"/><text x="540" y="265" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#67716f">MISSING HOUSE ASSET</text><text x="540" y="315" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#2d3634">${safe}</text><text x="540" y="360" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#8b9492">Bổ sung đúng file vào assets/houses rồi chạy npm run setup</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="578" viewBox="0 0 1080 578"><rect width="1080" height="578" fill="#f3f5f5"/><rect x="32" y="32" width="1016" height="514" rx="24" fill="none" stroke="#c5cdcb" stroke-width="3" stroke-dasharray="12 10"/><text x="540" y="265" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#67716f">CHƯA CÓ MẪU NHÀ</text><text x="540" y="315" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#2d3634">${safe}</text><text x="540" y="360" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#8b9492">Kết nối dữ liệu hoặc chọn mẫu nhà khi cần</text></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
@@ -77,24 +77,29 @@ export default function PosterCanvas({
   lotOverlay,
   preferLotOverlay = false,
   previewZoom = 1,
-  unit,
+  unit = {},
   assets = {},
   isEditing = false,
   floorplanStatus,
+  placeholderMode = false,
   ...props
 }) {
-  const [persistedOverlay, setPersistedOverlay] = useState(() => readPersistedOverlay(unit?.unitCode));
+  const [persistedOverlay, setPersistedOverlay] = useState(() => placeholderMode ? null : readPersistedOverlay(unit?.unitCode));
   const [quickPinMode, setQuickPinMode] = useState(false);
   const [manualLocatorOpen, setManualLocatorOpen] = useState(false);
-  const [manualFloorplanImage, setManualFloorplanImage] = useState(() => readManualFloorplan(unit?.unitCode));
+  const [manualFloorplanImage, setManualFloorplanImage] = useState(() => placeholderMode ? null : readManualFloorplan(unit?.unitCode));
   const [manualLocatorBusy, setManualLocatorBusy] = useState(false);
-  const [quickTextOverride, setQuickTextOverride] = useState(() => readQuickTextOverride(unit?.unitCode));
+  const [quickTextOverride, setQuickTextOverride] = useState(() => placeholderMode ? null : readQuickTextOverride(unit?.unitCode));
   const hostRef = useRef(null);
   const [posterTarget, setPosterTarget] = useState(null);
   const [quickControlsTarget, setQuickControlsTarget] = useState(null);
   const [toolbarTarget, setToolbarTarget] = useState(null);
 
   useEffect(() => {
+    if (placeholderMode) {
+      setPersistedOverlay(null);
+      return undefined;
+    }
     const sync = () => setPersistedOverlay(readPersistedOverlay(unit?.unitCode));
     sync();
     window.addEventListener("plotflow-overlay-updated", sync);
@@ -103,9 +108,13 @@ export default function PosterCanvas({
       window.removeEventListener("plotflow-overlay-updated", sync);
       window.removeEventListener("storage", sync);
     };
-  }, [unit?.unitCode]);
+  }, [unit?.unitCode, placeholderMode]);
 
   useEffect(() => {
+    if (placeholderMode) {
+      setQuickTextOverride(null);
+      return undefined;
+    }
     const syncQuickText = (event) => {
       const eventCode = normalizeCode(event?.detail?.unitCode);
       if (eventCode && eventCode !== normalizeCode(unit?.unitCode)) return;
@@ -118,15 +127,16 @@ export default function PosterCanvas({
       window.removeEventListener("plotflow-quick-text-updated", syncQuickText);
       window.removeEventListener("storage", syncQuickText);
     };
-  }, [unit?.unitCode]);
+  }, [unit?.unitCode, placeholderMode]);
 
   useEffect(() => {
     setQuickPinMode(false);
     setManualLocatorOpen(false);
-    setManualFloorplanImage(readManualFloorplan(unit?.unitCode));
-  }, [unit?.unitCode, isEditing]);
+    setManualFloorplanImage(placeholderMode ? null : readManualFloorplan(unit?.unitCode));
+  }, [unit?.unitCode, isEditing, placeholderMode]);
 
   useEffect(() => {
+    if (placeholderMode) return undefined;
     function openPinArrange(event) {
       const eventCode = normalizeCode(event?.detail?.unitCode);
       if (eventCode && eventCode !== normalizeCode(unit?.unitCode)) return;
@@ -134,7 +144,7 @@ export default function PosterCanvas({
     }
     window.addEventListener("plotflow-open-pin-arrange", openPinArrange);
     return () => window.removeEventListener("plotflow-open-pin-arrange", openPinArrange);
-  }, [isEditing, unit?.unitCode]);
+  }, [isEditing, unit?.unitCode, placeholderMode]);
 
   useLayoutEffect(() => {
     setPosterTarget(hostRef.current?.querySelector(".poster-canvas") || null);
@@ -144,30 +154,24 @@ export default function PosterCanvas({
   });
 
   const isUnifiedLivePreview = Math.abs(Number(previewZoom) - 0.27) < 0.0001;
-  const effectiveOverlay = (preferLotOverlay || isUnifiedLivePreview)
+  const effectiveOverlay = placeholderMode ? null : ((preferLotOverlay || isUnifiedLivePreview)
     ? lotOverlay
-    : (persistedOverlay || lotOverlay);
+    : (persistedOverlay || lotOverlay));
 
-  const dataResolvedUnit = withResolvedArchitecture(unit);
-  const resolvedUnit = applyQuickTextOverride(dataResolvedUnit, quickTextOverride);
+  const dataResolvedUnit = placeholderMode ? unit : withResolvedArchitecture(unit);
+  const resolvedUnit = placeholderMode ? dataResolvedUnit : applyQuickTextOverride(dataResolvedUnit, quickTextOverride);
+  const effectivePinSrc = placeholderMode ? null : (assets.pin3D || pinAssets.pin3D);
 
-  // 3D Pin is now an always-on default layer. Per-unit position/scale is handled
-  // by QuickPinOverlay; the old checkbox is no longer required for normal use.
-  const effectivePinSrc = assets.pin3D || pinAssets.pin3D;
-
-  // House priority is intentional:
-  // 1) a house explicitly chosen in the UI for this unit,
-  // 2) the source Sheet/Excel houseModel,
-  // 3) strict architecture auto-match,
-  // 4) explicit Missing placeholder.
-  const manualHouse = readManualHouse(unit?.unitCode);
-  const sheetHouse = findCatalogAsset(houseCatalog, unit?.houseModel);
-  const houseResolution = resolveArchitectureHouseAsset(unit, houseCatalog);
+  const manualHouse = placeholderMode ? null : readManualHouse(unit?.unitCode);
+  const sheetHouse = placeholderMode ? null : findCatalogAsset(houseCatalog, unit?.houseModel);
+  const houseResolution = placeholderMode ? { asset: null, suggestedHouseModel: "", expectedAssetKey: "" } : resolveArchitectureHouseAsset(unit, houseCatalog);
   const resolvedHouse = manualHouse || sheetHouse || houseResolution.asset || null;
-  const missingKey = resolvedHouse ? "" : (houseResolution.suggestedHouseModel || houseResolution.expectedAssetKey || "");
+  const missingKey = placeholderMode
+    ? "Mẫu nhà sẽ hiển thị sau khi có dữ liệu"
+    : (resolvedHouse ? "" : (houseResolution.suggestedHouseModel || houseResolution.expectedAssetKey || ""));
   const baseAssets = {
     ...assets,
-    badges: [],
+    badges: placeholderMode ? [] : [],
     pin3D: effectivePinSrc,
     houseImage: resolvedHouse?.src || (missingKey ? missingHousePlaceholder(missingKey) : null),
     houseMissingKey: missingKey,
@@ -205,7 +209,7 @@ export default function PosterCanvas({
     }
   }
 
-  const manualControl = !isEditing && quickControlsTarget && floorplanStatus === "not_found"
+  const manualControl = !placeholderMode && !isEditing && quickControlsTarget && floorplanStatus === "not_found"
     ? createPortal(
         <div className="manual-locator-quick-card">
           <div><span>FLOORPLAN</span><strong>Auto Locate chưa tìm thấy</strong></div>
@@ -233,11 +237,11 @@ export default function PosterCanvas({
         toolbarTarget
       )}
 
-      <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />
-      <QuickTextOverride unit={unit} resolvedUnit={dataResolvedUnit} target={quickControlsTarget} isEditing={isEditing} />
+      {!placeholderMode && <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />}
+      {!placeholderMode && <QuickTextOverride unit={unit} resolvedUnit={dataResolvedUnit} target={quickControlsTarget} isEditing={isEditing} />}
       {manualControl}
 
-      {manualLocatorOpen && createPortal(
+      {!placeholderMode && manualLocatorOpen && createPortal(
         <ManualFloorplanLocator
           initialPage={1}
           busy={manualLocatorBusy}
@@ -247,7 +251,7 @@ export default function PosterCanvas({
         document.body
       )}
 
-      {posterTarget && createPortal(
+      {!placeholderMode && posterTarget && createPortal(
         <>
           <CampaignBadgeStrip
             artboard={posterTarget}

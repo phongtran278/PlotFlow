@@ -5,7 +5,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const PREVIEW_RENDER_MAX_WIDTH = 640;
-const SCREEN_PREVIEW_CACHE_LIMIT = 16;
+const SCREEN_PREVIEW_CACHE_LIMIT = 8;
 const screenPreviewCache = new Map();
 export const FLOORPLAN_ZOOM_MIN = 50;
 export const FLOORPLAN_ZOOM_MAX = 2000;
@@ -19,9 +19,11 @@ function yieldToBrowser() {
 
 function scheduleIdleRender() {
   if (typeof requestIdleCallback === "function") {
-    return new Promise((resolve) => requestIdleCallback(() => resolve(), { timeout: 500 }));
+    // Do not pass a timeout here. A timeout can force PDF raster work to run
+    // while the user is actively panning/zooming, which creates visible jank.
+    return new Promise((resolve) => requestIdleCallback(() => resolve()));
   }
-  return new Promise((resolve) => setTimeout(resolve, 16));
+  return new Promise((resolve) => setTimeout(resolve, 40));
 }
 
 function touchPreviewCache(key, value) {
@@ -109,8 +111,6 @@ export async function buildFloorplanIndex(pdfDoc, onProgress) {
     for (const item of content.items) {
       if (!item?.str) continue;
       textItems += 1;
-      // Normalize Vietnamese letters (notably Đ → D) before matching so codes
-      // such as ĐLCV2-14 index to the same key as data imported from Sheet/Excel.
       const raw = normalizeUnitCode(item.str);
       const matches = raw.match(UNIT_CODE_RE) || [];
 
@@ -255,9 +255,6 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
   }
 
   const crop = calculateCropRect(pageRender, view, aspect);
-
-  // Screen crops are visual work, not blocking data work. Run them when the
-  // browser has an idle window so panning, zooming and unit selection stay responsive.
   if (isScreenPreview) await scheduleIdleRender();
 
   const page = await pdfDoc.getPage(pageRender.pageNumber);
