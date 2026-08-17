@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./PerformanceFeedback.css";
+import useStageUtilityTarget from "./useStageUtilityTarget";
 
 function browserLabel() {
   const ua = navigator.userAgent || "";
@@ -57,6 +59,7 @@ export default function PerformanceFeedback() {
   const baselineSignatureRef = useRef("");
   const sawUnitChangeRef = useRef(false);
   const sawFloorplanMissingRef = useRef(false);
+  const utilityTarget = useStageUtilityTarget();
 
   useEffect(() => {
     function beginRun(type, snapshot) {
@@ -102,11 +105,6 @@ export default function PerformanceFeedback() {
 
       const elapsedMs = performance.now() - startRef.current;
       const newContentObserved = sawUnitChangeRef.current || sawFloorplanMissingRef.current;
-
-      // A new Sheet normally replaces the selected unit/floorplan before the new
-      // PDF crop appears. On Refresh, an already usable cached floorplan can stay
-      // visible; in that case it counts as ready once the refreshed Sheet data is
-      // connected again, with a small guard against the same loading frame.
       if (newContentObserved || elapsedMs >= 500) finishRun();
     }
 
@@ -132,7 +130,7 @@ export default function PerformanceFeedback() {
   }, [measuring, runType]);
 
   const readyLabel = measuring || seconds == null ? "Đang đo…" : `${seconds.toFixed(1)}s`;
-  const runLabel = runType === "sheet" ? "Sheet Ready" : "App Ready";
+  const runLabel = runType === "sheet" ? "Sheet" : "App";
   const feedbackText = useMemo(() => {
     const load = seconds == null ? "chưa sẵn sàng" : `${seconds.toFixed(1)}s`;
     return [
@@ -163,8 +161,10 @@ export default function PerformanceFeedback() {
     window.setTimeout(() => setCopied(false), 1600);
   }
 
-  return (
-    <div className={`performance-feedback ${expanded ? "expanded" : ""}`}>
+  if (!utilityTarget) return null;
+
+  return createPortal(
+    <div className={`stage-utility-item performance-feedback ${expanded ? "expanded" : ""}`}>
       <button
         type="button"
         className="performance-feedback-summary"
@@ -173,7 +173,7 @@ export default function PerformanceFeedback() {
       >
         <span className={`performance-feedback-dot ${measuring ? "loading" : "ready"}`} />
         <strong>{runLabel} {readyLabel}</strong>
-        <small>{unitCount ? `${unitCount} căn` : "đang đọc dữ liệu"}</small>
+        <small>{unitCount ? `${unitCount} căn` : "đang đọc"}</small>
       </button>
 
       {expanded && (
@@ -197,6 +197,7 @@ export default function PerformanceFeedback() {
           </button>
         </div>
       )}
-    </div>
+    </div>,
+    utilityTarget
   );
 }
