@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import "./PinScaleControl.css";
 
@@ -65,6 +65,7 @@ function ensureTarget() {
 export default function PinScaleControl() {
   const [target, setTarget] = useState(null);
   const [unitCode, setUnitCode] = useState("");
+  const [unitCount, setUnitCount] = useState(0);
   const [scale, setScale] = useState(100);
   const [applied, setApplied] = useState(false);
 
@@ -74,6 +75,7 @@ export default function PinScaleControl() {
       setTarget((current) => current === nextTarget ? current : nextTarget);
       const code = selectedUnitCode();
       setUnitCode(code);
+      setUnitCount(allUnitCodes().length);
       const pin = readAll()[code] || DEFAULT_PIN;
       setScale(scaleFromPin(pin));
     }
@@ -87,8 +89,6 @@ export default function PinScaleControl() {
       window.removeEventListener("plotflow-unit-pin-updated", sync);
     };
   }, []);
-
-  const count = useMemo(() => allUnitCodes().length, [unitCode, target]);
 
   function saveCurrent(nextScale) {
     const code = selectedUnitCode() || unitCode;
@@ -142,7 +142,7 @@ export default function PinScaleControl() {
       </div>
 
       <button type="button" className="pin-apply-all" onClick={applyAll}>
-        {applied ? "✓ Đã áp dụng" : `Apply scale to all ${count || ""} units`}
+        {applied ? "✓ Đã áp dụng" : `Apply scale to all ${unitCount || ""} units`}
       </button>
       <p>Scale có thể đồng bộ hàng loạt; vị trí vẫn lưu riêng cho từng căn.</p>
     </section>,
