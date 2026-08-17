@@ -4,7 +4,9 @@ import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
-const PREVIEW_RENDER_MAX_WIDTH = 760;
+const PREVIEW_RENDER_MAX_WIDTH = 640;
+const SCREEN_PREVIEW_CACHE_LIMIT = 16;
+const screenPreviewCache = new Map();
 export const FLOORPLAN_ZOOM_MIN = 50;
 export const FLOORPLAN_ZOOM_MAX = 2000;
 export const FLOORPLAN_FRAME_WIDTH = 506;
@@ -13,6 +15,36 @@ export const FLOORPLAN_FRAME_ASPECT = FLOORPLAN_FRAME_WIDTH / FLOORPLAN_FRAME_HE
 
 function yieldToBrowser() {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function scheduleIdleRender() {
+  if (typeof requestIdleCallback === "function") {
+    return new Promise((resolve) => requestIdleCallback(() => resolve(), { timeout: 500 }));
+  }
+  return new Promise((resolve) => setTimeout(resolve, 16));
+}
+
+function touchPreviewCache(key, value) {
+  screenPreviewCache.delete(key);
+  screenPreviewCache.set(key, value);
+  while (screenPreviewCache.size > SCREEN_PREVIEW_CACHE_LIMIT) {
+    const oldest = screenPreviewCache.keys().next().value;
+    screenPreviewCache.delete(oldest);
+  }
+}
+
+function screenPreviewKey(pageRender, view, outputWidth, aspect) {
+  const crop = calculateCropRect(pageRender, view, aspect);
+  return [
+    pageRender.pageNumber,
+    Math.round(pageRender.anchorX),
+    Math.round(pageRender.anchorY),
+    Math.round(crop.x),
+    Math.round(crop.y),
+    Math.round(crop.w),
+    Math.round(crop.h),
+    outputWidth,
+  ].join(":");
 }
 
 export function normalizeUnitCode(value) {
@@ -49,6 +81,8 @@ export function resolvePdfSourceUrl(input) {
 }
 
 export async function openVectorPdf(source) {
+  screenPreviewCache.clear();
+
   if (typeof source === "string") {
     const url = resolvePdfSourceUrl(source);
     const task = pdfjsLib.getDocument({ url, withCredentials: false });
@@ -118,7 +152,7 @@ export function resolveUnitsAgainstIndex(units, index) {
   return result;
 }
 
-export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1.7) {
+export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1.25) {
   const page = await pdfDoc.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
@@ -126,12 +160,15 @@ export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1.7) {
   canvas.height = Math.ceil(viewport.height);
   const ctx = canvas.getContext("2d", { alpha: false });
   await page.render({ canvasContext: ctx, viewport }).promise;
+  const dataUrl = canvas.toDataURL("image/png");
+  canvas.width = 1;
+  canvas.height = 1;
 
   return {
     pageNumber,
-    dataUrl: canvas.toDataURL("image/png"),
-    width: canvas.width,
-    height: canvas.height,
+    dataUrl,
+    width: Math.ceil(viewport.width),
+    height: Math.ceil(viewport.height),
     viewport,
     scale,
   };
@@ -209,11 +246,19 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
     ? Math.min(requestedOutputWidth, PREVIEW_RENDER_MAX_WIDTH)
     : requestedOutputWidth;
   const outputHeight = Math.round(outputWidth / aspect);
+  const cacheKey = isScreenPreview ? screenPreviewKey(pageRender, view, outputWidth, aspect) : null;
+
+  if (cacheKey && screenPreviewCache.has(cacheKey)) {
+    const cached = screenPreviewCache.get(cacheKey);
+    touchPreviewCache(cacheKey, cached);
+    return cached;
+  }
+
   const crop = calculateCropRect(pageRender, view, aspect);
 
-  // Batch preview may contain dozens of units. Yield between renders so the UI
-  // remains responsive instead of locking the browser until every crop is done.
-  if (isScreenPreview) await yieldToBrowser();
+  // Screen crops are visual work, not blocking data work. Run them when the
+  // browser has an idle window so panning, zooming and unit selection stay responsive.
+  if (isScreenPreview) await scheduleIdleRender();
 
   const page = await pdfDoc.getPage(pageRender.pageNumber);
   const cropWidthAtScale1 = crop.w / pageRender.scale;
@@ -243,7 +288,7 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
     drawLocatorDot(ctx, tx, ty, outputWidth);
   }
 
-  return {
+  const result = {
     dataUrl: canvas.toDataURL("image/png"),
     width: outputWidth,
     height: outputHeight,
@@ -251,6 +296,11 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
     requestedScale,
     crop,
   };
+  canvas.width = 1;
+  canvas.height = 1;
+
+  if (cacheKey) touchPreviewCache(cacheKey, result);
+  return result;
 }
 
 export async function createFloorplanCrop(pageRender, view, options = {}) {
@@ -274,5 +324,8 @@ export async function createFloorplanCrop(pageRender, view, options = {}) {
     drawLocatorDot(ctx, tx, ty, outputWidth);
   }
 
-  return canvas.toDataURL("image/png");
+  const dataUrl = canvas.toDataURL("image/png");
+  canvas.width = 1;
+  canvas.height = 1;
+  return dataUrl;
 }
