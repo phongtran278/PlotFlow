@@ -19,20 +19,21 @@ function normalizeText(value = "") {
 }
 
 function displayUnitType(unit) {
-  const source = `${unit?.type || ""} ${unit?.sourceFeature || ""}`;
+  const source = `${unit?.type || ""} ${unit?.sourceFeature || ""}`.trim();
+  if (!source) return "—";
   const normalized = normalizeText(source);
-  let base = "LIỀN KỀ";
+  let base = sourceText(unit?.type);
   if (normalized.includes("SONG LAP")) base = "SONG LẬP";
   else if (normalized.includes("DON LAP")) base = "ĐƠN LẬP";
+  else if (normalized.includes("LIEN KE")) base = "LIỀN KỀ";
 
-  // These are selling/property variants, so they belong with the lot/unit info.
   if (normalized.includes("SHOPHOUSE")) return `${base} - SHOPHOUSE`;
   if (normalized.includes("CAN GOC") || normalized.includes("GOC")) return `${base} - CĂN GÓC`;
   if (normalized.includes("XE KHE") || normalized.includes("XEKHE")) return `${base} - XẺ KHE`;
   return base;
 }
 
-export default function UnitInfoCard({ unit }) {
+export default function UnitInfoCard({ unit = {} }) {
   const leftSpecs = [
     { label: "LOẠI HÌNH", value: displayUnitType(unit) },
     { label: "SỐ TẦNG", value: show(unit.floors) },
@@ -49,7 +50,7 @@ export default function UnitInfoCard({ unit }) {
 
   return (
     <section className="unit-info-card">
-      <div className="unit-code-box">{unit.unitCode}</div>
+      <div className="unit-code-box">{sourceText(unit.unitCode)}</div>
 
       <div className="unit-spec-tabs" aria-label="Unit specifications">
         <SpecColumn items={leftSpecs} />
@@ -84,12 +85,13 @@ function SpecColumn({ items }) {
 }
 
 function PriceBox({ label, value }) {
+  const text = sourceText(value);
   return (
     <div className="price-box">
       <span className="price-label">{label}</span>
       <div className="price-value">
-        <strong>{sourceText(value)}</strong>
-        <span>tỷ</span>
+        <strong>{text}</strong>
+        {text !== "—" && <span>tỷ</span>}
       </div>
     </div>
   );
