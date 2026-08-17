@@ -1,0 +1,128 @@
+.performance-feedback {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  font-family: var(--plotflow-brand-font, Arial, sans-serif);
+}
+
+.performance-feedback-summary {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 158px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 14px;
+  background: rgba(21, 29, 28, .94);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0,0,0,.22);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+
+.performance-feedback-summary strong {
+  font-size: 13px;
+  line-height: 1.15;
+}
+
+.performance-feedback-summary small {
+  grid-column: 2;
+  color: rgba(255,255,255,.64);
+  font-size: 10px;
+}
+
+.performance-feedback-dot {
+  grid-row: 1 / span 2;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #9aa5a2;
+  box-shadow: 0 0 0 4px rgba(255,255,255,.06);
+}
+
+.performance-feedback-dot.ready { background: #6fe0a7; }
+.performance-feedback-dot.loading { animation: performance-pulse 1.15s ease-in-out infinite; }
+
+@keyframes performance-pulse {
+  0%, 100% { opacity: .45; }
+  50% { opacity: 1; }
+}
+
+.performance-feedback-panel {
+  width: 270px;
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 16px;
+  background: rgba(21, 29, 28, .97);
+  color: #fff;
+  box-shadow: 0 14px 36px rgba(0,0,0,.28);
+  backdrop-filter: blur(14px);
+}
+
+.performance-feedback-panel > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.performance-feedback-panel span {
+  color: rgba(255,255,255,.62);
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+.performance-feedback-panel strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.performance-feedback-panel p {
+  margin: 2px 0 0;
+  color: rgba(255,255,255,.7);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.performance-feedback-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.performance-feedback-meta span {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.78);
+  letter-spacing: 0;
+}
+
+.performance-feedback-panel button {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  color: #17201e;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.performance-feedback-panel button:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+@media (max-width: 760px) {
+  .performance-feedback {
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .performance-feedback-panel {
+    width: min(270px, calc(100vw - 20px));
+  }
+}
