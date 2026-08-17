@@ -1,7 +1,8 @@
 .performance-feedback {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  top: 16px;
+  right: 118px;
+  bottom: auto;
   z-index: 1200;
   font-family: var(--plotflow-brand-font, Arial, sans-serif);
 }
@@ -11,20 +12,22 @@
   grid-template-columns: auto auto;
   align-items: center;
   gap: 2px 8px;
-  min-width: 158px;
-  padding: 10px 12px;
+  min-width: 178px;
+  min-height: 42px;
+  padding: 9px 12px;
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 14px;
   background: rgba(21, 29, 28, .94);
   color: #fff;
-  box-shadow: 0 10px 30px rgba(0,0,0,.22);
+  box-shadow: 0 10px 30px rgba(0,0,0,.18);
   cursor: pointer;
   backdrop-filter: blur(12px);
 }
 
 .performance-feedback-summary strong {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.15;
+  white-space: nowrap;
 }
 
 .performance-feedback-summary small {
@@ -51,14 +54,16 @@
 }
 
 .performance-feedback-panel {
-  width: 270px;
-  margin-top: 8px;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 286px;
   padding: 14px;
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 16px;
   background: rgba(21, 29, 28, .97);
   color: #fff;
-  box-shadow: 0 14px 36px rgba(0,0,0,.28);
+  box-shadow: 0 14px 36px rgba(0,0,0,.24);
   backdrop-filter: blur(14px);
 }
 
@@ -118,11 +123,15 @@
 
 @media (max-width: 760px) {
   .performance-feedback {
-    right: 10px;
-    bottom: 10px;
+    top: 10px;
+    right: 102px;
+  }
+
+  .performance-feedback-summary {
+    min-width: 154px;
   }
 
   .performance-feedback-panel {
-    width: min(270px, calc(100vw - 20px));
+    width: min(286px, calc(100vw - 20px));
   }
 }
