@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./FocusDeckPosition.css";
+import useStageUtilityTarget from "./useStageUtilityTarget";
 
 const FOCUS_SECONDS = 25 * 60;
 const BREAK_SECONDS = 5 * 60;
@@ -37,6 +39,7 @@ export default function FocusDeck() {
   const ctxRef = useRef(null);
   const noiseSourceRef = useRef(null);
   const gainRef = useRef(null);
+  const utilityTarget = useStageUtilityTarget();
 
   useEffect(() => {
     document.body.classList.toggle("plotflow-zen-mode", zen);
@@ -136,8 +139,10 @@ export default function FocusDeck() {
   const progressTotal = mode === "focus" ? FOCUS_SECONDS : BREAK_SECONDS;
   const progress = Math.max(0, Math.min(1, 1 - secondsLeft / progressTotal));
 
-  return (
-    <>
+  if (!utilityTarget) return null;
+
+  return createPortal(
+    <div className="stage-utility-item focus-utility-item">
       <button
         type="button"
         className={`focus-orb ${running ? "active" : ""}`}
@@ -193,6 +198,7 @@ export default function FocusDeck() {
           <audio ref={audioRef} />
         </section>
       )}
-    </>
+    </div>,
+    utilityTarget
   );
 }

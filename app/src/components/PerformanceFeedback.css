@@ -1,9 +1,6 @@
 .performance-feedback {
-  position: fixed;
-  top: 16px;
-  right: 118px;
-  bottom: auto;
-  z-index: 1200;
+  position: relative;
+  z-index: 90;
   font-family: var(--plotflow-brand-font, Arial, sans-serif);
 }
 
@@ -11,41 +8,45 @@
   display: grid;
   grid-template-columns: auto auto;
   align-items: center;
-  gap: 2px 8px;
-  min-width: 178px;
-  min-height: 42px;
-  padding: 9px 12px;
-  border: 1px solid rgba(255,255,255,.18);
-  border-radius: 14px;
-  background: rgba(21, 29, 28, .94);
-  color: #fff;
-  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  gap: 1px 7px;
+  min-width: 132px;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid rgba(30,40,60,.09);
+  border-radius: 11px;
+  background: rgba(255,255,255,.76);
+  color: #343942;
+  box-shadow: 0 6px 18px rgba(60,75,105,.07);
   cursor: pointer;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+}
+
+.performance-feedback-summary:hover {
+  background: rgba(255,255,255,.96);
 }
 
 .performance-feedback-summary strong {
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.15;
   white-space: nowrap;
 }
 
 .performance-feedback-summary small {
   grid-column: 2;
-  color: rgba(255,255,255,.64);
-  font-size: 10px;
+  color: #9299a4;
+  font-size: 8px;
 }
 
 .performance-feedback-dot {
   grid-row: 1 / span 2;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
   background: #9aa5a2;
-  box-shadow: 0 0 0 4px rgba(255,255,255,.06);
+  box-shadow: 0 0 0 3px rgba(70,80,95,.06);
 }
 
-.performance-feedback-dot.ready { background: #6fe0a7; }
+.performance-feedback-dot.ready { background: #34c981; }
 .performance-feedback-dot.loading { animation: performance-pulse 1.15s ease-in-out infinite; }
 
 @keyframes performance-pulse {
@@ -56,15 +57,16 @@
 .performance-feedback-panel {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0;
   width: 286px;
   padding: 14px;
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 16px;
-  background: rgba(21, 29, 28, .97);
+  background: rgba(21,29,28,.97);
   color: #fff;
   box-shadow: 0 14px 36px rgba(0,0,0,.24);
   backdrop-filter: blur(14px);
+  z-index: 1300;
 }
 
 .performance-feedback-panel > div:first-child {
@@ -122,16 +124,12 @@
 }
 
 @media (max-width: 760px) {
-  .performance-feedback {
-    top: 10px;
-    right: 102px;
-  }
-
   .performance-feedback-summary {
-    min-width: 154px;
+    min-width: 124px;
   }
 
   .performance-feedback-panel {
-    width: min(286px, calc(100vw - 20px));
+    left: 0;
+    width: min(286px, calc(100vw - 32px));
   }
 }
