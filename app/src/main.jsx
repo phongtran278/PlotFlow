@@ -6,7 +6,6 @@ import UnitReviewBar from "./components/UnitReviewBar.jsx";
 import PerformanceFeedback from "./components/PerformanceFeedback.jsx";
 import WorkspaceController from "./components/WorkspaceController.jsx";
 import PinScaleControl from "./components/PinScaleControl.jsx";
-import CanvasPanController from "./components/CanvasPanController.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -16,7 +15,6 @@ createRoot(document.getElementById("root")).render(
       <PerformanceFeedback />
       <WorkspaceController />
       <PinScaleControl />
-      <CanvasPanController />
     </>
   </StrictMode>
 );
