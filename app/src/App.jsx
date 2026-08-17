@@ -33,6 +33,8 @@ import {
   resolveUnitsAgainstIndex,
 } from "./floorplan/pdfLocator";
 
+const PREVIEW_CACHE_LIMIT = 12;
+
 const demoUnits = [
   {
     unitCode: "AS76-08",
@@ -328,6 +330,9 @@ function App() {
 
   const pdfDocRef = useRef(null);
   const pageCacheRef = useRef(new Map());
+  const previewCacheRef = useRef(new Map());
+  const previewInFlightRef = useRef(new Map());
+  const previewGenerationRef = useRef(0);
   const [locatorFileName, setLocatorFileName] = useState("");
   const [locatorSourceMode, setLocatorSourceMode] = useState("link");
   const [locatorUrl, setLocatorUrl] = useState(() => localStorage.getItem("plotflow-master-pdf-url-v6") || "");
@@ -591,32 +596,114 @@ function App() {
     return attachMatchToPageRender(base, match);
   }
 
-  async function renderResolvedUnits(nextResults, unitList = units) {
-    const nextImages = { ...floorplanImages };
-    for (const unit of unitList) {
-      const code = normalizeUnitCode(unit.unitCode);
-      const result = nextResults[code];
-      if (!result?.matches?.length) continue;
+  function floorplanPreviewSignature(code, result) {
+    if (!result?.matches?.length) return "";
+    const override = overrides[code];
+    const matchIndex = Math.min(override?.selectedMatchIndex ?? result.selectedMatchIndex ?? 0, result.matches.length - 1);
+    const match = result.matches[matchIndex];
+    const view = { ...DEFAULT_FLOORPLAN_VIEW, ...(override?.view || {}) };
+    return `${match.pageNumber}:${matchIndex}:${match.x}:${match.y}:${viewSignature(view)}`;
+  }
+
+  function commitFloorplanPreview(code, signature, dataUrl) {
+    const cache = previewCacheRef.current;
+    cache.delete(code);
+    cache.set(code, { signature, dataUrl });
+
+    while (cache.size > PREVIEW_CACHE_LIMIT) {
+      const oldest = Array.from(cache.keys()).find((key) => key !== selectedCode) || cache.keys().next().value;
+      if (!oldest) break;
+      cache.delete(oldest);
+    }
+
+    setFloorplanImages(Object.fromEntries(Array.from(cache.entries()).map(([key, value]) => [key, value.dataUrl])));
+  }
+
+  async function renderFloorplanPreview(code, results = locatorResults) {
+    if (!code || !pdfDocRef.current) return null;
+    const result = results[code];
+    if (!result?.matches?.length) return null;
+
+    const signature = floorplanPreviewSignature(code, result);
+    const cached = previewCacheRef.current.get(code);
+    if (cached?.signature === signature) {
+      previewCacheRef.current.delete(code);
+      previewCacheRef.current.set(code, cached);
+      return cached.dataUrl;
+    }
+
+    const generation = previewGenerationRef.current;
+    const inFlightKey = `${generation}:${code}:${signature}`;
+    if (previewInFlightRef.current.has(inFlightKey)) return previewInFlightRef.current.get(inFlightKey);
+
+    const task = (async () => {
       const override = overrides[code];
       const matchIndex = Math.min(override?.selectedMatchIndex ?? result.selectedMatchIndex ?? 0, result.matches.length - 1);
       const match = result.matches[matchIndex];
       const pageRender = await getPageRender(match);
       const view = { ...DEFAULT_FLOORPLAN_VIEW, ...(override?.view || {}) };
-      const hq = await renderPdfRegion(pdfDocRef.current, pageRender, view, { outputWidth: 1084, aspect: FLOORPLAN_FRAME_ASPECT, includeHighlight: false });
-      nextImages[code] = hq.dataUrl;
-    }
-    setFloorplanImages(nextImages);
+      const preview = await renderPdfRegion(pdfDocRef.current, pageRender, view, {
+        outputWidth: 1084,
+        aspect: FLOORPLAN_FRAME_ASPECT,
+        includeHighlight: false,
+      });
+      if (generation === previewGenerationRef.current) commitFloorplanPreview(code, signature, preview.dataUrl);
+      return preview.dataUrl;
+    })().finally(() => previewInFlightRef.current.delete(inFlightKey));
+
+    previewInFlightRef.current.set(inFlightKey, task);
+    return task;
   }
 
   useEffect(() => {
     if (!pdfDocRef.current || !Object.keys(floorplanIndex).length) return;
     const nextResults = resolveUnitsAgainstIndex(units, floorplanIndex);
+    previewGenerationRef.current += 1;
+    previewCacheRef.current.clear();
+    previewInFlightRef.current.clear();
+    setFloorplanImages({});
     setLocatorResults(nextResults);
-    renderResolvedUnits(nextResults, units).catch((error) => {
-      console.error(error);
-      setLocatorMessage("Đã index nhưng có lỗi khi render crop preview.");
-    });
   }, [units, floorplanIndex]);
+
+  useEffect(() => {
+    if (!selectedCode || !pdfDocRef.current || !locatorResults[selectedCode]?.matches?.length) return undefined;
+    let cancelled = false;
+    let idleId = null;
+    let timerId = null;
+
+    renderFloorplanPreview(selectedCode, locatorResults)
+      .then(() => {
+        if (cancelled) return;
+        const selectedIndex = units.findIndex((unit) => normalizeUnitCode(unit.unitCode) === selectedCode);
+        const preloadCodes = [1, 2]
+          .map((offset) => units[selectedIndex + offset])
+          .filter(Boolean)
+          .map((unit) => normalizeUnitCode(unit.unitCode));
+
+        const preload = async () => {
+          for (const code of preloadCodes) {
+            if (cancelled) return;
+            try { await renderFloorplanPreview(code, locatorResults); } catch (error) { console.debug("Preview preload skipped", error); }
+          }
+        };
+
+        if (typeof requestIdleCallback === "function") {
+          idleId = requestIdleCallback(() => preload(), { timeout: 900 });
+        } else {
+          timerId = setTimeout(preload, 180);
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) setLocatorMessage("Đã index nhưng có lỗi khi render crop preview.");
+      });
+
+    return () => {
+      cancelled = true;
+      if (idleId != null && typeof cancelIdleCallback === "function") cancelIdleCallback(idleId);
+      if (timerId != null) clearTimeout(timerId);
+    };
+  }, [selectedCode, locatorResults, overrides, units]);
 
   async function indexMasterPdf(source, sourceLabel, sourceType = "upload") {
     try {
@@ -624,6 +711,9 @@ function App() {
       setLocatorFileName(sourceLabel);
       setLocatorMessage(sourceType === "link" ? "Đang kết nối PDF từ link..." : sourceType === "local" ? "Đang auto-load masterplan trong project..." : "Đang đọc text vector trong PDF...");
       pageCacheRef.current.clear();
+      previewGenerationRef.current += 1;
+      previewCacheRef.current.clear();
+      previewInFlightRef.current.clear();
       setFloorplanImages({});
       setLocatorResults({});
       setFloorplanIndex({});
@@ -731,7 +821,7 @@ function App() {
       localStorage.setItem("plotflow-lot-overlays-r1-v9", JSON.stringify(nextLots));
     }
     const hq = await renderPdfRegion(pdfDocRef.current, fineTunePageRender, view, { outputWidth: 1084, aspect: FLOORPLAN_FRAME_ASPECT, includeHighlight: false });
-    setFloorplanImages((prev) => ({ ...prev, [code]: hq.dataUrl }));
+    commitFloorplanPreview(code, floorplanPreviewSignature(code, { ...result, selectedMatchIndex }), hq.dataUrl);
     setLocatorResults((prev) => ({ ...prev, [code]: { ...prev[code], status: "ready" } }));
     setFineTuneUnitCode(null); setFineTunePageRender(null);
   }
