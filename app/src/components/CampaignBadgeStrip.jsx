@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const STORAGE_KEY = "plotflow-campaign-badges-v1";
+const STORAGE_KEY = "plotflow-campaign-badges-by-unit-v2";
 const ARTBOARD_WIDTH = 1080;
 const DEFAULT_TOP = 0;
 const DEFAULT_GAP = 18;
@@ -9,7 +9,7 @@ const DEFAULT_VISIBLE_HEIGHT = 156;
 const ALPHA_THRESHOLD = 8;
 
 const BADGES = [
-  { id: "hotdeal", name: "Hot Deal", src: "/assets/badges/hotdeal.png", enabled: true },
+  { id: "hotdeal", name: "Hot Deal", src: "/assets/badges/hotdeal.png", enabled: false },
   { id: "veosom", name: "Về ở sớm", src: "/assets/badges/veosom.png", enabled: false },
   { id: "gold1", name: "Tặng 1 chỉ vàng", shortName: "1 chỉ vàng", src: "/assets/badges/1 chỉ.png", enabled: false },
   { id: "gold3", name: "Tặng 3 chỉ vàng", shortName: "3 chỉ vàng", src: "/assets/badges/3 chỉ.png", enabled: false },
@@ -21,19 +21,59 @@ const BADGES = [
 const GOLD_IDS = BADGES.filter((badge) => badge.id.startsWith("gold")).map((badge) => badge.id);
 const pixelBoundsCache = new Map();
 
-function defaultConfig() {
+function normalizeUnitCode(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function sourceBadgeIds(sourceBadges = []) {
+  return new Set(
+    (Array.isArray(sourceBadges) ? sourceBadges : [])
+      .map((item) => typeof item === "string" ? item : item?.id)
+      .filter(Boolean)
+  );
+}
+
+function defaultConfig(sourceBadges = []) {
+  const sourceIds = sourceBadgeIds(sourceBadges);
   return {
     gap: DEFAULT_GAP,
     visibleHeight: DEFAULT_VISIBLE_HEIGHT,
-    badges: BADGES.map((badge, index) => ({ id: badge.id, enabled: badge.enabled, order: index, scale: 1 })),
+    badges: BADGES.map((badge, index) => ({
+      id: badge.id,
+      enabled: badge.id === "hotdeal"
+        ? sourceIds.has("BADGE_HOT_DEAL")
+        : badge.id === "veosom"
+          ? sourceIds.has("BADGE_VE_O_SOM")
+          : false,
+      order: index,
+      scale: 1,
+    })),
   };
 }
 
-function readConfig() {
+function readAllConfigs() {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (!raw || !Array.isArray(raw.badges)) return defaultConfig();
-    const defaults = defaultConfig();
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+function readConfig(unitCode, sourceBadges = []) {
+  const code = normalizeUnitCode(unitCode);
+  const defaults = defaultConfig(sourceBadges);
+  if (!code) return defaults;
+
+  try {
+    const raw = readAllConfigs()[code];
+    if (!raw || !Array.isArray(raw.badges)) return defaults;
     const byId = new Map(raw.badges.map((item) => [item.id, item]));
     const merged = defaults.badges.map((fallback) => {
       const saved = byId.get(fallback.id) || {};
@@ -58,14 +98,20 @@ function readConfig() {
       badges,
     };
   } catch {
-    return defaultConfig();
+    return defaults;
   }
 }
 
-function saveConfig(config) {
+function saveConfig(unitCode, config) {
+  const code = normalizeUnitCode(unitCode);
+  if (!code) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-    window.dispatchEvent(new CustomEvent("plotflow-campaign-badges-updated", { detail: config }));
+    const all = readAllConfigs();
+    all[code] = config;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    window.dispatchEvent(new CustomEvent("plotflow-campaign-badges-updated", {
+      detail: { unitCode: code, config },
+    }));
   } catch {
     // localStorage is optional.
   }
@@ -151,8 +197,22 @@ function orderedConfigBadges(config) {
   return [...config.badges].sort((a, b) => a.order - b.order);
 }
 
-export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEditing = false, quickPinMode = false, pinVisible = false, onToggleQuickPin }) {
-  const [config, setConfig] = useState(readConfig);
+export default function CampaignBadgeStrip({
+  artboard,
+  quickControlsTarget,
+  isEditing = false,
+  quickPinMode = false,
+  pinVisible = false,
+  onToggleQuickPin,
+  unitCode,
+  sourceBadges = [],
+}) {
+  const sourceBadgeSignature = (Array.isArray(sourceBadges) ? sourceBadges : [])
+    .map((item) => typeof item === "string" ? item : item?.id)
+    .filter(Boolean)
+    .sort()
+    .join("|");
+  const [config, setConfig] = useState(() => readConfig(unitCode, sourceBadges));
   const [scaleDrafts, setScaleDrafts] = useState({});
   const [boundsById, setBoundsById] = useState({});
   const [errorById, setErrorById] = useState({});
@@ -160,14 +220,27 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
   const imageRefs = useRef({});
 
   useEffect(() => {
-    const sync = (event) => setConfig(event?.detail || readConfig());
+    const code = normalizeUnitCode(unitCode);
+    setConfig(readConfig(unitCode, sourceBadges));
+    setScaleDrafts({});
+
+    const sync = (event) => {
+      const eventCode = normalizeUnitCode(event?.detail?.unitCode);
+      if (eventCode && eventCode !== code) return;
+      setConfig(event?.detail?.config || readConfig(unitCode, sourceBadges));
+    };
+    const syncStorage = (event) => {
+      if (event?.key && event.key !== STORAGE_KEY) return;
+      setConfig(readConfig(unitCode, sourceBadges));
+    };
+
     window.addEventListener("plotflow-campaign-badges-updated", sync);
-    window.addEventListener("storage", sync);
+    window.addEventListener("storage", syncStorage);
     return () => {
       window.removeEventListener("plotflow-campaign-badges-updated", sync);
-      window.removeEventListener("storage", sync);
+      window.removeEventListener("storage", syncStorage);
     };
-  }, []);
+  }, [unitCode, sourceBadgeSignature]);
 
   useEffect(() => {
     if (!quickControlsTarget) return;
@@ -193,7 +266,7 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
 
   function commit(next) {
     setConfig(next);
-    saveConfig(next);
+    saveConfig(unitCode, next);
   }
 
   function patchBadge(id, patch) {
@@ -275,6 +348,9 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
     .map((item) => ({ ...item, asset: BADGES.find((badge) => badge.id === item.id) }))
     .filter((item) => item.asset), [ordered]);
   const selectedGold = ordered.find((item) => GOLD_IDS.includes(item.id) && item.enabled)?.id || "";
+  const campaignSummary = active.length
+    ? active.map((item) => item.asset.shortName || item.asset.name).join(" · ")
+    : "Không áp dụng";
 
   const layouts = useMemo(() => {
     const measured = active
@@ -309,7 +385,10 @@ export default function CampaignBadgeStrip({ artboard, quickControlsTarget, isEd
   const quickControls = !isEditing && quickControlsTarget ? createPortal(
     <section className="campaign-control-card">
       <div className="campaign-control-heading">
-        <div><span>CAMPAIGN</span><strong>Quick Arrange</strong></div>
+        <div>
+          <span>CAMPAIGN · {unitCode || "—"}</span>
+          <strong>{campaignSummary}</strong>
+        </div>
         <label className="campaign-gap-field">
           <span>Gap</span>
           <input type="number" min="0" max="120" value={config.gap} onChange={(event) => commit({ ...config, gap: Math.max(0, Number(event.target.value) || 0) })} />
