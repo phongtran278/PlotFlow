@@ -243,6 +243,8 @@ export default function PosterCanvas({
             quickPinMode={quickPinMode}
             pinVisible={Boolean(assets.pin3D)}
             onToggleQuickPin={() => setQuickPinMode((value) => !value)}
+            unitCode={unit?.unitCode}
+            sourceBadges={assets.badges || []}
           />
           <QuickPinOverlay artboard={posterTarget} src={assets.pin3D} active={!isEditing && quickPinMode} unitCode={unit?.unitCode} />
           <PolicyImageOverlay handover={unit?.handover} />
