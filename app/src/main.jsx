@@ -6,6 +6,7 @@ import UnitReviewBar from "./components/UnitReviewBar.jsx";
 import PerformanceFeedback from "./components/PerformanceFeedback.jsx";
 import WorkspaceController from "./components/WorkspaceController.jsx";
 import PinScaleControl from "./components/PinScaleControl.jsx";
+import AutoFloorplanSource from "./components/AutoFloorplanSource.jsx";
 
 // Keep the first paint light, but prepare the Sheet parser once the browser is idle.
 // App.jsx dynamically imports the same module, so the later Connect action reuses it.
@@ -36,6 +37,7 @@ window.fetch = (input, init = {}) => {
 createRoot(document.getElementById("root")).render(
   <>
     <App />
+    <AutoFloorplanSource />
     <UnitReviewBar />
     <PerformanceFeedback />
     <WorkspaceController />
