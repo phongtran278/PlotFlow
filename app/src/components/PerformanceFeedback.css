@@ -57,8 +57,10 @@
 .performance-feedback-panel {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
-  width: 286px;
+  right: 0;
+  left: auto;
+  width: min(286px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
   padding: 14px;
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 16px;
@@ -90,6 +92,7 @@
   color: rgba(255,255,255,.7);
   font-size: 11px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .performance-feedback-meta {
@@ -116,6 +119,7 @@
   color: #17201e;
   font-weight: 750;
   cursor: pointer;
+  white-space: normal;
 }
 
 .performance-feedback-panel button:disabled {
@@ -129,7 +133,9 @@
   }
 
   .performance-feedback-panel {
-    left: 0;
-    width: min(286px, calc(100vw - 32px));
+    right: 0;
+    left: auto;
+    width: min(286px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
   }
 }
