@@ -5,8 +5,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const PREVIEW_RENDER_MAX_WIDTH = 640;
-const SCREEN_PREVIEW_CACHE_LIMIT = 8;
+const SCREEN_PREVIEW_CACHE_LIMIT = 3;
 const screenPreviewCache = new Map();
+let activePdfDoc = null;
 export const FLOORPLAN_ZOOM_MIN = 50;
 export const FLOORPLAN_ZOOM_MAX = 2000;
 export const FLOORPLAN_FRAME_WIDTH = 506;
@@ -47,6 +48,17 @@ function screenPreviewKey(pageRender, view, outputWidth, aspect) {
   ].join(":");
 }
 
+async function disposeActivePdf() {
+  const previous = activePdfDoc;
+  activePdfDoc = null;
+  if (!previous) return;
+  try {
+    await previous.destroy?.();
+  } catch (error) {
+    console.debug("Previous PDF cleanup skipped", error);
+  }
+}
+
 export function normalizeUnitCode(value) {
   return String(value || "")
     .normalize("NFD")
@@ -82,17 +94,22 @@ export function resolvePdfSourceUrl(input) {
 
 export async function openVectorPdf(source) {
   screenPreviewCache.clear();
+  await disposeActivePdf();
 
   if (typeof source === "string") {
     const url = resolvePdfSourceUrl(source);
     const task = pdfjsLib.getDocument({ url, withCredentials: false });
-    return task.promise;
+    const pdfDoc = await task.promise;
+    activePdfDoc = pdfDoc;
+    return pdfDoc;
   }
 
   if (source?.arrayBuffer) {
     const data = await source.arrayBuffer();
     const task = pdfjsLib.getDocument({ data });
-    return task.promise;
+    const pdfDoc = await task.promise;
+    activePdfDoc = pdfDoc;
+    return pdfDoc;
   }
 
   throw new Error("Nguồn PDF không hợp lệ.");
@@ -128,6 +145,7 @@ export async function buildFloorplanIndex(pdfDoc, onProgress) {
       }
     }
 
+    page.cleanup?.();
     onProgress?.({ pageNumber, totalPages: pdfDoc.numPages, textItems, codes: Object.keys(index).length });
     if (pageNumber < pdfDoc.numPages) await yieldToBrowser();
   }
@@ -150,7 +168,7 @@ export function resolveUnitsAgainstIndex(units, index) {
   return result;
 }
 
-export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1.25) {
+export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1) {
   const page = await pdfDoc.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
