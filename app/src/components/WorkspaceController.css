@@ -140,10 +140,8 @@
 }
 .workspace-navigator-popover small { display: block; margin-top: 7px; color: #8b94a0; font-size: 7px; line-height: 1.4; }
 
-/* Replace the older preview zoom group with the unified workspace toolbar. */
 .preview-zoom-controls { display: none !important; }
 
-/* Give the artwork a real viewport instead of an endlessly growing page. */
 .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas {
   height: calc(100vh - 116px);
   min-height: 620px;
@@ -171,6 +169,7 @@
 }
 
 .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll {
+  position: relative;
   overflow: auto !important;
   overscroll-behavior: contain;
   touch-action: pan-x pan-y;
@@ -195,7 +194,6 @@ body.workspace-panel-collapsed .component-stage:not(.layout-studio-mode):not(.fi
 }
 body.workspace-panel-collapsed .design-assignment-dock { display: none !important; }
 
-/* One Hand tool only: this scrolls the real artwork viewport. */
 body.workspace-hand-tool .component-canvas,
 body.workspace-hand-tool .studio-canvas-scroll,
 body.workspace-space-hand .component-canvas,
@@ -206,27 +204,38 @@ body.workspace-grabbing .component-canvas,
 body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; user-select: none; }
 
 /*
-  Keep scroll geometry in sync with the *visual* scaled poster.
-  The poster is absolutely positioned so its original 1080×1920 layout box does
-  not fight the scaled wrapper size. This is what gives Hand/Map reliable vertical
-  travel at 100%+ zoom instead of mostly horizontal movement.
+  The scroll surface owns the geometry. This pseudo element is a real layout box
+  sized by WorkspaceController, so scrollHeight/scrollWidth always match the
+  visible 1080×1920 artwork at the current zoom.
 */
-.studio-poster-viewport[data-workspace-zoom] {
-  position: relative !important;
-  width: calc(1080px * var(--studio-zoom) + 96px) !important;
-  min-width: calc(1080px * var(--studio-zoom) + 96px) !important;
-  height: calc(1920px * var(--studio-zoom) + 120px) !important;
-  min-height: calc(1920px * var(--studio-zoom) + 120px) !important;
-  padding: 48px 48px 72px !important;
-  margin: 0 auto !important;
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-canvas-scroll[data-workspace-pan-surface="true"]::before {
+  content: "";
+  display: block;
+  width: var(--workspace-content-w, 506px);
+  min-width: var(--workspace-content-w, 506px);
+  height: var(--workspace-content-h, 850px);
+  min-height: var(--workspace-content-h, 850px);
+  pointer-events: none;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-canvas-scroll[data-workspace-pan-surface="true"] > .studio-poster-viewport[data-workspace-zoom] {
+  position: absolute !important;
+  left: 48px !important;
+  top: 48px !important;
+  width: calc(1080px * var(--studio-zoom)) !important;
+  min-width: calc(1080px * var(--studio-zoom)) !important;
+  height: calc(1920px * var(--studio-zoom)) !important;
+  min-height: calc(1920px * var(--studio-zoom)) !important;
+  padding: 0 !important;
+  margin: 0 !important;
   overflow: visible !important;
   display: block !important;
 }
 
-.studio-poster-viewport[data-workspace-zoom] .poster-canvas {
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-canvas-scroll[data-workspace-pan-surface="true"] > .studio-poster-viewport[data-workspace-zoom] .poster-canvas {
   position: absolute !important;
-  left: 48px !important;
-  top: 48px !important;
+  left: 0 !important;
+  top: 0 !important;
   width: 1080px !important;
   height: 1920px !important;
   transform: scale(var(--studio-zoom)) !important;
