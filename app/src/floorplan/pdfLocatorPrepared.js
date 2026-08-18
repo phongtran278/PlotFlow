@@ -8,6 +8,8 @@ let preparedManifest = null;
 let preparedSource = null;
 let fallbackPdfDoc = null;
 const transientPreparedUrls = new Set();
+let activePreparedDetailUrl = null;
+let activePreparedDetailSource = "";
 
 function isDefaultView(view = {}) {
   return Math.abs(Number(view.zoom ?? 100) - 100) < 0.001
@@ -27,6 +29,35 @@ async function loadPreparedManifest() {
   }
 }
 
+function revokeUrl(url) {
+  if (!url) return;
+  try { URL.revokeObjectURL(url); } catch {}
+}
+
+function releaseActivePreparedDetail() {
+  revokeUrl(activePreparedDetailUrl);
+  activePreparedDetailUrl = null;
+  activePreparedDetailSource = "";
+}
+
+async function exclusivePreparedDetailUrl(sourceUrl) {
+  if (!sourceUrl) return null;
+  if (activePreparedDetailUrl && activePreparedDetailSource === sourceUrl) return activePreparedDetailUrl;
+
+  // Critical for 4 GB-class machines: destroy the previous large lot raster BEFORE
+  // decoding the next one. This prevents Chrome from accumulating multiple decoded
+  // 1600/2168 px lot images across a long editing session.
+  releaseActivePreparedDetail();
+
+  const response = await fetch(sourceUrl, { cache: "force-cache" });
+  if (!response.ok) throw new Error(`Không tải được prepared lot raster (${response.status}).`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  activePreparedDetailUrl = url;
+  activePreparedDetailSource = sourceUrl;
+  return url;
+}
+
 async function ensureFallbackPdf() {
   if (fallbackPdfDoc) return fallbackPdfDoc;
   if (!preparedSource) throw new Error("Không còn PDF source để mở chế độ vector.");
@@ -35,6 +66,7 @@ async function ensureFallbackPdf() {
 }
 
 export async function openVectorPdf(source) {
+  releaseActivePreparedDetail();
   fallbackPdfDoc = null;
   preparedManifest = null;
   preparedSource = source;
@@ -113,6 +145,7 @@ function preparedRasterFor(lot, options = {}) {
       width: Number(lot.previewWidth || 640),
       height: Number(lot.previewHeight || 493),
       tier: "preview",
+      detail: false,
     };
   }
 
@@ -122,6 +155,7 @@ function preparedRasterFor(lot, options = {}) {
       width: Number(lot.mediumWidth || 1600),
       height: Number(lot.mediumHeight || 1233),
       tier: "medium",
+      detail: true,
     };
   }
 
@@ -130,6 +164,7 @@ function preparedRasterFor(lot, options = {}) {
     width: Number(lot.detailWidth || lot.mediumWidth || 2168),
     height: Number(lot.detailHeight || lot.mediumHeight || 1670),
     tier: "detail",
+    detail: true,
   };
 }
 
@@ -160,9 +195,14 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
 
   const raster = preparedRasterFor(lot, options);
   if (!raster.url) return null;
+
+  // Screen previews stay as small static URLs. Editor/detail rasters get an exclusive
+  // object URL so the previous large lot can be explicitly revoked before the next one.
+  const sourceUrl = raster.detail ? await exclusivePreparedDetailUrl(raster.url) : raster.url;
+
   if (isDefaultView(view)) {
     return {
-      dataUrl: raster.url,
+      dataUrl: sourceUrl,
       width: raster.width,
       height: raster.height,
       crop: targetCrop,
@@ -170,10 +210,11 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
       requestedScale: 1,
       preparedRaster: true,
       preparedTier: raster.tier,
+      exclusiveDetail: raster.detail,
     };
   }
 
-  const image = await loadPreparedImage(raster.url);
+  const image = await loadPreparedImage(sourceUrl);
   const sourceWidth = image.naturalWidth || raster.width;
   const sourceHeight = image.naturalHeight || raster.height;
   const relativeX = (targetCrop.x - lot.crop.x) / lot.crop.w;
@@ -203,8 +244,12 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
   image.src = "";
   if (!blob) return null;
 
+  // The crop itself becomes the single active detail. Drop the source detail now so
+  // only one decoded large raster remains eligible for display.
+  releaseActivePreparedDetail();
   const url = URL.createObjectURL(blob);
-  transientPreparedUrls.add(url);
+  activePreparedDetailUrl = url;
+  activePreparedDetailSource = `cropped:${pageRender.unitCode}:${Date.now()}`;
   return {
     dataUrl: url,
     width: outputWidth,
@@ -214,6 +259,7 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
     requestedScale: 1,
     preparedRaster: true,
     preparedTier: `${raster.tier}-cropped`,
+    exclusiveDetail: true,
   };
 }
 
@@ -227,6 +273,7 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, o
   }
 
   if (pageRender?.__plotflowPrepared) {
+    releaseActivePreparedDetail();
     const doc = await ensureFallbackPdf();
     return base.renderPdfRegion(doc, pageRender, view, options);
   }
@@ -234,9 +281,8 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, o
 }
 
 export async function releasePreparedFallbackPdf() {
-  for (const url of transientPreparedUrls) {
-    try { URL.revokeObjectURL(url); } catch {}
-  }
+  releaseActivePreparedDetail();
+  for (const url of transientPreparedUrls) revokeUrl(url);
   transientPreparedUrls.clear();
 
   const doc = fallbackPdfDoc;
