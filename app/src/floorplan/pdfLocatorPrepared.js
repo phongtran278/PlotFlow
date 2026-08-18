@@ -1,4 +1,5 @@
 import * as base from "./pdfLocatorAuto.js";
+import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
 const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
 const DEFAULT_VIEW = { zoom: 100, offsetX: 0, offsetY: 0 };
@@ -100,22 +101,52 @@ export function attachMatchToPageRender(pageBase, match) {
   return result;
 }
 
+function preparedRasterFor(lot, options = {}) {
+  const profile = getMemoryProfile();
+  const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
+  const wantsDetail = Boolean(options.maxRenderScale) || requestedWidth > 900;
+
+  if (!wantsDetail) {
+    return {
+      url: lot.preview || lot.medium || lot.detail,
+      width: Number(lot.previewWidth || 640),
+      height: Number(lot.previewHeight || 493),
+      tier: "preview",
+    };
+  }
+
+  if (profile.lowMemory && lot.medium) {
+    return {
+      url: lot.medium,
+      width: Number(lot.mediumWidth || 1600),
+      height: Number(lot.mediumHeight || 1233),
+      tier: "medium",
+    };
+  }
+
+  return {
+    url: lot.detail || lot.medium || lot.preview,
+    width: Number(lot.detailWidth || lot.mediumWidth || 2168),
+    height: Number(lot.detailHeight || lot.mediumHeight || 1670),
+    tier: "detail",
+  };
+}
+
 export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, options = {}) {
   if (pageRender?.__plotflowPrepared && preparedManifest && isDefaultView(view)) {
     const lot = preparedManifest.lots?.[pageRender.unitCode];
     if (lot) {
-      const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
-      const detail = Boolean(options.maxRenderScale) || requestedWidth > 900;
-      const url = detail ? (lot.detail || lot.preview) : (lot.preview || lot.detail);
-      if (url) {
+      const raster = preparedRasterFor(lot, options);
+      if (raster.url) {
         return {
-          dataUrl: url,
-          width: detail ? Number(lot.detailWidth || 2168) : Number(lot.previewWidth || 640),
-          height: detail ? Number(lot.detailHeight || 1670) : Number(lot.previewHeight || 493),
+          dataUrl: raster.url,
+          width: raster.width,
+          height: raster.height,
           crop: base.calculateCropRect(pageRender, view, options.aspect || base.FLOORPLAN_FRAME_ASPECT),
           renderScale: 1,
           requestedScale: 1,
           preparedRaster: true,
+          preparedTier: raster.tier,
         };
       }
     }
