@@ -197,6 +197,17 @@ function orderedConfigBadges(config) {
   return [...config.badges].sort((a, b) => a.order - b.order);
 }
 
+function normalizeConfigOrders(config) {
+  const sorted = orderedConfigBadges(config);
+  const active = sorted.filter((item) => item.enabled);
+  const inactive = sorted.filter((item) => !item.enabled);
+  const orderById = new Map([...active, ...inactive].map((item, index) => [item.id, index]));
+  return {
+    ...config,
+    badges: config.badges.map((item) => ({ ...item, order: orderById.get(item.id) ?? item.order })),
+  };
+}
+
 export default function CampaignBadgeStrip({
   artboard,
   quickControlsTarget,
@@ -212,7 +223,7 @@ export default function CampaignBadgeStrip({
     .filter(Boolean)
     .sort()
     .join("|");
-  const [config, setConfig] = useState(() => readConfig(unitCode, sourceBadges));
+  const [config, setConfig] = useState(() => normalizeConfigOrders(readConfig(unitCode, sourceBadges)));
   const [scaleDrafts, setScaleDrafts] = useState({});
   const [boundsById, setBoundsById] = useState({});
   const [errorById, setErrorById] = useState({});
@@ -221,17 +232,17 @@ export default function CampaignBadgeStrip({
 
   useEffect(() => {
     const code = normalizeUnitCode(unitCode);
-    setConfig(readConfig(unitCode, sourceBadges));
+    setConfig(normalizeConfigOrders(readConfig(unitCode, sourceBadges)));
     setScaleDrafts({});
 
     const sync = (event) => {
       const eventCode = normalizeUnitCode(event?.detail?.unitCode);
       if (eventCode && eventCode !== code) return;
-      setConfig(event?.detail?.config || readConfig(unitCode, sourceBadges));
+      setConfig(normalizeConfigOrders(event?.detail?.config || readConfig(unitCode, sourceBadges)));
     };
     const syncStorage = (event) => {
       if (event?.key && event.key !== STORAGE_KEY) return;
-      setConfig(readConfig(unitCode, sourceBadges));
+      setConfig(normalizeConfigOrders(readConfig(unitCode, sourceBadges)));
     };
 
     window.addEventListener("plotflow-campaign-badges-updated", sync);
@@ -265,8 +276,9 @@ export default function CampaignBadgeStrip({
   }, [artboard]);
 
   function commit(next) {
-    setConfig(next);
-    saveConfig(unitCode, next);
+    const normalized = normalizeConfigOrders(next);
+    setConfig(normalized);
+    saveConfig(unitCode, normalized);
   }
 
   function patchBadge(id, patch) {
@@ -293,15 +305,24 @@ export default function CampaignBadgeStrip({
     if (activeItems.length < 2) return;
     const index = activeItems.findIndex((item) => item.id === id);
     if (index < 0) return;
+
     const targetIndex = (index + direction + activeItems.length) % activeItems.length;
-    const target = activeItems[targetIndex];
+    const reordered = [...activeItems];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    const activeOrderById = new Map(reordered.map((item, nextIndex) => [item.id, nextIndex]));
+    const inactiveItems = orderedConfigBadges(config).filter((item) => !item.enabled);
+    const inactiveOrderById = new Map(inactiveItems.map((item, nextIndex) => [item.id, reordered.length + nextIndex]));
+
     commit({
       ...config,
-      badges: config.badges.map((item) => {
-        if (item.id === id) return { ...item, order: target.order };
-        if (item.id === target.id) return { ...item, order: activeItems[index].order };
-        return item;
-      }),
+      badges: config.badges.map((item) => ({
+        ...item,
+        order: item.enabled
+          ? activeOrderById.get(item.id)
+          : inactiveOrderById.get(item.id),
+      })),
     });
   }
 
