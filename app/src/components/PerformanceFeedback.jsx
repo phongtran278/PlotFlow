@@ -25,25 +25,16 @@ function collectSnapshot() {
   const unitCodes = unitButtons
     .map((button) => button.querySelector(".unit-main strong")?.textContent?.trim() || "")
     .filter(Boolean);
-  const floorplanImage = document.querySelector('.poster-floorplan img[alt="Floorplan"]');
-  const floorplanReady = Boolean(
-    floorplanImage
-      && floorplanImage.complete
-      && floorplanImage.naturalWidth > 0
-      && String(floorplanImage.src || "").startsWith("data:image/")
-  );
   const connection = document.querySelector(".connection-status");
-  const connectionLoading = Boolean(connection?.classList.contains("loading"));
-  const connectionConnected = Boolean(
-    connection?.classList.contains("connected") || connection?.classList.contains("excel")
-  );
 
   return {
     unitCount: unitCodes.length,
     unitSignature: unitCodes.join("|"),
-    floorplanReady,
-    connectionLoading,
-    connectionConnected,
+    connectionLoading: Boolean(connection?.classList.contains("loading")),
+    connectionConnected: Boolean(
+      connection?.classList.contains("connected") || connection?.classList.contains("excel")
+    ),
+    connectionError: Boolean(connection?.classList.contains("error")),
   };
 }
 
@@ -52,97 +43,103 @@ export default function PerformanceFeedback() {
   const [seconds, setSeconds] = useState(null);
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [runType, setRunType] = useState("app");
-  const [measuring, setMeasuring] = useState(true);
-  const startRef = useRef(0);
-  const previousLoadingRef = useRef(false);
-  const baselineSignatureRef = useRef("");
-  const sawUnitChangeRef = useRef(false);
-  const sawFloorplanMissingRef = useRef(false);
+  const [runType, setRunType] = useState("sheet");
+  const [measuring, setMeasuring] = useState(false);
+  const [resultState, setResultState] = useState("idle");
   const utilityTarget = useStageUtilityTarget();
 
+  const startRef = useRef(0);
+  const baselineSignatureRef = useRef("");
+  const previousLoadingRef = useRef(false);
+  const measuringRef = useRef(false);
+  const rafRef = useRef(null);
+
   useEffect(() => {
-    function beginRun(type, snapshot) {
+    function beginRun(snapshot) {
       startRef.current = performance.now();
       baselineSignatureRef.current = snapshot.unitSignature;
-      sawUnitChangeRef.current = false;
-      sawFloorplanMissingRef.current = !snapshot.floorplanReady;
-      setRunType(type);
+      measuringRef.current = true;
+      setRunType("sheet");
       setSeconds(null);
+      setResultState("running");
       setMeasuring(true);
       setCopied(false);
     }
 
-    function finishRun() {
+    function finishRun(state) {
+      if (!measuringRef.current) return;
+      measuringRef.current = false;
       setSeconds(Math.max(0, (performance.now() - startRef.current) / 1000));
+      setResultState(state);
       setMeasuring(false);
     }
 
-    function inspect() {
+    function inspectNow() {
+      rafRef.current = null;
       const snapshot = collectSnapshot();
-      setUnitCount(snapshot.unitCount);
+      setUnitCount((current) => current === snapshot.unitCount ? current : snapshot.unitCount);
 
       if (snapshot.connectionLoading && !previousLoadingRef.current) {
-        beginRun("sheet", snapshot);
+        beginRun(snapshot);
       }
+
+      if (measuringRef.current && !snapshot.connectionLoading) {
+        if (snapshot.connectionError) {
+          finishRun("error");
+        } else if (snapshot.connectionConnected) {
+          const dataChanged = snapshot.unitSignature !== baselineSignatureRef.current;
+          if (dataChanged || snapshot.unitCount > 0) finishRun("success");
+        }
+      }
+
       previousLoadingRef.current = snapshot.connectionLoading;
+    }
 
-      if (snapshot.unitSignature !== baselineSignatureRef.current) {
-        sawUnitChangeRef.current = true;
-      }
-      if (!snapshot.floorplanReady) {
-        sawFloorplanMissingRef.current = true;
-      }
-
-      if (!snapshot.floorplanReady) return;
-
-      if (runType === "app") {
-        if (measuring) finishRun();
-        return;
-      }
-
-      if (!measuring || snapshot.connectionLoading || !snapshot.connectionConnected) return;
-
-      const elapsedMs = performance.now() - startRef.current;
-      const newContentObserved = sawUnitChangeRef.current || sawFloorplanMissingRef.current;
-      if (newContentObserved || elapsedMs >= 500) finishRun();
+    function scheduleInspect() {
+      if (rafRef.current != null) return;
+      rafRef.current = requestAnimationFrame(inspectNow);
     }
 
     const initial = collectSnapshot();
-    startRef.current = 0;
-    baselineSignatureRef.current = initial.unitSignature;
+    setUnitCount(initial.unitCount);
     previousLoadingRef.current = initial.connectionLoading;
-    inspect();
 
-    const observer = new MutationObserver(inspect);
-    observer.observe(document.body, {
+    const observer = new MutationObserver(scheduleInspect);
+    const root = document.querySelector(".unit-sidebar") || document.body;
+    observer.observe(root, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["src", "class"],
+      attributeFilter: ["class"],
     });
 
-    const timer = window.setInterval(inspect, 250);
     return () => {
       observer.disconnect();
-      window.clearInterval(timer);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
-  }, [measuring, runType]);
+  }, []);
 
-  const readyLabel = measuring || seconds == null ? "Đang đo…" : `${seconds.toFixed(1)}s`;
+  const readyLabel = measuring
+    ? "Đang đo…"
+    : seconds == null
+      ? "Sẵn sàng"
+      : `${seconds.toFixed(1)}s`;
   const runLabel = runType === "sheet" ? "Sheet" : "App";
+
   const feedbackText = useMemo(() => {
-    const load = seconds == null ? "chưa sẵn sàng" : `${seconds.toFixed(1)}s`;
+    const load = seconds == null ? "chưa đo" : `${seconds.toFixed(1)}s`;
     return [
       "PlotFlow performance feedback",
-      `Phép đo: ${runType === "sheet" ? "Connect / Refresh Sheet" : "Mở app"}`,
-      `Thời gian sẵn sàng: ${load}`,
+      "Phép đo: Connect / Refresh Sheet",
+      `Kết quả: ${resultState === "error" ? "Lỗi" : resultState === "success" ? "Thành công" : "Chưa chạy"}`,
+      `Thời gian: ${load}`,
       `Số căn: ${unitCount || "—"}`,
       `Trình duyệt: ${browserLabel()}`,
       `Hệ điều hành: ${platformLabel()}`,
       `Thời điểm: ${new Date().toLocaleString("vi-VN")}`,
     ].join("\n");
-  }, [seconds, unitCount, runType]);
+  }, [seconds, unitCount, resultState]);
 
   async function copyFeedback() {
     try {
@@ -171,21 +168,17 @@ export default function PerformanceFeedback() {
         onClick={() => setExpanded((value) => !value)}
         title="Mỗi lần Connect/Refresh Sheet sẽ tự bắt đầu một lượt đo mới"
       >
-        <span className={`performance-feedback-dot ${measuring ? "loading" : "ready"}`} />
+        <span className={`performance-feedback-dot ${measuring ? "loading" : resultState === "error" ? "error" : "ready"}`} />
         <strong>{runLabel} {readyLabel}</strong>
-        <small>{unitCount ? `${unitCount} căn` : "đang đọc"}</small>
+        <small>{unitCount ? `${unitCount} căn` : "chưa có dữ liệu"}</small>
       </button>
 
       {expanded && (
         <div className="performance-feedback-panel">
           <div>
-            <span>{runType === "sheet" ? "CONNECT / REFRESH SHEET" : "MỞ APP"}</span>
+            <span>CONNECT / REFRESH SHEET</span>
             <strong>{readyLabel}</strong>
-            <p>
-              {runType === "sheet"
-                ? "Tự reset mỗi lần Connect/Refresh và dừng khi dữ liệu mới đã kết nối, mặt bằng căn đang xem đã dùng được."
-                : "Tính từ lúc mở trang tới khi mặt bằng PDF đầu tiên đã dùng được."}
-            </p>
+            <p>Timer chỉ chạy khi kết nối dữ liệu và luôn dừng khi Sheet thành công hoặc báo lỗi.</p>
           </div>
           <div className="performance-feedback-meta">
             <span>{unitCount || "—"} căn</span>
