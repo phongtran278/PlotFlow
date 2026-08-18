@@ -7,6 +7,16 @@ function ensurePreviewPanStyles() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
+    html, body, #root {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .component-stage,
+    .component-canvas {
+      min-width: 0;
+    }
+
     .layout-studio:not(.is-editing) .studio-canvas-scroll {
       overflow: auto !important;
       max-height: calc(100vh - 185px);
@@ -16,14 +26,12 @@ function ensurePreviewPanStyles() {
       -webkit-overflow-scrolling: touch;
     }
 
-    .component-stage.preview-pan-active,
-    .component-stage.preview-pan-active .component-canvas,
     .layout-studio:not(.is-editing) .studio-canvas-scroll.is-preview-panning {
       cursor: grabbing;
       user-select: none;
     }
 
-    .component-stage.preview-pan-active *:not(button):not(input):not(select):not(textarea):not(a) {
+    .layout-studio:not(.is-editing) .studio-canvas-scroll.is-preview-panning *:not(button):not(input):not(select):not(textarea):not(a) {
       cursor: grabbing !important;
     }
   `;
@@ -40,11 +48,11 @@ function getPreviewScroller(target) {
   return scroller;
 }
 
-function canPanFromTarget(target) {
-  if (!target?.closest) return false;
+function canPanArtworkFromTarget(target, scroller) {
+  if (!target?.closest || !scroller?.contains(target)) return false;
   if (target.closest(PAN_IGNORE_SELECTOR)) return false;
   if (target.closest(INTERACTIVE_SELECTOR)) return false;
-  return Boolean(target.closest(".component-canvas, .stage-header, .studio-canvas-scroll, .design-assignment-dock"));
+  return true;
 }
 
 export function installPreviewInteractions() {
@@ -55,29 +63,24 @@ export function installPreviewInteractions() {
 
   function finishDrag(pointerId) {
     if (!drag) return;
-    const { scroller, stage, captureTarget } = drag;
+    const { scroller } = drag;
     try {
-      if (pointerId != null && captureTarget?.hasPointerCapture?.(pointerId)) captureTarget.releasePointerCapture(pointerId);
+      if (pointerId != null && scroller.hasPointerCapture?.(pointerId)) scroller.releasePointerCapture(pointerId);
     } catch {
       // Pointer capture can already be released by the browser.
     }
     scroller.classList.remove("is-preview-panning");
-    stage?.classList.remove("preview-pan-active");
     drag = null;
   }
 
   function onPointerDown(event) {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey) return;
     const scroller = getPreviewScroller(event.target);
-    if (!scroller || !canPanFromTarget(event.target)) return;
+    if (!scroller || !canPanArtworkFromTarget(event.target, scroller)) return;
     if (scroller.scrollHeight <= scroller.clientHeight && scroller.scrollWidth <= scroller.clientWidth) return;
 
-    const stage = event.target.closest(".component-stage");
-    const captureTarget = event.target instanceof Element ? event.target : scroller;
     drag = {
       scroller,
-      stage,
-      captureTarget,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
@@ -86,8 +89,7 @@ export function installPreviewInteractions() {
     };
 
     scroller.classList.add("is-preview-panning");
-    stage?.classList.add("preview-pan-active");
-    try { captureTarget.setPointerCapture?.(event.pointerId); } catch { /* optional */ }
+    try { scroller.setPointerCapture?.(event.pointerId); } catch { /* optional */ }
     event.preventDefault();
   }
 
@@ -109,25 +111,20 @@ export function installPreviewInteractions() {
     if (event.ctrlKey || event.metaKey) return;
     const scroller = getPreviewScroller(event.target);
     if (!scroller) return;
+
+    // Keep each panel independent: artwork gestures scroll artwork; Design Assignment
+    // and other side panels keep their own native scrolling. Only the top stage header
+    // proxies two-finger vertical scrolling to the artwork as a convenience.
+    if (scroller.contains(event.target)) return;
+    if (!event.target?.closest?.(".stage-header")) return;
     if (event.target?.closest?.("input[type='range'], input[type='number'], select, textarea")) return;
 
-    // Native two-finger scrolling is already ideal while the pointer is over the artwork.
-    // Everywhere else in the preview stage (header / Design Assignment / blank canvas),
-    // proxy the touchpad gesture into the same artwork scroller.
-    if (scroller.contains(event.target)) return;
-
     const canScrollY = scroller.scrollHeight > scroller.clientHeight;
-    const canScrollX = scroller.scrollWidth > scroller.clientWidth;
-    if (!canScrollY && !canScrollX) return;
+    if (!canScrollY) return;
 
     const beforeTop = scroller.scrollTop;
-    const beforeLeft = scroller.scrollLeft;
-    scroller.scrollTop += canScrollY ? event.deltaY : 0;
-    scroller.scrollLeft += canScrollX ? event.deltaX : 0;
-
-    if (scroller.scrollTop !== beforeTop || scroller.scrollLeft !== beforeLeft) {
-      event.preventDefault();
-    }
+    scroller.scrollTop += event.deltaY;
+    if (scroller.scrollTop !== beforeTop) event.preventDefault();
   }
 
   document.addEventListener("pointerdown", onPointerDown, { passive: false });
