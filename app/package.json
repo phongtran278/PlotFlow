@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "setup": "node tools/sync-assets.mjs",
-    "sync-assets": "node tools/sync-assets.mjs",
+    "setup": "node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
+    "sync-assets": "node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
+    "optimize-assets": "node tools/optimize-assets.mjs && node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
+    "prepare-masterplan": "node tools/prepare-masterplan.mjs",
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
