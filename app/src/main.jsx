@@ -6,6 +6,9 @@ import PerformanceFeedback from "./components/PerformanceFeedback.jsx";
 import WorkspaceController from "./components/WorkspaceController.jsx";
 import PinScaleControl from "./components/PinScaleControl.jsx";
 import AutoFloorplanSource from "./components/AutoFloorplanSource.jsx";
+import { installPreviewInteractions } from "./previewInteractions.js";
+
+installPreviewInteractions();
 
 createRoot(document.getElementById("root")).render(
   <>
