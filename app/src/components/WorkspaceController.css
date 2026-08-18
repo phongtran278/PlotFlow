@@ -205,8 +205,14 @@ body.workspace-grabbing .studio-canvas-scroll { cursor: grab !important; }
 body.workspace-grabbing .component-canvas,
 body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; user-select: none; }
 
-/* Keep actual scrollable room around the scaled 1080×1920 artwork. */
+/*
+  Keep scroll geometry in sync with the *visual* scaled poster.
+  The poster is absolutely positioned so its original 1080×1920 layout box does
+  not fight the scaled wrapper size. This is what gives Hand/Map reliable vertical
+  travel at 100%+ zoom instead of mostly horizontal movement.
+*/
 .studio-poster-viewport[data-workspace-zoom] {
+  position: relative !important;
   width: calc(1080px * var(--studio-zoom) + 96px) !important;
   min-width: calc(1080px * var(--studio-zoom) + 96px) !important;
   height: calc(1920px * var(--studio-zoom) + 120px) !important;
@@ -218,6 +224,11 @@ body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; use
 }
 
 .studio-poster-viewport[data-workspace-zoom] .poster-canvas {
+  position: absolute !important;
+  left: 48px !important;
+  top: 48px !important;
+  width: 1080px !important;
+  height: 1920px !important;
   transform: scale(var(--studio-zoom)) !important;
   transform-origin: top left !important;
   margin: 0 !important;
