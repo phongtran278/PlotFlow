@@ -1,7 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -12,14 +10,17 @@ const projectDir = path.resolve(appDir, "..");
 const masterDir = path.join(projectDir, "masterplan");
 const publicMasterDir = path.join(appDir, "public", "masterplan");
 const generatedDir = path.join(publicMasterDir, "generated");
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "plotflow-masterplan-"));
 
 let sharp;
+let createCanvas;
 try {
   ({ default: sharp } = await import("sharp"));
+  ({ createCanvas } = await import("@napi-rs/canvas"));
 } catch {
-  console.error("✕ Missing optional image tool: sharp");
-  console.error("  Run once from app/: npm install --no-save --package-lock=false sharp@0.35.3");
+  console.error("✕ Missing local image tools.");
+  console.error("  Run once from app/:");
+  console.error("  npm install --no-save --package-lock=false sharp@0.35.3 @napi-rs/canvas@0.1.80");
+  console.error("  No Homebrew, Poppler, CMake, or full Xcode is required for this step.");
   process.exit(1);
 }
 
@@ -36,19 +37,10 @@ const pdfPublicPath = path.join(publicMasterDir, "masterplan.pdf");
 fs.mkdirSync(publicMasterDir, { recursive: true });
 fs.copyFileSync(pdfPath, pdfPublicPath);
 
-const pdftoppmProbe = spawnSync("pdftoppm", ["-v"], { encoding: "utf8" });
-if (pdftoppmProbe.error) {
-  console.error("✕ Missing pdftoppm (PDF → image converter).");
-  console.error("  macOS: brew install poppler");
-  console.error("  Windows: install Poppler and add its bin folder to PATH.");
-  process.exit(1);
-}
-
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
-const DPI = Number(process.env.PLOTFLOW_MASTERPLAN_DPI || 300);
 const DETAIL_WIDTH = Number(process.env.PLOTFLOW_LOT_DETAIL_WIDTH || 2168);
 const PREVIEW_WIDTH = Number(process.env.PLOTFLOW_LOT_PREVIEW_WIDTH || 640);
-const TILE_SIZE = Number(process.env.PLOTFLOW_TILE_SIZE || 512);
+const PAGE_PREVIEW_WIDTH = Number(process.env.PLOTFLOW_PAGE_PREVIEW_WIDTH || 1800);
 const FRAME_ASPECT = 506 / 390;
 
 function normalizeUnitCode(value) {
@@ -76,27 +68,70 @@ function safeName(value) {
   return String(value).replace(/[^A-Z0-9_-]+/gi, "_");
 }
 
+async function renderRegion(page, crop, outputWidth) {
+  const scale = outputWidth / Math.max(1, crop.w);
+  const outputHeight = Math.max(2, Math.round(crop.h * scale));
+  const viewport = page.getViewport({ scale });
+  const canvas = createCanvas(Math.max(2, Math.round(outputWidth)), outputHeight);
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  await page.render({
+    canvasContext: ctx,
+    viewport,
+    transform: [1, 0, 0, 1, -crop.x * scale, -crop.y * scale],
+    background: "#ffffff",
+  }).promise;
+
+  const png = canvas.toBuffer("image/png");
+  canvas.width = 1;
+  canvas.height = 1;
+  return png;
+}
+
+async function renderPagePreview(page, viewport) {
+  const scale = PAGE_PREVIEW_WIDTH / Math.max(1, viewport.width);
+  const width = Math.max(2, Math.round(viewport.width * scale));
+  const height = Math.max(2, Math.round(viewport.height * scale));
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  const renderViewport = page.getViewport({ scale });
+  await page.render({ canvasContext: ctx, viewport: renderViewport, background: "#ffffff" }).promise;
+  const png = canvas.toBuffer("image/png");
+  canvas.width = 1;
+  canvas.height = 1;
+  return png;
+}
+
 fs.rmSync(generatedDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(generatedDir, "pages"), { recursive: true });
 fs.mkdirSync(path.join(generatedDir, "lots"), { recursive: true });
 fs.mkdirSync(path.join(generatedDir, "lots-preview"), { recursive: true });
-fs.mkdirSync(path.join(generatedDir, "tiles"), { recursive: true });
 
 const data = new Uint8Array(fs.readFileSync(pdfPath));
-const pdfDoc = await pdfjsLib.getDocument({ data, useWorkerFetch: false, isEvalSupported: false }).promise;
+const pdfDoc = await pdfjsLib.getDocument({
+  data,
+  useWorkerFetch: false,
+  isEvalSupported: false,
+  disableFontFace: true,
+}).promise;
+
 const manifest = {
-  version: 1,
+  version: 2,
   source: pdfName,
   generatedAt: new Date().toISOString(),
   numPages: pdfDoc.numPages,
-  dpi: DPI,
-  tileSize: TILE_SIZE,
+  renderer: "pdfjs-napi-canvas",
   pages: {},
   index: {},
   lots: {},
 };
 
-console.log(`Preparing ${pdfName} · ${pdfDoc.numPages} page(s) · ${DPI} DPI`);
+console.log(`Preparing ${pdfName} · ${pdfDoc.numPages} page(s)`);
+console.log("Renderer: PDF.js + @napi-rs/canvas · no Poppler/Homebrew required");
 
 for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
   const page = await pdfDoc.getPage(pageNumber);
@@ -124,35 +159,19 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     }
   }
 
-  const outPrefix = path.join(tempDir, `page-${pageNumber}`);
-  const raster = spawnSync("pdftoppm", ["-f", String(pageNumber), "-l", String(pageNumber), "-singlefile", "-png", "-r", String(DPI), pdfPath, outPrefix], { stdio: "inherit" });
-  if (raster.status !== 0) throw new Error(`pdftoppm failed on page ${pageNumber}`);
-  const rasterPath = `${outPrefix}.png`;
-  const meta = await sharp(rasterPath, { limitInputPixels: false }).metadata();
-  const rasterWidth = Number(meta.width || 1);
-  const rasterHeight = Number(meta.height || 1);
-  const scaleX = rasterWidth / viewport.width;
-  const scaleY = rasterHeight / viewport.height;
-
   const pagePreviewName = `page-${pageNumber}.webp`;
-  await sharp(rasterPath, { limitInputPixels: false })
-    .resize({ width: 1800, withoutEnlargement: true })
-    .webp({ quality: 82, effort: 5, smartSubsample: true })
+  const pagePng = await renderPagePreview(page, viewport);
+  const pageInfo = await sharp(pagePng, { limitInputPixels: false })
+    .webp({ quality: 80, effort: 4, smartSubsample: true })
     .toFile(path.join(generatedDir, "pages", pagePreviewName));
-
-  const tileBase = path.join(generatedDir, "tiles", `page-${pageNumber}.dz`);
-  await sharp(rasterPath, { limitInputPixels: false })
-    .webp({ quality: 82, effort: 4, smartSubsample: true })
-    .tile({ size: TILE_SIZE, layout: "dz", depth: "onetile" })
-    .toFile(tileBase);
 
   manifest.pages[String(pageNumber)] = {
     width: viewport.width,
     height: viewport.height,
-    rasterWidth,
-    rasterHeight,
+    rasterWidth: pageInfo.width,
+    rasterHeight: pageInfo.height,
     preview: `/masterplan/generated/pages/${pagePreviewName}`,
-    dzi: `/masterplan/generated/tiles/page-${pageNumber}.dzi`,
+    dzi: null,
   };
 
   for (const entry of pageEntries) {
@@ -163,22 +182,20 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     const anchorX = rawX + anchorW / 2;
     const anchorY = rawY - anchorH / 2;
     const crop = defaultCrop(viewport.width, viewport.height, anchorX, anchorY);
-    const left = Math.max(0, Math.round(crop.x * scaleX));
-    const top = Math.max(0, Math.round(crop.y * scaleY));
-    const width = Math.max(2, Math.min(rasterWidth - left, Math.round(crop.w * scaleX)));
-    const height = Math.max(2, Math.min(rasterHeight - top, Math.round(crop.h * scaleY)));
     const name = safeName(entry.unitCode);
     const detailFile = `${name}.webp`;
     const previewFile = `${name}.webp`;
 
-    const cropPipeline = sharp(rasterPath, { limitInputPixels: false }).extract({ left, top, width, height });
-    const detailInfo = await cropPipeline.clone()
-      .resize({ width: DETAIL_WIDTH, withoutEnlargement: true })
-      .webp({ quality: 90, effort: 5, smartSubsample: true })
+    // Render only this lot region at the final required resolution.
+    // This avoids creating a giant full-page 300-DPI bitmap in memory.
+    const detailPng = await renderRegion(page, crop, DETAIL_WIDTH);
+    const detailInfo = await sharp(detailPng, { limitInputPixels: false })
+      .webp({ quality: 90, effort: 4, smartSubsample: true })
       .toFile(path.join(generatedDir, "lots", detailFile));
-    const previewInfo = await cropPipeline.clone()
+
+    const previewInfo = await sharp(detailPng, { limitInputPixels: false })
       .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
-      .webp({ quality: 80, effort: 5, smartSubsample: true })
+      .webp({ quality: 80, effort: 4, smartSubsample: true })
       .toFile(path.join(generatedDir, "lots-preview", previewFile));
 
     manifest.lots[entry.unitCode] = {
@@ -198,12 +215,10 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
   }
 
   page.cleanup?.();
-  fs.rmSync(rasterPath, { force: true });
   console.log(`✓ Page ${pageNumber}/${pdfDoc.numPages} · ${pageEntries.length} code hit(s)`);
 }
 
 fs.writeFileSync(path.join(generatedDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
 await pdfDoc.destroy();
-fs.rmSync(tempDir, { recursive: true, force: true });
 console.log(`✓ Prepared masterplan · ${Object.keys(manifest.lots).length} lot raster(s)`);
-console.log("  Runtime can now use WebP crops + Deep Zoom tiles before falling back to PDF.");
+console.log("  Runtime now uses lightweight WebP previews/details before falling back to PDF.");
