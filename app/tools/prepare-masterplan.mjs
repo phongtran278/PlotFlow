@@ -39,6 +39,7 @@ fs.copyFileSync(pdfPath, pdfPublicPath);
 
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const DETAIL_WIDTH = Number(process.env.PLOTFLOW_LOT_DETAIL_WIDTH || 2168);
+const MEDIUM_WIDTH = Number(process.env.PLOTFLOW_LOT_MEDIUM_WIDTH || 1600);
 const PREVIEW_WIDTH = Number(process.env.PLOTFLOW_LOT_PREVIEW_WIDTH || 640);
 const PAGE_PREVIEW_WIDTH = Number(process.env.PLOTFLOW_PAGE_PREVIEW_WIDTH || 1800);
 const FRAME_ASPECT = 506 / 390;
@@ -109,6 +110,7 @@ async function renderPagePreview(page, viewport) {
 fs.rmSync(generatedDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(generatedDir, "pages"), { recursive: true });
 fs.mkdirSync(path.join(generatedDir, "lots"), { recursive: true });
+fs.mkdirSync(path.join(generatedDir, "lots-medium"), { recursive: true });
 fs.mkdirSync(path.join(generatedDir, "lots-preview"), { recursive: true });
 
 const data = new Uint8Array(fs.readFileSync(pdfPath));
@@ -120,7 +122,7 @@ const pdfDoc = await pdfjsLib.getDocument({
 }).promise;
 
 const manifest = {
-  version: 2,
+  version: 3,
   source: pdfName,
   generatedAt: new Date().toISOString(),
   numPages: pdfDoc.numPages,
@@ -132,6 +134,7 @@ const manifest = {
 
 console.log(`Preparing ${pdfName} · ${pdfDoc.numPages} page(s)`);
 console.log("Renderer: PDF.js + @napi-rs/canvas · no Poppler/Homebrew required");
+console.log(`Lot rasters: ${PREVIEW_WIDTH}px preview · ${MEDIUM_WIDTH}px low-memory · ${DETAIL_WIDTH}px detail`);
 
 for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
   const page = await pdfDoc.getPage(pageNumber);
@@ -184,14 +187,18 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     const crop = defaultCrop(viewport.width, viewport.height, anchorX, anchorY);
     const name = safeName(entry.unitCode);
     const detailFile = `${name}.webp`;
+    const mediumFile = `${name}.webp`;
     const previewFile = `${name}.webp`;
 
-    // Render only this lot region at the final required resolution.
-    // This avoids creating a giant full-page 300-DPI bitmap in memory.
     const detailPng = await renderRegion(page, crop, DETAIL_WIDTH);
     const detailInfo = await sharp(detailPng, { limitInputPixels: false })
       .webp({ quality: 90, effort: 4, smartSubsample: true })
       .toFile(path.join(generatedDir, "lots", detailFile));
+
+    const mediumInfo = await sharp(detailPng, { limitInputPixels: false })
+      .resize({ width: MEDIUM_WIDTH, withoutEnlargement: true })
+      .webp({ quality: 86, effort: 4, smartSubsample: true })
+      .toFile(path.join(generatedDir, "lots-medium", mediumFile));
 
     const previewInfo = await sharp(detailPng, { limitInputPixels: false })
       .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
@@ -201,9 +208,12 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     manifest.lots[entry.unitCode] = {
       pageNumber,
       preview: `/masterplan/generated/lots-preview/${previewFile}`,
+      medium: `/masterplan/generated/lots-medium/${mediumFile}`,
       detail: `/masterplan/generated/lots/${detailFile}`,
       previewWidth: previewInfo.width,
       previewHeight: previewInfo.height,
+      mediumWidth: mediumInfo.width,
+      mediumHeight: mediumInfo.height,
       detailWidth: detailInfo.width,
       detailHeight: detailInfo.height,
       anchor: {
@@ -221,4 +231,4 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
 fs.writeFileSync(path.join(generatedDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
 await pdfDoc.destroy();
 console.log(`✓ Prepared masterplan · ${Object.keys(manifest.lots).length} lot raster(s)`);
-console.log("  Runtime now uses lightweight WebP previews/details before falling back to PDF.");
+console.log("  Runtime now selects preview / medium / detail by device memory profile.");
