@@ -6,8 +6,21 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const PREVIEW_RENDER_MAX_WIDTH = 640;
 const SCREEN_PREVIEW_CACHE_LIMIT = 3;
+const PDF_IDLE_RELEASE_MS = 1400;
+const RASTER_DB_NAME = "plotflow-raster-cache-v1";
+const RASTER_DB_VERSION = 1;
+const RASTER_STORE = "assets";
+const CACHE_SCHEMA = "raster-first-v1";
+const OBJECT_URL_LIMIT = 36;
+
 const screenPreviewCache = new Map();
+const objectUrlCache = new Map();
 let activePdfDoc = null;
+let activePdfPromise = null;
+let activeReleaseTimer = null;
+let lastPdfSource = null;
+let lastPdfSourceKey = "";
+
 export const FLOORPLAN_ZOOM_MIN = 50;
 export const FLOORPLAN_ZOOM_MAX = 2000;
 export const FLOORPLAN_FRAME_WIDTH = 506;
@@ -25,6 +38,89 @@ function scheduleIdleRender() {
   return new Promise((resolve) => setTimeout(resolve, 40));
 }
 
+function sourceKey(source) {
+  if (typeof source === "string") return `url:${resolvePdfSourceUrl(source)}`;
+  if (source?.name) return `file:${source.name}:${source.size || 0}:${source.lastModified || 0}`;
+  return "unknown";
+}
+
+function openRasterDb() {
+  if (typeof indexedDB === "undefined") return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const request = indexedDB.open(RASTER_DB_NAME, RASTER_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(RASTER_STORE)) db.createObjectStore(RASTER_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+  });
+}
+
+async function dbGet(key) {
+  const db = await openRasterDb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    const tx = db.transaction(RASTER_STORE, "readonly");
+    const request = tx.objectStore(RASTER_STORE).get(key);
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => resolve(null);
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => { try { db.close(); } catch {} };
+  });
+}
+
+async function dbPut(key, value) {
+  const db = await openRasterDb();
+  if (!db) return false;
+  return new Promise((resolve) => {
+    const tx = db.transaction(RASTER_STORE, "readwrite");
+    tx.objectStore(RASTER_STORE).put(value, key);
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { try { db.close(); } catch {}; resolve(false); };
+  });
+}
+
+function indexCacheKey() {
+  return `${CACHE_SCHEMA}:index:${lastPdfSourceKey}`;
+}
+
+function rasterCacheKey(pageRender, view, outputWidth, aspect, includeHighlight) {
+  const crop = calculateCropRect(pageRender, view, aspect);
+  return [
+    CACHE_SCHEMA,
+    "crop",
+    lastPdfSourceKey,
+    pageRender.pageNumber,
+    Math.round(pageRender.anchorX),
+    Math.round(pageRender.anchorY),
+    Math.round(crop.x * 10) / 10,
+    Math.round(crop.y * 10) / 10,
+    Math.round(crop.w * 10) / 10,
+    Math.round(crop.h * 10) / 10,
+    outputWidth,
+    includeHighlight === false ? "clean" : "marked",
+  ].join(":");
+}
+
+function rememberObjectUrl(key, blob) {
+  const existing = objectUrlCache.get(key);
+  if (existing) {
+    objectUrlCache.delete(key);
+    objectUrlCache.set(key, existing);
+    return existing;
+  }
+  const url = URL.createObjectURL(blob);
+  objectUrlCache.set(key, url);
+  while (objectUrlCache.size > OBJECT_URL_LIMIT) {
+    const oldestKey = objectUrlCache.keys().next().value;
+    const oldestUrl = objectUrlCache.get(oldestKey);
+    objectUrlCache.delete(oldestKey);
+    try { URL.revokeObjectURL(oldestUrl); } catch {}
+  }
+  return url;
+}
+
 function touchPreviewCache(key, value) {
   screenPreviewCache.delete(key);
   screenPreviewCache.set(key, value);
@@ -35,28 +131,79 @@ function touchPreviewCache(key, value) {
 }
 
 function screenPreviewKey(pageRender, view, outputWidth, aspect) {
-  const crop = calculateCropRect(pageRender, view, aspect);
-  return [
-    pageRender.pageNumber,
-    Math.round(pageRender.anchorX),
-    Math.round(pageRender.anchorY),
-    Math.round(crop.x),
-    Math.round(crop.y),
-    Math.round(crop.w),
-    Math.round(crop.h),
-    outputWidth,
-  ].join(":");
+  return rasterCacheKey(pageRender, view, outputWidth, aspect, false);
+}
+
+async function canvasToRasterBlob(canvas, quality = 0.9) {
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+  if (blob) return blob;
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
 async function disposeActivePdf() {
+  if (activeReleaseTimer) {
+    clearTimeout(activeReleaseTimer);
+    activeReleaseTimer = null;
+  }
   const previous = activePdfDoc;
   activePdfDoc = null;
+  activePdfPromise = null;
   if (!previous) return;
+  try { previous.cleanup?.(); } catch {}
   try {
     await previous.destroy?.();
   } catch (error) {
-    console.debug("Previous PDF cleanup skipped", error);
+    console.debug("PDF cleanup skipped", error);
   }
+}
+
+function schedulePdfRelease(delay = PDF_IDLE_RELEASE_MS) {
+  if (activeReleaseTimer) clearTimeout(activeReleaseTimer);
+  activeReleaseTimer = setTimeout(() => {
+    disposeActivePdf().catch(() => {});
+  }, delay);
+}
+
+async function createPdfDocument(source) {
+  if (typeof source === "string") {
+    const url = resolvePdfSourceUrl(source);
+    return pdfjsLib.getDocument({
+      url,
+      withCredentials: false,
+      disableAutoFetch: true,
+      disableStream: false,
+      useWorkerFetch: true,
+    }).promise;
+  }
+
+  if (source?.arrayBuffer) {
+    const data = await source.arrayBuffer();
+    return pdfjsLib.getDocument({ data }).promise;
+  }
+
+  throw new Error("Nguồn PDF không hợp lệ.");
+}
+
+async function ensureActivePdf() {
+  if (activePdfDoc) {
+    schedulePdfRelease();
+    return activePdfDoc;
+  }
+  if (activePdfPromise) return activePdfPromise;
+  if (!lastPdfSource) throw new Error("PDF source đã được giải phóng và không thể mở lại.");
+
+  activePdfPromise = createPdfDocument(lastPdfSource)
+    .then((doc) => {
+      activePdfDoc = doc;
+      activePdfPromise = null;
+      schedulePdfRelease();
+      return doc;
+    })
+    .catch((error) => {
+      activePdfPromise = null;
+      throw error;
+    });
+  return activePdfPromise;
 }
 
 export function normalizeUnitCode(value) {
@@ -95,32 +242,36 @@ export function resolvePdfSourceUrl(input) {
 export async function openVectorPdf(source) {
   screenPreviewCache.clear();
   await disposeActivePdf();
+  lastPdfSource = source;
+  lastPdfSourceKey = sourceKey(source);
 
-  if (typeof source === "string") {
-    const url = resolvePdfSourceUrl(source);
-    const task = pdfjsLib.getDocument({ url, withCredentials: false });
-    const pdfDoc = await task.promise;
-    activePdfDoc = pdfDoc;
-    return pdfDoc;
+  const cachedBundle = await dbGet(indexCacheKey());
+  if (cachedBundle?.index && cachedBundle?.numPages) {
+    return {
+      numPages: cachedBundle.numPages,
+      __plotflowRasterHandle: true,
+      __cachedIndex: cachedBundle.index,
+    };
   }
 
-  if (source?.arrayBuffer) {
-    const data = await source.arrayBuffer();
-    const task = pdfjsLib.getDocument({ data });
-    const pdfDoc = await task.promise;
-    activePdfDoc = pdfDoc;
-    return pdfDoc;
-  }
-
-  throw new Error("Nguồn PDF không hợp lệ.");
+  const pdfDoc = await ensureActivePdf();
+  schedulePdfRelease();
+  return pdfDoc;
 }
 
 export async function buildFloorplanIndex(pdfDoc, onProgress) {
+  if (pdfDoc?.__plotflowRasterHandle && pdfDoc.__cachedIndex) {
+    const codes = Object.keys(pdfDoc.__cachedIndex).length;
+    onProgress?.({ pageNumber: pdfDoc.numPages, totalPages: pdfDoc.numPages, textItems: 0, codes });
+    return pdfDoc.__cachedIndex;
+  }
+
+  const doc = activePdfDoc || pdfDoc || await ensureActivePdf();
   const index = {};
   let textItems = 0;
 
-  for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
-    const page = await pdfDoc.getPage(pageNumber);
+  for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
+    const page = await doc.getPage(pageNumber);
     const content = await page.getTextContent();
 
     for (const item of content.items) {
@@ -146,10 +297,12 @@ export async function buildFloorplanIndex(pdfDoc, onProgress) {
     }
 
     page.cleanup?.();
-    onProgress?.({ pageNumber, totalPages: pdfDoc.numPages, textItems, codes: Object.keys(index).length });
-    if (pageNumber < pdfDoc.numPages) await yieldToBrowser();
+    onProgress?.({ pageNumber, totalPages: doc.numPages, textItems, codes: Object.keys(index).length });
+    if (pageNumber < doc.numPages) await yieldToBrowser();
   }
 
+  await dbPut(indexCacheKey(), { index, numPages: doc.numPages, createdAt: Date.now() });
+  schedulePdfRelease(250);
   return index;
 }
 
@@ -168,26 +321,21 @@ export function resolveUnitsAgainstIndex(units, index) {
   return result;
 }
 
-export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1) {
-  const page = await pdfDoc.getPage(pageNumber);
+export async function renderPdfPageBase(_pdfDoc, pageNumber, scale = 1) {
+  const doc = await ensureActivePdf();
+  const page = await doc.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(viewport.width);
-  canvas.height = Math.ceil(viewport.height);
-  const ctx = canvas.getContext("2d", { alpha: false });
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  const dataUrl = canvas.toDataURL("image/png");
-  canvas.width = 1;
-  canvas.height = 1;
-
-  return {
+  const result = {
     pageNumber,
-    dataUrl,
+    dataUrl: null,
     width: Math.ceil(viewport.width),
     height: Math.ceil(viewport.height),
     viewport,
     scale,
   };
+  page.cleanup?.();
+  schedulePdfRelease();
+  return result;
 }
 
 export function attachMatchToPageRender(pageBase, match) {
@@ -250,8 +398,8 @@ export function calculateCropRect(pageRender, view, aspect = FLOORPLAN_FRAME_ASP
   return { x, y, w: cropW, h: cropH };
 }
 
-export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
-  if (!pdfDoc || !pageRender) throw new Error("Thiếu PDF source để render vector HQ.");
+export async function renderPdfRegion(_pdfDoc, pageRender, view, options = {}) {
+  if (!pageRender) throw new Error("Thiếu dữ liệu crop để render floorplan.");
 
   const aspect = options.aspect || FLOORPLAN_FRAME_ASPECT;
   const requestedOutputWidth = Math.max(480, Math.round(options.outputWidth || 1626));
@@ -262,18 +410,35 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
     ? Math.min(requestedOutputWidth, PREVIEW_RENDER_MAX_WIDTH)
     : requestedOutputWidth;
   const outputHeight = Math.round(outputWidth / aspect);
-  const cacheKey = isScreenPreview ? screenPreviewKey(pageRender, view, outputWidth, aspect) : null;
+  const cacheKey = rasterCacheKey(pageRender, view, outputWidth, aspect, options.includeHighlight);
+  const memoryKey = isScreenPreview ? screenPreviewKey(pageRender, view, outputWidth, aspect) : null;
 
-  if (cacheKey && screenPreviewCache.has(cacheKey)) {
-    const cached = screenPreviewCache.get(cacheKey);
-    touchPreviewCache(cacheKey, cached);
+  if (memoryKey && screenPreviewCache.has(memoryKey)) {
+    const cached = screenPreviewCache.get(memoryKey);
+    touchPreviewCache(memoryKey, cached);
     return cached;
+  }
+
+  const persistent = await dbGet(cacheKey);
+  if (persistent?.blob instanceof Blob) {
+    const result = {
+      dataUrl: rememberObjectUrl(cacheKey, persistent.blob),
+      width: persistent.width || outputWidth,
+      height: persistent.height || outputHeight,
+      renderScale: persistent.renderScale || 1,
+      requestedScale: persistent.requestedScale || 1,
+      crop: persistent.crop || calculateCropRect(pageRender, view, aspect),
+      rasterCached: true,
+    };
+    if (memoryKey) touchPreviewCache(memoryKey, result);
+    return result;
   }
 
   const crop = calculateCropRect(pageRender, view, aspect);
   if (isScreenPreview && options.deferToIdle === true) await scheduleIdleRender();
 
-  const page = await pdfDoc.getPage(pageRender.pageNumber);
+  const doc = await ensureActivePdf();
+  const page = await doc.getPage(pageRender.pageNumber);
   const cropWidthAtScale1 = crop.w / pageRender.scale;
   const requestedScale = outputWidth / cropWidthAtScale1;
   const renderScale = Math.max(0.25, Math.min(Number(options.maxRenderScale || 128), requestedScale));
@@ -301,22 +466,32 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
     drawLocatorDot(ctx, tx, ty, outputWidth);
   }
 
+  const blob = await canvasToRasterBlob(canvas, isScreenPreview ? 0.82 : 0.92);
   const result = {
-    dataUrl: canvas.toDataURL("image/png"),
+    dataUrl: rememberObjectUrl(cacheKey, blob),
     width: outputWidth,
     height: outputHeight,
     renderScale,
     requestedScale,
     crop,
+    rasterCached: false,
   };
+
   canvas.width = 1;
   canvas.height = 1;
-
-  if (cacheKey) touchPreviewCache(cacheKey, result);
+  page.cleanup?.();
+  await dbPut(cacheKey, { blob, width: outputWidth, height: outputHeight, renderScale, requestedScale, crop, createdAt: Date.now() });
+  if (memoryKey) touchPreviewCache(memoryKey, result);
+  schedulePdfRelease(300);
   return result;
 }
 
 export async function createFloorplanCrop(pageRender, view, options = {}) {
+  if (!pageRender?.dataUrl) {
+    const result = await renderPdfRegion(null, pageRender, view, options);
+    return result.dataUrl;
+  }
+
   const aspect = options.aspect || FLOORPLAN_FRAME_ASPECT;
   const outputWidth = options.outputWidth || 1084;
   const outputHeight = Math.round(outputWidth / aspect);
@@ -337,8 +512,10 @@ export async function createFloorplanCrop(pageRender, view, options = {}) {
     drawLocatorDot(ctx, tx, ty, outputWidth);
   }
 
-  const dataUrl = canvas.toDataURL("image/png");
+  const blob = await canvasToRasterBlob(canvas, 0.9);
+  const key = `legacy:${lastPdfSourceKey}:${pageRender.pageNumber}:${Date.now()}`;
+  const url = rememberObjectUrl(key, blob);
   canvas.width = 1;
   canvas.height = 1;
-  return dataUrl;
+  return url;
 }
