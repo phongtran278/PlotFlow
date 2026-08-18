@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { releasePreparedFallbackPdf } from "../floorplan/pdfLocator";
 
 // Keep the heavy bundled masterplan lazy. PlotFlow should start light, but Lot Highlight
 // must remain discoverable. When the real App button is unavailable because the PDF has
@@ -13,10 +14,54 @@ export default function AutoFloorplanSource() {
     const root = document.getElementById("root") || document.body;
     let observer;
     let raf = null;
+    let lotEditorWasOpen = Boolean(document.querySelector(".lot-editor-shell"));
 
     function removeBridge() {
       bridgeButtonRef.current?.remove();
       bridgeButtonRef.current = null;
+    }
+
+    function releaseRemovedEditorTree(node) {
+      if (!(node instanceof Element)) return false;
+      const editor = node.matches(".lot-editor-shell")
+        ? node
+        : node.querySelector?.(".lot-editor-shell");
+      if (!editor) return false;
+
+      // Drop decoded editor images immediately. The saved overlay only contains tiny
+      // normalized coordinates, so the heavy image is never needed after Save/Cancel.
+      editor.querySelectorAll("img").forEach((img) => {
+        const src = img.currentSrc || img.src || "";
+        try {
+          img.removeAttribute("src");
+          img.srcset = "";
+        } catch {}
+        if (src.startsWith("blob:")) {
+          try { URL.revokeObjectURL(src); } catch {}
+        }
+      });
+      editor.querySelectorAll("canvas").forEach((canvas) => {
+        try {
+          canvas.width = 1;
+          canvas.height = 1;
+        } catch {}
+      });
+      return true;
+    }
+
+    function releaseLotEditorMemory() {
+      // Prepared masterplans normally do not need a live PDF at all. If a special view
+      // temporarily opened the PDF fallback, destroy it as soon as editing is finished.
+      releasePreparedFallbackPdf().catch(() => {});
+
+      // Let the browser finish the unmount before it reclaims decoded image/GPU memory.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("plotflow:lot-memory-released"));
+          }
+        });
+      });
     }
 
     function findRealLotButton() {
@@ -88,7 +133,19 @@ export default function AutoFloorplanSource() {
     }
 
     ensureBridge();
-    observer = new MutationObserver(schedule);
+    observer = new MutationObserver((records) => {
+      let editorRemoved = false;
+      records.forEach((record) => {
+        record.removedNodes.forEach((node) => {
+          if (releaseRemovedEditorTree(node)) editorRemoved = true;
+        });
+      });
+
+      const editorIsOpen = Boolean(document.querySelector(".lot-editor-shell"));
+      if ((lotEditorWasOpen && !editorIsOpen) || editorRemoved) releaseLotEditorMemory();
+      lotEditorWasOpen = editorIsOpen;
+      schedule();
+    });
     observer.observe(root, { childList: true, subtree: true, characterData: true });
 
     return () => {
