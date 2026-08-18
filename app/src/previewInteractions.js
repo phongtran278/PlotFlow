@@ -1,5 +1,6 @@
 const STYLE_ID = "plotflow-preview-pan-styles";
 const INTERACTIVE_SELECTOR = "button, input, select, textarea, a, [contenteditable='true'], [role='button']";
+const PAN_IGNORE_SELECTOR = ".quick-pin-overlay, .quick-pin-overlay *, [data-preview-pan-ignore='true'], [data-preview-pan-ignore='true'] *";
 
 function ensurePreviewPanStyles() {
   if (document.getElementById(STYLE_ID)) return;
@@ -15,12 +16,14 @@ function ensurePreviewPanStyles() {
       -webkit-overflow-scrolling: touch;
     }
 
+    .component-stage.preview-pan-active,
+    .component-stage.preview-pan-active .component-canvas,
     .layout-studio:not(.is-editing) .studio-canvas-scroll.is-preview-panning {
       cursor: grabbing;
       user-select: none;
     }
 
-    .layout-studio:not(.is-editing) .studio-canvas-scroll.is-preview-panning * {
+    .component-stage.preview-pan-active *:not(button):not(input):not(select):not(textarea):not(a) {
       cursor: grabbing !important;
     }
   `;
@@ -37,6 +40,13 @@ function getPreviewScroller(target) {
   return scroller;
 }
 
+function canPanFromTarget(target) {
+  if (!target?.closest) return false;
+  if (target.closest(PAN_IGNORE_SELECTOR)) return false;
+  if (target.closest(INTERACTIVE_SELECTOR)) return false;
+  return Boolean(target.closest(".component-canvas, .stage-header, .studio-canvas-scroll, .design-assignment-dock"));
+}
+
 export function installPreviewInteractions() {
   if (typeof window === "undefined" || typeof document === "undefined") return () => {};
   ensurePreviewPanStyles();
@@ -45,25 +55,29 @@ export function installPreviewInteractions() {
 
   function finishDrag(pointerId) {
     if (!drag) return;
-    const { scroller } = drag;
+    const { scroller, stage, captureTarget } = drag;
     try {
-      if (pointerId != null && scroller.hasPointerCapture?.(pointerId)) scroller.releasePointerCapture(pointerId);
+      if (pointerId != null && captureTarget?.hasPointerCapture?.(pointerId)) captureTarget.releasePointerCapture(pointerId);
     } catch {
       // Pointer capture can already be released by the browser.
     }
     scroller.classList.remove("is-preview-panning");
+    stage?.classList.remove("preview-pan-active");
     drag = null;
   }
 
   function onPointerDown(event) {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey) return;
-    const scroller = event.target?.closest?.(".studio-canvas-scroll");
-    if (!scroller || getPreviewScroller(event.target) !== scroller) return;
-    if (event.target?.closest?.(INTERACTIVE_SELECTOR)) return;
+    const scroller = getPreviewScroller(event.target);
+    if (!scroller || !canPanFromTarget(event.target)) return;
     if (scroller.scrollHeight <= scroller.clientHeight && scroller.scrollWidth <= scroller.clientWidth) return;
 
+    const stage = event.target.closest(".component-stage");
+    const captureTarget = event.target instanceof Element ? event.target : scroller;
     drag = {
       scroller,
+      stage,
+      captureTarget,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
@@ -72,7 +86,8 @@ export function installPreviewInteractions() {
     };
 
     scroller.classList.add("is-preview-panning");
-    try { scroller.setPointerCapture?.(event.pointerId); } catch { /* optional */ }
+    stage?.classList.add("preview-pan-active");
+    try { captureTarget.setPointerCapture?.(event.pointerId); } catch { /* optional */ }
     event.preventDefault();
   }
 
@@ -94,22 +109,25 @@ export function installPreviewInteractions() {
     if (event.ctrlKey || event.metaKey) return;
     const scroller = getPreviewScroller(event.target);
     if (!scroller) return;
-
-    // Wheel/touchpad gestures directly over the artwork use the browser's native scrolling.
-    // Gestures over the preview top bar are proxied into the artwork scroller.
-    if (scroller.contains(event.target)) return;
     if (event.target?.closest?.("input[type='range'], input[type='number'], select, textarea")) return;
+
+    // Native two-finger scrolling is already ideal while the pointer is over the artwork.
+    // Everywhere else in the preview stage (header / Design Assignment / blank canvas),
+    // proxy the touchpad gesture into the same artwork scroller.
+    if (scroller.contains(event.target)) return;
 
     const canScrollY = scroller.scrollHeight > scroller.clientHeight;
     const canScrollX = scroller.scrollWidth > scroller.clientWidth;
     if (!canScrollY && !canScrollX) return;
 
-    scroller.scrollBy({
-      top: canScrollY ? event.deltaY : 0,
-      left: canScrollX ? event.deltaX : 0,
-      behavior: "auto",
-    });
-    event.preventDefault();
+    const beforeTop = scroller.scrollTop;
+    const beforeLeft = scroller.scrollLeft;
+    scroller.scrollTop += canScrollY ? event.deltaY : 0;
+    scroller.scrollLeft += canScrollX ? event.deltaX : 0;
+
+    if (scroller.scrollTop !== beforeTop || scroller.scrollLeft !== beforeLeft) {
+      event.preventDefault();
+    }
   }
 
   document.addEventListener("pointerdown", onPointerDown, { passive: false });
