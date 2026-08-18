@@ -1,0 +1,38 @@
+/* Stable free-camera layer.
+   Keep a real 1080x1920 viewport so paint containment never clips the poster. */
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll {
+  position: relative !important;
+  overflow: hidden !important;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-poster-viewport[data-workspace-camera="true"] {
+  position: absolute !important;
+  left: calc(50% - 540px + var(--workspace-pan-x, 0px)) !important;
+  top: calc(50% - 960px + var(--workspace-pan-y, 0px)) !important;
+  width: 1080px !important;
+  min-width: 1080px !important;
+  height: 1920px !important;
+  min-height: 1920px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  display: block !important;
+  transform: scale(var(--workspace-zoom, .38)) !important;
+  transform-origin: center center !important;
+  will-change: transform;
+}
+
+.component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-poster-viewport[data-workspace-camera="true"] > .poster-canvas {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 1080px !important;
+  min-width: 1080px !important;
+  height: 1920px !important;
+  min-height: 1920px !important;
+  margin: 0 !important;
+  transform: none !important;
+  transform-origin: top left !important;
+}
