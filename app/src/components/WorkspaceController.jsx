@@ -11,11 +11,14 @@ function editableTarget(target) {
 }
 
 function findScrollSurface() {
-  return document.querySelector(".studio-canvas-scroll") || document.querySelector(".component-canvas");
+  return document.querySelector(
+    ".component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll"
+  ) || document.querySelector(".component-canvas");
 }
 
 function findViewport() {
-  return document.querySelector(".studio-poster-viewport");
+  const scroll = findScrollSurface();
+  return scroll?.querySelector(".studio-poster-viewport") || null;
 }
 
 function clampZoom(value) {
@@ -24,6 +27,18 @@ function clampZoom(value) {
 
 function clamp01(value) {
   return Math.max(0, Math.min(1, value));
+}
+
+function syncPanGeometry(nextZoom) {
+  const scroll = findScrollSurface();
+  const viewport = findViewport();
+  if (!scroll || !viewport) return;
+  const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(nextZoom) || 38)) / 100;
+  scroll.style.setProperty("--workspace-content-w", `${Math.round(1080 * scale + 96)}px`);
+  scroll.style.setProperty("--workspace-content-h", `${Math.round(1920 * scale + 120)}px`);
+  scroll.dataset.workspacePanSurface = "true";
+  viewport.style.setProperty("--studio-zoom", String(scale));
+  viewport.dataset.workspaceZoom = String(Math.round(scale * 100));
 }
 
 export default function WorkspaceController() {
@@ -123,8 +138,7 @@ export default function WorkspaceController() {
     const centerX = scroll ? clamp01((scroll.scrollLeft + scroll.clientWidth / 2) / Math.max(1, scroll.scrollWidth)) : 0.5;
     const centerY = scroll ? clamp01((scroll.scrollTop + scroll.clientHeight / 2) / Math.max(1, scroll.scrollHeight)) : 0.5;
 
-    viewport.style.setProperty("--studio-zoom", String(next / 100));
-    viewport.dataset.workspaceZoom = String(next);
+    syncPanGeometry(next);
     setZoom(next);
     zoomRef.current = next;
 
@@ -190,10 +204,7 @@ export default function WorkspaceController() {
     function reapply() {
       const viewport = findViewport();
       if (!viewport) return;
-      if (viewport.dataset.workspaceZoom !== String(zoomRef.current)) {
-        viewport.style.setProperty("--studio-zoom", String(zoomRef.current / 100));
-        viewport.dataset.workspaceZoom = String(zoomRef.current);
-      }
+      syncPanGeometry(zoomRef.current);
     }
 
     reapply();
@@ -233,8 +244,9 @@ export default function WorkspaceController() {
 
     function pointerdown(event) {
       if (event.button !== 0) return;
+      const activeScroll = findScrollSurface();
       const scroll = event.target?.closest?.(".studio-canvas-scroll");
-      if (!scroll) return;
+      if (!scroll || scroll !== activeScroll) return;
       const handActive = tool === "hand" || spaceHeldRef.current;
       if (!handActive) return;
       if (event.target?.closest?.("button,input,label,select,textarea")) return;
@@ -270,7 +282,8 @@ export default function WorkspaceController() {
 
     function wheel(event) {
       if (!(event.metaKey || event.ctrlKey)) return;
-      if (!event.target?.closest?.(".studio-canvas-scroll")) return;
+      const activeScroll = findScrollSurface();
+      if (!activeScroll || !activeScroll.contains(event.target)) return;
       event.preventDefault();
       applyZoom(zoomRef.current + (event.deltaY < 0 ? 10 : -10));
     }
