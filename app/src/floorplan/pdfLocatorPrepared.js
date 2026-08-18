@@ -7,6 +7,7 @@ const DEFAULT_VIEW = { zoom: 100, offsetX: 0, offsetY: 0 };
 let preparedManifest = null;
 let preparedSource = null;
 let fallbackPdfDoc = null;
+const transientPreparedUrls = new Set();
 
 function isDefaultView(view = {}) {
   return Math.abs(Number(view.zoom ?? 100) - 100) < 0.001
@@ -132,23 +133,96 @@ function preparedRasterFor(lot, options = {}) {
   };
 }
 
+function loadPreparedImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Không đọc được prepared lot raster."));
+    image.src = src;
+  });
+}
+
+function cropInsidePreparedLot(target, prepared) {
+  if (!target || !prepared) return false;
+  const epsilon = 0.75;
+  return target.x >= prepared.x - epsilon
+    && target.y >= prepared.y - epsilon
+    && target.x + target.w <= prepared.x + prepared.w + epsilon
+    && target.y + target.h <= prepared.y + prepared.h + epsilon;
+}
+
+async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
+  if (!lot?.crop) return null;
+  const aspect = options.aspect || base.FLOORPLAN_FRAME_ASPECT;
+  const targetCrop = base.calculateCropRect(pageRender, view, aspect);
+  if (!cropInsidePreparedLot(targetCrop, lot.crop)) return null;
+
+  const raster = preparedRasterFor(lot, options);
+  if (!raster.url) return null;
+  if (isDefaultView(view)) {
+    return {
+      dataUrl: raster.url,
+      width: raster.width,
+      height: raster.height,
+      crop: targetCrop,
+      renderScale: 1,
+      requestedScale: 1,
+      preparedRaster: true,
+      preparedTier: raster.tier,
+    };
+  }
+
+  const image = await loadPreparedImage(raster.url);
+  const sourceWidth = image.naturalWidth || raster.width;
+  const sourceHeight = image.naturalHeight || raster.height;
+  const relativeX = (targetCrop.x - lot.crop.x) / lot.crop.w;
+  const relativeY = (targetCrop.y - lot.crop.y) / lot.crop.h;
+  const relativeW = targetCrop.w / lot.crop.w;
+  const relativeH = targetCrop.h / lot.crop.h;
+  const sx = Math.max(0, relativeX * sourceWidth);
+  const sy = Math.max(0, relativeY * sourceHeight);
+  const sw = Math.min(sourceWidth - sx, relativeW * sourceWidth);
+  const sh = Math.min(sourceHeight - sy, relativeH * sourceHeight);
+
+  const profile = getMemoryProfile();
+  const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
+  const outputWidth = profile.lowMemory ? Math.min(requestedWidth, 1600) : requestedWidth;
+  const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
+  const canvas = document.createElement("canvas");
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, outputWidth, outputHeight);
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, outputWidth, outputHeight);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", profile.lowMemory ? 0.84 : 0.9));
+  canvas.width = 1;
+  canvas.height = 1;
+  image.src = "";
+  if (!blob) return null;
+
+  const url = URL.createObjectURL(blob);
+  transientPreparedUrls.add(url);
+  return {
+    dataUrl: url,
+    width: outputWidth,
+    height: outputHeight,
+    crop: targetCrop,
+    renderScale: 1,
+    requestedScale: 1,
+    preparedRaster: true,
+    preparedTier: `${raster.tier}-cropped`,
+  };
+}
+
 export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, options = {}) {
-  if (pageRender?.__plotflowPrepared && preparedManifest && isDefaultView(view)) {
+  if (pageRender?.__plotflowPrepared && preparedManifest) {
     const lot = preparedManifest.lots?.[pageRender.unitCode];
     if (lot) {
-      const raster = preparedRasterFor(lot, options);
-      if (raster.url) {
-        return {
-          dataUrl: raster.url,
-          width: raster.width,
-          height: raster.height,
-          crop: base.calculateCropRect(pageRender, view, options.aspect || base.FLOORPLAN_FRAME_ASPECT),
-          renderScale: 1,
-          requestedScale: 1,
-          preparedRaster: true,
-          preparedTier: raster.tier,
-        };
-      }
+      const prepared = await renderFromPreparedLot(lot, pageRender, view, options);
+      if (prepared) return prepared;
     }
   }
 
@@ -160,6 +234,11 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, o
 }
 
 export async function releasePreparedFallbackPdf() {
+  for (const url of transientPreparedUrls) {
+    try { URL.revokeObjectURL(url); } catch {}
+  }
+  transientPreparedUrls.clear();
+
   const doc = fallbackPdfDoc;
   fallbackPdfDoc = null;
   if (!doc) return;
