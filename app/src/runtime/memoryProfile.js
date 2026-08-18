@@ -15,16 +15,17 @@ function numberOrNull(value) {
 
 export function getMemoryProfile() {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return { mode: "balanced", lowMemory: false, deviceMemory: null, cores: null };
+    return { mode: "low", lowMemory: true, deviceMemory: null, cores: null };
   }
 
   const override = readOverride();
   const deviceMemory = numberOrNull(navigator.deviceMemory);
   const cores = numberOrNull(navigator.hardwareConcurrency);
 
-  const detectedLowMemory = (deviceMemory != null && deviceMemory <= 4)
-    || (cores != null && cores <= 4);
-  const lowMemory = override === "low" ? true : override === "balanced" ? false : detectedLowMemory;
+  // PlotFlow is memory-first by default so 4 GB office laptops remain a supported baseline.
+  // Balanced mode is an explicit opt-in for stronger machines that prefer preload/cache speed.
+  const detectedLowMemory = true;
+  const lowMemory = override === "balanced" ? false : override === "low" ? true : detectedLowMemory;
 
   return {
     mode: lowMemory ? "low" : "balanced",
@@ -32,8 +33,8 @@ export function getMemoryProfile() {
     deviceMemory,
     cores,
     lotEditorWidth: lowMemory ? 1600 : 2168,
-    previewCacheTarget: lowMemory ? 4 : 12,
-    objectUrlTarget: lowMemory ? 10 : 36,
+    previewCacheTarget: lowMemory ? 2 : 12,
+    objectUrlTarget: lowMemory ? 2 : 36,
     preloadNextUnit: !lowMemory,
   };
 }
