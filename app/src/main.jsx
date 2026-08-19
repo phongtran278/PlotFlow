@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import UnitReviewBar from "./components/UnitReviewBar.jsx";
 import PerformanceFeedback from "./components/PerformanceFeedback.jsx";
 import WorkspaceController from "./components/WorkspaceController.jsx";
+import WorkspaceGeometryFix from "./components/WorkspaceGeometryFix.jsx";
 import PinScaleControl from "./components/PinScaleControl.jsx";
 import AutoFloorplanSource from "./components/AutoFloorplanSource.jsx";
 import MemoryGovernor from "./components/MemoryGovernor.jsx";
@@ -31,6 +32,7 @@ createRoot(document.getElementById("root")).render(
     <UnitReviewBar />
     <PerformanceFeedback />
     <WorkspaceController />
+    <WorkspaceGeometryFix />
     <PinScaleControl />
   </>
 );
