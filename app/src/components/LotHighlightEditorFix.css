@@ -71,6 +71,25 @@
   user-select: none;
 }
 
+.lot-tile-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background: #fff;
+}
+
+.lot-tile-layer > img {
+  position: absolute;
+  display: block;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+}
+
 .lot-canvas-scene .lot-empty {
   position: absolute;
   inset: 0;
@@ -81,6 +100,13 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 5;
+}
+
+.lot-canvas-scene .lot-node,
+.lot-canvas-scene .lot-draft-node,
+.lot-canvas-scene .lot-pin {
+  z-index: 10;
 }
 
 @media (max-width: 1180px) {
