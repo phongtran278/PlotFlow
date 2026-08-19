@@ -143,13 +143,13 @@
 .preview-zoom-controls { display: none !important; }
 
 .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas {
-  height: calc(100vh - 116px);
-  min-height: 620px;
-  padding: 18px;
+  height: calc(100dvh - 108px);
+  min-height: 0;
+  padding: clamp(10px, 1.3vw, 18px);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 292px;
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(248px, 292px);
+  gap: clamp(10px, 1.2vw, 16px);
+  align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
 }
@@ -173,6 +173,7 @@
   overflow: auto !important;
   overscroll-behavior: contain;
   touch-action: pan-x pan-y;
+  scroll-behavior: auto;
   border-radius: 17px;
   background: radial-gradient(circle at 50% 24%, rgba(255,255,255,.92), rgba(232,236,242,.82) 72%);
 }
@@ -182,9 +183,9 @@
   top: 0 !important;
   right: auto !important;
   grid-column: 2;
-  align-self: start;
-  width: 292px;
-  max-height: calc(100vh - 150px);
+  align-self: stretch;
+  width: 100%;
+  max-height: calc(100dvh - 132px);
   margin: 0;
   z-index: 35;
 }
@@ -203,11 +204,6 @@ body.workspace-grabbing .studio-canvas-scroll { cursor: grab !important; }
 body.workspace-grabbing .component-canvas,
 body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; user-select: none; }
 
-/*
-  The scroll surface owns the geometry. This pseudo element is a real layout box
-  sized by WorkspaceController, so scrollHeight/scrollWidth always match the
-  visible 1080×1920 artwork at the current zoom.
-*/
 .component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-canvas-scroll[data-workspace-pan-surface="true"]::before {
   content: "";
   display: block;
@@ -246,12 +242,26 @@ body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; use
 @media (max-width: 1320px) {
   .workspace-controls { gap: 3px; }
   .workspace-100 { display: none; }
-  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas { grid-template-columns: minmax(0, 1fr) 260px; }
-  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .design-assignment-dock { width: 260px; }
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas { grid-template-columns: minmax(0, 1fr) minmax(220px, 252px); }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1120px) {
+  .workspace-map-toggle { display: none; }
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas { grid-template-columns: minmax(0, 1fr) 220px; }
+}
+
+@media (max-width: 980px) {
   .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas { grid-template-columns: minmax(0, 1fr); }
   .component-stage:not(.layout-studio-mode):not(.finetune-mode) .design-assignment-dock { display: none !important; }
   .workspace-panel-toggle { display: none; }
+}
+
+@media (max-height: 760px) {
+  .component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas {
+    height: calc(100dvh - 96px);
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .workspace-controls button,
+  .workspace-zoom-field { height: 28px; }
 }
