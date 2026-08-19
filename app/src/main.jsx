@@ -7,6 +7,7 @@ import WorkspaceController from "./components/WorkspaceController.jsx";
 import PinScaleControl from "./components/PinScaleControl.jsx";
 import AutoFloorplanSource from "./components/AutoFloorplanSource.jsx";
 import MemoryGovernor from "./components/MemoryGovernor.jsx";
+import LotTileRuntime from "./components/LotTileRuntime.jsx";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
@@ -26,6 +27,7 @@ createRoot(document.getElementById("root")).render(
     <App />
     <AutoFloorplanSource />
     <MemoryGovernor />
+    <LotTileRuntime />
     <UnitReviewBar />
     <PerformanceFeedback />
     <WorkspaceController />
