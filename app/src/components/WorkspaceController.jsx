@@ -4,10 +4,6 @@ import "./WorkspaceController.css";
 
 const MIN_ZOOM = 20;
 const MAX_ZOOM = 250;
-const ARTWORK_WIDTH = 1080;
-const ARTWORK_HEIGHT = 1920;
-const PAD_X = 96;
-const PAD_Y = 120;
 
 function editableTarget(target) {
   const tag = target?.tagName?.toLowerCase();
@@ -15,52 +11,31 @@ function editableTarget(target) {
 }
 
 function findScrollSurface() {
-  const candidates = [...document.querySelectorAll(".studio-canvas-scroll")];
-  const visible = candidates.filter((node) => {
-    if (!node.querySelector(".studio-poster-viewport")) return false;
-    const rect = node.getBoundingClientRect();
-    const style = getComputedStyle(node);
-    return rect.width > 40 && rect.height > 40 && style.display !== "none" && style.visibility !== "hidden";
-  });
-  return visible.sort((a, b) => {
-    const ar = a.getBoundingClientRect();
-    const br = b.getBoundingClientRect();
-    return br.width * br.height - ar.width * ar.height;
-  })[0] || document.querySelector(".component-canvas");
+  return document.querySelector(
+    ".component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll"
+  ) || document.querySelector(".component-canvas");
 }
 
 function findViewport() {
-  return findScrollSurface()?.querySelector?.(".studio-poster-viewport") || null;
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, Number(value) || 0));
+  const scroll = findScrollSurface();
+  return scroll?.querySelector(".studio-poster-viewport") || null;
 }
 
 function clampZoom(value) {
-  return Math.round(clamp(value, MIN_ZOOM, MAX_ZOOM) * 10) / 10;
+  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(Number(value) || 0)));
 }
 
 function clamp01(value) {
-  return clamp(value, 0, 1);
-}
-
-function virtualSize(zoom) {
-  const scale = clampZoom(zoom) / 100;
-  return {
-    width: ARTWORK_WIDTH * scale + PAD_X,
-    height: ARTWORK_HEIGHT * scale + PAD_Y,
-  };
+  return Math.max(0, Math.min(1, value));
 }
 
 function syncPanGeometry(nextZoom) {
   const scroll = findScrollSurface();
   const viewport = findViewport();
   if (!scroll || !viewport) return;
-  const scale = clampZoom(nextZoom) / 100;
-  const size = virtualSize(nextZoom);
-  scroll.style.setProperty("--workspace-content-w", `${Math.round(size.width)}px`);
-  scroll.style.setProperty("--workspace-content-h", `${Math.round(size.height)}px`);
+  const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(nextZoom) || 38)) / 100;
+  scroll.style.setProperty("--workspace-content-w", `${Math.round(1080 * scale + 96)}px`);
+  scroll.style.setProperty("--workspace-content-h", `${Math.round(1920 * scale + 120)}px`);
   scroll.dataset.workspacePanSurface = "true";
   viewport.style.setProperty("--studio-zoom", String(scale));
   viewport.dataset.workspaceZoom = String(Math.round(scale * 100));
@@ -78,8 +53,6 @@ export default function WorkspaceController() {
   const navigatorDragRef = useRef(false);
   const zoomRef = useRef(38);
   const navigatorOpenRef = useRef(false);
-  const wheelFrameRef = useRef(0);
-  const pendingWheelRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { navigatorOpenRef.current = navigatorOpen; }, [navigatorOpen]);
@@ -99,6 +72,7 @@ export default function WorkspaceController() {
       }
       setTarget((current) => current === host ? current : host);
     }
+
     syncTarget();
     const observer = new MutationObserver(() => requestAnimationFrame(syncTarget));
     observer.observe(document.body, { childList: true, subtree: true });
@@ -119,18 +93,13 @@ export default function WorkspaceController() {
     if (!navigatorOpenRef.current) return;
     const scroll = findScrollSurface();
     if (!scroll) return;
-
-    const size = virtualSize(zoomRef.current);
-    const contentW = Math.max(scroll.clientWidth, size.width);
-    const contentH = Math.max(scroll.clientHeight, size.height);
-    const maxLeft = Math.max(0, contentW - scroll.clientWidth);
-    const maxTop = Math.max(0, contentH - scroll.clientHeight);
-
+    const maxLeft = Math.max(1, scroll.scrollWidth - scroll.clientWidth);
+    const maxTop = Math.max(1, scroll.scrollHeight - scroll.clientHeight);
     setNavigator({
-      left: maxLeft > 0 ? clamp01(scroll.scrollLeft / maxLeft) : 0,
-      top: maxTop > 0 ? clamp01(scroll.scrollTop / maxTop) : 0,
-      width: clamp01(scroll.clientWidth / Math.max(1, contentW)),
-      height: clamp01(scroll.clientHeight / Math.max(1, contentH)),
+      left: clamp01(scroll.scrollLeft / maxLeft),
+      top: clamp01(scroll.scrollTop / maxTop),
+      width: clamp01(scroll.clientWidth / Math.max(1, scroll.scrollWidth)),
+      height: clamp01(scroll.clientHeight / Math.max(1, scroll.scrollHeight)),
     });
   }
 
@@ -138,56 +107,63 @@ export default function WorkspaceController() {
     if (!navigatorOpen) return undefined;
     const scroll = findScrollSurface();
     if (!scroll) return undefined;
-    const update = () => requestAnimationFrame(refreshNavigator);
-    update();
-    scroll.addEventListener("scroll", update, { passive: true });
-    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+
+    requestAnimationFrame(refreshNavigator);
+    const onScroll = () => requestAnimationFrame(refreshNavigator);
+    scroll.addEventListener("scroll", onScroll, { passive: true });
+
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => requestAnimationFrame(refreshNavigator)) : null;
     resizeObserver?.observe(scroll);
+    const viewport = findViewport();
+    if (viewport) resizeObserver?.observe(viewport);
+
     return () => {
-      scroll.removeEventListener("scroll", update);
+      scroll.removeEventListener("scroll", onScroll);
       resizeObserver?.disconnect();
     };
   }, [navigatorOpen]);
 
-  function applyZoom(nextZoom, preservePoint = true, focalPoint = null) {
+  function applyZoom(nextZoom, preserveCenter = true) {
     const next = clampZoom(nextZoom);
-    const scroll = findScrollSurface();
     const viewport = findViewport();
-    if (!viewport || !scroll) {
+    const scroll = findScrollSurface();
+    if (!viewport) {
       setZoom(next);
-      zoomRef.current = next;
       return;
     }
 
-    const oldSize = virtualSize(zoomRef.current);
-    const focalX = focalPoint ? clamp(focalPoint.x, 0, scroll.clientWidth) : scroll.clientWidth / 2;
-    const focalY = focalPoint ? clamp(focalPoint.y, 0, scroll.clientHeight) : scroll.clientHeight / 2;
-    const contentX = clamp01((scroll.scrollLeft + focalX) / Math.max(1, oldSize.width));
-    const contentY = clamp01((scroll.scrollTop + focalY) / Math.max(1, oldSize.height));
+    const old = zoomRef.current || next;
+    const maxOldLeft = scroll ? Math.max(1, scroll.scrollWidth - scroll.clientWidth) : 1;
+    const maxOldTop = scroll ? Math.max(1, scroll.scrollHeight - scroll.clientHeight) : 1;
+    const centerX = scroll ? clamp01((scroll.scrollLeft + scroll.clientWidth / 2) / Math.max(1, scroll.scrollWidth)) : 0.5;
+    const centerY = scroll ? clamp01((scroll.scrollTop + scroll.clientHeight / 2) / Math.max(1, scroll.scrollHeight)) : 0.5;
 
     syncPanGeometry(next);
-    zoomRef.current = next;
     setZoom(next);
+    zoomRef.current = next;
 
-    requestAnimationFrame(() => {
-      if (preservePoint) {
-        const nextSize = virtualSize(next);
-        scroll.scrollLeft = Math.max(0, contentX * nextSize.width - focalX);
-        scroll.scrollTop = Math.max(0, contentY * nextSize.height - focalY);
-      }
-      refreshNavigator();
-    });
+    if (preserveCenter && scroll && old !== next && (maxOldLeft > 1 || maxOldTop > 1)) {
+      requestAnimationFrame(() => {
+        scroll.scrollLeft = Math.max(0, centerX * scroll.scrollWidth - scroll.clientWidth / 2);
+        scroll.scrollTop = Math.max(0, centerY * scroll.scrollHeight - scroll.clientHeight / 2);
+        refreshNavigator();
+      });
+    } else {
+      requestAnimationFrame(refreshNavigator);
+    }
   }
 
   function fitArtwork() {
+    const canvas = document.querySelector(".component-canvas");
+    const stage = document.querySelector(".layout-studio") || document.querySelector(".studio-center");
+    if (!canvas) return;
+    const availableW = Math.max(260, (stage?.clientWidth || canvas.clientWidth) - 56);
+    const availableH = Math.max(360, canvas.clientHeight - 72);
+    const fitted = Math.floor(Math.min(availableW / 1080, availableH / 1920) * 100);
+    applyZoom(Math.max(MIN_ZOOM, Math.min(100, fitted)), false);
     const scroll = findScrollSurface();
-    if (!scroll) return;
-    const fitted = Math.floor(Math.min(
-      Math.max(1, scroll.clientWidth - 56) / ARTWORK_WIDTH,
-      Math.max(1, scroll.clientHeight - 72) / ARTWORK_HEIGHT,
-    ) * 100);
-    applyZoom(clamp(fitted, MIN_ZOOM, 100), false);
     requestAnimationFrame(() => {
+      if (!scroll) return;
       scroll.scrollLeft = Math.max(0, (scroll.scrollWidth - scroll.clientWidth) / 2);
       scroll.scrollTop = 0;
       refreshNavigator();
@@ -197,15 +173,11 @@ export default function WorkspaceController() {
   function moveNavigator(event) {
     const scroll = findScrollSurface();
     if (!scroll) return;
-    const artwork = event.currentTarget.querySelector?.(".workspace-navigator-artwork") || event.currentTarget.closest?.(".workspace-navigator-map")?.querySelector(".workspace-navigator-artwork");
-    const rect = (artwork || event.currentTarget).getBoundingClientRect();
+    const rect = event.currentTarget.getBoundingClientRect();
     const x = clamp01((event.clientX - rect.left) / Math.max(1, rect.width));
     const y = clamp01((event.clientY - rect.top) / Math.max(1, rect.height));
-    const size = virtualSize(zoomRef.current);
-    const maxLeft = Math.max(0, size.width - scroll.clientWidth);
-    const maxTop = Math.max(0, size.height - scroll.clientHeight);
-    scroll.scrollLeft = maxLeft * x;
-    scroll.scrollTop = maxTop * y;
+    scroll.scrollLeft = Math.max(0, x * scroll.scrollWidth - scroll.clientWidth / 2);
+    scroll.scrollTop = Math.max(0, y * scroll.scrollHeight - scroll.clientHeight / 2);
     refreshNavigator();
   }
 
@@ -230,9 +202,11 @@ export default function WorkspaceController() {
 
   useEffect(() => {
     function reapply() {
-      if (!findViewport()) return;
+      const viewport = findViewport();
+      if (!viewport) return;
       syncPanGeometry(zoomRef.current);
     }
+
     reapply();
     const observer = new MutationObserver(() => requestAnimationFrame(reapply));
     observer.observe(document.body, { childList: true, subtree: true });
@@ -269,12 +243,12 @@ export default function WorkspaceController() {
     }
 
     function pointerdown(event) {
+      if (event.button !== 0) return;
       const activeScroll = findScrollSurface();
       const scroll = event.target?.closest?.(".studio-canvas-scroll");
       if (!scroll || scroll !== activeScroll) return;
-      const middleMouse = event.button === 1;
-      const handActive = event.button === 0 && (tool === "hand" || spaceHeldRef.current);
-      if (!middleMouse && !handActive) return;
+      const handActive = tool === "hand" || spaceHeldRef.current;
+      if (!handActive) return;
       if (event.target?.closest?.("button,input,label,select,textarea")) return;
       event.preventDefault();
       dragRef.current = {
@@ -295,7 +269,6 @@ export default function WorkspaceController() {
       drag.scroll.scrollLeft = drag.left - (event.clientX - drag.x);
       drag.scroll.scrollTop = drag.top - (event.clientY - drag.y);
       if (navigatorOpenRef.current) refreshNavigator();
-      event.preventDefault();
     }
 
     function pointerend(event) {
@@ -307,50 +280,18 @@ export default function WorkspaceController() {
       if (navigatorOpenRef.current) refreshNavigator();
     }
 
-    function flushWheel() {
-      wheelFrameRef.current = 0;
-      const scroll = findScrollSurface();
-      if (!scroll) return;
-      const { x, y } = pendingWheelRef.current;
-      pendingWheelRef.current = { x: 0, y: 0 };
-      scroll.scrollLeft += x;
-      scroll.scrollTop += y;
-      if (navigatorOpenRef.current) refreshNavigator();
-    }
-
     function wheel(event) {
+      if (!(event.metaKey || event.ctrlKey)) return;
       const activeScroll = findScrollSurface();
       if (!activeScroll || !activeScroll.contains(event.target)) return;
-
-      // Browser pinch gestures normally arrive as Ctrl/Cmd + wheel. Mouse users
-      // get the same zoom behavior with Ctrl/Cmd + wheel, including over RDP.
-      if (event.ctrlKey || event.metaKey) {
-        event.preventDefault();
-        const rect = activeScroll.getBoundingClientRect();
-        const focalPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-        const factor = Math.exp(-event.deltaY * 0.0025);
-        applyZoom(zoomRef.current * factor, true, focalPoint);
-        return;
-      }
-
-      // Hardware-independent pan: wheel/two-finger = vertical, Shift+wheel = horizontal.
-      // Precision touchpads that provide deltaX still retain natural diagonal movement.
       event.preventDefault();
-      let dx = Number(event.deltaX) || 0;
-      let dy = Number(event.deltaY) || 0;
-      if (event.shiftKey && Math.abs(dx) < Math.abs(dy)) {
-        dx += dy;
-        dy = 0;
-      }
-      pendingWheelRef.current.x += dx;
-      pendingWheelRef.current.y += dy;
-      if (!wheelFrameRef.current) wheelFrameRef.current = requestAnimationFrame(flushWheel);
+      applyZoom(zoomRef.current + (event.deltaY < 0 ? 10 : -10));
     }
 
     window.addEventListener("keydown", keydown);
     window.addEventListener("keyup", keyup);
     document.addEventListener("pointerdown", pointerdown, true);
-    window.addEventListener("pointermove", pointermove, { passive: false });
+    window.addEventListener("pointermove", pointermove);
     window.addEventListener("pointerup", pointerend);
     window.addEventListener("pointercancel", pointerend);
     document.addEventListener("wheel", wheel, { passive: false, capture: true });
@@ -362,7 +303,6 @@ export default function WorkspaceController() {
       window.removeEventListener("pointerup", pointerend);
       window.removeEventListener("pointercancel", pointerend);
       document.removeEventListener("wheel", wheel, true);
-      cancelAnimationFrame(wheelFrameRef.current);
       document.body.classList.remove("workspace-space-hand", "workspace-grabbing");
     };
   }, [tool]);
@@ -373,12 +313,12 @@ export default function WorkspaceController() {
     <div className="workspace-controls" aria-label="Artwork workspace controls">
       <div className="workspace-tool-toggle">
         <button type="button" className={tool === "select" ? "active" : ""} onClick={() => setTool("select")} title="Select tool">↖</button>
-        <button type="button" className={tool === "hand" ? "active" : ""} onClick={() => setTool("hand")} title="Hand tool · kéo artwork · giữ Space hoặc nút giữa chuột để pan">✋</button>
+        <button type="button" className={tool === "hand" ? "active" : ""} onClick={() => setTool("hand")} title="Hand tool · kéo toàn bộ artwork · giữ Space để dùng tạm">✋</button>
       </div>
       <button type="button" className="workspace-fit" onClick={fitArtwork}>Fit</button>
       <button type="button" className="workspace-zoom-step" onClick={() => applyZoom(zoom - 10)}>−</button>
       <label className="workspace-zoom-field" title="Nhập tỷ lệ zoom artwork">
-        <input type="number" min={MIN_ZOOM} max={MAX_ZOOM} value={Math.round(zoom)} onChange={(event) => applyZoom(event.target.value)} />
+        <input type="number" min={MIN_ZOOM} max={MAX_ZOOM} value={zoom} onChange={(event) => applyZoom(event.target.value)} />
         <span>%</span>
       </label>
       <button type="button" className="workspace-zoom-step" onClick={() => applyZoom(zoom + 10)}>+</button>
@@ -390,7 +330,7 @@ export default function WorkspaceController() {
 
       {navigatorOpen && (
         <div className="workspace-navigator-popover">
-          <div className="workspace-navigator-head"><span>NAVIGATOR</span><strong>{Math.round(zoom)}%</strong></div>
+          <div className="workspace-navigator-head"><span>NAVIGATOR</span><strong>{zoom}%</strong></div>
           <div
             className="workspace-navigator-map"
             onPointerDown={navigatorPointerDown}
@@ -411,7 +351,7 @@ export default function WorkspaceController() {
               />
             </div>
           </div>
-          <small>Wheel: dọc · Shift+Wheel: ngang · Ctrl/Cmd+Wheel: zoom · Hand/Space: pan</small>
+          <small>Kéo trên map để đi nhanh · Hand/Space để pan trực tiếp</small>
         </div>
       )}
     </div>,
