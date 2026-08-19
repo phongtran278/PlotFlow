@@ -99,14 +99,8 @@ export default function WorkspaceController() {
     const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(zoomRef.current) || 38)) / 100;
     const artworkWidth = ARTWORK_WIDTH * scale;
     const artworkHeight = ARTWORK_HEIGHT * scale;
-
-    // The Navigator viewport represents how much of the artwork is visible.
-    // Its size must therefore shrink in BOTH dimensions as zoom increases.
-    // Do not derive viewport size from scrollWidth/scrollHeight because browser
-    // layout differences (Windows/Render/macOS) can distort those values.
     const viewportWidth = clamp01(scroll.clientWidth / Math.max(1, artworkWidth));
     const viewportHeight = clamp01(scroll.clientHeight / Math.max(1, artworkHeight));
-
     const maxLeft = Math.max(1, scroll.scrollWidth - scroll.clientWidth);
     const maxTop = Math.max(1, scroll.scrollHeight - scroll.clientHeight);
 
@@ -144,6 +138,7 @@ export default function WorkspaceController() {
     const scroll = findScrollSurface();
     if (!viewport) {
       setZoom(next);
+      zoomRef.current = next;
       return;
     }
 
@@ -324,6 +319,14 @@ export default function WorkspaceController() {
 
   if (!target) return null;
 
+  // Navigator size is now derived DIRECTLY from zoom at render time.
+  // This is intentionally independent of scrollHeight/clientHeight so it behaves
+  // identically on macOS, Windows, remote desktop and production hosting.
+  const navWidth = clamp01(90 / Math.max(1, zoom));
+  const navHeight = clamp01(48 / Math.max(1, zoom));
+  const navLeft = navigator.left * (1 - navWidth);
+  const navTop = navigator.top * (1 - navHeight);
+
   return createPortal(
     <div className="workspace-controls" aria-label="Artwork workspace controls">
       <div className="workspace-tool-toggle">
@@ -358,10 +361,10 @@ export default function WorkspaceController() {
               <div
                 className="workspace-navigator-viewport"
                 style={{
-                  left: `${navigator.left * (100 - navigator.width * 100)}%`,
-                  top: `${navigator.top * (100 - navigator.height * 100)}%`,
-                  width: `${navigator.width * 100}%`,
-                  height: `${navigator.height * 100}%`,
+                  left: `${navLeft * 100}%`,
+                  top: `${navTop * 100}%`,
+                  width: `${navWidth * 100}%`,
+                  height: `${navHeight * 100}%`,
                 }}
               />
             </div>
