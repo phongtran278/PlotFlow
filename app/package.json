@@ -7,7 +7,7 @@
     "setup": "node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
     "sync-assets": "node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
     "optimize-assets": "node tools/optimize-assets.mjs && node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
-    "prepare-masterplan": "node tools/prepare-masterplan.mjs",
+    "prepare-masterplan": "node tools/prepare-masterplan.mjs && node tools/generate-lot-tiles.mjs",
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
