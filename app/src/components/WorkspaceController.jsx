@@ -22,7 +22,8 @@ function findViewport() {
 }
 
 function clampZoom(value) {
-  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(Number(value) || 0)));
+  const number = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(value) || 0));
+  return Math.round(number * 10) / 10;
 }
 
 function clamp01(value) {
@@ -123,29 +124,35 @@ export default function WorkspaceController() {
     };
   }, [navigatorOpen]);
 
-  function applyZoom(nextZoom, preserveCenter = true) {
+  function applyZoom(nextZoom, preserveCenter = true, focalPoint = null) {
     const next = clampZoom(nextZoom);
     const viewport = findViewport();
     const scroll = findScrollSurface();
     if (!viewport) {
       setZoom(next);
+      zoomRef.current = next;
       return;
     }
 
     const old = zoomRef.current || next;
-    const maxOldLeft = scroll ? Math.max(1, scroll.scrollWidth - scroll.clientWidth) : 1;
-    const maxOldTop = scroll ? Math.max(1, scroll.scrollHeight - scroll.clientHeight) : 1;
-    const centerX = scroll ? clamp01((scroll.scrollLeft + scroll.clientWidth / 2) / Math.max(1, scroll.scrollWidth)) : 0.5;
-    const centerY = scroll ? clamp01((scroll.scrollTop + scroll.clientHeight / 2) / Math.max(1, scroll.scrollHeight)) : 0.5;
+    let focalX = scroll ? scroll.clientWidth / 2 : 0;
+    let focalY = scroll ? scroll.clientHeight / 2 : 0;
+    if (scroll && focalPoint) {
+      focalX = Math.max(0, Math.min(scroll.clientWidth, focalPoint.x));
+      focalY = Math.max(0, Math.min(scroll.clientHeight, focalPoint.y));
+    }
+
+    const ratioX = scroll ? (scroll.scrollLeft + focalX) / Math.max(1, scroll.scrollWidth) : 0.5;
+    const ratioY = scroll ? (scroll.scrollTop + focalY) / Math.max(1, scroll.scrollHeight) : 0.5;
 
     syncPanGeometry(next);
     setZoom(next);
     zoomRef.current = next;
 
-    if (preserveCenter && scroll && old !== next && (maxOldLeft > 1 || maxOldTop > 1)) {
+    if (preserveCenter && scroll && old !== next) {
       requestAnimationFrame(() => {
-        scroll.scrollLeft = Math.max(0, centerX * scroll.scrollWidth - scroll.clientWidth / 2);
-        scroll.scrollTop = Math.max(0, centerY * scroll.scrollHeight - scroll.clientHeight / 2);
+        scroll.scrollLeft = Math.max(0, ratioX * scroll.scrollWidth - focalX);
+        scroll.scrollTop = Math.max(0, ratioY * scroll.scrollHeight - focalY);
         refreshNavigator();
       });
     } else {
@@ -157,8 +164,8 @@ export default function WorkspaceController() {
     const canvas = document.querySelector(".component-canvas");
     const stage = document.querySelector(".layout-studio") || document.querySelector(".studio-center");
     if (!canvas) return;
-    const availableW = Math.max(260, (stage?.clientWidth || canvas.clientWidth) - 56);
-    const availableH = Math.max(360, canvas.clientHeight - 72);
+    const availableW = Math.max(260, (stage?.clientWidth || canvas.clientWidth) - 40);
+    const availableH = Math.max(320, canvas.clientHeight - 52);
     const fitted = Math.floor(Math.min(availableW / 1080, availableH / 1920) * 100);
     applyZoom(Math.max(MIN_ZOOM, Math.min(100, fitted)), false);
     const scroll = findScrollSurface();
@@ -281,11 +288,29 @@ export default function WorkspaceController() {
     }
 
     function wheel(event) {
-      if (!(event.metaKey || event.ctrlKey)) return;
       const activeScroll = findScrollSurface();
       if (!activeScroll || !activeScroll.contains(event.target)) return;
-      event.preventDefault();
-      applyZoom(zoomRef.current + (event.deltaY < 0 ? 10 : -10));
+
+      if (event.metaKey || event.ctrlKey) {
+        event.preventDefault();
+        const rect = activeScroll.getBoundingClientRect();
+        const focalPoint = {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        };
+        const factor = Math.exp(-event.deltaY * 0.0026);
+        applyZoom(zoomRef.current * factor, true, focalPoint);
+        return;
+      }
+
+      const beforeLeft = activeScroll.scrollLeft;
+      const beforeTop = activeScroll.scrollTop;
+      activeScroll.scrollLeft += event.deltaX;
+      activeScroll.scrollTop += event.deltaY;
+      if (activeScroll.scrollLeft !== beforeLeft || activeScroll.scrollTop !== beforeTop) {
+        event.preventDefault();
+        if (navigatorOpenRef.current) requestAnimationFrame(refreshNavigator);
+      }
     }
 
     window.addEventListener("keydown", keydown);
@@ -318,7 +343,7 @@ export default function WorkspaceController() {
       <button type="button" className="workspace-fit" onClick={fitArtwork}>Fit</button>
       <button type="button" className="workspace-zoom-step" onClick={() => applyZoom(zoom - 10)}>−</button>
       <label className="workspace-zoom-field" title="Nhập tỷ lệ zoom artwork">
-        <input type="number" min={MIN_ZOOM} max={MAX_ZOOM} value={zoom} onChange={(event) => applyZoom(event.target.value)} />
+        <input type="number" min={MIN_ZOOM} max={MAX_ZOOM} value={Math.round(zoom)} onChange={(event) => applyZoom(event.target.value)} />
         <span>%</span>
       </label>
       <button type="button" className="workspace-zoom-step" onClick={() => applyZoom(zoom + 10)}>+</button>
@@ -330,7 +355,7 @@ export default function WorkspaceController() {
 
       {navigatorOpen && (
         <div className="workspace-navigator-popover">
-          <div className="workspace-navigator-head"><span>NAVIGATOR</span><strong>{zoom}%</strong></div>
+          <div className="workspace-navigator-head"><span>NAVIGATOR</span><strong>{Math.round(zoom)}%</strong></div>
           <div
             className="workspace-navigator-map"
             onPointerDown={navigatorPointerDown}
