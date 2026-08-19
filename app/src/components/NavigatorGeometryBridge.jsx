@@ -4,9 +4,29 @@ const ARTWORK_WIDTH = 1080;
 const ARTWORK_HEIGHT = 1920;
 const EDGE_PAD = 40;
 
+function activeNavigatorStage() {
+  const map = document.querySelector(".workspace-navigator-map");
+  return map?.closest?.(".component-stage") || document.querySelector(".component-stage:not(.layout-studio-mode):not(.finetune-mode)");
+}
+
 function findScroller() {
-  const candidates = [...document.querySelectorAll(".studio-canvas-scroll")];
-  return candidates.find((node) => node.querySelector(".studio-poster-viewport")) || null;
+  const stage = activeNavigatorStage();
+  const scoped = stage?.querySelector?.(".studio-canvas-scroll .studio-poster-viewport")?.closest?.(".studio-canvas-scroll");
+  if (scoped) return scoped;
+
+  const candidates = [...document.querySelectorAll(".studio-canvas-scroll")]
+    .filter((node) => node.querySelector(".studio-poster-viewport"))
+    .filter((node) => {
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return rect.width > 20 && rect.height > 20 && style.display !== "none" && style.visibility !== "hidden";
+    });
+
+  return candidates.sort((a, b) => {
+    const ar = a.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+    return (br.width * br.height) - (ar.width * ar.height);
+  })[0] || null;
 }
 
 function readZoom() {
@@ -22,6 +42,10 @@ function clamp01(value) {
   return Math.max(0, Math.min(1, Number(value) || 0));
 }
 
+function setImportant(node, property, value) {
+  node.style.setProperty(property, value, "important");
+}
+
 function syncNavigator() {
   const scroller = findScroller();
   const map = document.querySelector(".workspace-navigator-artwork");
@@ -33,8 +57,6 @@ function syncNavigator() {
   const artworkW = ARTWORK_WIDTH * scale;
   const artworkH = ARTWORK_HEIGHT * scale;
 
-  // Navigator represents the artwork itself, not the outer scroll container.
-  // Only the visible client area that overlaps the artwork counts as viewport.
   const visibleW = Math.min(artworkW, Math.max(1, scroller.clientWidth));
   const visibleH = Math.min(artworkH, Math.max(1, scroller.clientHeight));
   const viewW = clamp01(visibleW / Math.max(1, artworkW));
@@ -47,17 +69,20 @@ function syncNavigator() {
   const left = clamp01(artworkScrollX / maxArtworkX);
   const top = clamp01(artworkScrollY / maxArtworkY);
 
-  box.style.width = `${viewW * 100}%`;
-  box.style.height = `${viewH * 100}%`;
-  box.style.left = `${left * (100 - viewW * 100)}%`;
-  box.style.top = `${top * (100 - viewH * 100)}%`;
-  box.dataset.navigatorGeometry = "artwork";
+  setImportant(box, "width", `${viewW * 100}%`);
+  setImportant(box, "height", `${viewH * 100}%`);
+  setImportant(box, "left", `${left * (100 - viewW * 100)}%`);
+  setImportant(box, "top", `${top * (100 - viewH * 100)}%`);
+  box.dataset.navigatorGeometry = "active-stage";
+  box.dataset.navigatorZoom = String(Math.round(zoom));
+  box.dataset.navigatorClient = `${scroller.clientWidth}x${scroller.clientHeight}`;
 }
 
 function moveFromMap(event) {
   const scroller = findScroller();
   const map = document.querySelector(".workspace-navigator-artwork");
   if (!scroller || !map) return;
+
   const zoom = readZoom();
   const scale = Math.max(0.2, Math.min(2.5, zoom / 100));
   const artworkW = ARTWORK_WIDTH * scale;
@@ -67,6 +92,7 @@ function moveFromMap(event) {
   const y = clamp01((event.clientY - rect.top) / Math.max(1, rect.height));
   const visibleW = Math.min(artworkW, Math.max(1, scroller.clientWidth));
   const visibleH = Math.min(artworkH, Math.max(1, scroller.clientHeight));
+
   scroller.scrollLeft = Math.max(0, EDGE_PAD + x * artworkW - visibleW / 2);
   scroller.scrollTop = Math.max(0, EDGE_PAD + y * artworkH - visibleH / 2);
   requestAnimationFrame(syncNavigator);
@@ -98,7 +124,12 @@ export default function NavigatorGeometryBridge() {
     const onPointerUp = () => { dragging = false; };
 
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class", "data-workspace-zoom"] });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class", "data-workspace-zoom"],
+    });
 
     document.addEventListener("scroll", onScroll, true);
     document.addEventListener("pointerdown", onPointerDown, true);
