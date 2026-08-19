@@ -4,6 +4,8 @@ import "./WorkspaceController.css";
 
 const MIN_ZOOM = 20;
 const MAX_ZOOM = 250;
+const ARTWORK_WIDTH = 1080;
+const ARTWORK_HEIGHT = 1920;
 
 function editableTarget(target) {
   const tag = target?.tagName?.toLowerCase();
@@ -34,8 +36,8 @@ function syncPanGeometry(nextZoom) {
   const viewport = findViewport();
   if (!scroll || !viewport) return;
   const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(nextZoom) || 38)) / 100;
-  scroll.style.setProperty("--workspace-content-w", `${Math.round(1080 * scale + 96)}px`);
-  scroll.style.setProperty("--workspace-content-h", `${Math.round(1920 * scale + 120)}px`);
+  scroll.style.setProperty("--workspace-content-w", `${Math.round(ARTWORK_WIDTH * scale + 96)}px`);
+  scroll.style.setProperty("--workspace-content-h", `${Math.round(ARTWORK_HEIGHT * scale + 120)}px`);
   scroll.dataset.workspacePanSurface = "true";
   viewport.style.setProperty("--studio-zoom", String(scale));
   viewport.dataset.workspaceZoom = String(Math.round(scale * 100));
@@ -93,13 +95,26 @@ export default function WorkspaceController() {
     if (!navigatorOpenRef.current) return;
     const scroll = findScrollSurface();
     if (!scroll) return;
+
+    const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(zoomRef.current) || 38)) / 100;
+    const artworkWidth = ARTWORK_WIDTH * scale;
+    const artworkHeight = ARTWORK_HEIGHT * scale;
+
+    // The Navigator viewport represents how much of the artwork is visible.
+    // Its size must therefore shrink in BOTH dimensions as zoom increases.
+    // Do not derive viewport size from scrollWidth/scrollHeight because browser
+    // layout differences (Windows/Render/macOS) can distort those values.
+    const viewportWidth = clamp01(scroll.clientWidth / Math.max(1, artworkWidth));
+    const viewportHeight = clamp01(scroll.clientHeight / Math.max(1, artworkHeight));
+
     const maxLeft = Math.max(1, scroll.scrollWidth - scroll.clientWidth);
     const maxTop = Math.max(1, scroll.scrollHeight - scroll.clientHeight);
+
     setNavigator({
       left: clamp01(scroll.scrollLeft / maxLeft),
       top: clamp01(scroll.scrollTop / maxTop),
-      width: clamp01(scroll.clientWidth / Math.max(1, scroll.scrollWidth)),
-      height: clamp01(scroll.clientHeight / Math.max(1, scroll.scrollHeight)),
+      width: viewportWidth,
+      height: viewportHeight,
     });
   }
 
@@ -159,7 +174,7 @@ export default function WorkspaceController() {
     if (!canvas) return;
     const availableW = Math.max(260, (stage?.clientWidth || canvas.clientWidth) - 56);
     const availableH = Math.max(360, canvas.clientHeight - 72);
-    const fitted = Math.floor(Math.min(availableW / 1080, availableH / 1920) * 100);
+    const fitted = Math.floor(Math.min(availableW / ARTWORK_WIDTH, availableH / ARTWORK_HEIGHT) * 100);
     applyZoom(Math.max(MIN_ZOOM, Math.min(100, fitted)), false);
     const scroll = findScrollSurface();
     requestAnimationFrame(() => {
