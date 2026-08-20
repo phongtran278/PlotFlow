@@ -11,6 +11,9 @@ import PinScaleControl from "./components/PinScaleControl.jsx";
 import AutoFloorplanSource from "./components/AutoFloorplanSource.jsx";
 import MemoryGovernor from "./components/MemoryGovernor.jsx";
 import LotTileRuntime from "./components/LotTileRuntime.jsx";
+import AuthGate from "./auth/AuthGate.jsx";
+import ProductShell from "./product/ProductShell.jsx";
+import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
@@ -28,16 +31,19 @@ if (import.meta.hot) {
 }
 
 createRoot(document.getElementById("root")).render(
-  <>
-    <App />
-    <AutoFloorplanSource />
-    <MemoryGovernor />
-    <LotTileRuntime />
-    <UnitReviewBar />
-    <PerformanceFeedback />
-    <WorkspaceController />
-    <WorkspaceScrollSurfaceFix />
-    <ProjectSettings />
-    <PinScaleControl />
-  </>
+  <AuthGate>
+    <ProductShell>
+      <App />
+      <AutoFloorplanSource />
+      <MemoryGovernor />
+      <LotTileRuntime />
+      <UnitReviewBar />
+      <PerformanceFeedback />
+      <WorkspaceController />
+      <WorkspaceScrollSurfaceFix />
+      <ProjectSettings />
+      <PinScaleControl />
+      <EmptyWorkspaceEnhancer />
+    </ProductShell>
+  </AuthGate>
 );
