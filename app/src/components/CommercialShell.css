@@ -30,7 +30,6 @@ body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* Desktop navigation is a fixed app rail. It never follows document scroll. */
 .unit-sidebar {
   position: relative !important;
   inset: auto !important;
@@ -66,44 +65,52 @@ body {
 }
 
 .unit-sidebar h1 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.05;
-  font-weight: 800;
-  letter-spacing: -0.75px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:0;
+  font-size:0;
+  line-height:1.05;
+  font-weight:800;
+  letter-spacing:-.75px;
 }
-
 .unit-sidebar h1::before {
-  content: "P";
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 9px;
-  background: linear-gradient(155deg, rgba(68,118,255,.98), rgba(84,91,224,.98));
-  color: white;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 6px 16px rgba(70,100,210,.22);
+  content:"PF";
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:10px;
+  background:linear-gradient(155deg,rgba(107,123,255,.99),rgba(77,85,217,.99));
+  color:#fff;
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:-.5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 7px 18px rgba(70,100,210,.22);
 }
-
+.unit-sidebar h1::after {
+  content:"PhongFlow";
+  color:#171c26;
+  font-size:22px;
+  font-weight:820;
+  letter-spacing:-.75px;
+}
 .unit-sidebar > div:first-child p {
-  margin: 5px 0 0 40px;
-  font-size: 10px;
-  line-height: 1.3;
-  font-weight: 600;
-  color: #8b94a1;
+  margin:5px 0 0 44px;
+  font-size:0;
+  line-height:1.3;
+  font-weight:600;
+  color:#8b94a1;
+}
+.unit-sidebar > div:first-child p::after {
+  content:"Plot smarter · by Phong Trần";
+  font-size:10px;
 }
 
 .source-divider,
 .excel-import-button { display: none !important; }
 
-/* Only the workspace scrolls on desktop. */
 .component-stage {
   height: 100dvh;
   min-width: 0;
@@ -141,197 +148,80 @@ body {
   background: linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.06));
 }
 
-.stage-header > div:first-child {
-  min-width: 150px;
-  flex: 0 0 auto;
-}
-
-.stage-header > div:first-child span {
-  font-size: 9px;
-  line-height: 1;
-  letter-spacing: .15em;
-  font-weight: 800;
-  color: #8c95a2;
-}
-
-.stage-header h2 {
-  margin: 4px 0 0;
-  font-size: 23px;
-  line-height: 1.05;
-  font-weight: 800;
-  letter-spacing: -.75px;
-}
+.stage-header > div:first-child { min-width:150px; flex:0 0 auto; }
+.stage-header > div:first-child span { font-size:9px; line-height:1; letter-spacing:.15em; font-weight:800; color:#8c95a2; }
+.stage-header h2 { margin:4px 0 0; font-size:23px; line-height:1.05; font-weight:800; letter-spacing:-.75px; }
 
 .stage-actions {
-  min-width: 0;
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 7px !important;
-  flex-wrap: nowrap !important;
-  overflow: visible;
+  min-width:0;
+  flex:1 1 auto;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:7px !important;
+  flex-wrap:nowrap !important;
+  overflow:visible;
 }
-
 .stage-actions > strong {
-  order: 0;
-  flex: 0 0 auto;
-  min-height: 31px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid rgba(34,43,60,.07);
-  border-radius: 10px;
-  background: rgba(255,255,255,.50);
-  color: #687281;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .01em;
-  white-space: nowrap;
+  order:0;
+  flex:0 0 auto;
+  min-height:31px;
+  display:inline-flex;
+  align-items:center;
+  padding:0 10px;
+  border:1px solid rgba(34,43,60,.07);
+  border-radius:10px;
+  background:rgba(255,255,255,.50);
+  color:#687281;
+  font-size:10px;
+  font-weight:700;
+  white-space:nowrap;
 }
-
-.workspace-controls-host {
-  order: 10 !important;
-  flex: 0 1 auto;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.workspace-controls {
-  gap: 3px !important;
-  padding: 3px !important;
-  border-radius: 12px !important;
-  background: rgba(255,255,255,.50) !important;
-  box-shadow: none !important;
-  flex-wrap: nowrap !important;
-}
-
-.workspace-controls button,
-.workspace-zoom-field { height: 31px !important; }
+.workspace-controls-host { order:10 !important; flex:0 1 auto; min-width:0; white-space:nowrap; }
+.workspace-controls { gap:3px !important; padding:3px !important; border-radius:12px !important; background:rgba(255,255,255,.50) !important; box-shadow:none !important; flex-wrap:nowrap !important; }
+.workspace-controls button,.workspace-zoom-field { height:31px !important; }
 
 .edit-floorplan-top {
-  order: 20;
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid rgba(34,43,60,.08);
-  border-radius: 10px;
-  background: rgba(255,255,255,.62);
-  box-shadow: none;
-  color: #4e5663;
-  font-size: 10px;
-  font-weight: 700;
-  white-space: nowrap;
+  order:20;
+  min-height:34px;
+  padding:0 11px;
+  border:1px solid rgba(34,43,60,.08);
+  border-radius:10px;
+  background:rgba(255,255,255,.62);
+  box-shadow:none;
+  color:#4e5663;
+  font-size:10px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.edit-floorplan-top:hover { background:rgba(255,255,255,.92); border-color:rgba(34,43,60,.12); }
+.edit-floorplan-top.lot-button { margin-left:-4px; }
+.edit-layout-button { order:30; min-height:36px !important; padding:0 13px !important; border-radius:11px !important; white-space:nowrap; font-weight:750 !important; }
+.component-canvas { border-radius:20px; }
+
+@media (max-width:1380px) and (min-width:861px) {
+  .edit-floorplan-top { width:38px; max-width:38px; padding:0; overflow:hidden; text-indent:-999px; position:relative; flex:0 0 38px; }
+  .edit-floorplan-top::after { content:"⌖"; position:absolute; inset:0; display:grid; place-items:center; text-indent:0; font-size:15px; }
+  .edit-floorplan-top.lot-button::after { content:"✦"; }
 }
 
-.edit-floorplan-top:hover {
-  background: rgba(255,255,255,.92);
-  border-color: rgba(34,43,60,.12);
+@media (max-width:1160px) and (min-width:861px) {
+  :root { --pf-sidebar-w:240px; }
+  .stage-header { align-items:center !important; flex-direction:row !important; flex-wrap:nowrap !important; padding-left:13px; padding-right:9px; }
+  .stage-actions { flex-wrap:nowrap !important; row-gap:0 !important; overflow:hidden; }
+  .stage-actions > strong { display:none; }
+  .workspace-controls-host { flex-basis:auto !important; order:10 !important; justify-content:flex-end; flex-shrink:1; min-width:0; }
+  .edit-layout-button { padding-inline:10px !important; }
 }
 
-.edit-floorplan-top.lot-button { margin-left: -4px; }
-
-.edit-layout-button {
-  order: 30;
-  min-height: 36px !important;
-  padding: 0 13px !important;
-  border-radius: 11px !important;
-  white-space: nowrap;
-  font-weight: 750 !important;
-}
-
-.component-canvas { border-radius: 20px; }
-
-/* Desktop stays one row on both macOS and Windows. */
-@media (max-width: 1380px) and (min-width: 861px) {
-  .edit-floorplan-top {
-    width: 38px;
-    max-width: 38px;
-    padding: 0;
-    overflow: hidden;
-    text-indent: -999px;
-    position: relative;
-    flex: 0 0 38px;
-  }
-  .edit-floorplan-top::after {
-    content: "⌖";
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    text-indent: 0;
-    font-size: 15px;
-  }
-  .edit-floorplan-top.lot-button::after { content: "✦"; }
-}
-
-@media (max-width: 1160px) and (min-width: 861px) {
-  :root { --pf-sidebar-w: 240px; }
-  .stage-header {
-    align-items: center !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    padding-left: 13px;
-    padding-right: 9px;
-  }
-  .stage-header > div:first-child { min-width: 118px; }
-  .stage-header > div:first-child span { font-size: 8px; }
-  .stage-header h2 { font-size: 18px; letter-spacing: -.5px; }
-  .stage-actions {
-    flex-wrap: nowrap !important;
-    row-gap: 0 !important;
-    overflow: hidden;
-  }
-  .stage-actions > strong { display: none; }
-  .workspace-controls-host {
-    flex-basis: auto !important;
-    order: 10 !important;
-    justify-content: flex-end;
-    flex-shrink: 1;
-    min-width: 0;
-  }
-  .edit-layout-button { padding-inline: 10px !important; }
-}
-
-/* Mobile switches back to normal document flow. */
-@media (max-width: 860px) {
-  :root { --pf-sidebar-w: 100%; }
-  body { overflow: auto; }
-  .plotflow-shell {
-    height: auto;
-    min-height: 100dvh;
-    overflow: visible;
-    grid-template-columns: 1fr !important;
-  }
-  .unit-sidebar {
-    position: relative !important;
-    height: auto;
-    max-height: none;
-    overflow: visible;
-  }
-  .component-stage {
-    height: auto;
-    min-height: 0;
-    overflow: visible;
-    padding-top: 8px;
-  }
-  .stage-header {
-    top: 6px;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    flex-wrap: nowrap !important;
-    border-radius: 16px;
-  }
-  .stage-header > div:first-child { min-width: 0; }
-  .stage-actions {
-    justify-content: flex-start;
-    flex-wrap: wrap !important;
-    overflow: visible;
-  }
-  .workspace-controls-host {
-    width: 100%;
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .workspace-controls-host::-webkit-scrollbar { display: none; }
+@media (max-width:860px) {
+  :root { --pf-sidebar-w:100%; }
+  body { overflow:auto; }
+  .plotflow-shell { height:auto; min-height:100dvh; overflow:visible; grid-template-columns:1fr !important; }
+  .unit-sidebar { position:relative !important; height:auto; max-height:none; overflow:visible; }
+  .component-stage { height:auto; min-height:0; overflow:visible; padding-top:8px; }
+  .stage-header { top:6px; flex-direction:column !important; align-items:stretch !important; flex-wrap:nowrap !important; border-radius:16px; }
+  .stage-actions { justify-content:flex-start; flex-wrap:wrap !important; overflow:visible; }
+  .workspace-controls-host { width:100%; justify-content:flex-start; overflow-x:auto; scrollbar-width:none; }
+  .workspace-controls-host::-webkit-scrollbar { display:none; }
 }
