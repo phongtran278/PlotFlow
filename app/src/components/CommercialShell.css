@@ -1,0 +1,273 @@
+/* PlotFlow commercial shell pass — navigation + action hierarchy */
+
+:root {
+  --pf-toolbar-h: 68px;
+  --pf-glass: rgba(248, 250, 253, 0.78);
+  --pf-glass-strong: rgba(252, 253, 255, 0.90);
+  --pf-stroke: rgba(28, 36, 52, 0.09);
+  --pf-stroke-light: rgba(255, 255, 255, 0.78);
+  --pf-shadow-toolbar: 0 12px 36px rgba(42, 55, 82, 0.08);
+}
+
+/* Sidebar behaves like a real app navigation rail instead of a long page column. */
+.plotflow-shell {
+  align-items: start;
+}
+
+.unit-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(80, 90, 108, .20) transparent;
+  padding-top: 18px;
+}
+
+.unit-sidebar::-webkit-scrollbar { width: 7px; }
+.unit-sidebar::-webkit-scrollbar-track { background: transparent; }
+.unit-sidebar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(80, 90, 108, .18);
+  background-clip: padding-box;
+}
+
+/* Existing brand becomes a compact app identity lockup. */
+.unit-sidebar > div:first-child {
+  position: sticky;
+  top: -18px;
+  z-index: 30;
+  margin: -18px -18px 2px;
+  padding: 18px 18px 14px;
+  background: linear-gradient(180deg, rgba(249,251,254,.98) 0%, rgba(249,251,254,.92) 72%, rgba(249,251,254,0) 100%);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.unit-sidebar h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  letter-spacing: -0.55px;
+}
+
+.unit-sidebar h1::before {
+  content: "P";
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(155deg, rgba(68,118,255,.98), rgba(84,91,224,.98));
+  color: white;
+  font-size: 14px;
+  font-weight: 760;
+  letter-spacing: -0.4px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 6px 16px rgba(70,100,210,.22);
+}
+
+.unit-sidebar > div:first-child p {
+  margin-left: 40px;
+  font-size: 10px;
+}
+
+/* Main canvas becomes the scrolling workspace; toolbar stays anchored. */
+.component-stage {
+  padding-top: 14px;
+}
+
+.stage-header {
+  position: sticky !important;
+  top: 10px;
+  z-index: 950 !important;
+  min-height: var(--pf-toolbar-h);
+  margin: 0 0 14px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--pf-stroke-light);
+  border-radius: 18px;
+  background: var(--pf-glass);
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
+  box-shadow: var(--pf-shadow-toolbar), inset 0 1px 0 rgba(255,255,255,.82);
+}
+
+.stage-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.06));
+}
+
+.stage-header > div:first-child {
+  min-width: 170px;
+  flex: 0 0 auto;
+}
+
+.stage-header > div:first-child span {
+  font-size: 8px;
+  letter-spacing: .14em;
+  font-weight: 700;
+}
+
+.stage-header h2 {
+  margin-top: 4px;
+  font-size: 21px;
+  letter-spacing: -.55px;
+}
+
+/* Action area follows commercial-app hierarchy. */
+.stage-actions {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Current unit = status/context, not an action. */
+.stage-actions > strong {
+  order: 0;
+  flex: 0 0 auto;
+  min-height: 31px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid rgba(34,43,60,.07);
+  border-radius: 10px;
+  background: rgba(255,255,255,.50);
+  color: #6c7480;
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: .01em;
+}
+
+/* Navigator/zoom/select/hand = utilities. */
+.workspace-controls-host {
+  order: 10 !important;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.workspace-controls {
+  gap: 3px !important;
+  padding: 3px !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.50) !important;
+  box-shadow: none !important;
+}
+
+.workspace-controls button,
+.workspace-zoom-field {
+  height: 31px !important;
+}
+
+/* Floorplan + lot are contextual actions and read as a pair. */
+.edit-floorplan-top {
+  order: 20;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(34,43,60,.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,.62);
+  box-shadow: none;
+  color: #4e5663;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.edit-floorplan-top:hover {
+  background: rgba(255,255,255,.92);
+  border-color: rgba(34,43,60,.12);
+}
+
+.edit-floorplan-top.lot-button {
+  margin-left: -4px;
+}
+
+/* Edit Layout is the primary workspace action. */
+.edit-layout-button {
+  order: 30;
+  min-height: 36px !important;
+  padding: 0 13px !important;
+  border-radius: 11px !important;
+  white-space: nowrap;
+  font-weight: 680 !important;
+}
+
+/* Shared status belongs to app chrome; keep it clear of the workspace toolbar. */
+.shared-project-status {
+  top: auto !important;
+  right: 18px !important;
+  bottom: 16px;
+  z-index: 13000;
+}
+
+.shared-project-popover {
+  top: auto !important;
+  bottom: 44px;
+}
+
+/* Canvas sits visually below the toolbar instead of competing with it. */
+.component-canvas {
+  border-radius: 20px;
+}
+
+/* Responsive hierarchy: context labels collapse before controls overlap. */
+@media (max-width: 1380px) {
+  .edit-floorplan-top {
+    max-width: 42px;
+    overflow: hidden;
+    text-indent: -999px;
+    position: relative;
+  }
+  .edit-floorplan-top::after {
+    content: "⌖";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-indent: 0;
+    font-size: 15px;
+  }
+  .edit-floorplan-top.lot-button::after { content: "✦"; }
+}
+
+@media (max-width: 1160px) {
+  .plotflow-shell { grid-template-columns: 250px minmax(0, 1fr); }
+  .stage-header { align-items: flex-start; }
+  .stage-actions {
+    flex-wrap: wrap !important;
+    row-gap: 6px !important;
+  }
+  .workspace-controls-host {
+    flex-basis: 100%;
+    order: 40 !important;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 860px) {
+  .plotflow-shell { grid-template-columns: 1fr; }
+  .unit-sidebar {
+    position: relative;
+    height: auto;
+    max-height: none;
+  }
+  .stage-header {
+    top: 6px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .stage-actions { justify-content: flex-start; }
+  .workspace-controls-host { justify-content: flex-start; }
+}
