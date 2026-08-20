@@ -14,6 +14,7 @@ import LotTileRuntime from "./components/LotTileRuntime.jsx";
 import AuthGate from "./auth/AuthGate.jsx";
 import ProductShell from "./product/ProductShell.jsx";
 import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
+import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
 import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
@@ -45,6 +46,7 @@ createRoot(document.getElementById("root")).render(
       <ProjectSettings />
       <PinScaleControl />
       <EmptyWorkspaceEnhancer />
+      <OverviewZoomRuntime />
     </ProductShell>
   </AuthGate>
 );
