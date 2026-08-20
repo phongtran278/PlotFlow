@@ -5,6 +5,7 @@ import useStageUtilityTarget from "./useStageUtilityTarget";
 
 const FOCUS_SECONDS = 25 * 60;
 const BREAK_SECONDS = 5 * 60;
+const SPOTIFY_KEY = "plotflow-focus-spotify-url-v1";
 
 function formatClock(totalSeconds) {
   const safe = Math.max(0, Math.floor(totalSeconds));
@@ -26,6 +27,21 @@ function createNoiseBuffer(ctx, seconds = 2) {
   return buffer;
 }
 
+function spotifyEmbedUrl(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    if (!/(^|\.)spotify\.com$/i.test(url.hostname)) return "";
+    const parts = url.pathname.split("/").filter(Boolean);
+    const typeIndex = parts.findIndex((part) => ["track", "playlist", "album", "artist", "show", "episode"].includes(part));
+    if (typeIndex < 0 || !parts[typeIndex + 1]) return "";
+    return `https://open.spotify.com/embed/${parts[typeIndex]}/${parts[typeIndex + 1]}?utm_source=generator&theme=0`;
+  } catch {
+    return "";
+  }
+}
+
 export default function FocusDeck() {
   const [open, setOpen] = useState(false);
   const [zen, setZen] = useState(false);
@@ -34,8 +50,9 @@ export default function FocusDeck() {
   const [running, setRunning] = useState(false);
   const [noiseOn, setNoiseOn] = useState(false);
   const [volume, setVolume] = useState(0.16);
-  const [localTrackName, setLocalTrackName] = useState("");
-  const audioRef = useRef(null);
+  const [spotifyUrl, setSpotifyUrl] = useState(() => localStorage.getItem(SPOTIFY_KEY) || "");
+  const [spotifyDraft, setSpotifyDraft] = useState(() => localStorage.getItem(SPOTIFY_KEY) || "");
+  const [spotifyMessage, setSpotifyMessage] = useState("");
   const ctxRef = useRef(null);
   const noiseSourceRef = useRef(null);
   const gainRef = useRef(null);
@@ -75,7 +92,6 @@ export default function FocusDeck() {
 
   useEffect(() => {
     if (gainRef.current) gainRef.current.gain.value = volume;
-    if (audioRef.current) audioRef.current.volume = Math.min(1, volume * 2.5);
   }, [volume]);
 
   useEffect(() => () => stopNoise(), []);
@@ -123,21 +139,28 @@ export default function FocusDeck() {
     else startNoise();
   }
 
-  function chooseLocalTrack(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (audioRef.current?.src?.startsWith("blob:")) URL.revokeObjectURL(audioRef.current.src);
-    const src = URL.createObjectURL(file);
-    audioRef.current.src = src;
-    audioRef.current.loop = true;
-    audioRef.current.volume = Math.min(1, volume * 2.5);
-    audioRef.current.play().catch(() => {});
-    setLocalTrackName(file.name);
-    event.target.value = "";
+  function connectSpotify() {
+    const embed = spotifyEmbedUrl(spotifyDraft);
+    if (!embed) {
+      setSpotifyMessage("Paste a valid Spotify track, album or playlist link.");
+      return;
+    }
+    const next = spotifyDraft.trim();
+    localStorage.setItem(SPOTIFY_KEY, next);
+    setSpotifyUrl(next);
+    setSpotifyMessage("Spotify connected");
+  }
+
+  function disconnectSpotify() {
+    localStorage.removeItem(SPOTIFY_KEY);
+    setSpotifyUrl("");
+    setSpotifyDraft("");
+    setSpotifyMessage("");
   }
 
   const progressTotal = mode === "focus" ? FOCUS_SECONDS : BREAK_SECONDS;
   const progress = Math.max(0, Math.min(1, 1 - secondsLeft / progressTotal));
+  const embedUrl = spotifyEmbedUrl(spotifyUrl);
 
   if (!utilityTarget) return null;
 
@@ -158,7 +181,7 @@ export default function FocusDeck() {
           <header className="focus-deck-head">
             <div>
               <span>CREATIVE FOCUS</span>
-              <strong>Đời lắm Phong Trần.</strong>
+              <strong>PhongFlow Session</strong>
             </div>
             <button type="button" onClick={() => setOpen(false)}>×</button>
           </header>
@@ -188,14 +211,41 @@ export default function FocusDeck() {
           <div className="focus-audio">
             <div className="focus-audio-row">
               <button type="button" className={noiseOn ? "active" : ""} onClick={toggleNoise}>≈ Brown Noise</button>
-              <label className="local-audio-button">♫ Local Audio<input type="file" accept="audio/*" onChange={chooseLocalTrack} hidden /></label>
+              <span className="spotify-chip">Spotify</span>
             </div>
-            {localTrackName && <small className="local-track-name">Playing · {localTrackName}</small>}
-            <label className="focus-volume">Volume<input type="range" min="0" max="0.4" step="0.01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} /></label>
+            <label className="focus-spotify-connect">
+              <span>Spotify link</span>
+              <div>
+                <input
+                  type="url"
+                  value={spotifyDraft}
+                  onChange={(event) => { setSpotifyDraft(event.target.value); setSpotifyMessage(""); }}
+                  onKeyDown={(event) => { if (event.key === "Enter") connectSpotify(); }}
+                  placeholder="Paste playlist / track / album link"
+                />
+                <button type="button" onClick={connectSpotify}>Connect</button>
+              </div>
+            </label>
+            {spotifyMessage && <small className="spotify-message">{spotifyMessage}</small>}
+            {embedUrl && (
+              <div className="spotify-embed-wrap">
+                <iframe
+                  title="Spotify focus player"
+                  src={embedUrl}
+                  width="100%"
+                  height="152"
+                  frameBorder="0"
+                  allowFullScreen
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                />
+                <button type="button" className="spotify-disconnect" onClick={disconnectSpotify}>Disconnect Spotify</button>
+              </div>
+            )}
+            <label className="focus-volume">Brown Noise Volume<input type="range" min="0" max="0.4" step="0.01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} /></label>
           </div>
 
           <p className="focus-quote">Less noise. More intent.</p>
-          <audio ref={audioRef} />
         </section>
       )}
     </div>,
