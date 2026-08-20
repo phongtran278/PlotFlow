@@ -3,29 +3,26 @@ import { toPng } from "html-to-image";
 import "./OverviewZoomRuntime.css";
 
 const MIN_SCALE = 0.7;
-const MAX_SCALE = 32;
-const STORAGE_KEY = "phongflow-overview-markup-v1";
-const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v1";
+const MAX_SCALE = 128;
+const FOCUS_SCALE = 64;
+const STORAGE_KEY = "phongflow-overview-markup-v2";
+const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function loadMarkup() {
+function readJson(key, fallback) {
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(value) ? value : [];
+    const value = JSON.parse(localStorage.getItem(key) || "null");
+    return value ?? fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function loadCardLayout() {
-  try {
-    return JSON.parse(localStorage.getItem(CARD_LAYOUT_KEY) || "{}") || {};
-  } catch {
-    return {};
-  }
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 export default function OverviewZoomRuntime() {
@@ -42,7 +39,6 @@ export default function OverviewZoomRuntime() {
       let tool = "select";
       let stroke = 3;
       let spaceDown = false;
-      let zDown = false;
       let dragging = false;
       let dragMode = "";
       let startX = 0;
@@ -55,8 +51,17 @@ export default function OverviewZoomRuntime() {
       let zoomWorldX = 0;
       let zoomWorldY = 0;
       let drawStart = null;
-      let markup = loadMarkup();
-      let cardLayout = loadCardLayout();
+      let focusedCode = "";
+      let markup = readJson(STORAGE_KEY, []);
+      if (!Array.isArray(markup)) markup = [];
+      let cardLayout = readJson(CARD_LAYOUT_KEY, {});
+      if (!cardLayout || typeof cardLayout !== "object" || Array.isArray(cardLayout)) cardLayout = {};
+      let selectedCards = new Set();
+      let keyCard = null;
+      let dragCardsStart = [];
+      let history = [];
+      let future = [];
+      let focusRaf = 0;
 
       const toolbar = document.createElement("div");
       toolbar.className = "pf-overview-zoom-toolbar pf-overview-editor-toolbar";
@@ -69,13 +74,18 @@ export default function OverviewZoomRuntime() {
           <button type="button" data-tool="line" title="Line (L)">╱</button>
           <button type="button" data-tool="rect" title="Rectangle (R)">▭</button>
           <label class="pf-stroke-control" title="Stroke width"><span>Stroke</span><select><option>1</option><option>2</option><option selected>3</option><option>4</option><option>6</option><option>8</option><option>12</option></select></label>
-          <button type="button" data-action="undo" title="Undo drawing">↶</button>
-          <button type="button" data-action="clear" title="Clear drawings">Clear</button>
+          <button type="button" data-action="undo" title="Undo (Ctrl/Cmd+Z)">↶</button>
+          <button type="button" data-action="redo" title="Redo (Ctrl/Cmd+Shift+Z)">↷</button>
         </div>
-        <div class="pf-editor-layout-tools">
-          <button type="button" data-layout="same" title="Make price cards the same size">Same size</button>
-          <button type="button" data-layout="align" title="Align cards into two clean columns">Align</button>
-          <button type="button" data-layout="space" title="Distribute cards evenly">Space evenly</button>
+        <div class="pf-editor-layout-tools" title="Shift-click cards to multi-select. Click a selected card again to make it the key object.">
+          <button type="button" data-layout="same" title="Same size as key object">Same</button>
+          <button type="button" data-layout="left" title="Align left to key object">L</button>
+          <button type="button" data-layout="hcenter" title="Align horizontal center to key object">C</button>
+          <button type="button" data-layout="right" title="Align right to key object">R</button>
+          <button type="button" data-layout="top" title="Align top to key object">T</button>
+          <button type="button" data-layout="vcenter" title="Align vertical center to key object">M</button>
+          <button type="button" data-layout="bottom" title="Align bottom to key object">B</button>
+          <button type="button" data-layout="space-v" title="Distribute vertically">Dist V</button>
         </div>
         <div class="pf-editor-view-tools">
           <button type="button" data-action="png" title="Export high-quality PNG">PNG</button>
@@ -93,79 +103,241 @@ export default function OverviewZoomRuntime() {
       markupLayer.setAttribute("class", "pf-overview-markup-layer");
       markupLayer.setAttribute("viewBox", "0 0 1000 1000");
       markupLayer.setAttribute("preserveAspectRatio", "none");
+      markupLayer.setAttribute("shape-rendering", "geometricPrecision");
       stage.appendChild(markupLayer);
 
       const output = toolbar.querySelector("output");
       const strokeSelect = toolbar.querySelector("select");
       const transformTargets = () => Array.from(stage.querySelectorAll(".pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer"));
 
-      function renderMarkup(draft = null) {
-        const items = draft ? [...markup, draft] : markup;
-        markupLayer.innerHTML = items.map((item) => {
-          if (item.type === "line") {
-            return `<line x1="${item.x1}" y1="${item.y1}" x2="${item.x2}" y2="${item.y2}" stroke="#ff3b30" stroke-width="${item.stroke}" stroke-linecap="round" />`;
-          }
-          return `<rect x="${Math.min(item.x1, item.x2)}" y="${Math.min(item.y1, item.y2)}" width="${Math.abs(item.x2 - item.x1)}" height="${Math.abs(item.y2 - item.y1)}" rx="5" ry="5" fill="rgba(255,59,48,.08)" stroke="#ff3b30" stroke-width="${item.stroke}" />`;
-        }).join("");
-      }
-
-      function saveMarkup() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(markup));
-      }
-
-      function saveCardLayout() {
-        localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(cardLayout));
+      function codeForCard(card) {
+        return card?.querySelector("header strong")?.textContent?.trim() || "";
       }
 
       function getCards() {
         return Array.from(stage.querySelectorAll(".pf-sales-callout"));
       }
 
-      function applyCardLayout() {
-        const cards = getCards();
-        if (!cards.length) return;
-        const width = Number(cardLayout.width || 176);
-        const height = Number(cardLayout.height || 106);
-        const left = Number(cardLayout.left || 1.5);
-        const right = Number(cardLayout.right || 1.5);
-        const tops = Array.isArray(cardLayout.tops) && cardLayout.tops.length === 5 ? cardLayout.tops : [5.2, 22, 38.8, 55.6, 72.4];
+      function getAnchor(code) {
+        return Array.from(stage.querySelectorAll(".pf-map-anchor")).find((node) => node.textContent?.trim() === code) || null;
+      }
 
-        cards.forEach((card) => {
-          const row = Number(card.style.getPropertyValue("--callout-row") || 0);
-          card.style.width = `${width}px`;
-          card.style.height = `${height}px`;
-          card.style.minHeight = `${height}px`;
-          card.style.top = `${tops[row] ?? tops[0]}%`;
-          if (card.classList.contains("side-left")) {
-            card.style.left = `${left}%`;
-            card.style.right = "auto";
-          } else {
-            card.style.right = `${right}%`;
-            card.style.left = "auto";
+      function getLineForCode(code) {
+        const cards = getCards();
+        const index = cards.findIndex((card) => codeForCard(card) === code);
+        const lines = Array.from(stage.querySelectorAll(".pf-callout-lines line"));
+        return index >= 0 ? lines[index] : null;
+      }
+
+      function cardMetrics(card) {
+        const stageRect = stage.getBoundingClientRect();
+        const rect = card.getBoundingClientRect();
+        const left = (rect.left - stageRect.left - tx) / Math.max(scale, 0.0001);
+        const top = (rect.top - stageRect.top - ty) / Math.max(scale, 0.0001);
+        return {
+          left,
+          top,
+          width: rect.width / Math.max(scale, 0.0001),
+          height: rect.height / Math.max(scale, 0.0001),
+        };
+      }
+
+      function persistCard(card) {
+        const code = codeForCard(card);
+        if (!code) return;
+        const metrics = cardMetrics(card);
+        cardLayout[code] = {
+          left: Number(metrics.left.toFixed(2)),
+          top: Number(metrics.top.toFixed(2)),
+          width: Number(metrics.width.toFixed(2)),
+          height: Number(metrics.height.toFixed(2)),
+        };
+      }
+
+      function saveCardLayout() {
+        localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(cardLayout));
+      }
+
+      function applyStoredCardLayout() {
+        getCards().forEach((card) => {
+          const saved = cardLayout[codeForCard(card)];
+          if (!saved) return;
+          card.style.left = `${saved.left}px`;
+          card.style.top = `${saved.top}px`;
+          card.style.right = "auto";
+          card.style.width = `${saved.width}px`;
+          card.style.height = `${saved.height}px`;
+          card.style.minHeight = `${saved.height}px`;
+        });
+        updateConnectors();
+      }
+
+      function snapshot() {
+        getCards().forEach(persistCard);
+        return { markup: clone(markup), cardLayout: clone(cardLayout) };
+      }
+
+      function pushHistory() {
+        history.push(snapshot());
+        if (history.length > 60) history.shift();
+        future = [];
+      }
+
+      function restore(state) {
+        if (!state) return;
+        markup = clone(state.markup || []);
+        cardLayout = clone(state.cardLayout || {});
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(markup));
+        saveCardLayout();
+        renderMarkup();
+        applyStoredCardLayout();
+      }
+
+      function undo() {
+        if (!history.length) return;
+        future.push(snapshot());
+        restore(history.pop());
+      }
+
+      function redo() {
+        if (!future.length) return;
+        history.push(snapshot());
+        restore(future.pop());
+      }
+
+      function saveMarkup() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(markup));
+      }
+
+      function renderMarkup(draft = null) {
+        const items = draft ? [...markup, draft] : markup;
+        markupLayer.innerHTML = items.map((item) => {
+          const vector = `vector-effect="non-scaling-stroke"`;
+          const lot = item.lotCode ? `data-lot-code="${item.lotCode}"` : "";
+          if (item.type === "line") {
+            return `<line ${lot} x1="${item.x1}" y1="${item.y1}" x2="${item.x2}" y2="${item.y2}" stroke="#ff3b30" stroke-width="${item.stroke}" stroke-linecap="round" ${vector} />`;
           }
+          return `<rect ${lot} x="${Math.min(item.x1, item.x2)}" y="${Math.min(item.y1, item.y2)}" width="${Math.abs(item.x2 - item.x1)}" height="${Math.abs(item.y2 - item.y1)}" fill="rgba(255,59,48,.10)" stroke="#ff3b30" stroke-width="${item.stroke}" ${vector} />`;
+        }).join("");
+        updateConnectors();
+      }
+
+      function highlightCenterForCode(code) {
+        const rects = markup.filter((item) => item.type === "rect" && item.lotCode === code);
+        const item = rects.at(-1);
+        if (!item) return null;
+        return {
+          x: (item.x1 + item.x2) / 20,
+          y: (item.y1 + item.y2) / 20,
+        };
+      }
+
+      function updateConnectors() {
+        const stageRect = stage.getBoundingClientRect();
+        const worldW = stageRect.width;
+        const worldH = stageRect.height;
+        if (worldW < 2 || worldH < 2) return;
+
+        getCards().forEach((card) => {
+          const code = codeForCard(card);
+          const line = getLineForCode(code);
+          if (!line) return;
+          const metrics = cardMetrics(card);
+          const cardCenterX = ((metrics.left + metrics.width / 2) / worldW) * 100;
+          const cardCenterY = ((metrics.top + metrics.height / 2) / worldH) * 100;
+          const highlight = highlightCenterForCode(code);
+          const anchor = getAnchor(code);
+          const anchorX = Number.parseFloat(anchor?.style.left || "50");
+          const anchorY = Number.parseFloat(anchor?.style.top || "50");
+          line.setAttribute("x1", String(cardCenterX));
+          line.setAttribute("y1", String(cardCenterY));
+          line.setAttribute("x2", String(highlight?.x ?? anchorX));
+          line.setAttribute("y2", String(highlight?.y ?? anchorY));
         });
       }
 
-      function makeSameSize() {
-        const cards = getCards();
+      function refreshSelectionUi() {
+        getCards().forEach((card) => {
+          card.classList.toggle("pf-card-selected", selectedCards.has(card));
+          card.classList.toggle("pf-card-key", keyCard === card && selectedCards.has(card));
+        });
+      }
+
+      function selectCard(card, event) {
+        if (!card) return;
+        if (event.shiftKey) {
+          if (selectedCards.has(card)) selectedCards.delete(card);
+          else selectedCards.add(card);
+          if (!selectedCards.has(keyCard)) keyCard = card;
+        } else if (selectedCards.size > 1 && selectedCards.has(card)) {
+          keyCard = card;
+        } else {
+          selectedCards = new Set([card]);
+          keyCard = card;
+        }
+        refreshSelectionUi();
+      }
+
+      function selectedOrAll() {
+        return selectedCards.size ? Array.from(selectedCards) : getCards();
+      }
+
+      function selectedKey(cards) {
+        return keyCard && cards.includes(keyCard) ? keyCard : cards.at(-1) || null;
+      }
+
+      function applyCardMetric(card, next) {
+        card.style.left = `${next.left}px`;
+        card.style.top = `${next.top}px`;
+        card.style.right = "auto";
+        card.style.width = `${next.width}px`;
+        card.style.height = `${next.height}px`;
+        card.style.minHeight = `${next.height}px`;
+        persistCard(card);
+      }
+
+      function alignSelection(kind) {
+        const cards = selectedOrAll();
         if (!cards.length) return;
-        const maxW = Math.max(168, ...cards.map((card) => card.getBoundingClientRect().width / Math.max(scale, 0.001)));
-        const maxH = Math.max(104, ...cards.map((card) => card.getBoundingClientRect().height / Math.max(scale, 0.001)));
-        cardLayout = { ...cardLayout, width: Math.round(maxW), height: Math.round(maxH) };
+        pushHistory();
+        const key = selectedKey(cards);
+        const km = cardMetrics(key);
+        cards.forEach((card) => {
+          const m = cardMetrics(card);
+          const next = { ...m };
+          if (kind === "same") {
+            next.width = km.width;
+            next.height = km.height;
+          }
+          if (kind === "left") next.left = km.left;
+          if (kind === "hcenter") next.left = km.left + km.width / 2 - m.width / 2;
+          if (kind === "right") next.left = km.left + km.width - m.width;
+          if (kind === "top") next.top = km.top;
+          if (kind === "vcenter") next.top = km.top + km.height / 2 - m.height / 2;
+          if (kind === "bottom") next.top = km.top + km.height - m.height;
+          applyCardMetric(card, next);
+        });
         saveCardLayout();
-        applyCardLayout();
+        updateConnectors();
       }
 
-      function alignCards() {
-        cardLayout = { ...cardLayout, left: 1.5, right: 1.5 };
+      function distributeVertical() {
+        const cards = selectedOrAll();
+        if (cards.length < 3) return;
+        pushHistory();
+        const sorted = cards.map((card) => ({ card, m: cardMetrics(card) })).sort((a, b) => a.m.top - b.m.top);
+        const first = sorted[0].m;
+        const last = sorted.at(-1).m;
+        const totalHeight = sorted.reduce((sum, item) => sum + item.m.height, 0);
+        const available = last.top + last.height - first.top - totalHeight;
+        const gap = available / (sorted.length - 1);
+        let cursor = first.top;
+        sorted.forEach(({ card, m }) => {
+          applyCardMetric(card, { ...m, top: cursor });
+          cursor += m.height + gap;
+        });
         saveCardLayout();
-        applyCardLayout();
-      }
-
-      function spaceCards() {
-        cardLayout = { ...cardLayout, tops: [5, 23, 41, 59, 77] };
-        saveCardLayout();
-        applyCardLayout();
+        updateConnectors();
       }
 
       function emitCamera() {
@@ -184,6 +356,8 @@ export default function OverviewZoomRuntime() {
         stage.classList.toggle("is-panning", dragMode === "pan");
         stage.classList.toggle("is-zooming", dragMode === "zoom");
         stage.classList.toggle("is-drawing", dragMode === "draw");
+        stage.classList.toggle("is-moving-cards", dragMode === "cards");
+        updateConnectors();
         emitCamera();
       }
 
@@ -206,7 +380,47 @@ export default function OverviewZoomRuntime() {
         apply();
       }
 
+      function animateCamera(next) {
+        cancelAnimationFrame(focusRaf);
+        const from = { scale, tx, ty };
+        const started = performance.now();
+        const duration = 320;
+        dragging = true;
+        dragMode = "zoom";
+        const tick = (now) => {
+          const p = clamp((now - started) / duration, 0, 1);
+          const eased = 1 - Math.pow(1 - p, 3);
+          scale = from.scale + (next.scale - from.scale) * eased;
+          tx = from.tx + (next.tx - from.tx) * eased;
+          ty = from.ty + (next.ty - from.ty) * eased;
+          apply();
+          if (p < 1) focusRaf = requestAnimationFrame(tick);
+          else {
+            dragging = false;
+            dragMode = "";
+            apply();
+          }
+        };
+        focusRaf = requestAnimationFrame(tick);
+      }
+
+      function focusToCode(code) {
+        const anchor = getAnchor(code);
+        if (!anchor) return;
+        focusedCode = code;
+        const rect = stage.getBoundingClientRect();
+        const px = (Number.parseFloat(anchor.style.left || "50") / 100) * rect.width;
+        const py = (Number.parseFloat(anchor.style.top || "50") / 100) * rect.height;
+        const nextScale = Math.max(scale, FOCUS_SCALE);
+        animateCamera({
+          scale: nextScale,
+          tx: rect.width * 0.5 - px * nextScale,
+          ty: rect.height * 0.48 - py * nextScale,
+        });
+      }
+
       function fit() {
+        cancelAnimationFrame(focusRaf);
         scale = 1;
         tx = 0;
         ty = 0;
@@ -226,7 +440,7 @@ export default function OverviewZoomRuntime() {
         toolbar.style.display = "none";
         stage.classList.add("is-exporting-overview");
         try {
-          const dataUrl = await toPng(stage, { pixelRatio: 3, cacheBust: true, backgroundColor: "#ffffff" });
+          const dataUrl = await toPng(stage, { pixelRatio: 3.5, cacheBust: true, backgroundColor: "#ffffff" });
           const link = document.createElement("a");
           link.download = `PhongFlow-Overview-${Date.now()}.png`;
           link.href = dataUrl;
@@ -242,7 +456,7 @@ export default function OverviewZoomRuntime() {
         toolbar.style.display = "none";
         stage.classList.add("is-exporting-overview");
         try {
-          const dataUrl = await toPng(stage, { pixelRatio: 2.4, cacheBust: true, backgroundColor: "#ffffff" });
+          const dataUrl = await toPng(stage, { pixelRatio: 3, cacheBust: true, backgroundColor: "#ffffff" });
           const popup = window.open("", "_blank", "noopener,noreferrer");
           if (!popup) return;
           popup.document.write(`<!doctype html><html><head><title>PhongFlow Overview</title><style>@page{size:landscape;margin:0}html,body{margin:0;background:#fff}img{display:block;width:100vw;height:100vh;object-fit:contain}</style></head><body><img src="${dataUrl}" onload="setTimeout(()=>window.print(),150)"></body></html>`);
@@ -254,7 +468,7 @@ export default function OverviewZoomRuntime() {
       }
 
       function onWheel(event) {
-        if (!stage.contains(event.target)) return;
+        if (!stage.contains(event.target) || toolbar.contains(event.target)) return;
         event.preventDefault();
         const intensity = event.ctrlKey ? 0.005 : 0.0018;
         const factor = Math.exp(-event.deltaY * intensity);
@@ -263,14 +477,16 @@ export default function OverviewZoomRuntime() {
 
       function onPointerDown(event) {
         if (event.button !== 0 || toolbar.contains(event.target)) return;
+        const card = event.target.closest?.(".pf-sales-callout");
         const wantsPan = spaceDown || tool === "hand";
-        const wantsZoom = zDown || tool === "zoom";
+        const wantsZoom = tool === "zoom";
         const wantsDraw = tool === "line" || tool === "rect";
-        if (!wantsPan && !wantsZoom && !wantsDraw) return;
+        const wantsCards = tool === "select" && card;
+        if (!wantsPan && !wantsZoom && !wantsDraw && !wantsCards) return;
 
         event.preventDefault();
         dragging = true;
-        dragMode = wantsPan ? "pan" : wantsZoom ? "zoom" : "draw";
+        dragMode = wantsPan ? "pan" : wantsZoom ? "zoom" : wantsDraw ? "draw" : "cards";
         startX = event.clientX;
         startY = event.clientY;
         startTx = tx;
@@ -285,7 +501,15 @@ export default function OverviewZoomRuntime() {
           zoomWorldX = (zoomAnchorX - tx) / scale;
           zoomWorldY = (zoomAnchorY - ty) / scale;
         }
-        if (dragMode === "draw") drawStart = pointInWorld(event);
+        if (dragMode === "draw") {
+          pushHistory();
+          drawStart = pointInWorld(event);
+        }
+        if (dragMode === "cards") {
+          selectCard(card, event);
+          pushHistory();
+          dragCardsStart = selectedOrAll().map((selected) => ({ card: selected, m: cardMetrics(selected) }));
+        }
         apply();
       }
 
@@ -300,9 +524,13 @@ export default function OverviewZoomRuntime() {
           scale = clamp(startScale * Math.exp((dx - dy * 0.35) * 0.008), MIN_SCALE, MAX_SCALE);
           tx = zoomAnchorX - zoomWorldX * scale;
           ty = zoomAnchorY - zoomWorldY * scale;
+        } else if (dragMode === "cards") {
+          const dx = (event.clientX - startX) / Math.max(scale, 0.0001);
+          const dy = (event.clientY - startY) / Math.max(scale, 0.0001);
+          dragCardsStart.forEach(({ card, m }) => applyCardMetric(card, { ...m, left: m.left + dx, top: m.top + dy }));
         } else if (drawStart) {
           const end = pointInWorld(event);
-          renderMarkup({ type: tool, x1: drawStart.x, y1: drawStart.y, x2: end.x, y2: end.y, stroke });
+          renderMarkup({ type: tool, x1: drawStart.x, y1: drawStart.y, x2: end.x, y2: end.y, stroke, lotCode: focusedCode || "" });
         }
         apply();
       }
@@ -313,11 +541,18 @@ export default function OverviewZoomRuntime() {
           const end = pointInWorld(event);
           const distance = Math.hypot(end.x - drawStart.x, end.y - drawStart.y);
           if (distance > 2) {
-            markup.push({ type: tool, x1: drawStart.x, y1: drawStart.y, x2: end.x, y2: end.y, stroke });
+            markup.push({ type: tool, x1: drawStart.x, y1: drawStart.y, x2: end.x, y2: end.y, stroke, lotCode: focusedCode || "" });
             saveMarkup();
+          } else {
+            history.pop();
           }
           drawStart = null;
           renderMarkup();
+        }
+        if (dragMode === "cards") {
+          selectedOrAll().forEach(persistCard);
+          saveCardLayout();
+          updateConnectors();
         }
         dragging = false;
         dragMode = "";
@@ -325,28 +560,44 @@ export default function OverviewZoomRuntime() {
         apply();
       }
 
+      function onStageClick(event) {
+        const card = event.target.closest?.(".pf-sales-callout");
+        if (!card) return;
+        const codeNode = event.target.closest?.("header strong");
+        if (codeNode) {
+          event.preventDefault();
+          event.stopPropagation();
+          focusToCode(codeForCard(card));
+        }
+      }
+
       function onKeyDown(event) {
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
+        const key = event.key.toLowerCase();
+        const command = event.metaKey || event.ctrlKey;
+
+        if (command && key === "z") {
+          event.preventDefault();
+          if (event.shiftKey) redo();
+          else undo();
+          return;
+        }
+        if (command && key === "y") {
+          event.preventDefault();
+          redo();
+          return;
+        }
         if (event.code === "Space") {
           spaceDown = true;
           stage.classList.add("space-hand");
           event.preventDefault();
+          return;
         }
-        const key = event.key.toLowerCase();
-        if (key === "z") {
-          zDown = true;
-          stage.classList.add("key-zoom");
-        }
-        if (key === "h") setTool("hand");
-        if (key === "v") setTool("select");
-        if (key === "l") setTool("line");
-        if (key === "r") setTool("rect");
-        if ((event.metaKey || event.ctrlKey) && key === "z" && markup.length) {
-          event.preventDefault();
-          markup.pop();
-          saveMarkup();
-          renderMarkup();
-        }
+        if (key === "z") { event.preventDefault(); setTool("zoom"); }
+        if (key === "h") { event.preventDefault(); setTool("hand"); }
+        if (key === "v") { event.preventDefault(); setTool("select"); }
+        if (key === "l") { event.preventDefault(); setTool("line"); }
+        if (key === "r") { event.preventDefault(); setTool("rect"); }
       }
 
       function onKeyUp(event) {
@@ -354,35 +605,22 @@ export default function OverviewZoomRuntime() {
           spaceDown = false;
           stage.classList.remove("space-hand");
         }
-        if (event.key.toLowerCase() === "z") {
-          zDown = false;
-          stage.classList.remove("key-zoom");
-        }
       }
 
       function onToolbarClick(event) {
         const button = event.target.closest("button");
         if (!button) return;
         if (button.dataset.tool) setTool(button.dataset.tool);
-        if (button.dataset.layout === "same") makeSameSize();
-        if (button.dataset.layout === "align") alignCards();
-        if (button.dataset.layout === "space") spaceCards();
+        if (button.dataset.layout === "space-v") distributeVertical();
+        if (button.dataset.layout && button.dataset.layout !== "space-v") alignSelection(button.dataset.layout);
         if (button.dataset.action === "fit") fit();
-        if (button.dataset.action === "undo" && markup.length) {
-          markup.pop();
-          saveMarkup();
-          renderMarkup();
-        }
-        if (button.dataset.action === "clear") {
-          markup = [];
-          saveMarkup();
-          renderMarkup();
-        }
+        if (button.dataset.action === "undo") undo();
+        if (button.dataset.action === "redo") redo();
         if (button.dataset.action === "png") exportPng();
         if (button.dataset.action === "pdf") exportPdf();
         if (button.dataset.action === "in" || button.dataset.action === "out") {
           const rect = stage.getBoundingClientRect();
-          const factor = button.dataset.action === "in" ? 1.35 : 1 / 1.35;
+          const factor = button.dataset.action === "in" ? 1.5 : 1 / 1.5;
           zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, scale * factor);
         }
       }
@@ -391,25 +629,45 @@ export default function OverviewZoomRuntime() {
         stroke = Number(strokeSelect.value) || 3;
       }
 
+      function prepareCards() {
+        getCards().forEach((card) => {
+          const code = codeForCard(card);
+          const codeNode = card.querySelector("header strong");
+          if (codeNode) {
+            codeNode.classList.add("pf-focus-lot-code");
+            codeNode.title = `Focus to ${code}`;
+          }
+          if (!cardLayout[code]) {
+            const m = cardMetrics(card);
+            cardLayout[code] = { left: m.left, top: m.top, width: m.width, height: m.height };
+          }
+        });
+        saveCardLayout();
+        applyStoredCardLayout();
+      }
+
       stage.addEventListener("wheel", onWheel, { passive: false });
-      stage.addEventListener("pointerdown", onPointerDown);
+      stage.addEventListener("pointerdown", onPointerDown, true);
       stage.addEventListener("pointermove", onPointerMove);
       stage.addEventListener("pointerup", onPointerUp);
       stage.addEventListener("pointercancel", onPointerUp);
+      stage.addEventListener("click", onStageClick, true);
       toolbar.addEventListener("click", onToolbarClick);
       strokeSelect.addEventListener("change", onStrokeChange);
       window.addEventListener("keydown", onKeyDown, { passive: false });
       window.addEventListener("keyup", onKeyUp);
       renderMarkup();
-      applyCardLayout();
+      prepareCards();
       apply();
 
       cleanupStage = () => {
+        cancelAnimationFrame(focusRaf);
         stage.removeEventListener("wheel", onWheel);
-        stage.removeEventListener("pointerdown", onPointerDown);
+        stage.removeEventListener("pointerdown", onPointerDown, true);
         stage.removeEventListener("pointermove", onPointerMove);
         stage.removeEventListener("pointerup", onPointerUp);
         stage.removeEventListener("pointercancel", onPointerUp);
+        stage.removeEventListener("click", onStageClick, true);
         toolbar.removeEventListener("click", onToolbarClick);
         strokeSelect.removeEventListener("change", onStrokeChange);
         window.removeEventListener("keydown", onKeyDown);
