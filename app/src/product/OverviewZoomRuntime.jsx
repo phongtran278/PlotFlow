@@ -4,7 +4,7 @@ import "./OverviewZoomRuntime.css";
 
 const MIN_SCALE = 0.7;
 const MAX_SCALE = 128;
-const FOCUS_SCALE = 64;
+const DEFAULT_FOCUS_SCALE = 70;
 const STORAGE_KEY = "phongflow-overview-markup-v2";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 
@@ -52,6 +52,7 @@ export default function OverviewZoomRuntime() {
       let zoomWorldY = 0;
       let drawStart = null;
       let focusedCode = "";
+      let interactionLockedUntil = 0;
       let markup = readJson(STORAGE_KEY, []);
       if (!Array.isArray(markup)) markup = [];
       let cardLayout = readJson(CARD_LAYOUT_KEY, {});
@@ -111,7 +112,7 @@ export default function OverviewZoomRuntime() {
       const transformTargets = () => Array.from(stage.querySelectorAll(".pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer"));
 
       function codeForCard(card) {
-        return card?.querySelector("header strong")?.textContent?.trim() || "";
+        return card?.dataset?.unitCode || card?.querySelector("header strong")?.textContent?.trim() || "";
       }
 
       function getCards() {
@@ -119,10 +120,14 @@ export default function OverviewZoomRuntime() {
       }
 
       function getAnchor(code) {
-        return Array.from(stage.querySelectorAll(".pf-map-anchor")).find((node) => node.textContent?.trim() === code) || null;
+        return Array.from(stage.querySelectorAll(".pf-map-anchor")).find((node) =>
+          (node.dataset?.unitCode || node.textContent?.trim()) === code
+        ) || null;
       }
 
       function getLineForCode(code) {
+        const direct = Array.from(stage.querySelectorAll(".pf-callout-lines line")).find((line) => line.dataset?.unitCode === code);
+        if (direct) return direct;
         const cards = getCards();
         const index = cards.findIndex((card) => codeForCard(card) === code);
         const lines = Array.from(stage.querySelectorAll(".pf-callout-lines line"));
@@ -132,13 +137,12 @@ export default function OverviewZoomRuntime() {
       function cardMetrics(card) {
         const stageRect = stage.getBoundingClientRect();
         const rect = card.getBoundingClientRect();
-        const left = (rect.left - stageRect.left - tx) / Math.max(scale, 0.0001);
-        const top = (rect.top - stageRect.top - ty) / Math.max(scale, 0.0001);
+        const inv = Math.max(scale, 0.0001);
         return {
-          left,
-          top,
-          width: rect.width / Math.max(scale, 0.0001),
-          height: rect.height / Math.max(scale, 0.0001),
+          left: (rect.left - stageRect.left - tx) / inv,
+          top: (rect.top - stageRect.top - ty) / inv,
+          width: rect.width / inv,
+          height: rect.height / inv,
         };
       }
 
@@ -226,10 +230,7 @@ export default function OverviewZoomRuntime() {
         const rects = markup.filter((item) => item.type === "rect" && item.lotCode === code);
         const item = rects.at(-1);
         if (!item) return null;
-        return {
-          x: (item.x1 + item.x2) / 20,
-          y: (item.y1 + item.y2) / 20,
-        };
+        return { x: (item.x1 + item.x2) / 20, y: (item.y1 + item.y2) / 20 };
       }
 
       function updateConnectors() {
@@ -237,7 +238,6 @@ export default function OverviewZoomRuntime() {
         const worldW = stageRect.width;
         const worldH = stageRect.height;
         if (worldW < 2 || worldH < 2) return;
-
         getCards().forEach((card) => {
           const code = codeForCard(card);
           const line = getLineForCode(code);
@@ -305,10 +305,7 @@ export default function OverviewZoomRuntime() {
         cards.forEach((card) => {
           const m = cardMetrics(card);
           const next = { ...m };
-          if (kind === "same") {
-            next.width = km.width;
-            next.height = km.height;
-          }
+          if (kind === "same") { next.width = km.width; next.height = km.height; }
           if (kind === "left") next.left = km.left;
           if (kind === "hcenter") next.left = km.left + km.width / 2 - m.width / 2;
           if (kind === "right") next.left = km.left + km.width - m.width;
@@ -380,50 +377,60 @@ export default function OverviewZoomRuntime() {
         apply();
       }
 
-      function animateCamera(next) {
+      function animateCamera(next, duration = 430) {
         cancelAnimationFrame(focusRaf);
         const from = { scale, tx, ty };
         const started = performance.now();
-        const duration = 320;
         dragging = true;
-        dragMode = "zoom";
+        dragMode = "focus";
+        stage.classList.add("is-focus-flight");
         const tick = (now) => {
           const p = clamp((now - started) / duration, 0, 1);
-          const eased = 1 - Math.pow(1 - p, 3);
+          const eased = 1 - Math.pow(1 - p, 4);
           scale = from.scale + (next.scale - from.scale) * eased;
           tx = from.tx + (next.tx - from.tx) * eased;
           ty = from.ty + (next.ty - from.ty) * eased;
           apply();
           if (p < 1) focusRaf = requestAnimationFrame(tick);
           else {
+            scale = next.scale;
+            tx = next.tx;
+            ty = next.ty;
             dragging = false;
             dragMode = "";
+            stage.classList.remove("is-focus-flight");
             apply();
           }
         };
         focusRaf = requestAnimationFrame(tick);
       }
 
-      function focusToCode(code) {
-        const anchor = getAnchor(code);
-        if (!anchor) return;
-        focusedCode = code;
+      function focusToPoint(detail = {}) {
+        const x = Number(detail.x);
+        const y = Number(detail.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+        focusedCode = String(detail.code || "");
         const rect = stage.getBoundingClientRect();
-        const px = (Number.parseFloat(anchor.style.left || "50") / 100) * rect.width;
-        const py = (Number.parseFloat(anchor.style.top || "50") / 100) * rect.height;
-        const nextScale = Math.max(scale, FOCUS_SCALE);
+        const targetScale = clamp(Math.max(50, Number(detail.scale) || DEFAULT_FOCUS_SCALE), MIN_SCALE, MAX_SCALE);
+        const px = (x / 100) * rect.width;
+        const py = (y / 100) * rect.height;
+        interactionLockedUntil = performance.now() + 520;
+        setTool("select");
         animateCamera({
-          scale: nextScale,
-          tx: rect.width * 0.5 - px * nextScale,
-          ty: rect.height * 0.48 - py * nextScale,
+          scale: targetScale,
+          tx: rect.width * 0.5 - px * targetScale,
+          ty: rect.height * 0.5 - py * targetScale,
         });
       }
 
       function fit() {
         cancelAnimationFrame(focusRaf);
+        stage.classList.remove("is-focus-flight");
         scale = 1;
         tx = 0;
         ty = 0;
+        dragging = false;
+        dragMode = "";
         apply();
       }
 
@@ -468,6 +475,7 @@ export default function OverviewZoomRuntime() {
       }
 
       function onWheel(event) {
+        if (performance.now() < interactionLockedUntil) { event.preventDefault(); return; }
         if (!stage.contains(event.target) || toolbar.contains(event.target)) return;
         event.preventDefault();
         const intensity = event.ctrlKey ? 0.005 : 0.0018;
@@ -476,6 +484,10 @@ export default function OverviewZoomRuntime() {
       }
 
       function onPointerDown(event) {
+        if (performance.now() < interactionLockedUntil || stage.classList.contains("is-focus-flight")) {
+          if (!toolbar.contains(event.target)) event.preventDefault();
+          return;
+        }
         if (event.button !== 0 || toolbar.contains(event.target)) return;
         const card = event.target.closest?.(".pf-sales-callout");
         const wantsPan = spaceDown || tool === "hand";
@@ -501,10 +513,7 @@ export default function OverviewZoomRuntime() {
           zoomWorldX = (zoomAnchorX - tx) / scale;
           zoomWorldY = (zoomAnchorY - ty) / scale;
         }
-        if (dragMode === "draw") {
-          pushHistory();
-          drawStart = pointInWorld(event);
-        }
+        if (dragMode === "draw") { pushHistory(); drawStart = pointInWorld(event); }
         if (dragMode === "cards") {
           selectCard(card, event);
           pushHistory();
@@ -514,7 +523,7 @@ export default function OverviewZoomRuntime() {
       }
 
       function onPointerMove(event) {
-        if (!dragging) return;
+        if (!dragging || dragMode === "focus") return;
         if (dragMode === "pan") {
           tx = startTx + (event.clientX - startX);
           ty = startTy + (event.clientY - startY);
@@ -536,16 +545,14 @@ export default function OverviewZoomRuntime() {
       }
 
       function onPointerUp(event) {
-        if (!dragging) return;
+        if (!dragging || dragMode === "focus") return;
         if (dragMode === "draw" && drawStart) {
           const end = pointInWorld(event);
           const distance = Math.hypot(end.x - drawStart.x, end.y - drawStart.y);
           if (distance > 2) {
             markup.push({ type: tool, x1: drawStart.x, y1: drawStart.y, x2: end.x, y2: end.y, stroke, lotCode: focusedCode || "" });
             saveMarkup();
-          } else {
-            history.pop();
-          }
+          } else history.pop();
           drawStart = null;
           renderMarkup();
         }
@@ -560,39 +567,13 @@ export default function OverviewZoomRuntime() {
         apply();
       }
 
-      function onStageClick(event) {
-        const card = event.target.closest?.(".pf-sales-callout");
-        if (!card) return;
-        const codeNode = event.target.closest?.("header strong");
-        if (codeNode) {
-          event.preventDefault();
-          event.stopPropagation();
-          focusToCode(codeForCard(card));
-        }
-      }
-
       function onKeyDown(event) {
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
         const key = event.key.toLowerCase();
         const command = event.metaKey || event.ctrlKey;
-
-        if (command && key === "z") {
-          event.preventDefault();
-          if (event.shiftKey) redo();
-          else undo();
-          return;
-        }
-        if (command && key === "y") {
-          event.preventDefault();
-          redo();
-          return;
-        }
-        if (event.code === "Space") {
-          spaceDown = true;
-          stage.classList.add("space-hand");
-          event.preventDefault();
-          return;
-        }
+        if (command && key === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
+        if (command && key === "y") { event.preventDefault(); redo(); return; }
+        if (event.code === "Space") { spaceDown = true; stage.classList.add("space-hand"); event.preventDefault(); return; }
         if (key === "z") { event.preventDefault(); setTool("zoom"); }
         if (key === "h") { event.preventDefault(); setTool("hand"); }
         if (key === "v") { event.preventDefault(); setTool("select"); }
@@ -601,10 +582,7 @@ export default function OverviewZoomRuntime() {
       }
 
       function onKeyUp(event) {
-        if (event.code === "Space") {
-          spaceDown = false;
-          stage.classList.remove("space-hand");
-        }
+        if (event.code === "Space") { spaceDown = false; stage.classList.remove("space-hand"); }
       }
 
       function onToolbarClick(event) {
@@ -632,11 +610,8 @@ export default function OverviewZoomRuntime() {
       function prepareCards() {
         getCards().forEach((card) => {
           const code = codeForCard(card);
-          const codeNode = card.querySelector("header strong");
-          if (codeNode) {
-            codeNode.classList.add("pf-focus-lot-code");
-            codeNode.title = `Focus to ${code}`;
-          }
+          if (!code) return;
+          card.title = `Double-click để focus ${code}`;
           if (!cardLayout[code]) {
             const m = cardMetrics(card);
             cardLayout[code] = { left: m.left, top: m.top, width: m.width, height: m.height };
@@ -646,16 +621,25 @@ export default function OverviewZoomRuntime() {
         applyStoredCardLayout();
       }
 
+      function onLiveUnitsReady() {
+        requestAnimationFrame(() => { prepareCards(); updateConnectors(); apply(); });
+      }
+
+      function onFocusRequest(event) {
+        focusToPoint(event.detail || {});
+      }
+
       stage.addEventListener("wheel", onWheel, { passive: false });
       stage.addEventListener("pointerdown", onPointerDown, true);
       stage.addEventListener("pointermove", onPointerMove);
       stage.addEventListener("pointerup", onPointerUp);
       stage.addEventListener("pointercancel", onPointerUp);
-      stage.addEventListener("click", onStageClick, true);
       toolbar.addEventListener("click", onToolbarClick);
       strokeSelect.addEventListener("change", onStrokeChange);
       window.addEventListener("keydown", onKeyDown, { passive: false });
       window.addEventListener("keyup", onKeyUp);
+      window.addEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
+      window.addEventListener("pf-overview-focus-request", onFocusRequest);
       renderMarkup();
       prepareCards();
       apply();
@@ -667,11 +651,12 @@ export default function OverviewZoomRuntime() {
         stage.removeEventListener("pointermove", onPointerMove);
         stage.removeEventListener("pointerup", onPointerUp);
         stage.removeEventListener("pointercancel", onPointerUp);
-        stage.removeEventListener("click", onStageClick, true);
         toolbar.removeEventListener("click", onToolbarClick);
         strokeSelect.removeEventListener("change", onStrokeChange);
         window.removeEventListener("keydown", onKeyDown);
         window.removeEventListener("keyup", onKeyUp);
+        window.removeEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
+        window.removeEventListener("pf-overview-focus-request", onFocusRequest);
         toolbar.remove();
         markupLayer.remove();
         delete stage.dataset.pfOverviewZoomReady;
@@ -686,10 +671,7 @@ export default function OverviewZoomRuntime() {
     sync();
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-    return () => {
-      observer.disconnect();
-      cleanupStage?.();
-    };
+    return () => { observer.disconnect(); cleanupStage?.(); };
   }, []);
 
   return null;
