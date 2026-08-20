@@ -1,0 +1,97 @@
+/* Final desktop toolbar guardrails: prevent title/actions from overlapping across OS font metrics. */
+@media (min-width: 861px) {
+  .stage-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    min-width: 0 !important;
+  }
+
+  .stage-header > div:first-child {
+    flex: 0 1 220px !important;
+    min-width: 0 !important;
+    max-width: 220px !important;
+    overflow: hidden !important;
+  }
+
+  .stage-header > div:first-child span,
+  .stage-header h2 {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stage-actions {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .workspace-controls-host {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .workspace-controls {
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+  }
+
+  .edit-floorplan-top,
+  .edit-layout-button {
+    flex: 0 0 auto !important;
+  }
+
+  .edit-layout-button {
+    position: relative;
+    z-index: 5;
+    min-width: max-content !important;
+  }
+}
+
+@media (max-width: 1180px) and (min-width: 861px) {
+  .stage-header > div:first-child {
+    flex-basis: 132px !important;
+    max-width: 132px !important;
+  }
+
+  .stage-header h2 {
+    font-size: 17px !important;
+  }
+
+  .stage-actions > strong {
+    display: none !important;
+  }
+
+  .workspace-100,
+  .workspace-fit {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1020px) and (min-width: 861px) {
+  .stage-header > div:first-child {
+    flex-basis: 96px !important;
+    max-width: 96px !important;
+  }
+
+  .stage-header > div:first-child span {
+    display: none !important;
+  }
+
+  .stage-header h2 {
+    margin-top: 0 !important;
+    font-size: 15px !important;
+  }
+
+  .workspace-panel-toggle {
+    display: none !important;
+  }
+}
