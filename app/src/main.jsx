@@ -14,6 +14,7 @@ import LotTileRuntime from "./components/LotTileRuntime.jsx";
 import AuthGate from "./auth/AuthGate.jsx";
 import ProductShell from "./product/ProductShell.jsx";
 import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
+import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
