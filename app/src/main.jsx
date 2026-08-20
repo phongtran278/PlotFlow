@@ -12,6 +12,7 @@ import AutoFloorplanSource from "./components/AutoFloorplanSource.jsx";
 import MemoryGovernor from "./components/MemoryGovernor.jsx";
 import LotTileRuntime from "./components/LotTileRuntime.jsx";
 import "./components/ToolbarConsistency.css";
+import "./components/AuroraTheme.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
