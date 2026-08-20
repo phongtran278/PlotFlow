@@ -9,7 +9,10 @@
   --pf-shadow-toolbar: 0 12px 36px rgba(42, 55, 82, 0.08);
 }
 
-.plotflow-shell { align-items: start; }
+.plotflow-shell {
+  align-items: start;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 
 .unit-sidebar {
   position: sticky;
@@ -17,6 +20,7 @@
   height: 100vh;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(80, 90, 108, .20) transparent;
@@ -47,8 +51,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 20px;
-  letter-spacing: -0.55px;
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.75px;
 }
 
 .unit-sidebar h1::before {
@@ -57,18 +64,22 @@
   height: 30px;
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
   border-radius: 9px;
   background: linear-gradient(155deg, rgba(68,118,255,.98), rgba(84,91,224,.98));
   color: white;
   font-size: 14px;
-  font-weight: 760;
+  font-weight: 800;
   letter-spacing: -0.4px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 6px 16px rgba(70,100,210,.22);
 }
 
 .unit-sidebar > div:first-child p {
-  margin-left: 40px;
+  margin: 5px 0 0 40px;
   font-size: 10px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: #8b94a1;
 }
 
 /* Google Sheet is the primary data-source flow. Keep Excel available in code but out of the beta UI. */
@@ -90,6 +101,7 @@
   backdrop-filter: blur(28px) saturate(165%);
   -webkit-backdrop-filter: blur(28px) saturate(165%);
   box-shadow: var(--pf-shadow-toolbar), inset 0 1px 0 rgba(255,255,255,.82);
+  flex-wrap: nowrap !important;
 }
 
 .stage-header::after {
@@ -103,20 +115,24 @@
 }
 
 .stage-header > div:first-child {
-  min-width: 170px;
+  min-width: 150px;
   flex: 0 0 auto;
 }
 
 .stage-header > div:first-child span {
-  font-size: 8px;
-  letter-spacing: .14em;
-  font-weight: 700;
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: .15em;
+  font-weight: 800;
+  color: #8c95a2;
 }
 
 .stage-header h2 {
-  margin-top: 4px;
-  font-size: 21px;
-  letter-spacing: -.55px;
+  margin: 4px 0 0;
+  font-size: 23px;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -.75px;
 }
 
 .stage-actions {
@@ -127,6 +143,7 @@
   justify-content: flex-end;
   gap: 7px !important;
   flex-wrap: nowrap !important;
+  overflow: visible;
 }
 
 .stage-actions > strong {
@@ -139,16 +156,18 @@
   border: 1px solid rgba(34,43,60,.07);
   border-radius: 10px;
   background: rgba(255,255,255,.50);
-  color: #6c7480;
+  color: #687281;
   font-size: 10px;
-  font-weight: 720;
+  font-weight: 700;
   letter-spacing: .01em;
+  white-space: nowrap;
 }
 
 .workspace-controls-host {
   order: 10 !important;
   flex: 0 1 auto;
   min-width: 0;
+  white-space: nowrap;
 }
 
 .workspace-controls {
@@ -157,6 +176,7 @@
   border-radius: 12px !important;
   background: rgba(255,255,255,.50) !important;
   box-shadow: none !important;
+  flex-wrap: nowrap !important;
 }
 
 .workspace-controls button,
@@ -172,7 +192,7 @@
   box-shadow: none;
   color: #4e5663;
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -189,7 +209,7 @@
   padding: 0 13px !important;
   border-radius: 11px !important;
   white-space: nowrap;
-  font-weight: 680 !important;
+  font-weight: 750 !important;
 }
 
 .shared-project-status {
@@ -214,12 +234,16 @@
 
 .component-canvas { border-radius: 20px; }
 
-@media (max-width: 1380px) {
+/* Desktop stays one row on both macOS and Windows. Lower-priority labels collapse first. */
+@media (max-width: 1380px) and (min-width: 861px) {
   .edit-floorplan-top {
-    max-width: 42px;
+    width: 38px;
+    max-width: 38px;
+    padding: 0;
     overflow: hidden;
     text-indent: -999px;
     position: relative;
+    flex: 0 0 38px;
   }
   .edit-floorplan-top::after {
     content: "⌖";
@@ -233,32 +257,63 @@
   .edit-floorplan-top.lot-button::after { content: "✦"; }
 }
 
-@media (max-width: 1160px) {
-  .plotflow-shell { grid-template-columns: 250px minmax(0, 1fr); }
-  .stage-header { align-items: flex-start; }
+@media (max-width: 1160px) and (min-width: 861px) {
+  .plotflow-shell { grid-template-columns: 240px minmax(0, 1fr); }
+  .stage-header {
+    align-items: center !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    padding-left: 13px;
+    padding-right: 9px;
+  }
+  .stage-header > div:first-child { min-width: 118px; }
+  .stage-header > div:first-child span { font-size: 8px; }
+  .stage-header h2 { font-size: 18px; letter-spacing: -.5px; }
   .stage-actions {
-    flex-wrap: wrap !important;
-    row-gap: 6px !important;
+    flex-wrap: nowrap !important;
+    row-gap: 0 !important;
+    overflow: hidden;
   }
+  .stage-actions > strong { display: none; }
   .workspace-controls-host {
-    flex-basis: 100%;
-    order: 40 !important;
+    flex-basis: auto !important;
+    order: 10 !important;
     justify-content: flex-end;
+    flex-shrink: 1;
+    min-width: 0;
   }
+  .workspace-controls { transform-origin: right center; }
+  .edit-layout-button { padding-inline: 10px !important; }
 }
 
+/* Mobile gets its own layout instead of influencing desktop behavior. */
 @media (max-width: 860px) {
   .plotflow-shell { grid-template-columns: 1fr; }
   .unit-sidebar {
     position: relative;
     height: auto;
     max-height: none;
+    overflow: visible;
   }
+  .component-stage { padding-top: 8px; }
   .stage-header {
     top: 6px;
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex-wrap: nowrap !important;
+    border-radius: 16px;
   }
-  .stage-actions { justify-content: flex-start; }
-  .workspace-controls-host { justify-content: flex-start; }
+  .stage-header > div:first-child { min-width: 0; }
+  .stage-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap !important;
+    overflow: visible;
+  }
+  .workspace-controls-host {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .workspace-controls-host::-webkit-scrollbar { display: none; }
 }
