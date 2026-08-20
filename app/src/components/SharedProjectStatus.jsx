@@ -16,6 +16,7 @@ function Icon({ name, size = 16 }) {
 
   if (name === "chevron") return <svg {...common}><path d="m8.5 10 3.5 3.5 3.5-3.5" /></svg>;
   if (name === "close") return <svg {...common}><path d="m8.5 8.5 7 7m0-7-7 7" /></svg>;
+  if (name === "settings") return <svg {...common}><circle cx="12" cy="12" r="3.1"/><path d="M19.1 13.3c.1-.4.1-.9.1-1.3s0-.9-.1-1.3l2-1.6-2-3.4-2.5 1a8.6 8.6 0 0 0-2.2-1.3L14 2.8h-4l-.4 2.6a8.6 8.6 0 0 0-2.2 1.3l-2.5-1-2 3.4 2 1.6c-.1.4-.1.9-.1 1.3s0 .9.1 1.3l-2 1.6 2 3.4 2.5-1a8.6 8.6 0 0 0 2.2 1.3l.4 2.6h4l.4-2.6a8.6 8.6 0 0 0 2.2-1.3l2.5 1 2-3.4-2-1.6Z"/></svg>;
   if (name === "device") return <svg {...common}><rect x="5" y="3.5" width="14" height="17" rx="3"/><path d="M9.5 17.5h5"/></svg>;
   if (name === "cloud") return <svg {...common}><path d="M7.4 18.1h9.1a4.1 4.1 0 0 0 .8-8.1 5.5 5.5 0 0 0-10.4 1.2A3.5 3.5 0 0 0 7.4 18Z"/><path d="m9.5 14 2.5 2.5 2.8-3"/></svg>;
   if (name === "person") return <svg {...common}><circle cx="12" cy="8" r="3.1"/><path d="M6.8 19c.7-3.1 2.4-4.7 5.2-4.7s4.5 1.6 5.2 4.7"/></svg>;
@@ -53,21 +54,20 @@ export default function SharedProjectStatus() {
         className={`shared-project-pill ${open ? "is-open" : ""}`}
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        title="Project save & sync"
+        title="Settings"
       >
-        <span className="shared-project-dot" />
-        <span className="shared-project-pill-label">Local</span>
-        <Icon name="chevron" size={14} />
+        <Icon name="settings" size={15} />
+        <span className="shared-project-pill-label">Settings</span>
       </button>
 
       {open && (
-        <div className="shared-project-popover" role="dialog" aria-label="Project save and sync">
+        <div className="shared-project-popover" role="dialog" aria-label="PlotFlow settings">
           <div className="shared-project-glow" />
 
           <div className="shared-project-head">
             <div>
-              <span className="shared-project-eyebrow">PLOTFLOW PROJECT</span>
-              <strong>Save & Sync</strong>
+              <span className="shared-project-eyebrow">PLOTFLOW</span>
+              <strong>Settings</strong>
             </div>
             <button className="shared-project-icon-button" type="button" onClick={() => setOpen(false)} aria-label="Close">
               <Icon name="close" size={16} />
@@ -75,6 +75,7 @@ export default function SharedProjectStatus() {
           </div>
 
           <section className="shared-project-section">
+            <div className="shared-project-section-label">PROJECT STORAGE</div>
             <button type="button" className="shared-project-row is-current">
               <span className="shared-project-symbol local"><Icon name="device" size={18} /></span>
               <span className="shared-project-copy">
@@ -133,7 +134,7 @@ export default function SharedProjectStatus() {
           <button type="button" className="shared-project-primary" disabled>
             Connect Shared Project
           </button>
-          <p className="shared-project-footnote">Cloud sync will be enabled in the next product step. Your current work stays local and unchanged.</p>
+          <p className="shared-project-footnote">Cloud sync is not connected yet. Current work remains stored on this device.</p>
         </div>
       )}
     </div>
