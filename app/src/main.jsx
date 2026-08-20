@@ -19,6 +19,7 @@ import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
 import "./product/PremiumProductPolish.css";
+import "./product/PremiumAuthPolish.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
