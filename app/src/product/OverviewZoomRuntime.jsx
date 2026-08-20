@@ -1,9 +1,11 @@
 import { useEffect } from "react";
+import { toPng } from "html-to-image";
 import "./OverviewZoomRuntime.css";
 
 const MIN_SCALE = 0.7;
 const MAX_SCALE = 32;
 const STORAGE_KEY = "phongflow-overview-markup-v1";
+const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v1";
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -15,6 +17,14 @@ function loadMarkup() {
     return Array.isArray(value) ? value : [];
   } catch {
     return [];
+  }
+}
+
+function loadCardLayout() {
+  try {
+    return JSON.parse(localStorage.getItem(CARD_LAYOUT_KEY) || "{}") || {};
+  } catch {
+    return {};
   }
 }
 
@@ -46,6 +56,7 @@ export default function OverviewZoomRuntime() {
       let zoomWorldY = 0;
       let drawStart = null;
       let markup = loadMarkup();
+      let cardLayout = loadCardLayout();
 
       const toolbar = document.createElement("div");
       toolbar.className = "pf-overview-zoom-toolbar pf-overview-editor-toolbar";
@@ -61,7 +72,15 @@ export default function OverviewZoomRuntime() {
           <button type="button" data-action="undo" title="Undo drawing">↶</button>
           <button type="button" data-action="clear" title="Clear drawings">Clear</button>
         </div>
+        <div class="pf-editor-layout-tools">
+          <button type="button" data-layout="same" title="Make price cards the same size">Same size</button>
+          <button type="button" data-layout="align" title="Align cards into two clean columns">Align</button>
+          <button type="button" data-layout="space" title="Distribute cards evenly">Space evenly</button>
+        </div>
         <div class="pf-editor-view-tools">
+          <button type="button" data-action="png" title="Export high-quality PNG">PNG</button>
+          <button type="button" data-action="pdf" title="Open print-ready PDF export">PDF</button>
+          <span class="pf-overview-zoom-divider"></span>
           <button type="button" data-action="out" title="Zoom out">−</button>
           <output>100%</output>
           <button type="button" data-action="in" title="Zoom in">+</button>
@@ -78,7 +97,7 @@ export default function OverviewZoomRuntime() {
 
       const output = toolbar.querySelector("output");
       const strokeSelect = toolbar.querySelector("select");
-      const transformTargets = () => Array.from(stage.querySelectorAll(".pf-masterplan-pdf,.pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer"));
+      const transformTargets = () => Array.from(stage.querySelectorAll(".pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer"));
 
       function renderMarkup(draft = null) {
         const items = draft ? [...markup, draft] : markup;
@@ -94,6 +113,65 @@ export default function OverviewZoomRuntime() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(markup));
       }
 
+      function saveCardLayout() {
+        localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(cardLayout));
+      }
+
+      function getCards() {
+        return Array.from(stage.querySelectorAll(".pf-sales-callout"));
+      }
+
+      function applyCardLayout() {
+        const cards = getCards();
+        if (!cards.length) return;
+        const width = Number(cardLayout.width || 176);
+        const height = Number(cardLayout.height || 106);
+        const left = Number(cardLayout.left || 1.5);
+        const right = Number(cardLayout.right || 1.5);
+        const tops = Array.isArray(cardLayout.tops) && cardLayout.tops.length === 5 ? cardLayout.tops : [5.2, 22, 38.8, 55.6, 72.4];
+
+        cards.forEach((card) => {
+          const row = Number(card.style.getPropertyValue("--callout-row") || 0);
+          card.style.width = `${width}px`;
+          card.style.height = `${height}px`;
+          card.style.minHeight = `${height}px`;
+          card.style.top = `${tops[row] ?? tops[0]}%`;
+          if (card.classList.contains("side-left")) {
+            card.style.left = `${left}%`;
+            card.style.right = "auto";
+          } else {
+            card.style.right = `${right}%`;
+            card.style.left = "auto";
+          }
+        });
+      }
+
+      function makeSameSize() {
+        const cards = getCards();
+        if (!cards.length) return;
+        const maxW = Math.max(168, ...cards.map((card) => card.getBoundingClientRect().width / Math.max(scale, 0.001)));
+        const maxH = Math.max(104, ...cards.map((card) => card.getBoundingClientRect().height / Math.max(scale, 0.001)));
+        cardLayout = { ...cardLayout, width: Math.round(maxW), height: Math.round(maxH) };
+        saveCardLayout();
+        applyCardLayout();
+      }
+
+      function alignCards() {
+        cardLayout = { ...cardLayout, left: 1.5, right: 1.5 };
+        saveCardLayout();
+        applyCardLayout();
+      }
+
+      function spaceCards() {
+        cardLayout = { ...cardLayout, tops: [5, 23, 41, 59, 77] };
+        saveCardLayout();
+        applyCardLayout();
+      }
+
+      function emitCamera() {
+        window.dispatchEvent(new CustomEvent("pf-overview-camera", { detail: { scale, tx, ty, dragging } }));
+      }
+
       function apply() {
         const transform = `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`;
         transformTargets().forEach((node) => {
@@ -106,6 +184,7 @@ export default function OverviewZoomRuntime() {
         stage.classList.toggle("is-panning", dragMode === "pan");
         stage.classList.toggle("is-zooming", dragMode === "zoom");
         stage.classList.toggle("is-drawing", dragMode === "draw");
+        emitCamera();
       }
 
       function setTool(next) {
@@ -140,6 +219,38 @@ export default function OverviewZoomRuntime() {
           x: clamp((((event.clientX - rect.left) - tx) / scale / rect.width) * 1000, -5000, 5000),
           y: clamp((((event.clientY - rect.top) - ty) / scale / rect.height) * 1000, -5000, 5000),
         };
+      }
+
+      async function exportPng() {
+        const previous = toolbar.style.display;
+        toolbar.style.display = "none";
+        stage.classList.add("is-exporting-overview");
+        try {
+          const dataUrl = await toPng(stage, { pixelRatio: 3, cacheBust: true, backgroundColor: "#ffffff" });
+          const link = document.createElement("a");
+          link.download = `PhongFlow-Overview-${Date.now()}.png`;
+          link.href = dataUrl;
+          link.click();
+        } finally {
+          toolbar.style.display = previous;
+          stage.classList.remove("is-exporting-overview");
+        }
+      }
+
+      async function exportPdf() {
+        const previous = toolbar.style.display;
+        toolbar.style.display = "none";
+        stage.classList.add("is-exporting-overview");
+        try {
+          const dataUrl = await toPng(stage, { pixelRatio: 2.4, cacheBust: true, backgroundColor: "#ffffff" });
+          const popup = window.open("", "_blank", "noopener,noreferrer");
+          if (!popup) return;
+          popup.document.write(`<!doctype html><html><head><title>PhongFlow Overview</title><style>@page{size:landscape;margin:0}html,body{margin:0;background:#fff}img{display:block;width:100vw;height:100vh;object-fit:contain}</style></head><body><img src="${dataUrl}" onload="setTimeout(()=>window.print(),150)"></body></html>`);
+          popup.document.close();
+        } finally {
+          toolbar.style.display = previous;
+          stage.classList.remove("is-exporting-overview");
+        }
       }
 
       function onWheel(event) {
@@ -253,6 +364,9 @@ export default function OverviewZoomRuntime() {
         const button = event.target.closest("button");
         if (!button) return;
         if (button.dataset.tool) setTool(button.dataset.tool);
+        if (button.dataset.layout === "same") makeSameSize();
+        if (button.dataset.layout === "align") alignCards();
+        if (button.dataset.layout === "space") spaceCards();
         if (button.dataset.action === "fit") fit();
         if (button.dataset.action === "undo" && markup.length) {
           markup.pop();
@@ -264,6 +378,8 @@ export default function OverviewZoomRuntime() {
           saveMarkup();
           renderMarkup();
         }
+        if (button.dataset.action === "png") exportPng();
+        if (button.dataset.action === "pdf") exportPdf();
         if (button.dataset.action === "in" || button.dataset.action === "out") {
           const rect = stage.getBoundingClientRect();
           const factor = button.dataset.action === "in" ? 1.35 : 1 / 1.35;
@@ -285,6 +401,7 @@ export default function OverviewZoomRuntime() {
       window.addEventListener("keydown", onKeyDown, { passive: false });
       window.addEventListener("keyup", onKeyUp);
       renderMarkup();
+      applyCardLayout();
       apply();
 
       cleanupStage = () => {
