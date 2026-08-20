@@ -16,17 +16,7 @@ const PROJECT_STORAGE_KEYS = [
 ];
 
 function Icon({ name, size = 16 }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    "aria-hidden": true,
-  };
+  const common = { width:size, height:size, viewBox:"0 0 24 24", fill:"none", stroke:"currentColor", strokeWidth:1.8, strokeLinecap:"round", strokeLinejoin:"round", "aria-hidden":true };
   if (name === "settings") return <svg {...common}><circle cx="12" cy="12" r="3.1"/><path d="M19.2 13.5a7.8 7.8 0 0 0 0-3l2-1.5-2-3.4-2.5 1a8 8 0 0 0-2.6-1.5L13.8 2h-4l-.4 3.1a8 8 0 0 0-2.6 1.5l-2.5-1-2 3.4 2 1.5a7.8 7.8 0 0 0 0 3l-2 1.5 2 3.4 2.5-1a8 8 0 0 0 2.6 1.5l.4 3.1h4l.4-3.1a8 8 0 0 0 2.6-1.5l2.5 1 2-3.4-2.1-1.5Z"/></svg>;
   if (name === "download") return <svg {...common}><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M5 19h14"/></svg>;
   if (name === "upload") return <svg {...common}><path d="M12 16V4m-4 4 4-4 4 4"/><path d="M5 20h14"/></svg>;
@@ -40,11 +30,7 @@ function Icon({ name, size = 16 }) {
 }
 
 function safeFileName(value) {
-  return String(value || "PlotFlow Project")
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, " ")
-    .slice(0, 80) || "PlotFlow Project";
+  return String(value || "PlotFlow Project").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 80) || "PlotFlow Project";
 }
 
 function collectProjectData() {
@@ -57,14 +43,8 @@ function collectProjectData() {
 }
 
 function downloadProject(projectName) {
-  const payload = {
-    format: "plotflow-project",
-    schemaVersion: PROJECT_FILE_VERSION,
-    exportedAt: new Date().toISOString(),
-    projectName: projectName || "PlotFlow Project",
-    storage: collectProjectData(),
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const payload = { format:"plotflow-project", schemaVersion:PROJECT_FILE_VERSION, exportedAt:new Date().toISOString(), projectName:projectName || "PlotFlow Project", storage:collectProjectData() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -86,8 +66,7 @@ function restoreProject(payload) {
   const allowed = new Set(PROJECT_STORAGE_KEYS);
   PROJECT_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
   Object.entries(payload.storage).forEach(([key, value]) => {
-    if (!allowed.has(key) || typeof value !== "string") return;
-    localStorage.setItem(key, value);
+    if (allowed.has(key) && typeof value === "string") localStorage.setItem(key, value);
   });
 }
 
@@ -97,30 +76,20 @@ export default function ProjectSettings() {
   const [projectName, setProjectName] = useState(() => localStorage.getItem("plotflow-project-name-v1") || "PlotFlow Project");
   const [message, setMessage] = useState("");
   const inputRef = useRef(null);
-  const panelRef = useRef(null);
 
   useEffect(() => {
     const syncTarget = () => setTarget(document.querySelector(".unit-sidebar"));
     syncTarget();
     const observer = new MutationObserver(syncTarget);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList:true, subtree:true });
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
     if (!open) return undefined;
-    const onPointerDown = (event) => {
-      if (!panelRef.current?.contains(event.target)) setOpen(false);
-    };
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
+    const onKeyDown = (event) => { if (event.key === "Escape") setOpen(false); };
     window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      window.removeEventListener("keydown", onKeyDown);
-    };
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
   function commitName(value) {
@@ -148,15 +117,15 @@ export default function ProjectSettings() {
 
   if (!target) return null;
 
-  return createPortal(
-    <div className="project-settings-anchor" ref={panelRef}>
-      {open && (
-        <div className="project-settings-panel" role="dialog" aria-label="PlotFlow settings">
-          <div className="project-settings-head">
-            <div><small>SETTINGS</small><strong>Project & Workspace</strong></div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close"><Icon name="close" size={15} /></button>
-          </div>
+  const modal = open ? createPortal(
+    <div className="project-settings-backdrop" onMouseDown={() => setOpen(false)}>
+      <div className="project-settings-panel" role="dialog" aria-modal="true" aria-label="PlotFlow settings" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="project-settings-head">
+          <div><small>SETTINGS</small><strong>Project & Workspace</strong></div>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Close"><Icon name="close" size={16} /></button>
+        </div>
 
+        <div className="project-settings-scroll">
           <label className="project-settings-name">
             <span>Project name</span>
             <input value={projectName} onChange={(event) => setProjectName(event.target.value)} onBlur={(event) => commitName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
@@ -165,55 +134,42 @@ export default function ProjectSettings() {
           <section className="project-settings-section">
             <div className="project-settings-section-title"><span>PROJECT DATA</span><small>Backup & transfer</small></div>
             <button type="button" className="project-settings-row" onClick={() => { downloadProject(projectName); setMessage("Đã xuất file project."); }}>
-              <span className="project-settings-symbol"><Icon name="download" /></span>
-              <span><strong>Export Project</strong><small>Create a portable .plotflow file</small></span>
-              <Icon name="chevron" size={14} />
+              <span className="project-settings-symbol"><Icon name="download" /></span><span><strong>Export Project</strong><small>Create a portable .plotflow file</small></span><Icon name="chevron" size={14} />
             </button>
             <button type="button" className="project-settings-row" onClick={() => inputRef.current?.click()}>
-              <span className="project-settings-symbol"><Icon name="upload" /></span>
-              <span><strong>Import Project</strong><small>Restore a shared project file</small></span>
-              <Icon name="chevron" size={14} />
+              <span className="project-settings-symbol"><Icon name="upload" /></span><span><strong>Import Project</strong><small>Restore a shared project file</small></span><Icon name="chevron" size={14} />
             </button>
             <input ref={inputRef} type="file" accept=".plotflow,application/json" hidden onChange={importProject} />
           </section>
 
           <section className="project-settings-section">
             <div className="project-settings-section-title"><span>STORAGE</span><small>Where work is saved</small></div>
-            <div className="project-settings-row is-static">
-              <span className="project-settings-symbol"><Icon name="device" /></span>
-              <span><strong>Local Device</strong><small>Saved in this browser</small></span>
-              <em>Current</em>
-            </div>
-            <div className="project-settings-row is-static is-preview">
-              <span className="project-settings-symbol"><Icon name="cloud" /></span>
-              <span><strong>Shared Project</strong><small>One setup, the whole team uses it</small></span>
-              <em>Coming Soon</em>
-            </div>
+            <div className="project-settings-row is-static"><span className="project-settings-symbol"><Icon name="device" /></span><span><strong>Local Device</strong><small>Saved in this browser</small></span><em>Current</em></div>
+            <div className="project-settings-row is-static is-preview"><span className="project-settings-symbol"><Icon name="cloud" /></span><span><strong>Shared Project</strong><small>One setup, the whole team uses it</small></span><em>Coming Soon</em></div>
           </section>
 
           <section className="project-settings-section project-settings-future">
             <div className="project-settings-section-title"><span>TEAM WORKFLOW</span><small>Coming Soon</small></div>
-            <div className="project-settings-row is-static is-preview">
-              <span className="project-settings-symbol"><Icon name="team" /></span>
-              <span><strong>Viewer · Editor Access</strong><small>Control who can edit or only use approved work</small></span>
-              <em>Preview</em>
-            </div>
-            <div className="project-settings-row is-static is-preview">
-              <span className="project-settings-symbol"><Icon name="history" /></span>
-              <span><strong>Version History</strong><small>Return to an earlier project state</small></span>
-              <em>Preview</em>
-            </div>
+            <div className="project-settings-row is-static is-preview"><span className="project-settings-symbol"><Icon name="team" /></span><span><strong>Viewer · Editor Access</strong><small>Control who can edit or only use approved work</small></span><em>Preview</em></div>
+            <div className="project-settings-row is-static is-preview"><span className="project-settings-symbol"><Icon name="history" /></span><span><strong>Version History</strong><small>Return to an earlier project state</small></span><em>Preview</em></div>
           </section>
 
           {message && <div className="project-settings-message">{message}</div>}
         </div>
-      )}
-
-      <button type="button" className={`project-settings-trigger ${open ? "is-open" : ""}`} onClick={() => { setOpen((value) => !value); setMessage(""); }}>
-        <Icon name="settings" size={17} />
-        <span>Settings</span>
-      </button>
+      </div>
     </div>,
-    target
-  );
+    document.body
+  ) : null;
+
+  return <>
+    {createPortal(
+      <div className="project-settings-anchor">
+        <button type="button" className={`project-settings-trigger ${open ? "is-open" : ""}`} onClick={() => { setOpen((value) => !value); setMessage(""); }}>
+          <Icon name="settings" size={17} /><span>Settings</span>
+        </button>
+      </div>,
+      target
+    )}
+    {modal}
+  </>;
 }
