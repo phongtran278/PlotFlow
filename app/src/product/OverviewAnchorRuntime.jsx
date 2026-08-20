@@ -2,8 +2,7 @@ import { useEffect } from "react";
 import "./OverviewAnchorRuntime.css";
 
 const STORAGE_KEY = "phongflow-overview-anchor-layout-v1";
-const FOCUS_SETTLE_MS = 360;
-const EXTRA_ZOOM_DELTA = -125;
+const FOCUS_SCALE = 70;
 
 function readAnchors() {
   try {
@@ -26,23 +25,26 @@ export default function OverviewAnchorRuntime() {
     let activeCode = "";
     let anchors = readAnchors();
     let drag = null;
-    let focusTimer = 0;
 
     function cards() {
       return stage ? Array.from(stage.querySelectorAll(".pf-sales-callout")) : [];
     }
 
     function codeForCard(card) {
-      return card?.querySelector("header strong")?.textContent?.trim() || "";
+      return card?.dataset?.unitCode || card?.querySelector("header strong")?.textContent?.trim() || "";
     }
 
     function anchorForCode(code) {
       if (!stage) return null;
-      return Array.from(stage.querySelectorAll(".pf-map-anchor")).find((node) => node.textContent?.trim() === code) || null;
+      return Array.from(stage.querySelectorAll(".pf-map-anchor")).find((node) =>
+        (node.dataset?.unitCode || node.textContent?.trim()) === code
+      ) || null;
     }
 
     function lineForCode(code) {
       if (!stage) return null;
+      const direct = Array.from(stage.querySelectorAll(".pf-callout-lines line")).find((line) => line.dataset?.unitCode === code);
+      if (direct) return direct;
       const index = cards().findIndex((card) => codeForCard(card) === code);
       const lines = Array.from(stage.querySelectorAll(".pf-callout-lines line"));
       return index >= 0 ? lines[index] : null;
@@ -64,17 +66,14 @@ export default function OverviewAnchorRuntime() {
     function refreshAnchorVisuals() {
       if (!stage) return;
       Array.from(stage.querySelectorAll(".pf-map-anchor")).forEach((anchor) => {
-        const code = anchor.textContent?.trim() || "";
+        const code = anchor.dataset?.unitCode || anchor.textContent?.trim() || "";
         applySavedAnchor(code);
         const active = code === activeCode;
         anchor.classList.toggle("pf-anchor-dot-active", active);
         anchor.setAttribute("aria-label", active ? `Anchor ${code}. Drag to refine lot position.` : `Anchor ${code}`);
         anchor.title = active ? `${code} · kéo chấm để chỉnh vị trí` : code;
-        if (active) {
-          anchor.style.transform = `translate(-50%,-50%) scale(${1 / Math.max(camera.scale, 0.0001)})`;
-        } else {
-          anchor.style.transform = "translate(-50%,-50%)";
-        }
+        if (active) anchor.style.transform = `translate(-50%,-50%) scale(${1 / Math.max(camera.scale, 0.0001)})`;
+        else anchor.style.transform = "translate(-50%,-50%)";
       });
     }
 
@@ -87,30 +86,26 @@ export default function OverviewAnchorRuntime() {
 
     function focusCard(card) {
       const code = codeForCard(card);
-      const codeNode = card?.querySelector("header strong");
-      if (!code || !codeNode || !stage) return;
-
+      if (!code || !stage) return;
       applySavedAnchor(code);
+      const anchor = anchorForCode(code);
+      if (!anchor) return;
+
+      const x = Number.parseFloat(anchor.style.left || "50");
+      const y = Number.parseFloat(anchor.style.top || "50");
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
       setActive(code);
-
-      // Put the existing editor back in Select so the draggable anchor wins pointer input.
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true, cancelable: true }));
-      window.dispatchEvent(new KeyboardEvent("keyup", { key: "v", bubbles: true, cancelable: true }));
-
-      // Reuse the editor's own focus logic so its internal camera stays authoritative.
-      codeNode.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
-
-      window.clearTimeout(focusTimer);
-      focusTimer = window.setTimeout(() => {
-        const rect = stage.getBoundingClientRect();
-        stage.dispatchEvent(new WheelEvent("wheel", {
-          bubbles: true,
-          cancelable: true,
-          deltaY: EXTRA_ZOOM_DELTA,
-          clientX: rect.left + rect.width / 2,
-          clientY: rect.top + rect.height / 2,
-        }));
-      }, FOCUS_SETTLE_MS);
+      cards().forEach((item) => item.classList.toggle("pf-focus-card-active", item === card));
+      window.dispatchEvent(new CustomEvent("pf-overview-focus-request", {
+        detail: {
+          code,
+          x,
+          y,
+          scale: FOCUS_SCALE,
+          located: anchor.dataset?.located === "1",
+        },
+      }));
     }
 
     function onDoubleClick(event) {
@@ -118,6 +113,7 @@ export default function OverviewAnchorRuntime() {
       if (!card || !stage?.contains(card)) return;
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation?.();
       focusCard(card);
     }
 
@@ -134,7 +130,7 @@ export default function OverviewAnchorRuntime() {
       if (!anchor || !stage?.contains(anchor) || event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
-      const code = anchor.textContent?.trim() || activeCode;
+      const code = anchor.dataset?.unitCode || anchor.textContent?.trim() || activeCode;
       const startX = Number.parseFloat(anchor.style.left || "50");
       const startY = Number.parseFloat(anchor.style.top || "50");
       drag = { anchor, code, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, startX, startY };
@@ -169,6 +165,10 @@ export default function OverviewAnchorRuntime() {
       drag = null;
     }
 
+    function onLiveUnitsReady() {
+      requestAnimationFrame(refreshAnchorVisuals);
+    }
+
     function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
       stage?.removeEventListener("dblclick", onDoubleClick, true);
@@ -194,11 +194,12 @@ export default function OverviewAnchorRuntime() {
     observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
     window.addEventListener("pf-overview-camera", onCamera);
+    window.addEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
 
     return () => {
-      window.clearTimeout(focusTimer);
       observer?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
+      window.removeEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
       stage?.removeEventListener("dblclick", onDoubleClick, true);
       stage?.removeEventListener("pointerdown", onAnchorPointerDown, true);
       stage?.removeEventListener("pointermove", onAnchorPointerMove, true);
