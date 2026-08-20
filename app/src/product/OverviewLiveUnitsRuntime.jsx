@@ -85,23 +85,30 @@ export default function OverviewLiveUnitsRuntime() {
 
           for (const item of content.items || []) {
             if (!item?.str) continue;
-            const text = normalizeCode(item.str);
-            if (!text) continue;
+            const normalizedText = normalizeCode(item.str);
+            if (!normalizedText) continue;
 
             for (const code of wanted) {
-              if (nextIndex.has(code) || !text.includes(code)) continue;
+              if (nextIndex.has(code)) continue;
+              const hitIndex = normalizedText.indexOf(code);
+              if (hitIndex < 0) continue;
 
               const x = Number(item.transform?.[4] || 0);
               const y = Number(item.transform?.[5] || 0);
               const width = Math.max(0, Number(item.width || 0));
               const height = Math.max(0, Number(item.height || Math.abs(item.transform?.[3] || 0) || 0));
-              const [viewX, viewY] = viewport.convertToViewportPoint(x + width / 2, y + height / 2);
+              const charCount = Math.max(1, normalizedText.length);
+              const centerFraction = clampFraction((hitIndex + code.length / 2) / charCount);
+              const textCenterX = x + width * centerFraction;
+              const textCenterY = y + height / 2;
+              const [viewX, viewY] = viewport.convertToViewportPoint(textCenterX, textCenterY);
 
               nextIndex.set(code, {
                 x: Math.max(0, Math.min(100, (viewX / viewport.width) * 100)),
                 y: Math.max(0, Math.min(100, (viewY / viewport.height) * 100)),
                 pageNumber,
                 sourceText: item.str,
+                exactSubstring: normalizedText !== code,
               });
             }
           }
@@ -119,6 +126,10 @@ export default function OverviewLiveUnitsRuntime() {
         pdfIndex = new Map();
         indexedSignature = signature;
       }
+    }
+
+    function clampFraction(value) {
+      return Math.max(0, Math.min(1, Number(value) || 0));
     }
 
     function locate(unit, index, total) {
@@ -167,6 +178,7 @@ export default function OverviewLiveUnitsRuntime() {
         anchor.type = "button";
         anchor.dataset.unitCode = unit.code;
         anchor.dataset.located = pos.found ? "1" : "0";
+        anchor.dataset.pageNumber = String(pos.pageNumber || 1);
         anchor.textContent = unit.code;
         anchor.style.left = `${pos.x}%`;
         anchor.style.top = `${pos.y}%`;
