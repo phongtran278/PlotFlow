@@ -32,6 +32,8 @@ function Icon({ name, size = 16 }) {
   if (name === "upload") return <svg {...common}><path d="M12 16V4m-4 4 4-4 4 4"/><path d="M5 20h14"/></svg>;
   if (name === "device") return <svg {...common}><rect x="5" y="3.5" width="14" height="17" rx="3"/><path d="M9.5 17.5h5"/></svg>;
   if (name === "cloud") return <svg {...common}><path d="M7.3 18h9.2a4 4 0 0 0 .8-7.9A5.6 5.6 0 0 0 6.8 11.4 3.4 3.4 0 0 0 7.3 18Z"/></svg>;
+  if (name === "team") return <svg {...common}><circle cx="9" cy="8" r="2.5"/><circle cx="16.5" cy="9" r="2"/><path d="M4.8 18c.6-2.8 2-4.1 4.2-4.1 2.4 0 3.9 1.4 4.5 4.1M14.2 14.5c1.9-.7 4.3.2 5 3.5"/></svg>;
+  if (name === "history") return <svg {...common}><path d="M4 8V4m0 0h4M4.7 4.8A8 8 0 1 1 4 15"/><path d="M12 8v4l2.7 1.7"/></svg>;
   if (name === "close") return <svg {...common}><path d="m8.5 8.5 7 7m0-7-7 7"/></svg>;
   if (name === "chevron") return <svg {...common}><path d="m9 7 5 5-5 5"/></svg>;
   return null;
@@ -151,7 +153,7 @@ export default function ProjectSettings() {
       {open && (
         <div className="project-settings-panel" role="dialog" aria-label="PlotFlow settings">
           <div className="project-settings-head">
-            <div><small>SETTINGS</small><strong>Project</strong></div>
+            <div><small>SETTINGS</small><strong>Project & Workspace</strong></div>
             <button type="button" onClick={() => setOpen(false)} aria-label="Close"><Icon name="close" size={15} /></button>
           </div>
 
@@ -161,31 +163,45 @@ export default function ProjectSettings() {
           </label>
 
           <section className="project-settings-section">
-            <div className="project-settings-section-title"><span>PROJECT DATA</span><small>Move or back up your work</small></div>
+            <div className="project-settings-section-title"><span>PROJECT DATA</span><small>Backup & transfer</small></div>
             <button type="button" className="project-settings-row" onClick={() => { downloadProject(projectName); setMessage("Đã xuất file project."); }}>
               <span className="project-settings-symbol"><Icon name="download" /></span>
-              <span><strong>Export Project</strong><small>Save a .plotflow file</small></span>
+              <span><strong>Export Project</strong><small>Create a portable .plotflow file</small></span>
               <Icon name="chevron" size={14} />
             </button>
             <button type="button" className="project-settings-row" onClick={() => inputRef.current?.click()}>
               <span className="project-settings-symbol"><Icon name="upload" /></span>
-              <span><strong>Import Project</strong><small>Restore work from a file</small></span>
+              <span><strong>Import Project</strong><small>Restore a shared project file</small></span>
               <Icon name="chevron" size={14} />
             </button>
             <input ref={inputRef} type="file" accept=".plotflow,application/json" hidden onChange={importProject} />
           </section>
 
           <section className="project-settings-section">
-            <div className="project-settings-section-title"><span>STORAGE</span><small>Where this project is saved</small></div>
+            <div className="project-settings-section-title"><span>STORAGE</span><small>Where work is saved</small></div>
             <div className="project-settings-row is-static">
               <span className="project-settings-symbol"><Icon name="device" /></span>
               <span><strong>Local Device</strong><small>Saved in this browser</small></span>
               <em>Current</em>
             </div>
-            <div className="project-settings-row is-static is-muted">
+            <div className="project-settings-row is-static is-preview">
               <span className="project-settings-symbol"><Icon name="cloud" /></span>
-              <span><strong>Shared Project</strong><small>Cloud team sync</small></span>
-              <em>Later</em>
+              <span><strong>Shared Project</strong><small>One setup, the whole team uses it</small></span>
+              <em>Coming Soon</em>
+            </div>
+          </section>
+
+          <section className="project-settings-section project-settings-future">
+            <div className="project-settings-section-title"><span>TEAM WORKFLOW</span><small>Coming Soon</small></div>
+            <div className="project-settings-row is-static is-preview">
+              <span className="project-settings-symbol"><Icon name="team" /></span>
+              <span><strong>Viewer · Editor Access</strong><small>Control who can edit or only use approved work</small></span>
+              <em>Preview</em>
+            </div>
+            <div className="project-settings-row is-static is-preview">
+              <span className="project-settings-symbol"><Icon name="history" /></span>
+              <span><strong>Version History</strong><small>Return to an earlier project state</small></span>
+              <em>Preview</em>
             </div>
           </section>
 
