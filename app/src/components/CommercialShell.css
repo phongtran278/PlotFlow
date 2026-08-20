@@ -1,7 +1,8 @@
-/* PlotFlow commercial shell pass — navigation + action hierarchy */
+/* PlotFlow commercial shell pass — deterministic desktop app shell */
 
 :root {
   --pf-toolbar-h: 68px;
+  --pf-sidebar-w: 290px;
   --pf-glass: rgba(248, 250, 253, 0.78);
   --pf-glass-strong: rgba(252, 253, 255, 0.90);
   --pf-stroke: rgba(28, 36, 52, 0.09);
@@ -9,15 +10,32 @@
   --pf-shadow-toolbar: 0 12px 36px rgba(42, 55, 82, 0.08);
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
 .plotflow-shell {
-  align-items: start;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
+  grid-template-columns: var(--pf-sidebar-w) minmax(0, 1fr) !important;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+/* Desktop navigation is a fixed app rail. It never follows document scroll. */
 .unit-sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  position: relative !important;
+  inset: auto !important;
+  width: 100%;
+  height: 100dvh;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -42,7 +60,7 @@
   z-index: 30;
   margin: -18px -18px 2px;
   padding: 18px 18px 14px;
-  background: linear-gradient(180deg, rgba(249,251,254,.98) 0%, rgba(249,251,254,.92) 72%, rgba(249,251,254,0) 100%);
+  background: linear-gradient(180deg, rgba(249,251,254,.98) 0%, rgba(249,251,254,.94) 76%, rgba(249,251,254,0) 100%);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
@@ -82,11 +100,20 @@
   color: #8b94a1;
 }
 
-/* Google Sheet is the primary data-source flow. Keep Excel available in code but out of the beta UI. */
 .source-divider,
 .excel-import-button { display: none !important; }
 
-.component-stage { padding-top: 14px; }
+/* Only the workspace scrolls on desktop. */
+.component-stage {
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-top: 14px;
+  scrollbar-gutter: stable;
+}
 
 .stage-header {
   position: sticky !important;
@@ -212,29 +239,9 @@
   font-weight: 750 !important;
 }
 
-.shared-project-status {
-  top: auto !important;
-  right: 18px !important;
-  bottom: 16px;
-  z-index: 13000;
-}
-
-.shared-project-popover {
-  top: auto !important;
-  bottom: 44px;
-}
-
-.shared-project-section-label {
-  padding: 3px 4px 8px;
-  color: #8d95a1;
-  font-size: 9px;
-  font-weight: 760;
-  letter-spacing: .12em;
-}
-
 .component-canvas { border-radius: 20px; }
 
-/* Desktop stays one row on both macOS and Windows. Lower-priority labels collapse first. */
+/* Desktop stays one row on both macOS and Windows. */
 @media (max-width: 1380px) and (min-width: 861px) {
   .edit-floorplan-top {
     width: 38px;
@@ -258,7 +265,7 @@
 }
 
 @media (max-width: 1160px) and (min-width: 861px) {
-  .plotflow-shell { grid-template-columns: 240px minmax(0, 1fr); }
+  :root { --pf-sidebar-w: 240px; }
   .stage-header {
     align-items: center !important;
     flex-direction: row !important;
@@ -282,20 +289,31 @@
     flex-shrink: 1;
     min-width: 0;
   }
-  .workspace-controls { transform-origin: right center; }
   .edit-layout-button { padding-inline: 10px !important; }
 }
 
-/* Mobile gets its own layout instead of influencing desktop behavior. */
+/* Mobile switches back to normal document flow. */
 @media (max-width: 860px) {
-  .plotflow-shell { grid-template-columns: 1fr; }
+  :root { --pf-sidebar-w: 100%; }
+  body { overflow: auto; }
+  .plotflow-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    grid-template-columns: 1fr !important;
+  }
   .unit-sidebar {
-    position: relative;
+    position: relative !important;
     height: auto;
     max-height: none;
     overflow: visible;
   }
-  .component-stage { padding-top: 8px; }
+  .component-stage {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    padding-top: 8px;
+  }
   .stage-header {
     top: 6px;
     flex-direction: column !important;
