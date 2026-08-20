@@ -16,14 +16,22 @@ const PROJECTS = [
   { id: "eco-retreat", code: "ER", name: "Eco Retreat", developer: "Ecopark", location: "Long An", status: "Planning", tone: "forest" },
 ];
 
-const DEMO_PLOTS = [
-  { code: "CH-01", x: 18, y: 24, price: "18.6 tỷ", type: "Townhouse" },
-  { code: "CH-02", x: 37, y: 31, price: "19.2 tỷ", type: "Townhouse" },
-  { code: "CH-03", x: 56, y: 22, price: "21.4 tỷ", type: "Corner" },
-  { code: "CH-04", x: 68, y: 42, price: "22.1 tỷ", type: "Garden" },
-  { code: "CH-05", x: 45, y: 60, price: "24.8 tỷ", type: "Premium" },
-  { code: "CH-06", x: 76, y: 66, price: "20.5 tỷ", type: "Townhouse" },
+const OVERVIEW_GROUPS = ["Hoàn thiện", "Đang xây", "Bàn giao thô"];
+
+const OVERVIEW_CALLOUTS = [
+  { code: "AS-15", x: 39, y: 18, side: "left", row: 0, handover: "Hoàn thiện", land: "96 m²", floor: "280 m²", price1: "18.6 tỷ", price2: "16.9 tỷ" },
+  { code: "AS-18", x: 44, y: 31, side: "left", row: 1, handover: "Hoàn thiện", land: "100 m²", floor: "292 m²", price1: "19.2 tỷ", price2: "17.5 tỷ" },
+  { code: "AS-21", x: 47, y: 45, side: "left", row: 2, handover: "Hoàn thiện", land: "120 m²", floor: "338 m²", price1: "21.4 tỷ", price2: "19.8 tỷ" },
+  { code: "AS-24", x: 42, y: 60, side: "left", row: 3, handover: "Hoàn thiện", land: "105 m²", floor: "301 m²", price1: "20.8 tỷ", price2: "18.9 tỷ" },
+  { code: "AS-27", x: 46, y: 75, side: "left", row: 4, handover: "Hoàn thiện", land: "128 m²", floor: "356 m²", price1: "23.1 tỷ", price2: "21.2 tỷ" },
+  { code: "AS-31", x: 58, y: 20, side: "right", row: 0, handover: "Hoàn thiện", land: "110 m²", floor: "318 m²", price1: "22.1 tỷ", price2: "20.3 tỷ" },
+  { code: "AS-34", x: 61, y: 34, side: "right", row: 1, handover: "Hoàn thiện", land: "126 m²", floor: "348 m²", price1: "24.8 tỷ", price2: "22.7 tỷ" },
+  { code: "AS-37", x: 55, y: 48, side: "right", row: 2, handover: "Hoàn thiện", land: "98 m²", floor: "286 m²", price1: "20.5 tỷ", price2: "18.7 tỷ" },
+  { code: "AS-40", x: 62, y: 63, side: "right", row: 3, handover: "Hoàn thiện", land: "115 m²", floor: "326 m²", price1: "22.9 tỷ", price2: "20.9 tỷ" },
+  { code: "AS-43", x: 57, y: 78, side: "right", row: 4, handover: "Hoàn thiện", land: "132 m²", floor: "365 m²", price1: "25.6 tỷ", price2: "23.5 tỷ" },
 ];
+
+const DEMO_PLOTS = OVERVIEW_CALLOUTS.map((item) => ({ code: item.code, x: item.x, y: item.y, price: item.price1, type: item.handover }));
 
 function readAvailableUnits() {
   return Array.from(document.querySelectorAll(".unit-select .unit-main strong"))
@@ -48,13 +56,57 @@ function ProjectCard({ project, onOpen }) {
   );
 }
 
+function OverviewCallouts({ items, activeUnit, onSelect, onOpenDetail }) {
+  const rowY = [16, 33, 50, 67, 84];
+  return (
+    <div className="pf-callout-layer" aria-label="Sales overview callouts">
+      <svg className="pf-callout-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        {items.map((item) => {
+          const startX = item.side === "left" ? 22 : 78;
+          const startY = rowY[item.row];
+          return <line key={item.code} x1={startX} y1={startY} x2={item.x} y2={item.y} className={activeUnit === item.code ? "active" : ""} />;
+        })}
+      </svg>
+
+      {items.map((item) => (
+        <button
+          key={item.code}
+          type="button"
+          className={`pf-map-anchor ${activeUnit === item.code ? "active" : ""}`}
+          style={{ left: `${item.x}%`, top: `${item.y}%` }}
+          onClick={() => onSelect(item.code)}
+          title={`Mã lô ${item.code}`}
+        >
+          {item.code}
+        </button>
+      ))}
+
+      {items.map((item) => (
+        <article
+          key={`${item.code}-card`}
+          className={`pf-sales-callout side-${item.side} ${activeUnit === item.code ? "active" : ""}`}
+          style={{ "--callout-row": item.row }}
+          onMouseEnter={() => onSelect(item.code)}
+        >
+          <button type="button" className="pf-sales-callout-hit" onClick={() => onSelect(item.code)} aria-label={`Chọn ${item.code}`} />
+          <header><strong>{item.code}</strong><span>{item.handover}</span></header>
+          <div className="pf-sales-specs"><span>Đất <b>{item.land}</b></span><span>Sàn <b>{item.floor}</b></span></div>
+          <div className="pf-sales-prices"><span><small>Giá chuẩn</small><b>{item.price1}</b></span><span><small>Ưu đãi</small><b>{item.price2}</b></span></div>
+          {activeUnit === item.code && <button type="button" className="pf-sales-open" onClick={() => onOpenDetail(item.code)}>Chi tiết →</button>}
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export default function ProductShell({ children }) {
   const [screen, setScreen] = useState("home");
   const [project, setProject] = useState(PROJECTS[0]);
   const [mode, setMode] = useState("overview");
   const [developer, setDeveloper] = useState("All developers");
+  const [overviewGroup, setOverviewGroup] = useState(OVERVIEW_GROUPS[0]);
   const [units, setUnits] = useState([]);
-  const [activeUnit, setActiveUnit] = useState("");
+  const [activeUnit, setActiveUnit] = useState(OVERVIEW_CALLOUTS[0].code);
 
   useEffect(() => {
     const sync = () => setUnits(readAvailableUnits());
@@ -87,7 +139,7 @@ export default function ProductShell({ children }) {
 
   function openProject(nextProject) {
     setProject(nextProject);
-    setActiveUnit("");
+    setActiveUnit(OVERVIEW_CALLOUTS[0].code);
     setScreen("project");
     setMode("overview");
   }
@@ -151,34 +203,32 @@ export default function ProductShell({ children }) {
             <nav><button className="active" type="button">Overview</button><button type="button" onClick={() => setMode("detail")}>Detail</button></nav>
           </header>
 
-          <div className="pf-overview-layout">
+          <div className="pf-overview-layout pf-overview-layout-wide">
             <section className="pf-masterplan-card">
-              <div className="pf-masterplan-head">
+              <div className="pf-masterplan-head pf-masterplan-head-callouts">
                 <div><span>OVERVIEW</span><h1>{project.name}</h1></div>
-                <small>{project.masterplan ? "Live masterplan PDF" : "Project overview preview"}</small>
+                <div className="pf-overview-groups" role="group" aria-label="Trạng thái sản phẩm">
+                  {OVERVIEW_GROUPS.map((group) => <button key={group} type="button" className={overviewGroup === group ? "active" : ""} onClick={() => setOverviewGroup(group)}>{group}</button>)}
+                </div>
               </div>
-              <div className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf" : ""}`}>
+              <div className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}>
                 {project.masterplan ? (
                   <iframe className="pf-masterplan-pdf" title={`${project.name} masterplan`} src="/masterplan/masterplan.pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitH" />
                 ) : (
                   <div className={`pf-project-overview-placeholder tone-${project.tone}`}><strong>{project.name}</strong><span>{project.developer}</span></div>
                 )}
-                {project.masterplan && plots.map((plot) => (
-                  <button key={plot.code} type="button" className={`pf-plot-pin ${activeUnit === plot.code ? "active" : ""}`} style={{ left: `${plot.x}%`, top: `${plot.y}%` }} onClick={() => setActiveUnit(plot.code)}>
-                    <span>{plot.code}</span>
-                  </button>
-                ))}
-                {project.masterplan && activeUnit && (() => {
-                  const current = plots.find((plot) => plot.code === activeUnit);
-                  if (!current) return null;
-                  return <div className="pf-plot-card"><span>SELECTED UNIT</span><strong>{current.code}</strong><p>{current.type} · {current.price}</p><button type="button" onClick={() => openUnit(current.code)}>Open Detail →</button></div>;
-                })()}
+                {project.masterplan && overviewGroup === "Hoàn thiện" && (
+                  <OverviewCallouts items={OVERVIEW_CALLOUTS} activeUnit={activeUnit} onSelect={setActiveUnit} onOpenDetail={openUnit} />
+                )}
+                {project.masterplan && overviewGroup !== "Hoàn thiện" && (
+                  <div className="pf-overview-coming"><strong>{overviewGroup}</strong><span>Giữ cùng layout 5 trái · 5 phải. Data sẽ lấy từ file Overview riêng.</span></div>
+                )}
               </div>
             </section>
 
-            <aside className="pf-overview-side">
-              <div className="pf-side-card"><span>PROJECT FLOW</span><strong>Overview ↔ Detail</strong><p>Pick a unit on the masterplan, inspect its sales info, then open the connected detail workspace.</p></div>
-              <div className="pf-side-list"><span>UNITS</span>{plots.slice(0, 8).map((plot) => <button key={plot.code} type="button" onClick={() => setActiveUnit(plot.code)} className={activeUnit === plot.code ? "active" : ""}><strong>{plot.code}</strong><small>{plot.price}</small></button>)}</div>
+            <aside className="pf-overview-side pf-overview-guide">
+              <div className="pf-side-card"><span>LAYOUT LOGIC</span><strong>5 trái · 5 phải</strong><p>Mỗi mã lô là một điểm neo. Card giữ hàng thẳng; line được phép xiên để chỉ đúng tâm lô mà không chồng chéo.</p></div>
+              <div className="pf-side-card"><span>PERFORMANCE</span><strong>10 card · 10 line</strong><p>SVG tĩnh + HTML nhẹ. Không canvas loop, không animation liên tục, không tính collision mỗi frame.</p></div>
             </aside>
           </div>
         </main>
