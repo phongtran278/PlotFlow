@@ -49,6 +49,7 @@ export default function OverviewLiveUnitsRuntime() {
     let observer = null;
     let manifest = null;
     let disposed = false;
+    let lastSignature = "";
 
     async function loadManifest() {
       try {
@@ -73,10 +74,13 @@ export default function OverviewLiveUnitsRuntime() {
       return { x: 50 + Math.cos(angle) * 10, y: 50 + Math.sin(angle) * 10, found: false };
     }
 
-    function render() {
+    function render(force = false) {
       if (!stage) return;
       const units = readUnits();
       if (!units.length) return;
+      const signature = JSON.stringify(units);
+      if (!force && signature === lastSignature && layer?.isConnected) return;
+      lastSignature = signature;
 
       layer?.remove();
       layer = makeNode("div", "pf-callout-layer pf-live-overview-callouts");
@@ -136,29 +140,34 @@ export default function OverviewLiveUnitsRuntime() {
     async function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
       stage = nextStage;
+      lastSignature = "";
       manifest = manifest || await loadManifest();
       if (disposed || !stage) return;
-      render();
+      render(true);
     }
 
-    function sync() {
+    function sync(force = false) {
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      if (nextStage) attach(nextStage);
-      if (stage && document.querySelectorAll(".unit-select").length) render();
+      if (nextStage && nextStage !== stage) {
+        attach(nextStage);
+        return;
+      }
+      if (stage && document.querySelectorAll(".unit-select").length) render(force);
     }
 
     sync();
     observer = new MutationObserver(() => {
       window.clearTimeout(window.__pfOverviewLiveUnitSyncTimer);
-      window.__pfOverviewLiveUnitSyncTimer = window.setTimeout(sync, 80);
+      window.__pfOverviewLiveUnitSyncTimer = window.setTimeout(() => sync(false), 80);
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("plotflow-quick-text-updated", sync);
+    const onQuickText = () => sync(true);
+    window.addEventListener("plotflow-quick-text-updated", onQuickText);
 
     return () => {
       disposed = true;
       observer?.disconnect();
-      window.removeEventListener("plotflow-quick-text-updated", sync);
+      window.removeEventListener("plotflow-quick-text-updated", onQuickText);
       layer?.remove();
       stage?.classList.remove("pf-live-overview-ready");
     };
