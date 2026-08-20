@@ -16,6 +16,7 @@ import ProductShell from "./product/ProductShell.jsx";
 import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
 import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
 import OverviewPdfRuntime from "./product/OverviewPdfRuntime.jsx";
+import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
 import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
@@ -51,6 +52,7 @@ createRoot(document.getElementById("root")).render(
       <EmptyWorkspaceEnhancer />
       <OverviewZoomRuntime />
       <OverviewPdfRuntime />
+      <OverviewExportRuntime />
     </ProductShell>
   </AuthGate>
 );
