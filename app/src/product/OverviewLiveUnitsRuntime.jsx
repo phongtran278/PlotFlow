@@ -1,55 +1,28 @@
 import { useEffect } from "react";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 import "./OverviewLiveUnitsRuntime.css";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 
-const QUICK_TEXT_KEY = "plotflow-quick-text-overrides-v1";
-const PDF_URL = "/masterplan/masterplan.pdf";
-
-function normalizeCode(value = "") {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[Đđ]/g, "D")
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .trim();
+function readSellUnits() {
+  if (Array.isArray(window.__plotflowOverviewSellUnits)) return window.__plotflowOverviewSellUnits;
+  try {
+    const value = JSON.parse(localStorage.getItem(SELL_STORAGE_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
 }
 
-function readOverrides() {
-  try { return JSON.parse(localStorage.getItem(QUICK_TEXT_KEY) || "{}"); }
-  catch { return {}; }
-}
-
-function readUnits() {
-  const overrides = readOverrides();
-  return Array.from(document.querySelectorAll(".unit-select")).map((button) => {
-    const code = button.querySelector(".unit-main strong")?.textContent?.trim() || "";
-    const normalized = normalizeCode(code);
-    const override = overrides[normalized] || {};
-    const rawPrice = Array.from(button.children).at(-1)?.textContent?.trim() || "—";
-    return {
-      code,
-      normalized,
-      handover: override.handover || "Hoàn thiện",
-      land: override.landArea ? `${override.landArea}` : "—",
-      floor: override.constructionArea ? `${override.constructionArea}` : "—",
-      price1: override.priceEarly ? `${override.priceEarly} tỷ` : rawPrice,
-      price2: override.price18 ? `${override.price18} tỷ` : "—",
-    };
-  }).filter((item) => item.code);
-}
-
-function unitSignature(units) {
-  return JSON.stringify(units.map(({ code, handover, land, floor, price1, price2 }) => ({ code, handover, land, floor, price1, price2 })));
-}
-
-function makeNode(tag, className = "") {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  return node;
+function readFallbackUnits() {
+  return Array.from(document.querySelectorAll(".unit-select")).map((button) => ({
+    code: button.querySelector(".unit-main strong")?.textContent?.trim() || "",
+    handover: "",
+    land: "",
+    floor: "",
+    type: "",
+    priceLandVat: Array.from(button.children).at(-1)?.textContent?.trim() || "",
+    priceAllIn: "",
+  })).filter((item) => item.code);
 }
 
 function escapeHtml(value = "") {
@@ -61,44 +34,28 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#039;");
 }
 
-function clampFraction(value) {
-  return Math.max(0, Math.min(1, Number(value) || 0));
+function formatArea(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "—";
+  if (/m\s*[²2]/i.test(raw)) return raw.replace(/m\s*2/ig, "M²");
+  return `${raw} M²`;
 }
 
-function textItemMeta(item) {
-  const normalized = normalizeCode(item?.str || "");
-  if (!normalized) return null;
-  const x = Number(item.transform?.[4] || 0);
-  const y = Number(item.transform?.[5] || 0);
-  const width = Math.max(0, Number(item.width || 0));
-  const height = Math.max(0, Number(item.height || Math.abs(item.transform?.[3] || 0) || 0));
-  return { item, normalized, x, y, width, height };
+function formatPrice(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "—";
+  if (/tỷ|ty\b/i.test(raw)) return raw;
+  return `${raw} tỷ`;
 }
 
-function firstGlyphPoint(meta, hitIndex = 0) {
-  const fraction = clampFraction(hitIndex / Math.max(1, meta.normalized.length));
-  return {
-    x: meta.x + meta.width * fraction,
-    y: meta.y + meta.height * 0.5,
-  };
+function signature(units, group) {
+  return JSON.stringify({ group, units });
 }
 
-function sameTextLine(a, b) {
-  const h = Math.max(1, a.height, b.height);
-  return Math.abs(a.y - b.y) <= h * 1.35;
-}
-
-function findCodeAcrossItems(items, code) {
-  for (let start = 0; start < items.length; start += 1) {
-    let joined = "";
-    for (let end = start; end < Math.min(items.length, start + 6); end += 1) {
-      if (end > start && !sameTextLine(items[end - 1], items[end])) break;
-      joined += items[end].normalized;
-      if (joined === code || joined.startsWith(code)) return { meta: items[start], hitIndex: 0, sourceText: items.slice(start, end + 1).map((entry) => entry.item.str).join("") };
-      if (!code.startsWith(joined)) break;
-    }
-  }
-  return null;
+function makeNode(tag, className = "") {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  return node;
 }
 
 export default function OverviewLiveUnitsRuntime() {
@@ -106,90 +63,44 @@ export default function OverviewLiveUnitsRuntime() {
     let stage = null;
     let layer = null;
     let observer = null;
+    let timer = 0;
+    let lastSignature = "";
     let disposed = false;
-    let pdf = null;
-    let pdfIndex = new Map();
-    let indexedSignature = "";
-    let renderedSignature = "";
-    let renderTimer = 0;
-    let rebuilding = false;
 
-    async function ensurePdfIndex(units) {
-      const wanted = new Set(units.map((unit) => unit.normalized).filter(Boolean));
-      const signature = [...wanted].sort().join("|");
-      if (!signature || signature === indexedSignature) return;
-
-      const nextIndex = new Map();
-      try {
-        if (!pdf) pdf = await pdfjsLib.getDocument({ url: PDF_URL, isEvalSupported: false }).promise;
-
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-          if (disposed) return;
-          const page = await pdf.getPage(pageNumber);
-          const viewport = page.getViewport({ scale: 1 });
-          const content = await page.getTextContent();
-          const metas = (content.items || []).map(textItemMeta).filter(Boolean);
-
-          for (const code of wanted) {
-            if (nextIndex.has(code)) continue;
-
-            let match = null;
-            for (const meta of metas) {
-              const hitIndex = meta.normalized.indexOf(code);
-              if (hitIndex < 0) continue;
-              match = { meta, hitIndex, sourceText: meta.item.str };
-              break;
-            }
-            if (!match) match = findCodeAcrossItems(metas, code);
-            if (!match) continue;
-
-            const point = firstGlyphPoint(match.meta, match.hitIndex);
-            const [viewX, viewY] = viewport.convertToViewportPoint(point.x, point.y);
-            nextIndex.set(code, {
-              x: Math.max(0, Math.min(100, (viewX / viewport.width) * 100)),
-              y: Math.max(0, Math.min(100, (viewY / viewport.height) * 100)),
-              pageNumber,
-              sourceText: match.sourceText,
-              anchorMode: "first-glyph",
-            });
-          }
-
-          page.cleanup?.();
-          if (nextIndex.size === wanted.size) break;
-        }
-
-        if (!disposed) {
-          pdfIndex = nextIndex;
-          indexedSignature = signature;
-        }
-      } catch (error) {
-        console.warn("Overview live PDF text index unavailable", error);
-        pdfIndex = new Map();
-        indexedSignature = signature;
-      }
+    function currentGroup() {
+      return stage?.dataset?.overviewGroup || document.querySelector(".pf-overview-groups button.active")?.textContent?.trim() || "";
     }
 
-    function locate(unit) {
-      const exact = pdfIndex.get(unit.normalized);
-      if (exact) return { ...exact, found: true };
-      return { x: 50, y: 50, found: false };
+    function sourceUnits() {
+      const sell = readSellUnits();
+      return sell.length ? sell : readFallbackUnits();
     }
 
-    function render(units, force = false) {
-      if (!stage) return;
-      const signature = unitSignature(units) + "|" + indexedSignature;
-      if (!force && signature === renderedSignature && layer?.isConnected) return;
-      renderedSignature = signature;
+    function visibleUnits() {
+      const all = sourceUnits();
+      const group = currentGroup();
+      if (!group || !all.some((item) => item.handover)) return all;
+      return all.filter((item) => String(item.handover || "").trim() === group);
+    }
+
+    function render(force = false) {
+      if (!stage || disposed) return;
+      const group = currentGroup();
+      const units = visibleUnits();
+      const nextSignature = signature(units, group);
+      if (!force && nextSignature === lastSignature && layer?.isConnected) return;
+      lastSignature = nextSignature;
 
       if (!units.length) {
         layer?.remove();
         layer = null;
         stage.classList.remove("pf-live-overview-ready");
+        window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: 0, located: 0, group } }));
         return;
       }
 
       const nextLayer = makeNode("div", "pf-callout-layer pf-live-overview-callouts");
-      nextLayer.setAttribute("aria-label", "Live overview unit callouts");
+      nextLayer.setAttribute("aria-label", `Overview sell cards · ${group || "all"}`);
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("class", "pf-callout-lines pf-live-callout-lines");
       svg.setAttribute("viewBox", "0 0 100 100");
@@ -201,41 +112,48 @@ export default function OverviewLiveUnitsRuntime() {
         const side = index < split ? "left" : "right";
         const row = side === "left" ? index : index - split;
         const sideCount = side === "left" ? split : units.length - split;
-        const topPct = sideCount <= 1 ? 46 : 5 + (row * 88) / (sideCount - 1);
-        const pos = locate(unit);
+        const topPct = sideCount <= 1 ? 46 : 4 + (row * 90) / (sideCount - 1);
 
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         line.dataset.unitCode = unit.code;
-        line.setAttribute("x1", side === "left" ? "20" : "80");
+        line.setAttribute("x1", side === "left" ? "19" : "81");
         line.setAttribute("y1", String(topPct + 5));
-        line.setAttribute("x2", String(pos.x));
-        line.setAttribute("y2", String(pos.y));
-        if (!pos.found) line.style.opacity = "0";
+        line.setAttribute("x2", "50");
+        line.setAttribute("y2", "50");
+        line.style.opacity = "0";
         svg.appendChild(line);
 
         const anchor = makeNode("button", "pf-map-anchor pf-live-map-anchor");
         anchor.type = "button";
         anchor.dataset.unitCode = unit.code;
-        anchor.dataset.located = pos.found ? "1" : "0";
-        anchor.dataset.pageNumber = String(pos.pageNumber || 1);
-        anchor.dataset.anchorMode = pos.anchorMode || "missing";
+        anchor.dataset.located = "0";
+        anchor.dataset.anchorMode = "detail-pending";
         anchor.textContent = unit.code;
-        anchor.style.left = `${pos.x}%`;
-        anchor.style.top = `${pos.y}%`;
-        anchor.title = pos.found ? `${unit.code} · first glyph from PDF text` : `${unit.code} · chưa tìm thấy text thật trong PDF`;
+        anchor.style.left = "50%";
+        anchor.style.top = "50%";
         nextLayer.appendChild(anchor);
 
         const card = makeNode("article", `pf-sales-callout pf-live-sales-callout side-${side}`);
         card.dataset.unitCode = unit.code;
-        card.dataset.located = pos.found ? "1" : "0";
+        card.dataset.handover = unit.handover || "";
         card.style.top = `${topPct}%`;
         if (side === "left") card.style.left = "1.5%";
         else card.style.right = "1.5%";
         card.innerHTML = `
           <button type="button" class="pf-sales-callout-hit" aria-label="Chọn ${escapeHtml(unit.code)}"></button>
-          <header><strong>${escapeHtml(unit.code)}</strong><span>${escapeHtml(unit.handover)}</span></header>
-          <div class="pf-sales-specs"><span>Đất <b>${escapeHtml(unit.land)}</b></span><span>XD <b>${escapeHtml(unit.floor)}</b></span></div>
-          <div class="pf-sales-prices"><span><small>Giá</small><b>${escapeHtml(unit.price1)}</b></span><span><small>18TH</small><b>${escapeHtml(unit.price2)}</b></span></div>`;
+          <div class="pf-sell-card-code">${escapeHtml(unit.code)}</div>
+          <div class="pf-sell-card-specs">
+            <span>DIỆN TÍCH ĐẤT:</span><b>${escapeHtml(formatArea(unit.land))}</b>
+            <span>DIỆN TÍCH SÀN:</span><b>${escapeHtml(formatArea(unit.floor))}</b>
+            <span>LOẠI HÌNH:</span><b>${escapeHtml(unit.type || "—")}</b>
+            <span>TCBG:</span><b>${escapeHtml(unit.handover || "—")}</b>
+          </div>
+          <div class="pf-sell-card-pricebox">
+            <small>GIÁ ĐẤT &amp; GT TM (ĐÃ VAT)</small>
+            <strong>${escapeHtml(formatPrice(unit.priceLandVat))}</strong>
+            <small>GIÁ ALL-IN</small>
+            <strong>${escapeHtml(formatPrice(unit.priceAllIn))}</strong>
+          </div>`;
         nextLayer.appendChild(card);
       });
 
@@ -243,64 +161,52 @@ export default function OverviewLiveUnitsRuntime() {
       if (!nextLayer.isConnected) stage.appendChild(nextLayer);
       layer = nextLayer;
       stage.classList.add("pf-live-overview-ready");
-      window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", {
-        detail: { count: units.length, located: units.filter((unit) => pdfIndex.has(unit.normalized)).length },
-      }));
+      window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: units.length, located: 0, group, source: "sell-sheet" } }));
     }
 
-    async function rebuild(force = false) {
-      if (!stage || disposed || rebuilding) return;
-      rebuilding = true;
-      try {
-        const units = readUnits();
-        await ensurePdfIndex(units);
-        if (!disposed && stage) render(units, force);
-      } finally {
-        rebuilding = false;
-      }
-    }
-
-    async function attach(nextStage) {
+    function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
+      layer?.remove();
       stage = nextStage;
-      renderedSignature = "";
-      await rebuild(true);
+      lastSignature = "";
+      render(true);
     }
 
     function sync(force = false) {
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      if (nextStage && nextStage !== stage) { attach(nextStage); return; }
-      if (stage) rebuild(force);
+      if (nextStage && nextStage !== stage) attach(nextStage);
+      else if (stage) render(force);
     }
 
-    function scheduleSync(force = false) {
-      window.clearTimeout(renderTimer);
-      renderTimer = window.setTimeout(() => sync(force), 120);
+    function schedule(force = false) {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => sync(force), 80);
     }
 
-    scheduleSync(true);
+    const onSell = () => schedule(true);
+    const onGroup = () => schedule(true);
+    window.addEventListener("plotflow-overview-sell-units", onSell);
+    window.addEventListener("pf-overview-group-changed", onGroup);
+
     observer = new MutationObserver((records) => {
-      const externalChange = records.some((record) => {
+      const relevant = records.some((record) => {
         const target = record.target instanceof Element ? record.target : record.target?.parentElement;
         if (target?.closest?.(".pf-live-overview-callouts")) return false;
-        return Array.from(record.addedNodes || []).some((node) => node instanceof Element && (node.matches?.(".unit-select") || node.querySelector?.(".unit-select"))) ||
-          Array.from(record.removedNodes || []).some((node) => node instanceof Element && (node.matches?.(".unit-select") || node.querySelector?.(".unit-select"))) ||
-          !stage || !stage.isConnected;
+        return !stage?.isConnected || Array.from(record.addedNodes || []).some((node) => node instanceof Element && (node.matches?.(".unit-select") || node.querySelector?.(".unit-select")));
       });
-      if (externalChange) scheduleSync(false);
+      if (relevant) schedule(false);
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    const onQuickText = () => scheduleSync(true);
-    window.addEventListener("plotflow-quick-text-updated", onQuickText);
+    schedule(true);
 
     return () => {
       disposed = true;
       observer?.disconnect();
-      window.removeEventListener("plotflow-quick-text-updated", onQuickText);
-      window.clearTimeout(renderTimer);
+      window.removeEventListener("plotflow-overview-sell-units", onSell);
+      window.removeEventListener("pf-overview-group-changed", onGroup);
+      window.clearTimeout(timer);
       layer?.remove();
       stage?.classList.remove("pf-live-overview-ready");
-      try { pdf?.destroy?.(); } catch { /* noop */ }
     };
   }, []);
 
