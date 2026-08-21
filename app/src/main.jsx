@@ -23,6 +23,8 @@ import OverviewLiveUnitsRuntime from "./product/OverviewLiveUnitsRuntime.jsx";
 import OverviewDetailLocatorBridge from "./product/OverviewDetailLocatorBridge.jsx";
 import OverviewControlRailRuntime from "./product/OverviewControlRailRuntime.jsx";
 import OverviewV2Runtime from "./product/OverviewV2Runtime.jsx";
+import OverviewSellDataRuntime from "./product/OverviewSellDataRuntime.jsx";
+import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
@@ -49,6 +51,7 @@ if (import.meta.hot) {
 createRoot(document.getElementById("root")).render(
   <AuthGate>
     <ProductShell>
+      <OverviewSellDataRuntime />
       <App />
       <AutoFloorplanSource />
       <MemoryGovernor />
@@ -68,6 +71,7 @@ createRoot(document.getElementById("root")).render(
       <OverviewDetailLocatorBridge />
       <OverviewControlRailRuntime />
       <OverviewV2Runtime />
+      <OverviewPenRuntime />
     </ProductShell>
   </AuthGate>
 );
