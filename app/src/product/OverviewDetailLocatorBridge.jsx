@@ -9,14 +9,23 @@ import {
 
 const PDF_URL = "/masterplan/masterplan.pdf";
 const FLOORPLAN_OVERRIDE_KEY = "plotflow-floorplan-overrides-v6";
+const V2_SETTINGS_KEY = "phongflow-overview-v2-settings";
+
+function readJson(key, fallback = {}) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "null");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function readFloorplanOverrides() {
-  try {
-    const value = JSON.parse(localStorage.getItem(FLOORPLAN_OVERRIDE_KEY) || "{}");
-    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  } catch {
-    return {};
-  }
+  return readJson(FLOORPLAN_OVERRIDE_KEY, {});
+}
+
+function anchorMode() {
+  return readJson(V2_SETTINGS_KEY, {}).anchorMode === "center" ? "center" : "first-letter";
 }
 
 function codesFromStage(stage) {
@@ -35,22 +44,33 @@ function lineFor(stage, code) {
   return Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).find((line) => line.dataset.unitCode === code) || null;
 }
 
-function pagePointToStagePercent(stage, pageRender) {
+function viewportPointToStagePercent(stage, pageBase, viewX, viewY) {
   const rect = stage.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2 || pageRender.width < 2 || pageRender.height < 2) return null;
-
-  const fit = Math.min(rect.width / pageRender.width, rect.height / pageRender.height);
-  const renderedWidth = pageRender.width * fit;
-  const renderedHeight = pageRender.height * fit;
+  if (rect.width < 2 || rect.height < 2 || pageBase.width < 2 || pageBase.height < 2) return null;
+  const fit = Math.min(rect.width / pageBase.width, rect.height / pageBase.height);
+  const renderedWidth = pageBase.width * fit;
+  const renderedHeight = pageBase.height * fit;
   const baseX = (rect.width - renderedWidth) / 2;
   const baseY = (rect.height - renderedHeight) / 2;
-  const stageX = baseX + pageRender.anchorX * fit;
-  const stageY = baseY + pageRender.anchorY * fit;
-
   return {
-    x: (stageX / rect.width) * 100,
-    y: (stageY / rect.height) * 100,
+    x: ((baseX + viewX * fit) / rect.width) * 100,
+    y: ((baseY + viewY * fit) / rect.height) * 100,
   };
+}
+
+function pointForMatch(stage, pageBase, match, mode) {
+  if (mode === "center") {
+    const pageRender = attachMatchToPageRender(pageBase, match);
+    return viewportPointToStagePercent(stage, pageBase, pageRender.anchorX, pageRender.anchorY);
+  }
+
+  const [rawX, rawY] = pageBase.viewport.convertToViewportPoint(match.x, match.y);
+  const codeLength = Math.max(1, normalizeUnitCode(match.unitCode || match.sourceText || "").length);
+  const glyphWidth = Math.max(1, Number(match.width || 0) / codeLength) * pageBase.scale;
+  const glyphHeight = Math.max(1, Number(match.height || 0)) * pageBase.scale;
+  const glyphCenterX = rawX + glyphWidth * 0.5;
+  const glyphCenterY = rawY - glyphHeight * 0.5;
+  return viewportPointToStagePercent(stage, pageBase, glyphCenterX, glyphCenterY);
 }
 
 export default function OverviewDetailLocatorBridge() {
@@ -69,10 +89,12 @@ export default function OverviewDetailLocatorBridge() {
       if (!codes.length) return;
 
       const overrides = readFloorplanOverrides();
+      const mode = anchorMode();
       const stageRect = stage.getBoundingClientRect();
       const signature = JSON.stringify({
         codes: codes.map((code) => [normalizeUnitCode(code), overrides[normalizeUnitCode(code)]?.selectedMatchIndex ?? 0]),
         size: [Math.round(stageRect.width), Math.round(stageRect.height)],
+        mode,
       });
       if (!force && signature === lastSignature && stage.dataset.pfDetailLocatorBridge === "1") return;
 
@@ -111,19 +133,18 @@ export default function OverviewDetailLocatorBridge() {
             pageBase = await renderPdfPageBase(pdfDoc, match.pageNumber, 1);
             pageBases.set(match.pageNumber, pageBase);
           }
-          const pageRender = attachMatchToPageRender(pageBase, match);
-          const point = pagePointToStagePercent(stage, pageRender);
+          const point = pointForMatch(stage, pageBase, match, mode);
           if (!point) continue;
 
           anchor.style.left = `${point.x}%`;
           anchor.style.top = `${point.y}%`;
           anchor.dataset.located = "1";
-          anchor.dataset.anchorMode = "detail-locator";
+          anchor.dataset.anchorMode = mode === "center" ? "detail-text-center" : "detail-first-letter";
           anchor.dataset.selectedMatchIndex = String(selectedIndex);
           anchor.dataset.matchCount = String(matches.length);
           anchor.dataset.pageNumber = String(match.pageNumber);
           delete anchor.dataset.saved;
-          anchor.title = `${rawCode} · Detail locator · candidate ${selectedIndex + 1}/${matches.length}`;
+          anchor.title = `${rawCode} · ${mode === "center" ? "Text center" : "First letter"} · candidate ${selectedIndex + 1}/${matches.length}`;
 
           if (line) {
             line.setAttribute("x2", String(point.x));
@@ -137,7 +158,7 @@ export default function OverviewDetailLocatorBridge() {
         stage.dataset.pfDetailLocatorBridge = "1";
         lastSignature = signature;
         window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", {
-          detail: { count: codes.length, located, ambiguous, source: "detail-locator" },
+          detail: { count: codes.length, located, ambiguous, source: "detail-locator", anchorMode: mode },
         }));
       } catch (error) {
         console.warn("Overview Detail locator bridge unavailable", error);
@@ -164,11 +185,12 @@ export default function OverviewDetailLocatorBridge() {
     observer.observe(document.body, { childList: true, subtree: true });
 
     const onStorage = (event) => {
-      if (!event || event.key === FLOORPLAN_OVERRIDE_KEY) schedule(true);
+      if (!event || event.key === FLOORPLAN_OVERRIDE_KEY || event.key === V2_SETTINGS_KEY) schedule(true);
     };
     locatorUpdateHandler = () => schedule(true);
     window.addEventListener("storage", onStorage);
     window.addEventListener("plotflow-floorplan-locator-updated", locatorUpdateHandler);
+    window.addEventListener("pf-overview-anchor-mode-changed", locatorUpdateHandler);
     window.addEventListener("resize", locatorUpdateHandler);
 
     return () => {
@@ -176,6 +198,7 @@ export default function OverviewDetailLocatorBridge() {
       observer?.disconnect();
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("plotflow-floorplan-locator-updated", locatorUpdateHandler);
+      window.removeEventListener("pf-overview-anchor-mode-changed", locatorUpdateHandler);
       window.removeEventListener("resize", locatorUpdateHandler);
       window.clearTimeout(schedule.timer);
     };
