@@ -37,9 +37,7 @@ export default function OverviewPenRuntime() {
       if (!layer) return;
       const committed = shapes.map((shape) => `<polygon points="${pointsAttr(shape.points)}" vector-effect="non-scaling-stroke" />`).join("");
       const previewPoints = draft.length ? [...draft, ...(hover ? [hover] : [])] : [];
-      const preview = previewPoints.length >= 2
-        ? `<polyline class="pf-pen-draft" points="${pointsAttr(previewPoints)}" vector-effect="non-scaling-stroke" />`
-        : "";
+      const preview = previewPoints.length >= 2 ? `<polyline class="pf-pen-draft" points="${pointsAttr(previewPoints)}" vector-effect="non-scaling-stroke" />` : "";
       const nodes = draft.map((point) => `<circle class="pf-pen-node" cx="${point.x}" cy="${point.y}" r="3.5" vector-effect="non-scaling-stroke" />`).join("");
       layer.innerHTML = committed + preview + nodes;
     }
@@ -82,6 +80,7 @@ export default function OverviewPenRuntime() {
       active = next;
       button?.classList.toggle("active", active);
       stage?.classList.toggle("pf-pen-active", active);
+      cursor?.classList.toggle("active", active);
       if (!active) cancelDraft();
     }
 
@@ -121,13 +120,13 @@ export default function OverviewPenRuntime() {
     }
 
     function onKeyDown(event) {
-      if (!active) return;
       const target = event.target;
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+      if (event.key.toLowerCase() === "p") { event.preventDefault(); setActive(!active); return; }
+      if (!active) return;
       if (event.key === "Enter") { event.preventDefault(); finish(); }
       if (event.key === "Escape") { event.preventDefault(); cancelDraft(); setActive(false); }
       if (event.key === "Backspace" && draft.length) { event.preventDefault(); draft.pop(); render(); }
-      if (event.key.toLowerCase() === "p") { event.preventDefault(); setActive(!active); }
     }
 
     function onCamera(event) {
@@ -138,8 +137,15 @@ export default function OverviewPenRuntime() {
       applyCamera();
     }
 
+    function detachStage() {
+      stage?.removeEventListener("pointerdown", onPointerDown, true);
+      stage?.removeEventListener("dblclick", onDoubleClick, true);
+      stage?.removeEventListener("pointermove", onPointerMove, true);
+    }
+
     function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
+      detachStage();
       stage = nextStage;
       layer?.remove();
       cursor?.remove();
@@ -155,6 +161,7 @@ export default function OverviewPenRuntime() {
       cursor = document.createElement("div");
       cursor.className = "pf-pen-cursor";
       document.body.appendChild(cursor);
+      cursor.classList.toggle("active", active);
 
       stage.addEventListener("pointerdown", onPointerDown, true);
       stage.addEventListener("dblclick", onDoubleClick, true);
@@ -196,9 +203,7 @@ export default function OverviewPenRuntime() {
       observer?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("keydown", onKeyDown, true);
-      stage?.removeEventListener("pointerdown", onPointerDown, true);
-      stage?.removeEventListener("dblclick", onDoubleClick, true);
-      stage?.removeEventListener("pointermove", onPointerMove, true);
+      detachStage();
       layer?.remove();
       cursor?.remove();
       button?.remove();
