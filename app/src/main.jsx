@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./components/CommercialShell.css";
+import "./product/overviewV2Migration.js";
 import App from "./App.jsx";
 import UnitReviewBar from "./components/UnitReviewBar.jsx";
 import PerformanceFeedback from "./components/PerformanceFeedback.jsx";
