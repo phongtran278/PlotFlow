@@ -65,6 +65,42 @@ function clampFraction(value) {
   return Math.max(0, Math.min(1, Number(value) || 0));
 }
 
+function textItemMeta(item) {
+  const normalized = normalizeCode(item?.str || "");
+  if (!normalized) return null;
+  const x = Number(item.transform?.[4] || 0);
+  const y = Number(item.transform?.[5] || 0);
+  const width = Math.max(0, Number(item.width || 0));
+  const height = Math.max(0, Number(item.height || Math.abs(item.transform?.[3] || 0) || 0));
+  return { item, normalized, x, y, width, height };
+}
+
+function firstGlyphPoint(meta, hitIndex = 0) {
+  const fraction = clampFraction(hitIndex / Math.max(1, meta.normalized.length));
+  return {
+    x: meta.x + meta.width * fraction,
+    y: meta.y + meta.height * 0.5,
+  };
+}
+
+function sameTextLine(a, b) {
+  const h = Math.max(1, a.height, b.height);
+  return Math.abs(a.y - b.y) <= h * 1.35;
+}
+
+function findCodeAcrossItems(items, code) {
+  for (let start = 0; start < items.length; start += 1) {
+    let joined = "";
+    for (let end = start; end < Math.min(items.length, start + 6); end += 1) {
+      if (end > start && !sameTextLine(items[end - 1], items[end])) break;
+      joined += items[end].normalized;
+      if (joined === code || joined.startsWith(code)) return { meta: items[start], hitIndex: 0, sourceText: items.slice(start, end + 1).map((entry) => entry.item.str).join("") };
+      if (!code.startsWith(joined)) break;
+    }
+  }
+  return null;
+}
+
 export default function OverviewLiveUnitsRuntime() {
   useEffect(() => {
     let stage = null;
@@ -86,38 +122,42 @@ export default function OverviewLiveUnitsRuntime() {
       const nextIndex = new Map();
       try {
         if (!pdf) pdf = await pdfjsLib.getDocument({ url: PDF_URL, isEvalSupported: false }).promise;
+
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           if (disposed) return;
           const page = await pdf.getPage(pageNumber);
           const viewport = page.getViewport({ scale: 1 });
           const content = await page.getTextContent();
+          const metas = (content.items || []).map(textItemMeta).filter(Boolean);
 
-          for (const item of content.items || []) {
-            if (!item?.str) continue;
-            const normalizedText = normalizeCode(item.str);
-            if (!normalizedText) continue;
-            for (const code of wanted) {
-              if (nextIndex.has(code)) continue;
-              const hitIndex = normalizedText.indexOf(code);
+          for (const code of wanted) {
+            if (nextIndex.has(code)) continue;
+
+            let match = null;
+            for (const meta of metas) {
+              const hitIndex = meta.normalized.indexOf(code);
               if (hitIndex < 0) continue;
-
-              const x = Number(item.transform?.[4] || 0);
-              const y = Number(item.transform?.[5] || 0);
-              const width = Math.max(0, Number(item.width || 0));
-              const height = Math.max(0, Number(item.height || Math.abs(item.transform?.[3] || 0) || 0));
-              const centerFraction = clampFraction((hitIndex + code.length / 2) / Math.max(1, normalizedText.length));
-              const [viewX, viewY] = viewport.convertToViewportPoint(x + width * centerFraction, y + height / 2);
-              nextIndex.set(code, {
-                x: Math.max(0, Math.min(100, (viewX / viewport.width) * 100)),
-                y: Math.max(0, Math.min(100, (viewY / viewport.height) * 100)),
-                pageNumber,
-                sourceText: item.str,
-              });
+              match = { meta, hitIndex, sourceText: meta.item.str };
+              break;
             }
+            if (!match) match = findCodeAcrossItems(metas, code);
+            if (!match) continue;
+
+            const point = firstGlyphPoint(match.meta, match.hitIndex);
+            const [viewX, viewY] = viewport.convertToViewportPoint(point.x, point.y);
+            nextIndex.set(code, {
+              x: Math.max(0, Math.min(100, (viewX / viewport.width) * 100)),
+              y: Math.max(0, Math.min(100, (viewY / viewport.height) * 100)),
+              pageNumber,
+              sourceText: match.sourceText,
+              anchorMode: "first-glyph",
+            });
           }
+
           page.cleanup?.();
           if (nextIndex.size === wanted.size) break;
         }
+
         if (!disposed) {
           pdfIndex = nextIndex;
           indexedSignature = signature;
@@ -129,11 +169,10 @@ export default function OverviewLiveUnitsRuntime() {
       }
     }
 
-    function locate(unit, index, total) {
+    function locate(unit) {
       const exact = pdfIndex.get(unit.normalized);
       if (exact) return { ...exact, found: true };
-      const angle = (index / Math.max(1, total)) * Math.PI * 2;
-      return { x: 50 + Math.cos(angle) * 8, y: 50 + Math.sin(angle) * 8, found: false };
+      return { x: 50, y: 50, found: false };
     }
 
     function render(units, force = false) {
@@ -163,7 +202,7 @@ export default function OverviewLiveUnitsRuntime() {
         const row = side === "left" ? index : index - split;
         const sideCount = side === "left" ? split : units.length - split;
         const topPct = sideCount <= 1 ? 46 : 5 + (row * 88) / (sideCount - 1);
-        const pos = locate(unit, index, units.length);
+        const pos = locate(unit);
 
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         line.dataset.unitCode = unit.code;
@@ -171,6 +210,7 @@ export default function OverviewLiveUnitsRuntime() {
         line.setAttribute("y1", String(topPct + 5));
         line.setAttribute("x2", String(pos.x));
         line.setAttribute("y2", String(pos.y));
+        if (!pos.found) line.style.opacity = "0";
         svg.appendChild(line);
 
         const anchor = makeNode("button", "pf-map-anchor pf-live-map-anchor");
@@ -178,10 +218,11 @@ export default function OverviewLiveUnitsRuntime() {
         anchor.dataset.unitCode = unit.code;
         anchor.dataset.located = pos.found ? "1" : "0";
         anchor.dataset.pageNumber = String(pos.pageNumber || 1);
+        anchor.dataset.anchorMode = pos.anchorMode || "missing";
         anchor.textContent = unit.code;
         anchor.style.left = `${pos.x}%`;
         anchor.style.top = `${pos.y}%`;
-        anchor.title = pos.found ? `${unit.code} · exact PDF text anchor` : `${unit.code} · chưa thấy text trong PDF, kéo chấm để chỉnh`;
+        anchor.title = pos.found ? `${unit.code} · first glyph from PDF text` : `${unit.code} · chưa tìm thấy text thật trong PDF`;
         nextLayer.appendChild(anchor);
 
         const card = makeNode("article", `pf-sales-callout pf-live-sales-callout side-${side}`);
