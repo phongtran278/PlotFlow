@@ -116,7 +116,7 @@ export default function OverviewLiveUnitsRuntime() {
 
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         line.dataset.unitCode = unit.code;
-        line.setAttribute("x1", side === "left" ? "19" : "81");
+        line.setAttribute("x1", side === "left" ? "16" : "84");
         line.setAttribute("y1", String(topPct + 5));
         line.setAttribute("x2", "50");
         line.setAttribute("y2", "50");
@@ -137,8 +137,8 @@ export default function OverviewLiveUnitsRuntime() {
         card.dataset.unitCode = unit.code;
         card.dataset.handover = unit.handover || "";
         card.style.top = `${topPct}%`;
-        if (side === "left") card.style.left = "1.5%";
-        else card.style.right = "1.5%";
+        if (side === "left") card.style.left = "5.5%";
+        else card.style.right = "5.5%";
         card.innerHTML = `
           <button type="button" class="pf-sales-callout-hit" aria-label="Chọn ${escapeHtml(unit.code)}"></button>
           <div class="pf-sell-card-code">${escapeHtml(unit.code)}</div>
