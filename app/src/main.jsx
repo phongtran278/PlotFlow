@@ -25,6 +25,7 @@ import OverviewControlRailRuntime from "./product/OverviewControlRailRuntime.jsx
 import OverviewV2Runtime from "./product/OverviewV2Runtime.jsx";
 import OverviewSellDataRuntime from "./product/OverviewSellDataRuntime.jsx";
 import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
+import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
 import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
@@ -72,6 +73,7 @@ createRoot(document.getElementById("root")).render(
       <OverviewControlRailRuntime />
       <OverviewV2Runtime />
       <OverviewPenRuntime />
+      <OverviewSimplifiedRuntime />
     </ProductShell>
   </AuthGate>
 );
