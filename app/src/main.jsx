@@ -27,6 +27,10 @@ import "./product/PremiumAuthPolish.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
+window.__PLOTFLOW_BUILD__ = __PLOTFLOW_BUILD_COMMIT__;
+document.documentElement.dataset.plotflowBuild = __PLOTFLOW_BUILD_COMMIT__;
+console.info(`[PlotFlow] build ${__PLOTFLOW_BUILD_COMMIT__}`);
+
 installMemoryProfile();
 
 window.__plotflowPreviewInteractionsCleanup?.();
