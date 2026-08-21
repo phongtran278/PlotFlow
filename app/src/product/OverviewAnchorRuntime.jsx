@@ -25,6 +25,8 @@ export default function OverviewAnchorRuntime() {
     let activeCode = "";
     let anchors = readAnchors();
     let drag = null;
+    let navigator = null;
+    let navSelect = null;
 
     function cards() {
       return stage ? Array.from(stage.querySelectorAll(".pf-sales-callout")) : [];
@@ -32,6 +34,10 @@ export default function OverviewAnchorRuntime() {
 
     function codeForCard(card) {
       return card?.dataset?.unitCode || card?.querySelector("header strong")?.textContent?.trim() || "";
+    }
+
+    function codes() {
+      return cards().map(codeForCard).filter(Boolean);
     }
 
     function anchorForCode(code) {
@@ -82,30 +88,27 @@ export default function OverviewAnchorRuntime() {
       refreshAnchorVisuals();
       stage?.classList.toggle("pf-has-active-anchor", Boolean(activeCode));
       if (stage) stage.dataset.pfActiveAnchor = activeCode;
+      if (navSelect && code && Array.from(navSelect.options).some((option) => option.value === code)) navSelect.value = code;
+      cards().forEach((item) => item.classList.toggle("pf-focus-card-active", codeForCard(item) === code));
     }
 
-    function focusCard(card) {
-      const code = codeForCard(card);
+    function focusCode(code) {
       if (!code || !stage) return;
       applySavedAnchor(code);
       const anchor = anchorForCode(code);
       if (!anchor) return;
-
       const x = Number.parseFloat(anchor.style.left || "50");
       const y = Number.parseFloat(anchor.style.top || "50");
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 
       setActive(code);
-      cards().forEach((item) => item.classList.toggle("pf-focus-card-active", item === card));
       window.dispatchEvent(new CustomEvent("pf-overview-focus-request", {
-        detail: {
-          code,
-          x,
-          y,
-          scale: FOCUS_SCALE,
-          located: anchor.dataset?.located === "1",
-        },
+        detail: { code, x, y, scale: FOCUS_SCALE, located: anchor.dataset?.located === "1" },
       }));
+    }
+
+    function focusCard(card) {
+      focusCode(codeForCard(card));
     }
 
     function onDoubleClick(event) {
@@ -115,6 +118,58 @@ export default function OverviewAnchorRuntime() {
       event.stopPropagation();
       event.stopImmediatePropagation?.();
       focusCard(card);
+    }
+
+    function onCardClick(event) {
+      const card = event.target.closest?.(".pf-sales-callout");
+      if (!card || !stage?.contains(card)) return;
+      const code = codeForCard(card);
+      if (code && navSelect) navSelect.value = code;
+    }
+
+    function stepNavigator(delta) {
+      const list = codes();
+      if (!list.length) return;
+      const current = navSelect?.value || activeCode || list[0];
+      const currentIndex = Math.max(0, list.indexOf(current));
+      const next = list[(currentIndex + delta + list.length) % list.length];
+      if (navSelect) navSelect.value = next;
+      setActive(next);
+    }
+
+    function buildNavigator() {
+      if (!stage) return;
+      const list = codes();
+      if (!list.length) return;
+      navigator?.remove();
+      navigator = document.createElement("div");
+      navigator.className = "pf-unit-navigator";
+      navigator.innerHTML = `
+        <span class="pf-unit-navigator-label">UNIT</span>
+        <button type="button" data-nav="prev" title="Previous unit">‹</button>
+        <select aria-label="Chọn mã căn"></select>
+        <button type="button" data-nav="next" title="Next unit">›</button>
+        <button type="button" class="pf-unit-focus-button" data-nav="focus">Focus</button>
+        <small>${list.length} căn</small>`;
+      navSelect = navigator.querySelector("select");
+      list.forEach((code) => {
+        const option = document.createElement("option");
+        option.value = code;
+        option.textContent = code;
+        navSelect.appendChild(option);
+      });
+      if (activeCode && list.includes(activeCode)) navSelect.value = activeCode;
+      navigator.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-nav]");
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (button.dataset.nav === "prev") stepNavigator(-1);
+        if (button.dataset.nav === "next") stepNavigator(1);
+        if (button.dataset.nav === "focus") focusCode(navSelect?.value || list[0]);
+      });
+      navSelect.addEventListener("change", () => setActive(navSelect.value));
+      stage.appendChild(navigator);
     }
 
     function onCamera(event) {
@@ -166,23 +221,36 @@ export default function OverviewAnchorRuntime() {
     }
 
     function onLiveUnitsReady() {
-      requestAnimationFrame(refreshAnchorVisuals);
+      requestAnimationFrame(() => {
+        refreshAnchorVisuals();
+        buildNavigator();
+      });
     }
 
-    function attach(nextStage) {
-      if (!nextStage || nextStage === stage) return;
+    function detachStage() {
       stage?.removeEventListener("dblclick", onDoubleClick, true);
+      stage?.removeEventListener("click", onCardClick, true);
       stage?.removeEventListener("pointerdown", onAnchorPointerDown, true);
       stage?.removeEventListener("pointermove", onAnchorPointerMove, true);
       stage?.removeEventListener("pointerup", finishAnchorDrag, true);
       stage?.removeEventListener("pointercancel", finishAnchorDrag, true);
+      navigator?.remove();
+      navigator = null;
+      navSelect = null;
+    }
+
+    function attach(nextStage) {
+      if (!nextStage || nextStage === stage) return;
+      detachStage();
       stage = nextStage;
       stage.addEventListener("dblclick", onDoubleClick, true);
+      stage.addEventListener("click", onCardClick, true);
       stage.addEventListener("pointerdown", onAnchorPointerDown, true);
       stage.addEventListener("pointermove", onAnchorPointerMove, true);
       stage.addEventListener("pointerup", finishAnchorDrag, true);
       stage.addEventListener("pointercancel", finishAnchorDrag, true);
       refreshAnchorVisuals();
+      buildNavigator();
     }
 
     function sync() {
@@ -192,7 +260,7 @@ export default function OverviewAnchorRuntime() {
 
     sync();
     observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
 
@@ -200,11 +268,7 @@ export default function OverviewAnchorRuntime() {
       observer?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
-      stage?.removeEventListener("dblclick", onDoubleClick, true);
-      stage?.removeEventListener("pointerdown", onAnchorPointerDown, true);
-      stage?.removeEventListener("pointermove", onAnchorPointerMove, true);
-      stage?.removeEventListener("pointerup", finishAnchorDrag, true);
-      stage?.removeEventListener("pointercancel", finishAnchorDrag, true);
+      detachStage();
     };
   }, []);
 
