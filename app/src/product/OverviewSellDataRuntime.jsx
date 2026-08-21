@@ -29,16 +29,17 @@ function normalizeRow(row) {
   if (!code) return null;
   return {
     code,
-    handover: text(pick(row, ["handover", "TCBG", "Tiêu chuẩn bàn giao", "Tiêu chuẩn giao nhà"])),
-    land: text(pick(row, ["landArea", "Diện tích đất", "DT đất", "DTĐ"])),
-    floor: text(pick(row, ["constructionArea", "Diện tích sàn", "DT sàn", "DTS", "Diện tích xây dựng"])),
-    type: text(pick(row, ["type", "Loại hình", "Loại sản phẩm"])),
+    handover: text(pick(row, ["handover", "TCBG", "Tiêu chuẩn bàn giao", "Tiêu chuẩn giao nhà", "TC bàn giao", "Tiêu chuẩn BG"])),
+    land: text(pick(row, ["landArea", "Diện tích đất", "DT đất", "DTĐ", "DTD"])),
+    floor: text(pick(row, ["constructionArea", "Diện tích sàn", "DT sàn", "DTS", "Diện tích xây dựng", "DTXD"])),
+    type: text(pick(row, ["type", "Loại hình", "Loại sản phẩm", "Loại nhà"])),
     priceLandVat: text(pick(row, [
       "priceLandVat",
       "Giá đất & GT TM (đã VAT)",
       "Giá đất & GT TM đã VAT",
       "Giá đất và GT TM đã VAT",
       "Giá đất & GT TM",
+      "Giá đất + GT TM",
       "Giá đất",
       "priceEarly",
     ])),
@@ -46,6 +47,7 @@ function normalizeRow(row) {
       "priceAllIn",
       "Giá All-in",
       "Giá All In",
+      "GIÁ ALL-IN",
       "ALL-IN",
       "All in",
       "price18",
@@ -61,9 +63,9 @@ function publish(units) {
   window.dispatchEvent(new CustomEvent("plotflow-overview-sell-units", { detail: { units: clean, groups } }));
 }
 
-async function parseSheetCsv(csvText) {
+async function rowsFromWorkbookInput(input, type) {
   const XLSX = await import("xlsx");
-  const workbook = XLSX.read(csvText, { type: "string" });
+  const workbook = XLSX.read(input, { type });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   return XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map(normalizeRow).filter(Boolean);
 }
@@ -98,16 +100,32 @@ export default function OverviewSellDataRuntime() {
       const response = await originalFetch(input, init);
       const url = typeof input === "string" ? input : input?.url || response.url || "";
       if (looksLikeSheetCsv(url)) {
-        response.clone().text().then(parseSheetCsv).then((units) => {
+        response.clone().text().then((csv) => rowsFromWorkbookInput(csv, "string")).then((units) => {
           if (!disposed && units.length) publish(units);
         }).catch((error) => console.warn("Overview sell sheet capture failed", error));
       }
       return response;
     }
 
+    async function onFileChange(event) {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement) || input.type !== "file") return;
+      if (!input.closest?.(".excel-import-button")) return;
+      const file = input.files?.[0];
+      if (!file || !/\.(xlsx|xls)$/i.test(file.name)) return;
+      try {
+        const units = await rowsFromWorkbookInput(await file.arrayBuffer(), "array");
+        if (!disposed && units.length) publish(units);
+      } catch (error) {
+        console.warn("Overview sell Excel capture failed", error);
+      }
+    }
+
     window.fetch = wrappedFetch;
+    document.addEventListener("change", onFileChange, true);
     return () => {
       disposed = true;
+      document.removeEventListener("change", onFileChange, true);
       if (window.fetch === wrappedFetch) window.fetch = originalFetch;
     };
   }, []);
