@@ -21,6 +21,7 @@ import OverviewAnchorRuntime from "./product/OverviewAnchorRuntime.jsx";
 import OverviewLiveUnitsRuntime from "./product/OverviewLiveUnitsRuntime.jsx";
 import OverviewDetailLocatorBridge from "./product/OverviewDetailLocatorBridge.jsx";
 import OverviewControlRailRuntime from "./product/OverviewControlRailRuntime.jsx";
+import OverviewV2Runtime from "./product/OverviewV2Runtime.jsx";
 import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
@@ -65,6 +66,7 @@ createRoot(document.getElementById("root")).render(
       <OverviewLiveUnitsRuntime />
       <OverviewDetailLocatorBridge />
       <OverviewControlRailRuntime />
+      <OverviewV2Runtime />
     </ProductShell>
   </AuthGate>
 );
