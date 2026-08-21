@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import "./OverviewAnchorRuntime.css";
 
-const STORAGE_KEY = "phongflow-overview-anchor-layout-v1";
+const STORAGE_KEY = "phongflow-overview-anchor-layout-v2";
 const FOCUS_SCALE = 70;
 
 function readAnchors() {
