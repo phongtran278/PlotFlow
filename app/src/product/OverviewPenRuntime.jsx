@@ -137,6 +137,14 @@ export default function OverviewPenRuntime() {
       applyCamera();
     }
 
+    function onClearHighlights() {
+      shapes = [];
+      draft = [];
+      hover = null;
+      saveShapes(shapes);
+      render();
+    }
+
     function detachStage() {
       stage?.removeEventListener("pointerdown", onPointerDown, true);
       stage?.removeEventListener("dblclick", onDoubleClick, true);
@@ -197,11 +205,13 @@ export default function OverviewPenRuntime() {
     observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("pf-overview-camera", onCamera);
+    window.addEventListener("pf-overview-clear-highlights", onClearHighlights);
     window.addEventListener("keydown", onKeyDown, true);
 
     return () => {
       observer?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
+      window.removeEventListener("pf-overview-clear-highlights", onClearHighlights);
       window.removeEventListener("keydown", onKeyDown, true);
       detachStage();
       layer?.remove();
