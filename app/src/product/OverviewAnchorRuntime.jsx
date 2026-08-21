@@ -27,6 +27,7 @@ export default function OverviewAnchorRuntime() {
     let drag = null;
     let navigator = null;
     let navSelect = null;
+    let navStatus = null;
 
     function cards() {
       return stage ? Array.from(stage.querySelectorAll(".pf-sales-callout")) : [];
@@ -62,8 +63,10 @@ export default function OverviewAnchorRuntime() {
       if (!anchor || !saved) return;
       anchor.style.left = `${saved.x}%`;
       anchor.style.top = `${saved.y}%`;
+      anchor.dataset.saved = "1";
       const line = lineForCode(code);
       if (line) {
+        line.style.opacity = "";
         line.setAttribute("x2", String(saved.x));
         line.setAttribute("y2", String(saved.y));
       }
@@ -83,6 +86,12 @@ export default function OverviewAnchorRuntime() {
       });
     }
 
+    function setStatus(message = "") {
+      if (!navStatus) return;
+      navStatus.textContent = message;
+      navStatus.hidden = !message;
+    }
+
     function setActive(code) {
       activeCode = code;
       refreshAnchorVisuals();
@@ -97,10 +106,19 @@ export default function OverviewAnchorRuntime() {
       applySavedAnchor(code);
       const anchor = anchorForCode(code);
       if (!anchor) return;
+
+      const verified = anchor.dataset?.located === "1" || anchor.dataset?.saved === "1";
+      if (!verified) {
+        setActive(code);
+        setStatus("Chưa tìm thấy mã này trong text PDF");
+        return;
+      }
+
       const x = Number.parseFloat(anchor.style.left || "50");
       const y = Number.parseFloat(anchor.style.top || "50");
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 
+      setStatus("");
       setActive(code);
       window.dispatchEvent(new CustomEvent("pf-overview-focus-request", {
         detail: { code, x, y, scale: FOCUS_SCALE, located: anchor.dataset?.located === "1" },
@@ -134,6 +152,7 @@ export default function OverviewAnchorRuntime() {
       const currentIndex = Math.max(0, list.indexOf(current));
       const next = list[(currentIndex + delta + list.length) % list.length];
       if (navSelect) navSelect.value = next;
+      setStatus("");
       setActive(next);
     }
 
@@ -150,8 +169,10 @@ export default function OverviewAnchorRuntime() {
         <select aria-label="Chọn mã căn"></select>
         <button type="button" data-nav="next" title="Next unit">›</button>
         <button type="button" class="pf-unit-focus-button" data-nav="focus">Focus</button>
-        <small>${list.length} căn</small>`;
+        <small>${list.length} căn</small>
+        <em class="pf-unit-focus-status" hidden></em>`;
       navSelect = navigator.querySelector("select");
+      navStatus = navigator.querySelector(".pf-unit-focus-status");
       list.forEach((code) => {
         const option = document.createElement("option");
         option.value = code;
@@ -168,7 +189,7 @@ export default function OverviewAnchorRuntime() {
         if (button.dataset.nav === "next") stepNavigator(1);
         if (button.dataset.nav === "focus") focusCode(navSelect?.value || list[0]);
       });
-      navSelect.addEventListener("change", () => setActive(navSelect.value));
+      navSelect.addEventListener("change", () => { setStatus(""); setActive(navSelect.value); });
       stage.appendChild(navigator);
     }
 
@@ -204,8 +225,10 @@ export default function OverviewAnchorRuntime() {
       const y = Math.max(-20, Math.min(120, drag.startY + dy));
       drag.anchor.style.left = `${x}%`;
       drag.anchor.style.top = `${y}%`;
+      drag.anchor.dataset.saved = "1";
       const line = lineForCode(drag.code);
       if (line) {
+        line.style.opacity = "";
         line.setAttribute("x2", String(x));
         line.setAttribute("y2", String(y));
       }
@@ -237,6 +260,7 @@ export default function OverviewAnchorRuntime() {
       navigator?.remove();
       navigator = null;
       navSelect = null;
+      navStatus = null;
     }
 
     function attach(nextStage) {
