@@ -35,12 +35,31 @@ function lineFor(stage, code) {
   return Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).find((line) => line.dataset.unitCode === code) || null;
 }
 
+function pagePointToStagePercent(stage, pageRender) {
+  const rect = stage.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2 || pageRender.width < 2 || pageRender.height < 2) return null;
+
+  const fit = Math.min(rect.width / pageRender.width, rect.height / pageRender.height);
+  const renderedWidth = pageRender.width * fit;
+  const renderedHeight = pageRender.height * fit;
+  const baseX = (rect.width - renderedWidth) / 2;
+  const baseY = (rect.height - renderedHeight) / 2;
+  const stageX = baseX + pageRender.anchorX * fit;
+  const stageY = baseY + pageRender.anchorY * fit;
+
+  return {
+    x: (stageX / rect.width) * 100,
+    y: (stageY / rect.height) * 100,
+  };
+}
+
 export default function OverviewDetailLocatorBridge() {
   useEffect(() => {
     let disposed = false;
     let observer = null;
     let running = false;
     let lastSignature = "";
+    let locatorUpdateHandler = null;
 
     async function sync(force = false) {
       if (disposed || running) return;
@@ -50,10 +69,11 @@ export default function OverviewDetailLocatorBridge() {
       if (!codes.length) return;
 
       const overrides = readFloorplanOverrides();
-      const signature = JSON.stringify(codes.map((code) => [
-        normalizeUnitCode(code),
-        overrides[normalizeUnitCode(code)]?.selectedMatchIndex ?? 0,
-      ]));
+      const stageRect = stage.getBoundingClientRect();
+      const signature = JSON.stringify({
+        codes: codes.map((code) => [normalizeUnitCode(code), overrides[normalizeUnitCode(code)]?.selectedMatchIndex ?? 0]),
+        size: [Math.round(stageRect.width), Math.round(stageRect.height)],
+      });
       if (!force && signature === lastSignature && stage.dataset.pfDetailLocatorBridge === "1") return;
 
       running = true;
@@ -92,22 +112,22 @@ export default function OverviewDetailLocatorBridge() {
             pageBases.set(match.pageNumber, pageBase);
           }
           const pageRender = attachMatchToPageRender(pageBase, match);
-          const x = (pageRender.anchorX / pageRender.width) * 100;
-          const y = (pageRender.anchorY / pageRender.height) * 100;
+          const point = pagePointToStagePercent(stage, pageRender);
+          if (!point) continue;
 
-          anchor.style.left = `${x}%`;
-          anchor.style.top = `${y}%`;
+          anchor.style.left = `${point.x}%`;
+          anchor.style.top = `${point.y}%`;
           anchor.dataset.located = "1";
           anchor.dataset.anchorMode = "detail-locator";
           anchor.dataset.selectedMatchIndex = String(selectedIndex);
           anchor.dataset.matchCount = String(matches.length);
           anchor.dataset.pageNumber = String(match.pageNumber);
-          anchor.dataset.saved = "";
+          delete anchor.dataset.saved;
           anchor.title = `${rawCode} · Detail locator · candidate ${selectedIndex + 1}/${matches.length}`;
 
           if (line) {
-            line.setAttribute("x2", String(x));
-            line.setAttribute("y2", String(y));
+            line.setAttribute("x2", String(point.x));
+            line.setAttribute("y2", String(point.y));
             line.style.opacity = "";
           }
           located += 1;
@@ -146,13 +166,17 @@ export default function OverviewDetailLocatorBridge() {
     const onStorage = (event) => {
       if (!event || event.key === FLOORPLAN_OVERRIDE_KEY) schedule(true);
     };
+    locatorUpdateHandler = () => schedule(true);
     window.addEventListener("storage", onStorage);
-    window.addEventListener("plotflow-floorplan-locator-updated", () => schedule(true));
+    window.addEventListener("plotflow-floorplan-locator-updated", locatorUpdateHandler);
+    window.addEventListener("resize", locatorUpdateHandler);
 
     return () => {
       disposed = true;
       observer?.disconnect();
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener("plotflow-floorplan-locator-updated", locatorUpdateHandler);
+      window.removeEventListener("resize", locatorUpdateHandler);
       window.clearTimeout(schedule.timer);
     };
   }, []);
