@@ -19,6 +19,7 @@ import OverviewPdfRuntime from "./product/OverviewPdfRuntime.jsx";
 import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
 import OverviewAnchorRuntime from "./product/OverviewAnchorRuntime.jsx";
 import OverviewLiveUnitsRuntime from "./product/OverviewLiveUnitsRuntime.jsx";
+import OverviewDetailLocatorBridge from "./product/OverviewDetailLocatorBridge.jsx";
 import OverviewControlRailRuntime from "./product/OverviewControlRailRuntime.jsx";
 import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
@@ -62,6 +63,7 @@ createRoot(document.getElementById("root")).render(
       <OverviewExportRuntime />
       <OverviewAnchorRuntime />
       <OverviewLiveUnitsRuntime />
+      <OverviewDetailLocatorBridge />
       <OverviewControlRailRuntime />
     </ProductShell>
   </AuthGate>
