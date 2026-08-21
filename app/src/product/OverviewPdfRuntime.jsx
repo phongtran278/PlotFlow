@@ -14,13 +14,32 @@ export default function OverviewPdfRuntime() {
     let stage = null;
     let canvas = null;
     let ctx = null;
+    let bufferCanvas = null;
+    let bufferCtx = null;
     let pdf = null;
     let page = null;
     let resizeObserver = null;
     let renderTask = null;
     let renderTimer = 0;
+    let renderGeneration = 0;
     let renderedCamera = { scale: 1, tx: 0, ty: 0 };
     let pendingCamera = { scale: 1, tx: 0, ty: 0 };
+
+    function ensureCanvasSize(rect, dpr) {
+      if (!canvas || !bufferCanvas) return;
+      const pixelW = Math.max(2, Math.round(rect.width * dpr));
+      const pixelH = Math.max(2, Math.round(rect.height * dpr));
+      if (canvas.width !== pixelW || canvas.height !== pixelH) {
+        canvas.width = pixelW;
+        canvas.height = pixelH;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+      }
+      if (bufferCanvas.width !== pixelW || bufferCanvas.height !== pixelH) {
+        bufferCanvas.width = pixelW;
+        bufferCanvas.height = pixelH;
+      }
+    }
 
     function snapshotTransform(camera) {
       if (!canvas) return;
@@ -33,20 +52,16 @@ export default function OverviewPdfRuntime() {
     }
 
     async function renderCamera(camera) {
-      if (!stage || !canvas || !ctx || !page || disposed) return;
+      if (!stage || !canvas || !ctx || !bufferCanvas || !bufferCtx || !page || disposed) return;
       const rect = stage.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return;
 
+      const generation = ++renderGeneration;
       const dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
-      const pixelW = Math.max(2, Math.round(rect.width * dpr));
-      const pixelH = Math.max(2, Math.round(rect.height * dpr));
-      if (canvas.width !== pixelW || canvas.height !== pixelH) {
-        canvas.width = pixelW;
-        canvas.height = pixelH;
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
-      }
+      ensureCanvasSize(rect, dpr);
 
+      const pixelW = bufferCanvas.width;
+      const pixelH = bufferCanvas.height;
       const baseViewport = page.getViewport({ scale: 1 });
       const fit = Math.min(rect.width / baseViewport.width, rect.height / baseViewport.height);
       const baseX = (rect.width - baseViewport.width * fit) / 2;
@@ -56,15 +71,16 @@ export default function OverviewPdfRuntime() {
       const translateY = (camera.ty + camera.scale * baseY) * dpr;
 
       try { renderTask?.cancel?.(); } catch { /* noop */ }
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, pixelW, pixelH);
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, pixelW, pixelH);
-      ctx.restore();
+
+      bufferCtx.save();
+      bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
+      bufferCtx.clearRect(0, 0, pixelW, pixelH);
+      bufferCtx.fillStyle = "#fff";
+      bufferCtx.fillRect(0, 0, pixelW, pixelH);
+      bufferCtx.restore();
 
       renderTask = page.render({
-        canvasContext: ctx,
+        canvasContext: bufferCtx,
         viewport,
         transform: [1, 0, 0, 1, translateX, translateY],
         background: "#ffffff",
@@ -73,7 +89,14 @@ export default function OverviewPdfRuntime() {
 
       try {
         await renderTask.promise;
-        if (disposed) return;
+        if (disposed || generation !== renderGeneration) return;
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bufferCanvas, 0, 0);
+        ctx.restore();
+
         renderedCamera = { ...camera };
         canvas.style.transform = "none";
         stage.classList.add("pf-pdf-crisp-ready");
@@ -93,7 +116,14 @@ export default function OverviewPdfRuntime() {
       if (!Number.isFinite(camera.scale)) return;
       pendingCamera = { scale: camera.scale, tx: camera.tx || 0, ty: camera.ty || 0 };
       snapshotTransform(pendingCamera);
-      scheduleRender(pendingCamera, camera.dragging ? 140 : 55);
+
+      // While the camera is moving, keep the last crisp frame and only transform it.
+      // Render the expensive PDF frame once the motion settles.
+      if (camera.dragging) {
+        window.clearTimeout(renderTimer);
+        return;
+      }
+      scheduleRender(pendingCamera, 45);
     }
 
     async function attach(nextStage) {
@@ -109,6 +139,9 @@ export default function OverviewPdfRuntime() {
       stage.prepend(canvas);
       ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
 
+      bufferCanvas = document.createElement("canvas");
+      bufferCtx = bufferCanvas.getContext("2d", { alpha: false });
+
       try {
         pdf = await pdfjsLib.getDocument({ url: PDF_URL, isEvalSupported: false }).promise;
         if (disposed) return;
@@ -119,6 +152,7 @@ export default function OverviewPdfRuntime() {
         console.warn("Overview PDF.js unavailable; keeping browser PDF fallback", error);
         canvas?.remove();
         canvas = null;
+        bufferCanvas = null;
         if (iframe) iframe.classList.remove("pf-pdf-fallback");
         return;
       }
@@ -139,6 +173,7 @@ export default function OverviewPdfRuntime() {
 
     return () => {
       disposed = true;
+      renderGeneration += 1;
       observer.disconnect();
       resizeObserver?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
@@ -146,6 +181,8 @@ export default function OverviewPdfRuntime() {
       try { renderTask?.cancel?.(); } catch { /* noop */ }
       try { pdf?.destroy?.(); } catch { /* noop */ }
       canvas?.remove();
+      bufferCanvas = null;
+      bufferCtx = null;
       if (stage) delete stage.dataset.pfPdfViewportReady;
     };
   }, []);
