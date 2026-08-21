@@ -42,6 +42,10 @@ function readUnits() {
   }).filter((item) => item.code);
 }
 
+function unitSignature(units) {
+  return JSON.stringify(units.map(({ code, handover, land, floor, price1, price2 }) => ({ code, handover, land, floor, price1, price2 })));
+}
+
 function makeNode(tag, className = "") {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -57,6 +61,10 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#039;");
 }
 
+function clampFraction(value) {
+  return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
 export default function OverviewLiveUnitsRuntime() {
   useEffect(() => {
     let stage = null;
@@ -66,7 +74,9 @@ export default function OverviewLiveUnitsRuntime() {
     let pdf = null;
     let pdfIndex = new Map();
     let indexedSignature = "";
+    let renderedSignature = "";
     let renderTimer = 0;
+    let rebuilding = false;
 
     async function ensurePdfIndex(units) {
       const wanted = new Set(units.map((unit) => unit.normalized).filter(Boolean));
@@ -76,7 +86,6 @@ export default function OverviewLiveUnitsRuntime() {
       const nextIndex = new Map();
       try {
         if (!pdf) pdf = await pdfjsLib.getDocument({ url: PDF_URL, isEvalSupported: false }).promise;
-
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           if (disposed) return;
           const page = await pdf.getPage(pageNumber);
@@ -87,7 +96,6 @@ export default function OverviewLiveUnitsRuntime() {
             if (!item?.str) continue;
             const normalizedText = normalizeCode(item.str);
             if (!normalizedText) continue;
-
             for (const code of wanted) {
               if (nextIndex.has(code)) continue;
               const hitIndex = normalizedText.indexOf(code);
@@ -97,26 +105,19 @@ export default function OverviewLiveUnitsRuntime() {
               const y = Number(item.transform?.[5] || 0);
               const width = Math.max(0, Number(item.width || 0));
               const height = Math.max(0, Number(item.height || Math.abs(item.transform?.[3] || 0) || 0));
-              const charCount = Math.max(1, normalizedText.length);
-              const centerFraction = clampFraction((hitIndex + code.length / 2) / charCount);
-              const textCenterX = x + width * centerFraction;
-              const textCenterY = y + height / 2;
-              const [viewX, viewY] = viewport.convertToViewportPoint(textCenterX, textCenterY);
-
+              const centerFraction = clampFraction((hitIndex + code.length / 2) / Math.max(1, normalizedText.length));
+              const [viewX, viewY] = viewport.convertToViewportPoint(x + width * centerFraction, y + height / 2);
               nextIndex.set(code, {
                 x: Math.max(0, Math.min(100, (viewX / viewport.width) * 100)),
                 y: Math.max(0, Math.min(100, (viewY / viewport.height) * 100)),
                 pageNumber,
                 sourceText: item.str,
-                exactSubstring: normalizedText !== code,
               });
             }
           }
-
           page.cleanup?.();
           if (nextIndex.size === wanted.size) break;
         }
-
         if (!disposed) {
           pdfIndex = nextIndex;
           indexedSignature = signature;
@@ -128,10 +129,6 @@ export default function OverviewLiveUnitsRuntime() {
       }
     }
 
-    function clampFraction(value) {
-      return Math.max(0, Math.min(1, Number(value) || 0));
-    }
-
     function locate(unit, index, total) {
       const exact = pdfIndex.get(unit.normalized);
       if (exact) return { ...exact, found: true };
@@ -139,8 +136,12 @@ export default function OverviewLiveUnitsRuntime() {
       return { x: 50 + Math.cos(angle) * 8, y: 50 + Math.sin(angle) * 8, found: false };
     }
 
-    function render(units = readUnits()) {
+    function render(units, force = false) {
       if (!stage) return;
+      const signature = unitSignature(units) + "|" + indexedSignature;
+      if (!force && signature === renderedSignature && layer?.isConnected) return;
+      renderedSignature = signature;
+
       if (!units.length) {
         layer?.remove();
         layer = null;
@@ -148,15 +149,13 @@ export default function OverviewLiveUnitsRuntime() {
         return;
       }
 
-      layer?.remove();
-      layer = makeNode("div", "pf-callout-layer pf-live-overview-callouts");
-      layer.setAttribute("aria-label", "Live overview unit callouts");
-
+      const nextLayer = makeNode("div", "pf-callout-layer pf-live-overview-callouts");
+      nextLayer.setAttribute("aria-label", "Live overview unit callouts");
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("class", "pf-callout-lines pf-live-callout-lines");
       svg.setAttribute("viewBox", "0 0 100 100");
       svg.setAttribute("preserveAspectRatio", "none");
-      layer.appendChild(svg);
+      nextLayer.appendChild(svg);
 
       const split = Math.ceil(units.length / 2);
       units.forEach((unit, index) => {
@@ -183,7 +182,7 @@ export default function OverviewLiveUnitsRuntime() {
         anchor.style.left = `${pos.x}%`;
         anchor.style.top = `${pos.y}%`;
         anchor.title = pos.found ? `${unit.code} · exact PDF text anchor` : `${unit.code} · chưa thấy text trong PDF, kéo chấm để chỉnh`;
-        layer.appendChild(anchor);
+        nextLayer.appendChild(anchor);
 
         const card = makeNode("article", `pf-sales-callout pf-live-sales-callout side-${side}`);
         card.dataset.unitCode = unit.code;
@@ -195,49 +194,68 @@ export default function OverviewLiveUnitsRuntime() {
           <button type="button" class="pf-sales-callout-hit" aria-label="Chọn ${escapeHtml(unit.code)}"></button>
           <header><strong>${escapeHtml(unit.code)}</strong><span>${escapeHtml(unit.handover)}</span></header>
           <div class="pf-sales-specs"><span>Đất <b>${escapeHtml(unit.land)}</b></span><span>XD <b>${escapeHtml(unit.floor)}</b></span></div>
-          <div class="pf-sales-prices"><span><small>Giá</small><b>${escapeHtml(unit.price1)}</b></span><span><small>18TH</small><b>${escapeHtml(unit.price2)}</b></span></div>
-        `;
-        layer.appendChild(card);
+          <div class="pf-sales-prices"><span><small>Giá</small><b>${escapeHtml(unit.price1)}</b></span><span><small>18TH</small><b>${escapeHtml(unit.price2)}</b></span></div>`;
+        nextLayer.appendChild(card);
       });
 
-      stage.appendChild(layer);
+      layer?.replaceWith(nextLayer);
+      if (!nextLayer.isConnected) stage.appendChild(nextLayer);
+      layer = nextLayer;
       stage.classList.add("pf-live-overview-ready");
       window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", {
         detail: { count: units.length, located: units.filter((unit) => pdfIndex.has(unit.normalized)).length },
       }));
     }
 
-    async function rebuild() {
-      if (!stage || disposed) return;
-      const units = readUnits();
-      await ensurePdfIndex(units);
-      if (!disposed && stage) render(units);
+    async function rebuild(force = false) {
+      if (!stage || disposed || rebuilding) return;
+      rebuilding = true;
+      try {
+        const units = readUnits();
+        await ensurePdfIndex(units);
+        if (!disposed && stage) render(units, force);
+      } finally {
+        rebuilding = false;
+      }
     }
 
     async function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
       stage = nextStage;
-      await rebuild();
+      renderedSignature = "";
+      await rebuild(true);
     }
 
-    function scheduleSync() {
+    function sync(force = false) {
+      const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
+      if (nextStage && nextStage !== stage) { attach(nextStage); return; }
+      if (stage) rebuild(force);
+    }
+
+    function scheduleSync(force = false) {
       window.clearTimeout(renderTimer);
-      renderTimer = window.setTimeout(() => {
-        const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-        if (nextStage && nextStage !== stage) attach(nextStage);
-        else if (stage) rebuild();
-      }, 100);
+      renderTimer = window.setTimeout(() => sync(force), 120);
     }
 
-    scheduleSync();
-    observer = new MutationObserver(scheduleSync);
+    scheduleSync(true);
+    observer = new MutationObserver((records) => {
+      const externalChange = records.some((record) => {
+        const target = record.target instanceof Element ? record.target : record.target?.parentElement;
+        if (target?.closest?.(".pf-live-overview-callouts")) return false;
+        return Array.from(record.addedNodes || []).some((node) => node instanceof Element && (node.matches?.(".unit-select") || node.querySelector?.(".unit-select"))) ||
+          Array.from(record.removedNodes || []).some((node) => node instanceof Element && (node.matches?.(".unit-select") || node.querySelector?.(".unit-select"))) ||
+          !stage || !stage.isConnected;
+      });
+      if (externalChange) scheduleSync(false);
+    });
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("plotflow-quick-text-updated", scheduleSync);
+    const onQuickText = () => scheduleSync(true);
+    window.addEventListener("plotflow-quick-text-updated", onQuickText);
 
     return () => {
       disposed = true;
       observer?.disconnect();
-      window.removeEventListener("plotflow-quick-text-updated", scheduleSync);
+      window.removeEventListener("plotflow-quick-text-updated", onQuickText);
       window.clearTimeout(renderTimer);
       layer?.remove();
       stage?.classList.remove("pf-live-overview-ready");
