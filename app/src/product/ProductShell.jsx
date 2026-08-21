@@ -130,6 +130,7 @@ export default function ProductShell({ children }) {
                   {OVERVIEW_GROUPS.map((group) => <button key={group} type="button" className={overviewGroup === group ? "active" : ""} onClick={() => setOverviewGroup(group)}>{group}</button>)}
                 </div>
               </div>
+              {project.masterplan && <div className="pf-overview-control-rail" aria-label="Overview editor controls" />}
               <div className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}>
                 {project.masterplan ? (
                   <iframe className="pf-masterplan-pdf" title={`${project.name} masterplan`} src="/masterplan/masterplan.pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitH" />
