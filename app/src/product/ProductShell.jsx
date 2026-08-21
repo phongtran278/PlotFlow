@@ -16,12 +16,22 @@ const PROJECTS = [
   { id: "eco-retreat", code: "ER", name: "Eco Retreat", developer: "Ecopark", location: "Long An", status: "Planning", tone: "forest" },
 ];
 
-const OVERVIEW_GROUPS = ["Hoàn thiện", "Đang xây", "Bàn giao thô"];
+const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Bàn giao thô"];
+const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 
 function readAvailableUnits() {
   return Array.from(document.querySelectorAll(".unit-select .unit-main strong"))
     .map((node) => node.textContent?.trim())
     .filter(Boolean);
+}
+
+function readSellUnits() {
+  try {
+    const value = JSON.parse(localStorage.getItem(SELL_STORAGE_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
 }
 
 function ProjectCard({ project, onOpen }) {
@@ -46,8 +56,9 @@ export default function ProductShell({ children }) {
   const [project, setProject] = useState(PROJECTS[0]);
   const [mode, setMode] = useState("overview");
   const [developer, setDeveloper] = useState("All developers");
-  const [overviewGroup, setOverviewGroup] = useState(OVERVIEW_GROUPS[0]);
+  const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
   const [units, setUnits] = useState([]);
+  const [sellUnits, setSellUnits] = useState(readSellUnits);
 
   useEffect(() => {
     const sync = () => setUnits(readAvailableUnits());
@@ -55,6 +66,12 @@ export default function ProductShell({ children }) {
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const onSellUnits = (event) => setSellUnits(Array.isArray(event.detail?.units) ? event.detail.units : readSellUnits());
+    window.addEventListener("plotflow-overview-sell-units", onSellUnits);
+    return () => window.removeEventListener("plotflow-overview-sell-units", onSellUnits);
   }, []);
 
   useEffect(() => {
@@ -66,6 +83,19 @@ export default function ProductShell({ children }) {
 
   const developers = useMemo(() => ["All developers", ...Array.from(new Set(PROJECTS.map((item) => item.developer)))], []);
   const filteredProjects = useMemo(() => developer === "All developers" ? PROJECTS : PROJECTS.filter((item) => item.developer === developer), [developer]);
+  const overviewGroups = useMemo(() => {
+    const fromSheet = Array.from(new Set(sellUnits.map((item) => String(item.handover || "").trim()).filter(Boolean)));
+    return fromSheet.length ? fromSheet : DEFAULT_OVERVIEW_GROUPS;
+  }, [sellUnits]);
+  const visibleSellUnits = useMemo(() => sellUnits.filter((item) => String(item.handover || "").trim() === overviewGroup), [sellUnits, overviewGroup]);
+
+  useEffect(() => {
+    if (!overviewGroups.includes(overviewGroup)) setOverviewGroup(overviewGroups[0] || "");
+  }, [overviewGroups, overviewGroup]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("pf-overview-group-changed", { detail: { group: overviewGroup } }));
+  }, [overviewGroup]);
 
   function openProject(nextProject) {
     setProject(nextProject);
@@ -128,28 +158,28 @@ export default function ProductShell({ children }) {
             <section className="pf-masterplan-card">
               <div className="pf-masterplan-head pf-masterplan-head-callouts">
                 <div><span>OVERVIEW</span><h1>{project.name}</h1></div>
-                <div className="pf-overview-groups" role="group" aria-label="Trạng thái sản phẩm">
-                  {OVERVIEW_GROUPS.map((group) => <button key={group} type="button" className={overviewGroup === group ? "active" : ""} onClick={() => setOverviewGroup(group)}>{group}</button>)}
+                <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
+                  {overviewGroups.map((group) => <button key={group} type="button" className={overviewGroup === group ? "active" : ""} onClick={() => setOverviewGroup(group)}>{group}</button>)}
                 </div>
               </div>
-              <div className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}>
+              <div className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`} data-overview-group={overviewGroup}>
                 {project.masterplan ? (
                   <iframe className="pf-masterplan-pdf" title={`${project.name} masterplan`} src="/masterplan/masterplan.pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitH" />
                 ) : (
                   <div className={`pf-project-overview-placeholder tone-${project.tone}`}><strong>{project.name}</strong><span>{project.developer}</span></div>
                 )}
-                {project.masterplan && overviewGroup === "Hoàn thiện" && units.length === 0 && (
-                  <div className="pf-overview-coming"><strong>Chưa có dữ liệu căn thật</strong><span>Connect Sheet hoặc Import Excel ở Detail. Overview sẽ chỉ hiển thị unit thật, không dùng dữ liệu demo.</span></div>
+                {project.masterplan && sellUnits.length > 0 && visibleSellUnits.length === 0 && (
+                  <div className="pf-overview-coming"><strong>{overviewGroup}</strong><span>Không có căn nào thuộc đúng tiêu chuẩn bàn giao này trong file sell đang kết nối.</span></div>
                 )}
-                {project.masterplan && overviewGroup !== "Hoàn thiện" && (
-                  <div className="pf-overview-coming"><strong>{overviewGroup}</strong><span>Nhóm này sẽ lấy từ nguồn dữ liệu Overview riêng.</span></div>
+                {project.masterplan && sellUnits.length === 0 && units.length === 0 && (
+                  <div className="pf-overview-coming"><strong>Chưa có dữ liệu căn thật</strong><span>Connect Sheet ở Detail. Overview sẽ đọc nguyên dữ liệu sell và không dùng dữ liệu demo.</span></div>
                 )}
               </div>
             </section>
 
             <aside className="pf-overview-side pf-overview-guide">
-              <div className="pf-side-card"><span>LIVE DATA</span><strong>{units.length} unit thật</strong><p>Overview dùng cùng mã căn với Detail. Không còn fallback bằng mã demo.</p></div>
-              <div className="pf-side-card"><span>WORKFLOW</span><strong>Double-click → Focus</strong><p>Định vị mã trên PDF, chỉnh anchor một lần rồi lưu lại để dùng tiếp.</p></div>
+              <div className="pf-side-card"><span>LIVE DATA</span><strong>{sellUnits.length || units.length} unit thật</strong><p>Tab TCBG và card Overview lấy trực tiếp từ file sell đang kết nối.</p></div>
+              <div className="pf-side-card"><span>WORKFLOW</span><strong>Focus → Arrange → Style</strong><p>Định vị lô, tự dàn card trái/phải rồi tinh chỉnh style và highlight.</p></div>
             </aside>
           </div>
         </main>
