@@ -133,7 +133,7 @@ export default function OverviewLiveUnitsRuntime() {
         anchor.style.top = "50%";
         nextLayer.appendChild(anchor);
 
-        const card = makeNode("article", `pf-sales-callout pf-live-sales-callout side-${side}`);
+        const card = makeNode("article", `pf-sales-callout pf-live-sales-callout pf-sell-reference-card side-${side}`);
         card.dataset.unitCode = unit.code;
         card.dataset.handover = unit.handover || "";
         card.style.top = `${topPct}%`;
