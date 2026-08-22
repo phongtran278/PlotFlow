@@ -1,5 +1,5 @@
 .pf-human-orbit{
-  --orbit-size:min(100%,660px);
+  --orbit-size:min(100%,700px);
   position:relative;
   width:var(--orbit-size);
   aspect-ratio:1 / 1;
@@ -10,11 +10,11 @@
 
 .pf-human-orbit-glow{
   position:absolute;
-  inset:24%;
+  inset:27%;
   z-index:-2;
   border-radius:50%;
-  background:radial-gradient(circle,rgba(15,122,100,.14),rgba(15,122,100,.045) 48%,transparent 72%);
-  filter:blur(28px);
+  background:radial-gradient(circle,rgba(15,122,100,.11),rgba(15,122,100,.025) 52%,transparent 74%);
+  filter:blur(32px);
 }
 
 .pf-human-rings{
@@ -25,115 +25,115 @@
   pointer-events:none;
 }
 
+/* Three calm, generously separated rings. The core stays still; only the light arcs move. */
 .pf-human-ring{
   position:absolute;
   display:block;
   border-radius:50%;
-  border:1px solid rgba(24,31,35,.07);
+  border:1px solid rgba(24,31,35,.065);
+  box-sizing:border-box;
 }
-
 .pf-human-ring::after{
   content:"";
   position:absolute;
   inset:-2px;
-  border-radius:inherit;
+  border-radius:50%;
   background:conic-gradient(
     from 0deg,
-    transparent 0 8%,
-    rgba(15,122,100,.12) 14%,
-    rgba(15,122,100,.55) 23%,
-    rgba(106,129,194,.30) 32%,
-    transparent 43% 60%,
-    rgba(15,122,100,.10) 68%,
-    rgba(15,122,100,.42) 77%,
-    transparent 88% 100%
+    transparent 0 64%,
+    rgba(93,117,169,.10) 69%,
+    rgba(15,122,100,.20) 76%,
+    rgba(15,122,100,.62) 82%,
+    rgba(118,145,198,.24) 88%,
+    transparent 95% 100%
   );
   -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));
   mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));
+  will-change:transform;
 }
-
-.pf-human-ring-outer{width:86%;height:86%;animation:pfHumanOrbitCW 18s linear infinite}
-.pf-human-ring-middle{width:67%;height:67%;animation:pfHumanOrbitCCW 13s linear infinite}
-.pf-human-ring-inner{width:49%;height:49%;animation:pfHumanOrbitCW 9s linear infinite}
-.pf-human-ring-middle::after{opacity:.72;filter:saturate(.85);transform:rotate(65deg)}
-.pf-human-ring-inner::after{opacity:.58;transform:rotate(118deg)}
+.pf-human-ring-outer{width:94%;height:94%}
+.pf-human-ring-middle{width:70%;height:70%}
+.pf-human-ring-inner{width:47%;height:47%}
+.pf-human-ring-outer::after{animation:pfHumanArcCW 20s linear infinite}
+.pf-human-ring-middle::after{animation:pfHumanArcCCW 15s linear infinite;opacity:.78;transform:rotate(82deg)}
+.pf-human-ring-inner::after{animation:pfHumanArcCW 11s linear infinite;opacity:.62;transform:rotate(154deg)}
 
 .pf-human-core{
   position:absolute;
   left:50%;
   top:50%;
   z-index:5;
-  width:210px;
+  width:218px;
   aspect-ratio:1 / 1;
   min-height:0;
   transform:translate(-50%,-50%);
-  padding:28px;
+  padding:29px;
   border-radius:50%!important;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   text-align:center;
-  background:linear-gradient(145deg,rgba(255,255,255,.93),rgba(238,246,242,.82))!important;
-  border:1px solid rgba(255,255,255,.88)!important;
-  box-shadow:0 28px 72px rgba(18,30,26,.12),inset 0 1px 0 rgba(255,255,255,.98)!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(241,247,244,.84))!important;
+  border:1px solid rgba(255,255,255,.9)!important;
+  box-shadow:0 30px 74px rgba(18,30,26,.11),inset 0 1px 0 rgba(255,255,255,.98)!important;
 }
-
 .pf-human-core::before{
   content:"";
   position:absolute;
-  inset:14px;
-  border:1px solid rgba(15,122,100,.09);
+  inset:15px;
+  border:1px solid rgba(15,122,100,.075);
   border-radius:50%;
   pointer-events:none;
 }
+.pf-human-core>span{margin-bottom:10px;color:#7c868d;font-size:8px;font-weight:600;letter-spacing:.15em}
+.pf-human-core>strong{max-width:168px;color:#15191d;font-size:28px;line-height:1.02;font-weight:700;letter-spacing:-.045em}
+.pf-human-core>p{max-width:150px!important;margin:11px 0 0!important;color:#6c747b!important;font-size:10px!important;line-height:1.5!important;font-weight:400!important}
 
-.pf-human-core>span{margin-bottom:10px;color:#7b858c;font-size:8px;font-weight:600;letter-spacing:.15em}
-.pf-human-core>strong{max-width:164px;color:#15191d;font-size:28px;line-height:1.01;font-weight:700;letter-spacing:-.045em}
-.pf-human-core>p{max-width:150px!important;margin:11px 0 0!important;color:#6a737a!important;font-size:10px!important;line-height:1.5!important;font-weight:400!important}
-
+/* Labels live outside the inner visual field, so the center reads first. */
 .pf-human-feature-field{position:absolute;inset:0;z-index:6;pointer-events:none}
 .pf-human-feature{
   position:absolute;
-  min-height:34px;
-  padding:0 12px;
+  min-height:36px;
+  padding:0 14px;
   display:inline-flex;
   align-items:center;
   gap:8px;
   border-radius:999px;
   background:rgba(250,251,249,.88);
-  border:1px solid rgba(26,32,37,.055);
-  box-shadow:0 8px 20px rgba(22,28,33,.045);
-  backdrop-filter:blur(12px) saturate(130%);
-  -webkit-backdrop-filter:blur(12px) saturate(130%);
+  border:1px solid rgba(26,32,37,.05);
+  box-shadow:0 9px 22px rgba(22,28,33,.045);
+  backdrop-filter:blur(13px) saturate(128%);
+  -webkit-backdrop-filter:blur(13px) saturate(128%);
   pointer-events:auto;
   white-space:nowrap;
   transition:transform .28s cubic-bezier(.22,1,.36,1),box-shadow .28s ease;
 }
-.pf-human-feature:hover{box-shadow:0 12px 26px rgba(22,28,33,.075)}
+.pf-human-feature:hover{box-shadow:0 14px 30px rgba(22,28,33,.075)}
 .pf-human-feature>i{flex:0 0 6px;width:6px;height:6px;border-radius:50%;background:#0f7a64}
 .pf-human-feature strong{color:#1b2024;font-size:10px;line-height:1;font-weight:600;letter-spacing:-.012em}
 
-.pf-human-feature-locator{left:50%;top:1.5%;transform:translateX(-50%)}
+.pf-human-feature-locator{left:50%;top:-1%;transform:translateX(-50%)}
 .pf-human-feature-locator:hover{transform:translateX(-50%) translateY(-2px)}
-.pf-human-feature-overview{right:-1%;top:32%;transform:translateY(-50%)}
+.pf-human-feature-overview{right:-4%;top:27%;transform:translateY(-50%)}
 .pf-human-feature-overview:hover{transform:translateY(calc(-50% - 2px))}
-.pf-human-feature-detail{right:9%;bottom:5%}
+.pf-human-feature-detail{right:5%;bottom:4%}
 .pf-human-feature-detail:hover{transform:translateY(-2px)}
-.pf-human-feature-export{left:9%;bottom:5%}
+.pf-human-feature-export{left:5%;bottom:4%}
 .pf-human-feature-export:hover{transform:translateY(-2px)}
-.pf-human-feature-override{left:-1%;top:32%;transform:translateY(-50%)}
+.pf-human-feature-override{left:-4%;top:27%;transform:translateY(-50%)}
 .pf-human-feature-override:hover{transform:translateY(calc(-50% - 2px))}
 
-@keyframes pfHumanOrbitCW{to{transform:rotate(360deg)}}
-@keyframes pfHumanOrbitCCW{to{transform:rotate(-360deg)}}
+@keyframes pfHumanArcCW{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes pfHumanArcCCW{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
 
 @media(max-width:1180px){
-  .pf-human-orbit{--orbit-size:min(100%,590px)}
-  .pf-human-core{width:198px}
+  .pf-human-orbit{--orbit-size:min(100%,620px)}
+  .pf-human-core{width:204px}
   .pf-human-core>strong{font-size:26px}
-  .pf-human-feature{padding:0 10px}
+  .pf-human-feature{padding:0 11px}
   .pf-human-feature strong{font-size:9px}
+  .pf-human-feature-overview{right:-2%}.pf-human-feature-override{left:-2%}
 }
 
 @media(max-width:760px){
@@ -152,6 +152,6 @@
 }
 
 @media(prefers-reduced-motion:reduce){
-  .pf-human-ring{animation:none!important}
+  .pf-human-ring::after{animation:none!important}
   .pf-human-feature{transition:none!important}
 }
