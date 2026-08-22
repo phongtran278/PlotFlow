@@ -31,7 +31,6 @@ function normalizeStyle(value = {}) {
 function normalizePoint(point = {}) {
   let x = safeNumber(point.x, 0);
   let y = safeNumber(point.y, 0);
-  // Migrate old 0..1000 coordinates to the new 0..100 percentage model.
   if (Math.abs(x) > 100 || Math.abs(y) > 100) {
     x /= 10;
     y /= 10;
@@ -121,6 +120,15 @@ export default function OverviewPenRuntime() {
       return Math.max(0.75, Math.min(2.6, (14 / screenWidth) * 100));
     }
 
+    function nodeRadius(first = false) {
+      if (!stage) return first ? 0.48 : 0.42;
+      const rect = stage.getBoundingClientRect();
+      const zoom = Math.max(camera.scale, 0.0001);
+      const screenWidth = Math.max(1, rect.width * zoom);
+      const targetPx = first ? 6 : 5;
+      return Math.max(0.025, Math.min(0.6, (targetPx / screenWidth) * 100));
+    }
+
     function cleanedDraft() {
       const tolerance = closeTolerance() * 0.35;
       const clean = [];
@@ -159,14 +167,15 @@ export default function OverviewPenRuntime() {
         return `<polygon class="pf-pen-shape${selected}" data-pen-shape-id="${escapeAttr(shape.id)}" points="${pointsAttr(shape.points)}" fill="${style.fill}" fill-opacity="${style.fillOpacity}" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-opacity="${style.strokeOpacity}" vector-effect="non-scaling-stroke" />`;
       }).join("");
 
-      // Draft is deliberately stroke-only. Fill appears only after the path is closed.
       const fixed = draft.length >= 2
         ? `<polyline class="pf-pen-draft-fixed" points="${pointsAttr(draft)}" vector-effect="non-scaling-stroke" />`
         : "";
-      const live = draft.length && hover
+      const live = draft.length >= 2 && hover
         ? `<line class="pf-pen-draft-live" x1="${draft.at(-1).x}" y1="${draft.at(-1).y}" x2="${hover.x}" y2="${hover.y}" vector-effect="non-scaling-stroke" />`
         : "";
-      const nodes = draft.map((point, index) => `<circle class="pf-pen-node${index === 0 ? " is-first" : ""}" cx="${point.x}" cy="${point.y}" r="${index === 0 ? 0.72 : 0.55}" vector-effect="non-scaling-stroke" />`).join("");
+      const firstRadius = nodeRadius(true);
+      const regularRadius = nodeRadius(false);
+      const nodes = draft.map((point, index) => `<circle class="pf-pen-node${index === 0 ? " is-first" : ""}" cx="${point.x}" cy="${point.y}" r="${index === 0 ? firstRadius : regularRadius}" vector-effect="non-scaling-stroke" />`).join("");
       layer.innerHTML = committed + fixed + live + nodes;
     }
 
@@ -324,6 +333,7 @@ export default function OverviewPenRuntime() {
       if (Number.isFinite(detail.tx)) camera.tx = detail.tx;
       if (Number.isFinite(detail.ty)) camera.ty = detail.ty;
       applyCamera();
+      render();
     }
 
     function onClearHighlights() {
@@ -402,7 +412,7 @@ export default function OverviewPenRuntime() {
             <label><span>Stroke</span><input data-pen-style="stroke" type="color"></label>
             <label><span>Stroke width</span><input data-pen-style="strokeWidth" type="range" min="0.5" max="4" step="0.25"></label>
             <label><span>Stroke opacity</span><input data-pen-style="strokeOpacity" type="range" min="0.1" max="1" step="0.05"></label>
-            <small>Pen style is independent from Connector.</small>
+            <small>Click a finished highlight with Pen active to edit that shape only.</small>
           </div>`;
         styleMenu.addEventListener("input", (event) => {
           const key = event.target?.dataset?.penStyle;
@@ -411,8 +421,8 @@ export default function OverviewPenRuntime() {
           applyStylePatch({ [key]: numeric ? Number(event.target.value) : event.target.value });
         });
         button.after(styleMenu);
+        syncStyleControls();
       }
-      syncStyleControls();
       return true;
     }
 
