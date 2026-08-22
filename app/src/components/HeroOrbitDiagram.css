@@ -1,8 +1,8 @@
 .pf-human-orbit{
-  --orbit-size:clamp(540px,36vw,660px);
+  --orbit-size:min(92%,600px);
   position:relative;
   width:var(--orbit-size);
-  max-width:none;
+  max-width:600px;
   aspect-ratio:1/1;
   margin-inline:auto;
   isolation:isolate;
@@ -17,10 +17,10 @@
 .pf-human-ring-inner{width:39%;height:39%;animation:pfOrbitCW 7.25s linear infinite;-webkit-animation:pfOrbitCW 7.25s linear infinite}
 .pf-human-ring-middle::after,.pf-human-ring-middle .pf-orbit-tracer{opacity:.8}.pf-human-ring-inner::after,.pf-human-ring-inner .pf-orbit-tracer{opacity:.66}
 
-.pf-human-core{position:absolute;left:50%;top:50%;z-index:5;width:206px;aspect-ratio:1/1;min-height:0;transform:translate(-50%,-50%);padding:32px 28px;border-radius:50%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(242,247,244,.91))!important;border:1px solid rgba(255,255,255,.95)!important;box-shadow:0 28px 68px rgba(18,30,26,.105),inset 0 1px 0 rgba(255,255,255,.98)!important}
+.pf-human-core{position:absolute;left:50%;top:50%;z-index:5;width:202px;aspect-ratio:1/1;min-height:0;transform:translate(-50%,-50%);padding:31px 28px;border-radius:50%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(242,247,244,.91))!important;border:1px solid rgba(255,255,255,.95)!important;box-shadow:0 28px 68px rgba(18,30,26,.105),inset 0 1px 0 rgba(255,255,255,.98)!important}
 .pf-human-core::before{display:none!important}
-.pf-human-core>strong{display:block;width:100%;max-width:150px;margin:0;color:#15191d;font-size:23px;line-height:1.06;font-weight:700;letter-spacing:-.025em;text-wrap:balance}
-.pf-human-core>p{width:100%;max-width:138px!important;margin:14px 0 0!important;color:#70787f!important;font-size:9.5px!important;line-height:1.5!important;font-weight:400!important;text-wrap:balance}
+.pf-human-core>strong{display:block;width:100%;max-width:148px;margin:0;color:#15191d;font-size:23px;line-height:1.06;font-weight:700;letter-spacing:-.025em;text-wrap:balance}
+.pf-human-core>p{width:100%;max-width:136px!important;margin:14px 0 0!important;color:#70787f!important;font-size:9.5px!important;line-height:1.5!important;font-weight:400!important;text-wrap:balance}
 
 .pf-human-feature-field{position:absolute;inset:0;z-index:6;pointer-events:none}
 .pf-human-feature{position:absolute;min-height:36px;padding:0 14px;display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:rgba(250,251,249,.94);border:1px solid rgba(26,32,37,.05);box-shadow:0 9px 24px rgba(22,28,33,.045);backdrop-filter:blur(14px) saturate(128%);-webkit-backdrop-filter:blur(14px) saturate(128%);pointer-events:auto;white-space:nowrap;transition:transform .28s cubic-bezier(.22,1,.36,1),box-shadow .28s ease}
@@ -28,15 +28,15 @@
 .pf-human-feature>i{flex:0 0 5px;width:5px;height:5px;border-radius:50%;background:#0f7a64;box-shadow:0 0 0 4px rgba(15,122,100,.07)}
 .pf-human-feature strong{color:#1b2024;font-size:9px;line-height:1;font-weight:600;letter-spacing:-.006em}
 
-/* Perimeter labels stay visible inside the hero column. */
-.pf-human-feature-locator{left:50%;top:2%;min-height:42px;padding:0 17px;transform:translateX(-50%)}
+/* Perimeter labels stay inside the orbit box, so both Safari and Chromium preserve the same composition. */
+.pf-human-feature-locator{left:50%;top:2.5%;min-height:42px;padding:0 17px;transform:translateX(-50%)}
 .pf-human-feature-locator strong{font-size:10px}
-.pf-human-feature-overview{right:2%;top:26%;min-height:40px;padding:0 16px}
+.pf-human-feature-overview{right:2.5%;top:26%;min-height:40px;padding:0 16px}
 .pf-human-feature-overview strong{font-size:9.3px}
-.pf-human-feature-detail{right:7%;bottom:9%}
-.pf-human-feature-export{left:8%;bottom:10%;min-height:38px;padding:0 15px}
+.pf-human-feature-detail{right:7%;bottom:9.5%}
+.pf-human-feature-export{left:8%;bottom:10.5%;min-height:38px;padding:0 15px}
 .pf-human-feature-export strong{font-size:9.3px}
-.pf-human-feature-override{left:2%;top:30%}
+.pf-human-feature-override{left:2.5%;top:30%}
 .pf-human-feature-locator:hover{transform:translateX(-50%) translateY(-2px)}
 .pf-human-feature-overview:hover,.pf-human-feature-override:hover,.pf-human-feature-detail:hover,.pf-human-feature-export:hover{transform:translateY(-2px)}
 
@@ -46,13 +46,13 @@
 @-webkit-keyframes pfOrbitCCW{from{-webkit-transform:rotate(360deg)}to{-webkit-transform:rotate(0deg)}}
 
 @media(max-width:1180px){
-  .pf-human-orbit{--orbit-size:clamp(500px,44vw,580px)}
-  .pf-human-core{width:190px}
+  .pf-human-orbit{--orbit-size:min(90%,560px);max-width:560px}
+  .pf-human-core{width:188px}
   .pf-human-feature{min-height:33px;padding:0 12px}
   .pf-human-feature strong{font-size:8.4px}
-  .pf-human-feature-locator{top:2%;min-height:39px}.pf-human-feature-locator strong{font-size:9.5px}
-  .pf-human-feature-overview{right:2%;top:25%}.pf-human-feature-override{left:2%;top:29%}
-  .pf-human-feature-detail{right:6%;bottom:9%}.pf-human-feature-export{left:8%;bottom:10%}
+  .pf-human-feature-locator{top:2.5%;min-height:39px}.pf-human-feature-locator strong{font-size:9.5px}
+  .pf-human-feature-overview{right:2.5%;top:25%}.pf-human-feature-override{left:2.5%;top:29%}
+  .pf-human-feature-detail{right:6.5%;bottom:9.5%}.pf-human-feature-export{left:8%;bottom:10.5%}
 }
 @media(max-width:760px){
   .pf-human-orbit{width:100%;max-width:100%;aspect-ratio:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
