@@ -1,0 +1,155 @@
+/* Final Home rules: isolate the three areas that were being overridden by legacy CSS. */
+
+/* PROJECT CARDS — title and meta share one exact left edge. Meta always sits 12px after the title's last rendered line. */
+.pf-home .pf-home-projects .pf-featured-project-card .pf-project-thumb .pf-project-thumb-content{
+  position:absolute!important;
+  left:28px!important;
+  right:28px!important;
+  top:28px!important;
+  bottom:auto!important;
+  width:auto!important;
+  max-width:none!important;
+  min-width:0!important;
+  height:auto!important;
+  margin:0!important;
+  padding:0!important;
+  display:block!important;
+  text-align:left!important;
+  align-items:initial!important;
+  justify-content:initial!important;
+}
+.pf-home .pf-home-projects .pf-featured-project-card .pf-project-thumb .pf-project-name{
+  display:-webkit-box!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  color:#15191d!important;
+  font-size:clamp(23px,1.65vw,31px)!important;
+  line-height:1.08!important;
+  font-weight:600!important;
+  letter-spacing:-.035em!important;
+  text-align:left!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  overflow:hidden!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  text-wrap:balance!important;
+}
+.pf-home .pf-home-projects .pf-featured-project-card .pf-project-thumb .pf-project-meta{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  margin:12px 0 0!important;
+  padding:0!important;
+  color:rgba(29,35,40,.56)!important;
+  font-size:9px!important;
+  line-height:1.35!important;
+  font-weight:550!important;
+  letter-spacing:.02em!important;
+  text-align:left!important;
+  white-space:normal!important;
+}
+
+/* WORKFLOW — keep the semantic arrow, but let it travel quietly from each step to the next. */
+.pf-home .pf-system-flow{
+  position:relative!important;
+  overflow:visible!important;
+}
+.pf-home .pf-system-flow::before{
+  content:""!important;
+  position:absolute!important;
+  left:5%!important;
+  right:5%!important;
+  top:50%!important;
+  height:1px!important;
+  z-index:0!important;
+  background:linear-gradient(90deg,rgba(15,122,100,.08),rgba(15,122,100,.28) 22%,rgba(15,122,100,.28) 78%,rgba(15,122,100,.08))!important;
+}
+.pf-home .pf-system-flow::after{display:none!important}
+.pf-home .pf-system-flow .pf-system-node{
+  position:relative!important;
+  z-index:1!important;
+}
+.pf-home .pf-system-flow .pf-system-node:not(:last-child)::after{
+  content:"→"!important;
+  position:absolute!important;
+  right:-34px!important;
+  top:50%!important;
+  width:34px!important;
+  height:24px!important;
+  display:grid!important;
+  place-items:center!important;
+  color:var(--pf-brand-accent)!important;
+  font-family:var(--pf-display)!important;
+  font-size:13px!important;
+  font-style:normal!important;
+  font-weight:650!important;
+  line-height:1!important;
+  opacity:0!important;
+  transform:translate(-10px,-50%)!important;
+  filter:drop-shadow(0 0 5px rgba(15,122,100,.12))!important;
+  animation:pfFinalStepArrow 2.5s cubic-bezier(.4,0,.2,1) infinite!important;
+  pointer-events:none!important;
+}
+.pf-home .pf-system-flow .pf-system-node:nth-child(2)::after{animation-delay:.32s!important}
+.pf-home .pf-system-flow .pf-system-node:nth-child(3)::after{animation-delay:.64s!important}
+.pf-home .pf-system-flow .pf-system-node:nth-child(4)::after{animation-delay:.96s!important}
+@keyframes pfFinalStepArrow{
+  0%{opacity:0;transform:translate(-12px,-50%)}
+  20%{opacity:.28}
+  48%{opacity:.88}
+  78%{opacity:.48}
+  100%{opacity:0;transform:translate(8px,-50%)}
+}
+
+/* FAQ — animate the actual height so the answer unfolds instead of appearing abruptly. */
+.pf-home .pf-home-faq-list article .pf-home-faq-answer{
+  display:block!important;
+  max-height:0!important;
+  overflow:hidden!important;
+  opacity:0!important;
+  transform:translateY(-6px)!important;
+  transition:max-height .58s cubic-bezier(.22,1,.36,1),opacity .34s ease,transform .48s cubic-bezier(.22,1,.36,1)!important;
+}
+.pf-home .pf-home-faq-list article .pf-home-faq-answer-inner{
+  overflow:hidden!important;
+  padding-bottom:0!important;
+  transition:padding-bottom .48s cubic-bezier(.22,1,.36,1)!important;
+}
+.pf-home .pf-home-faq-list article .pf-home-faq-answer p{
+  margin-top:0!important;
+  opacity:1!important;
+  transform:none!important;
+  transition:none!important;
+}
+.pf-home .pf-home-faq-list article.open .pf-home-faq-answer{
+  max-height:320px!important;
+  opacity:1!important;
+  transform:translateY(0)!important;
+}
+.pf-home .pf-home-faq-list article.open .pf-home-faq-answer-inner{
+  padding-bottom:24px!important;
+}
+.pf-home .pf-home-faq-list article>button i{
+  transition:transform .48s cubic-bezier(.22,1,.36,1)!important;
+}
+.pf-home .pf-home-faq-list article.open>button i{
+  transform:rotate(45deg)!important;
+}
+
+@media(max-width:760px){
+  .pf-home .pf-system-flow .pf-system-node:not(:last-child)::after{display:none!important}
+  .pf-home .pf-system-flow::before{display:none!important}
+  .pf-home .pf-home-projects .pf-featured-project-card .pf-project-thumb .pf-project-name{font-size:26px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .pf-home .pf-system-flow .pf-system-node:not(:last-child)::after{animation-duration:5s!important}
+  .pf-home .pf-home-faq-list article .pf-home-faq-answer,
+  .pf-home .pf-home-faq-list article .pf-home-faq-answer-inner,
+  .pf-home .pf-home-faq-list article>button i{transition-duration:.18s!important}
+}
