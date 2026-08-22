@@ -1,6 +1,22 @@
-/* Home polish: deterministic layout rules that override legacy presentation safely. */
+/* Home polish: final deterministic rules over legacy home styles. */
 
-/* Featured projects — one skeleton, one alignment rule. */
+/* Hero — editorial copy + a large 30–35% system visual. */
+.pf-home .pf-home-hero{
+  grid-template-columns:minmax(0,1fr) minmax(480px,.52fr)!important;
+  gap:clamp(64px,6vw,104px)!important;
+  align-items:center!important;
+}
+.pf-home .pf-home-hero-copy{min-width:0!important}
+.pf-home .pf-home-hero-visual{
+  min-width:0!important;
+  min-height:700px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:visible!important;
+}
+
+/* Featured projects — exactly one skeleton and one information hierarchy. */
 .pf-home-projects .pf-featured-project-grid{
   margin-top:52px!important;
   display:grid!important;
@@ -22,22 +38,21 @@
   box-sizing:border-box!important;
   border-radius:24px!important;
   display:grid!important;
-  grid-template-rows:22px 236px 40px!important;
+  grid-template-rows:22px 248px 40px!important;
   row-gap:18px!important;
   align-content:start!important;
-  justify-content:stretch!important;
   background:rgba(255,255,255,.84)!important;
   border:1px solid rgba(24,29,34,.06)!important;
   box-shadow:0 14px 34px rgba(20,25,30,.035)!important;
   overflow:hidden!important;
   transform:none!important;
 }
-
 .pf-home-projects .pf-featured-project-card:hover{transform:none!important;box-shadow:0 18px 40px rgba(20,25,30,.055)!important}
 .pf-home-projects .pf-featured-project-card:nth-child(4),
 .pf-home-projects .pf-featured-project-card:nth-child(5){grid-column:span 6!important}
 .pf-home-projects .pf-featured-project-card.active{background:linear-gradient(180deg,rgba(249,252,250,.98),rgba(241,247,243,.96))!important}
 
+/* One status lives here. No second status is repeated in the footer. */
 .pf-home-projects .pf-featured-project-card>header{
   height:22px!important;
   min-height:22px!important;
@@ -48,7 +63,6 @@
   align-items:center!important;
   column-gap:16px!important;
 }
-
 .pf-home-projects .pf-featured-project-card>header>span,
 .pf-home-projects .pf-featured-project-card>header>em{
   margin:0!important;
@@ -71,9 +85,9 @@
   position:relative!important;
   width:100%!important;
   min-width:0!important;
-  height:236px!important;
-  min-height:236px!important;
-  max-height:236px!important;
+  height:248px!important;
+  min-height:248px!important;
+  max-height:248px!important;
   aspect-ratio:auto!important;
   margin:0!important;
   padding:0!important;
@@ -84,17 +98,13 @@
   isolation:isolate!important;
   box-sizing:border-box!important;
 }
-
 .pf-home-projects .pf-project-thumb::before{
   content:""!important;
   position:absolute!important;
   inset:0!important;
   z-index:0!important;
-  background:
-    linear-gradient(128deg,transparent 0 60%,rgba(255,255,255,.26) 60.2% 69%,transparent 69.2%),
-    linear-gradient(154deg,transparent 0 75%,rgba(24,31,35,.024) 75.2% 80%,transparent 80.2%)!important;
+  background:linear-gradient(128deg,transparent 0 60%,rgba(255,255,255,.25) 60.2% 69%,transparent 69.2%),linear-gradient(154deg,transparent 0 75%,rgba(24,31,35,.024) 75.2% 80%,transparent 80.2%)!important;
 }
-
 .pf-home-projects .pf-project-thumb::after{
   content:""!important;
   position:absolute!important;
@@ -108,25 +118,23 @@
   transform:skewX(-12deg)!important;
   background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.24))!important;
 }
-
 .pf-home-projects .pf-project-thumb-grid{
   position:absolute!important;
   inset:0!important;
   z-index:0!important;
-  opacity:.48!important;
-  background-image:
-    linear-gradient(rgba(35,42,48,.03) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(35,42,48,.03) 1px,transparent 1px)!important;
+  opacity:.45!important;
+  background-image:linear-gradient(rgba(35,42,48,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.03) 1px,transparent 1px)!important;
   background-size:32px 32px!important;
   mask-image:linear-gradient(145deg,#000 0 68%,transparent 100%)!important;
 }
 
+/* Fixed rhythm: meta → 12px → title. A two-line title consumes the same title slot as a one-line title. */
 .pf-home-projects .pf-project-thumb-content{
   position:absolute!important;
-  left:22px!important;
-  right:22px!important;
-  bottom:22px!important;
-  top:auto!important;
+  left:24px!important;
+  right:24px!important;
+  top:24px!important;
+  bottom:auto!important;
   z-index:2!important;
   width:auto!important;
   max-width:none!important;
@@ -134,31 +142,30 @@
   margin:0!important;
   padding:0!important;
   display:grid!important;
-  grid-template-rows:auto auto auto!important;
-  align-content:end!important;
+  grid-template-rows:auto 60px auto!important;
+  align-content:start!important;
   justify-items:start!important;
-  row-gap:7px!important;
+  row-gap:12px!important;
 }
-
 .pf-home-projects .pf-project-thumb-content small{
   display:block!important;
   margin:0!important;
   padding:0!important;
   color:rgba(29,35,40,.54)!important;
   font-size:9px!important;
-  line-height:1.2!important;
+  line-height:1.25!important;
   font-weight:600!important;
   letter-spacing:.025em!important;
 }
-
 .pf-home-projects .pf-project-thumb-content strong{
   display:-webkit-box!important;
   margin:0!important;
   padding:0!important;
   max-width:100%!important;
   min-width:0!important;
+  align-self:start!important;
   color:#15191d!important;
-  font-size:clamp(21px,1.65vw,28px)!important;
+  font-size:clamp(22px,1.72vw,30px)!important;
   line-height:1.04!important;
   font-weight:600!important;
   letter-spacing:-.032em!important;
@@ -166,11 +173,10 @@
   -webkit-box-orient:vertical!important;
   -webkit-line-clamp:2!important;
   text-wrap:balance!important;
-  overflow-wrap:anywhere!important;
+  overflow-wrap:normal!important;
 }
-
 .pf-home-projects .pf-project-thumb-content b{
-  margin:1px 0 0!important;
+  margin:0!important;
   padding:6px 9px!important;
   border-radius:999px!important;
   background:rgba(255,255,255,.72)!important;
@@ -182,7 +188,6 @@
   letter-spacing:.08em!important;
   text-transform:uppercase!important;
 }
-
 .pf-home-projects .pf-project-thumb.tone-forest{background:linear-gradient(145deg,#edf5f0,#dceae2)!important}
 .pf-home-projects .pf-project-thumb.tone-stone{background:linear-gradient(145deg,#f3f2ef,#e6e3de)!important}
 .pf-home-projects .pf-project-thumb.tone-sand{background:linear-gradient(145deg,#f8f2e9,#ebdfcf)!important}
@@ -194,29 +199,13 @@
   min-height:40px!important;
   margin:0!important;
   padding:0!important;
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) auto!important;
-  align-items:center!important;
-  column-gap:14px!important;
-}
-
-.pf-home-projects .pf-project-signal{
-  min-width:0!important;
   display:flex!important;
   align-items:center!important;
-  gap:8px!important;
-  color:#858c92!important;
-  font-size:8px!important;
-  line-height:1.2!important;
-  font-weight:400!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
+  justify-content:flex-end!important;
 }
-.pf-home-projects .pf-project-signal i{flex:0 0 6px!important;width:6px!important;height:6px!important}
-
+.pf-home-projects .pf-project-signal{display:none!important}
 .pf-home-projects .pf-featured-project-card>footer button{
-  justify-self:end!important;
+  margin-left:auto!important;
   height:36px!important;
   padding:0 13px!important;
   border-radius:10px!important;
@@ -225,46 +214,69 @@
   white-space:nowrap!important;
 }
 
-/* Workflow connector: one moving relationship between adjacent stages. */
+/* Workflow — visible hand-off: source card → moving packet → arrowhead → next card. */
+.pf-home .pf-system-map{gap:30px!important}
 .pf-home .pf-system-arrow{
-  right:-29px!important;
-  width:36px!important;
-  height:18px!important;
-  overflow:hidden!important;
+  right:-34px!important;
+  top:50%!important;
+  width:38px!important;
+  height:22px!important;
+  transform:translateY(-50%)!important;
+  display:block!important;
+  overflow:visible!important;
   color:transparent!important;
-  background:linear-gradient(90deg,rgba(15,122,100,.06),rgba(15,122,100,.22),rgba(15,122,100,.06)) center/100% 1px no-repeat!important;
+  background:linear-gradient(90deg,rgba(15,122,100,.10),rgba(15,122,100,.38)) center/100% 1px no-repeat!important;
   font-size:0!important;
+  pointer-events:none!important;
 }
 .pf-home .pf-system-arrow::before{
-  content:"→";
-  position:absolute;
-  left:-10px;
-  top:50%;
-  color:var(--pf-brand-accent);
-  font-family:var(--pf-display);
-  font-size:11px;
-  line-height:1;
-  font-style:normal;
-  font-weight:700;
-  transform:translateY(-53%);
-  animation:pfPolishArrow 1.9s linear infinite;
+  content:""!important;
+  position:absolute!important;
+  left:0!important;
+  top:50%!important;
+  width:6px!important;
+  height:6px!important;
+  border-radius:50%!important;
+  background:var(--pf-brand-accent)!important;
+  box-shadow:0 0 0 4px rgba(15,122,100,.09),0 0 12px rgba(15,122,100,.22)!important;
+  transform:translateY(-50%)!important;
+  animation:pfFlowPacket 1.65s cubic-bezier(.4,0,.2,1) infinite!important;
 }
-.pf-home .pf-system-arrow::after{display:none!important}
-.pf-home .pf-system-node:nth-child(2) .pf-system-arrow::before{animation-delay:.18s}
-.pf-home .pf-system-node:nth-child(3) .pf-system-arrow::before{animation-delay:.36s}
-.pf-home .pf-system-node:nth-child(4) .pf-system-arrow::before{animation-delay:.54s}
-@keyframes pfPolishArrow{0%{left:-10px;opacity:0}20%{opacity:.45}52%{opacity:1}84%{opacity:.55}100%{left:36px;opacity:0}}
+.pf-home .pf-system-arrow::after{
+  content:"›"!important;
+  display:block!important;
+  position:absolute!important;
+  right:-1px!important;
+  top:50%!important;
+  color:var(--pf-brand-accent)!important;
+  font-family:var(--pf-display)!important;
+  font-size:18px!important;
+  line-height:1!important;
+  font-style:normal!important;
+  font-weight:600!important;
+  transform:translateY(-54%)!important;
+  opacity:.72!important;
+}
+.pf-home .pf-system-node:nth-child(2) .pf-system-arrow::before{animation-delay:.20s!important}
+.pf-home .pf-system-node:nth-child(3) .pf-system-arrow::before{animation-delay:.40s!important}
+.pf-home .pf-system-node:nth-child(4) .pf-system-arrow::before{animation-delay:.60s!important}
+@keyframes pfFlowPacket{0%{left:0;opacity:0;transform:translateY(-50%) scale(.72)}18%{opacity:1}72%{opacity:1;transform:translateY(-50%) scale(1)}100%{left:31px;opacity:0;transform:translateY(-50%) scale(.72)}}
 
 @media(max-width:1180px){
+  .pf-home .pf-home-hero{grid-template-columns:minmax(0,1fr) minmax(420px,.68fr)!important;gap:52px!important}
+  .pf-home .pf-home-hero-visual{min-height:620px!important}
   .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:span 6!important}
   .pf-home-projects .pf-featured-project-card:nth-child(5){grid-column:1/-1!important}
 }
 
 @media(max-width:760px){
-  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:1/-1!important}
-  .pf-home-projects .pf-project-thumb{height:220px!important;min-height:220px!important;max-height:220px!important}
-  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-template-rows:22px 220px 40px!important}
+  .pf-home .pf-home-hero{grid-template-columns:1fr!important}
+  .pf-home .pf-home-hero-visual{min-height:auto!important}
+  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:1/-1!important;grid-template-rows:22px 230px 40px!important}
+  .pf-home-projects .pf-project-thumb{height:230px!important;min-height:230px!important;max-height:230px!important}
+  .pf-home-projects .pf-project-thumb-content{grid-template-rows:auto 58px auto!important}
   .pf-home-projects .pf-project-thumb-content strong{font-size:26px!important}
+  .pf-home .pf-system-map{gap:16px!important}
   .pf-home .pf-system-arrow{display:none!important}
 }
 
