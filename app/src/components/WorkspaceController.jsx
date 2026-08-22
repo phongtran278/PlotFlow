@@ -36,8 +36,10 @@ function syncPanGeometry(nextZoom) {
   const viewport = findViewport();
   if (!scroll || !viewport) return;
   const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(nextZoom) || 38)) / 100;
-  scroll.style.setProperty("--workspace-content-w", `${Math.round(ARTWORK_WIDTH * scale + 96)}px`);
-  scroll.style.setProperty("--workspace-content-h", `${Math.round(ARTWORK_HEIGHT * scale + 120)}px`);
+  const contentW = Math.max(scroll.clientWidth || 0, ARTWORK_WIDTH * scale + 96);
+  const contentH = Math.max(scroll.clientHeight || 0, ARTWORK_HEIGHT * scale + 96);
+  scroll.style.setProperty("--workspace-content-w", `${Math.round(contentW)}px`);
+  scroll.style.setProperty("--workspace-content-h", `${Math.round(contentH)}px`);
   scroll.dataset.workspacePanSurface = "true";
   viewport.style.setProperty("--studio-zoom", String(scale));
   viewport.dataset.workspaceZoom = String(Math.round(scale * 100));
@@ -95,7 +97,6 @@ export default function WorkspaceController() {
     if (!navigatorOpenRef.current) return;
     const scroll = findScrollSurface();
     if (!scroll) return;
-
     const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(zoomRef.current) || 38)) / 100;
     const artworkWidth = ARTWORK_WIDTH * scale;
     const artworkHeight = ARTWORK_HEIGHT * scale;
@@ -103,33 +104,21 @@ export default function WorkspaceController() {
     const viewportHeight = clamp01(scroll.clientHeight / Math.max(1, artworkHeight));
     const maxLeft = Math.max(1, scroll.scrollWidth - scroll.clientWidth);
     const maxTop = Math.max(1, scroll.scrollHeight - scroll.clientHeight);
-
-    setNavigator({
-      left: clamp01(scroll.scrollLeft / maxLeft),
-      top: clamp01(scroll.scrollTop / maxTop),
-      width: viewportWidth,
-      height: viewportHeight,
-    });
+    setNavigator({ left: clamp01(scroll.scrollLeft / maxLeft), top: clamp01(scroll.scrollTop / maxTop), width: viewportWidth, height: viewportHeight });
   }
 
   useEffect(() => {
     if (!navigatorOpen) return undefined;
     const scroll = findScrollSurface();
     if (!scroll) return undefined;
-
     requestAnimationFrame(refreshNavigator);
     const onScroll = () => requestAnimationFrame(refreshNavigator);
     scroll.addEventListener("scroll", onScroll, { passive: true });
-
     const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => requestAnimationFrame(refreshNavigator)) : null;
     resizeObserver?.observe(scroll);
     const viewport = findViewport();
     if (viewport) resizeObserver?.observe(viewport);
-
-    return () => {
-      scroll.removeEventListener("scroll", onScroll);
-      resizeObserver?.disconnect();
-    };
+    return () => { scroll.removeEventListener("scroll", onScroll); resizeObserver?.disconnect(); };
   }, [navigatorOpen]);
 
   function applyZoom(nextZoom, preserveCenter = true) {
@@ -141,43 +130,37 @@ export default function WorkspaceController() {
       zoomRef.current = next;
       return;
     }
-
     const old = zoomRef.current || next;
     const maxOldLeft = scroll ? Math.max(1, scroll.scrollWidth - scroll.clientWidth) : 1;
     const maxOldTop = scroll ? Math.max(1, scroll.scrollHeight - scroll.clientHeight) : 1;
     const centerX = scroll ? clamp01((scroll.scrollLeft + scroll.clientWidth / 2) / Math.max(1, scroll.scrollWidth)) : 0.5;
     const centerY = scroll ? clamp01((scroll.scrollTop + scroll.clientHeight / 2) / Math.max(1, scroll.scrollHeight)) : 0.5;
-
     syncPanGeometry(next);
     setZoom(next);
     zoomRef.current = next;
-
     if (preserveCenter && scroll && old !== next && (maxOldLeft > 1 || maxOldTop > 1)) {
       requestAnimationFrame(() => {
         scroll.scrollLeft = Math.max(0, centerX * scroll.scrollWidth - scroll.clientWidth / 2);
         scroll.scrollTop = Math.max(0, centerY * scroll.scrollHeight - scroll.clientHeight / 2);
         refreshNavigator();
       });
-    } else {
-      requestAnimationFrame(refreshNavigator);
-    }
+    } else requestAnimationFrame(refreshNavigator);
   }
 
-  function fitArtwork() {
+  function fitArtwork(markDone = false) {
     const canvas = document.querySelector(".component-canvas");
-    const stage = document.querySelector(".layout-studio") || document.querySelector(".studio-center");
-    if (!canvas) return;
-    const availableW = Math.max(260, (stage?.clientWidth || canvas.clientWidth) - 56);
-    const availableH = Math.max(360, canvas.clientHeight - 72);
+    const scroll = findScrollSurface();
+    if (!canvas || !scroll) return;
+    const availableW = Math.max(260, scroll.clientWidth - 72);
+    const availableH = Math.max(360, scroll.clientHeight - 72);
     const fitted = Math.floor(Math.min(availableW / ARTWORK_WIDTH, availableH / ARTWORK_HEIGHT) * 100);
     applyZoom(Math.max(MIN_ZOOM, Math.min(100, fitted)), false);
-    const scroll = findScrollSurface();
-    requestAnimationFrame(() => {
-      if (!scroll) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       scroll.scrollLeft = Math.max(0, (scroll.scrollWidth - scroll.clientWidth) / 2);
-      scroll.scrollTop = 0;
+      scroll.scrollTop = Math.max(0, (scroll.scrollHeight - scroll.clientHeight) / 2);
+      if (markDone) scroll.dataset.workspaceAutoFitDone = "1";
       refreshNavigator();
-    });
+    }));
   }
 
   function moveNavigator(event) {
@@ -198,81 +181,48 @@ export default function WorkspaceController() {
     event.currentTarget.setPointerCapture?.(event.pointerId);
     moveNavigator(event);
   }
-
-  function navigatorPointerMove(event) {
-    if (!navigatorDragRef.current) return;
-    event.preventDefault();
-    moveNavigator(event);
-  }
-
-  function navigatorPointerEnd(event) {
-    navigatorDragRef.current = false;
-    try { event.currentTarget.releasePointerCapture?.(event.pointerId); } catch {}
-  }
+  function navigatorPointerMove(event) { if (navigatorDragRef.current) { event.preventDefault(); moveNavigator(event); } }
+  function navigatorPointerEnd(event) { navigatorDragRef.current = false; try { event.currentTarget.releasePointerCapture?.(event.pointerId); } catch {} }
 
   useEffect(() => {
+    let timer = 0;
     function reapply() {
       const viewport = findViewport();
-      if (!viewport) return;
+      const scroll = findScrollSurface();
+      if (!viewport || !scroll) return;
       syncPanGeometry(zoomRef.current);
+      if (!scroll.dataset.workspaceAutoFitDone && document.querySelector(".unit-select")) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => fitArtwork(true), 120);
+      }
     }
-
     reapply();
     const observer = new MutationObserver(() => requestAnimationFrame(reapply));
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); window.clearTimeout(timer); };
   }, []);
 
   useEffect(() => {
     function keydown(event) {
       if (editableTarget(event.target)) return;
-      if (event.code === "Space") {
-        spaceHeldRef.current = true;
-        document.body.classList.add("workspace-space-hand");
-        event.preventDefault();
-      }
-      if ((event.metaKey || event.ctrlKey) && (event.key === "+" || event.key === "=")) {
-        event.preventDefault();
-        applyZoom(zoomRef.current + 10);
-      }
-      if ((event.metaKey || event.ctrlKey) && event.key === "-") {
-        event.preventDefault();
-        applyZoom(zoomRef.current - 10);
-      }
-      if ((event.metaKey || event.ctrlKey) && event.key === "0") {
-        event.preventDefault();
-        fitArtwork();
-      }
+      if (event.code === "Space") { spaceHeldRef.current = true; document.body.classList.add("workspace-space-hand"); event.preventDefault(); }
+      if ((event.metaKey || event.ctrlKey) && (event.key === "+" || event.key === "=")) { event.preventDefault(); applyZoom(zoomRef.current + 10); }
+      if ((event.metaKey || event.ctrlKey) && event.key === "-") { event.preventDefault(); applyZoom(zoomRef.current - 10); }
+      if ((event.metaKey || event.ctrlKey) && event.key === "0") { event.preventDefault(); fitArtwork(); }
     }
-
-    function keyup(event) {
-      if (event.code === "Space") {
-        spaceHeldRef.current = false;
-        document.body.classList.remove("workspace-space-hand");
-      }
-    }
-
+    function keyup(event) { if (event.code === "Space") { spaceHeldRef.current = false; document.body.classList.remove("workspace-space-hand"); } }
     function pointerdown(event) {
       if (event.button !== 0) return;
       const activeScroll = findScrollSurface();
       const scroll = event.target?.closest?.(".studio-canvas-scroll");
       if (!scroll || scroll !== activeScroll) return;
       const handActive = tool === "hand" || spaceHeldRef.current;
-      if (!handActive) return;
-      if (event.target?.closest?.("button,input,label,select,textarea")) return;
+      if (!handActive || event.target?.closest?.("button,input,label,select,textarea")) return;
       event.preventDefault();
-      dragRef.current = {
-        scroll,
-        pointerId: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        left: scroll.scrollLeft,
-        top: scroll.scrollTop,
-      };
+      dragRef.current = { scroll, pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: scroll.scrollLeft, top: scroll.scrollTop };
       scroll.setPointerCapture?.(event.pointerId);
       document.body.classList.add("workspace-grabbing");
     }
-
     function pointermove(event) {
       const drag = dragRef.current;
       if (!drag || drag.pointerId !== event.pointerId) return;
@@ -280,7 +230,6 @@ export default function WorkspaceController() {
       drag.scroll.scrollTop = drag.top - (event.clientY - drag.y);
       if (navigatorOpenRef.current) refreshNavigator();
     }
-
     function pointerend(event) {
       const drag = dragRef.current;
       if (!drag || (event.pointerId != null && drag.pointerId !== event.pointerId)) return;
@@ -289,7 +238,6 @@ export default function WorkspaceController() {
       document.body.classList.remove("workspace-grabbing");
       if (navigatorOpenRef.current) refreshNavigator();
     }
-
     function wheel(event) {
       if (!(event.metaKey || event.ctrlKey)) return;
       const activeScroll = findScrollSurface();
@@ -297,7 +245,6 @@ export default function WorkspaceController() {
       event.preventDefault();
       applyZoom(zoomRef.current + (event.deltaY < 0 ? 10 : -10));
     }
-
     window.addEventListener("keydown", keydown);
     window.addEventListener("keyup", keyup);
     document.addEventListener("pointerdown", pointerdown, true);
@@ -306,22 +253,13 @@ export default function WorkspaceController() {
     window.addEventListener("pointercancel", pointerend);
     document.addEventListener("wheel", wheel, { passive: false, capture: true });
     return () => {
-      window.removeEventListener("keydown", keydown);
-      window.removeEventListener("keyup", keyup);
-      document.removeEventListener("pointerdown", pointerdown, true);
-      window.removeEventListener("pointermove", pointermove);
-      window.removeEventListener("pointerup", pointerend);
-      window.removeEventListener("pointercancel", pointerend);
-      document.removeEventListener("wheel", wheel, true);
-      document.body.classList.remove("workspace-space-hand", "workspace-grabbing");
+      window.removeEventListener("keydown", keydown); window.removeEventListener("keyup", keyup); document.removeEventListener("pointerdown", pointerdown, true);
+      window.removeEventListener("pointermove", pointermove); window.removeEventListener("pointerup", pointerend); window.removeEventListener("pointercancel", pointerend);
+      document.removeEventListener("wheel", wheel, true); document.body.classList.remove("workspace-space-hand", "workspace-grabbing");
     };
   }, [tool]);
 
   if (!target) return null;
-
-  // Navigator size is now derived DIRECTLY from zoom at render time.
-  // This is intentionally independent of scrollHeight/clientHeight so it behaves
-  // identically on macOS, Windows, remote desktop and production hosting.
   const navWidth = clamp01(90 / Math.max(1, zoom));
   const navHeight = clamp01(48 / Math.max(1, zoom));
   const navLeft = navigator.left * (1 - navWidth);
@@ -331,43 +269,20 @@ export default function WorkspaceController() {
     <div className="workspace-controls" aria-label="Artwork workspace controls">
       <div className="workspace-tool-toggle">
         <button type="button" className={tool === "select" ? "active" : ""} onClick={() => setTool("select")} title="Select tool">↖</button>
-        <button type="button" className={tool === "hand" ? "active" : ""} onClick={() => setTool("hand")} title="Hand tool · kéo toàn bộ artwork · giữ Space để dùng tạm">✋</button>
+        <button type="button" className={tool === "hand" ? "active" : ""} onClick={() => setTool("hand")} title="Hand tool · kéo artwork · giữ Space để dùng tạm">✋</button>
       </div>
-      <button type="button" className="workspace-fit" onClick={fitArtwork}>Fit</button>
+      <button type="button" className="workspace-fit" onClick={() => fitArtwork()}>Fit</button>
       <button type="button" className="workspace-zoom-step" onClick={() => applyZoom(zoom - 10)}>−</button>
-      <label className="workspace-zoom-field" title="Nhập tỷ lệ zoom artwork">
-        <input type="number" min={MIN_ZOOM} max={MAX_ZOOM} value={zoom} onChange={(event) => applyZoom(event.target.value)} />
-        <span>%</span>
-      </label>
+      <label className="workspace-zoom-field" title="Zoom artwork"><input type="number" min={MIN_ZOOM} max={MAX_ZOOM} value={zoom} onChange={(event) => applyZoom(event.target.value)} /><span>%</span></label>
       <button type="button" className="workspace-zoom-step" onClick={() => applyZoom(zoom + 10)}>+</button>
       <button type="button" className="workspace-100" onClick={() => applyZoom(100)}>100%</button>
-      <button type="button" className={`workspace-map-toggle ${navigatorOpen ? "active" : ""}`} onClick={() => setNavigatorOpen((value) => !value)} title="Navigator · xem vị trí hiện tại trên toàn artwork">▣ Map</button>
-      <button type="button" className={`workspace-panel-toggle ${panelCollapsed ? "active" : ""}`} onClick={() => setPanelCollapsed((value) => !value)} title="Thu gọn Design Assignment">
-        {panelCollapsed ? "› Design" : "‹ Design"}
-      </button>
-
+      <button type="button" className={`workspace-map-toggle ${navigatorOpen ? "active" : ""}`} onClick={() => setNavigatorOpen((value) => !value)} title="Navigator">▣ Map</button>
+      <button type="button" className={`workspace-panel-toggle ${panelCollapsed ? "active" : ""}`} onClick={() => setPanelCollapsed((value) => !value)} title="Thu gọn Design Assignment">{panelCollapsed ? "› Design" : "‹ Design"}</button>
       {navigatorOpen && (
         <div className="workspace-navigator-popover">
           <div className="workspace-navigator-head"><span>NAVIGATOR</span><strong>{zoom}%</strong></div>
-          <div
-            className="workspace-navigator-map"
-            onPointerDown={navigatorPointerDown}
-            onPointerMove={navigatorPointerMove}
-            onPointerUp={navigatorPointerEnd}
-            onPointerCancel={navigatorPointerEnd}
-            title="Click hoặc kéo để di chuyển tới vị trí khác"
-          >
-            <div className="workspace-navigator-artwork">
-              <div
-                className="workspace-navigator-viewport"
-                style={{
-                  left: `${navLeft * 100}%`,
-                  top: `${navTop * 100}%`,
-                  width: `${navWidth * 100}%`,
-                  height: `${navHeight * 100}%`,
-                }}
-              />
-            </div>
+          <div className="workspace-navigator-map" onPointerDown={navigatorPointerDown} onPointerMove={navigatorPointerMove} onPointerUp={navigatorPointerEnd} onPointerCancel={navigatorPointerEnd} title="Click hoặc kéo để di chuyển">
+            <div className="workspace-navigator-artwork"><div className="workspace-navigator-viewport" style={{ left: `${navLeft * 100}%`, top: `${navTop * 100}%`, width: `${navWidth * 100}%`, height: `${navHeight * 100}%` }} /></div>
           </div>
           <small>Kéo trên map để đi nhanh · Hand/Space để pan trực tiếp</small>
         </div>
