@@ -1,5 +1,4 @@
 import "./HeroOrbitDiagram.css";
-import "./HomeLandingPolish.css";
 
 const FEATURES = [
   { id: "locator", title: "Floorplan Locator" },
@@ -12,8 +11,6 @@ const FEATURES = [
 export default function HeroOrbitDiagram() {
   return (
     <div className="pf-human-orbit" aria-label="PlotFlow keeps the designer at the center of the system">
-      <div className="pf-human-orbit-glow" aria-hidden="true" />
-
       <div className="pf-human-rings" aria-hidden="true">
         <i className="pf-human-ring pf-human-ring-outer" />
         <i className="pf-human-ring pf-human-ring-middle" />
