@@ -1,11 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,600&family=IBM+Plex+Serif:ital,wght@1,500;1,600;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,600;0,700;1,600&family=IBM+Plex+Serif:ital,wght@1,600&display=swap');
 
 .pf-home{
   --pf-display:"IBM Plex Sans",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --pf-serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  --pf-fw-body:400;
+  --pf-fw-ui:600;
+  --pf-fw-heading:600;
+  --pf-fw-display:700;
 }
 
 .pf-home,.pf-home button,.pf-home input,.pf-home textarea{font-family:var(--pf-display)}
+.pf-home p,.pf-home li,.pf-home textarea{font-weight:var(--pf-fw-body)!important}
+.pf-home button,.pf-home nav a,.pf-home-eyebrow,.pf-home-section-head>span,.pf-home-feedback>div:first-child>span,.pf-home-proof span{font-weight:var(--pf-fw-ui)!important}
+.pf-home h2,.pf-home h3,.pf-home-section-head h2,.pf-home-feedback h2{font-weight:var(--pf-fw-heading)!important}
 .pf-home em,.pf-home-signature>em{font-family:var(--pf-serif)!important;font-style:italic!important;font-weight:600!important;font-synthesis:none;text-rendering:optimizeLegibility}
 
 /* Vietnamese readability */
@@ -13,85 +20,77 @@
 .pf-home-section-head>p,.pf-home-feedback>div:first-child>p{font-size:15px!important;line-height:1.78!important;max-width:780px!important;color:#6a7178!important}
 .pf-home-benefits p,.pf-home-faq-answer p{font-size:12px!important;line-height:1.78!important}
 
-/* Editorial hero rhythm: varied scale, positive vertical spacing, no glyph collisions. */
-.pf-home .pf-home-hero-title{
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:flex-start!important;
-  gap:0!important;
-  margin:30px 0 34px!important;
-  color:#121417!important;
-  font-family:var(--pf-display)!important;
-  letter-spacing:-.05em!important;
-  font-kerning:normal;
-  font-synthesis:none;
-  text-rendering:geometricPrecision;
-}
+/* Hero hierarchy follows one weight system and uses only positive vertical spacing. */
+.pf-home .pf-home-hero-title{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:0!important;margin:30px 0 34px!important;color:#121417!important;font-family:var(--pf-display)!important;letter-spacing:-.05em!important;font-kerning:normal;font-synthesis:none;text-rendering:geometricPrecision}
 .pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{display:block!important;position:relative!important;white-space:nowrap;margin:0!important}
-.pf-home .pf-title-kicker{font-size:clamp(52px,4.35vw,76px)!important;font-weight:650!important;line-height:.96!important;padding:0 0 .06em!important}
-.pf-home .pf-title-main{font-size:clamp(74px,6.25vw,108px)!important;font-weight:700!important;line-height:.92!important;padding:0 0 .055em!important}
+.pf-home .pf-title-kicker{font-size:clamp(52px,4.35vw,76px)!important;font-weight:var(--pf-fw-ui)!important;line-height:.96!important;padding:0 0 .06em!important}
+.pf-home .pf-title-main{font-size:clamp(74px,6.25vw,108px)!important;font-weight:var(--pf-fw-display)!important;line-height:.92!important;padding:0 0 .055em!important}
 .pf-home .pf-title-accent{font-family:var(--pf-serif)!important;font-size:clamp(84px,7vw,122px)!important;font-weight:600!important;line-height:.93!important;letter-spacing:-.03em!important;color:var(--pf-brand-accent)!important;padding:.01em 0 .095em .02em!important}
-.pf-home .pf-title-secondary{font-size:clamp(62px,5.15vw,88px)!important;font-weight:650!important;line-height:.96!important;padding:.02em 0 .07em!important}
-.pf-home .pf-title-design{font-size:clamp(76px,6.35vw,110px)!important;line-height:.94!important;padding:.07em 0 .09em!important}
-
+.pf-home .pf-title-secondary{font-size:clamp(62px,5.15vw,88px)!important;font-weight:var(--pf-fw-ui)!important;line-height:.96!important;padding:.02em 0 .07em!important}
+.pf-home .pf-title-design{font-size:clamp(76px,6.35vw,110px)!important;font-weight:var(--pf-fw-display)!important;line-height:.94!important;padding:.07em 0 .09em!important}
 .pf-home h2 em,.pf-home-statement em,.pf-home-feedback h2 em{display:inline-block;font-size:1.07em!important;line-height:.94!important;letter-spacing:-.018em!important;transform:translateY(.015em)}
 
-/* Liquid Glass only where it carries hierarchy. */
+/* Liquid Glass stays an accent, not the whole surface. */
 .pf-liquid-glass{background:linear-gradient(135deg,rgba(255,255,255,.8),rgba(246,248,247,.58))!important;border:1px solid rgba(255,255,255,.78)!important;box-shadow:0 18px 48px rgba(25,31,38,.075),inset 0 1px 0 rgba(255,255,255,.92),inset 0 -1px 0 rgba(255,255,255,.22)!important;backdrop-filter:blur(22px) saturate(158%)!important;-webkit-backdrop-filter:blur(22px) saturate(158%)!important}
 .pf-home-nav.pf-liquid-glass{background:linear-gradient(180deg,rgba(247,247,245,.86),rgba(247,247,245,.68))!important;border-width:0 0 1px!important;border-color:rgba(255,255,255,.76)!important;box-shadow:0 6px 24px rgba(22,26,32,.035),inset 0 -1px 0 rgba(34,39,44,.045)!important}
 
-/* SVG orbit owns the hero visual; no legacy mosaic sizing. */
+/* Concentric human-centered orbit owns the hero visual. */
 .pf-home-hero-visual{min-height:650px!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important}
 
-/* Animated workflow: a visible data stream through the five stages. */
+/* Workflow: each gap communicates the relationship between its two steps. */
 .pf-system-map{overflow:visible!important}
-.pf-system-map::before{
-  background:repeating-linear-gradient(90deg,rgba(15,122,100,.12) 0 10px,rgba(15,122,100,.54) 10px 18px,rgba(15,122,100,.12) 18px 28px)!important;
-  background-size:56px 1px!important;
-  animation:pfSystemLineFlow 2.8s linear infinite;
-}
-.pf-system-map::after{
-  content:"";
-  position:absolute;
-  left:5%;
-  top:calc(50% - 4px);
-  width:8px;
-  height:8px;
-  z-index:2;
-  border-radius:50%;
-  background:var(--pf-brand-accent);
-  box-shadow:0 0 0 5px color-mix(in srgb,var(--pf-brand-accent) 10%,transparent),0 0 18px color-mix(in srgb,var(--pf-brand-accent) 46%,transparent);
-  animation:pfSystemRunner 5.5s linear infinite;
+.pf-system-map::before{background:linear-gradient(90deg,rgba(15,122,100,.08),rgba(15,122,100,.28),rgba(15,122,100,.08))!important;animation:none!important}
+.pf-system-map::after{display:none!important}
+.pf-system-node>span{font-weight:var(--pf-fw-ui)!important}
+.pf-system-node>strong{font-weight:var(--pf-fw-heading)!important}
+.pf-system-node>b{font-weight:var(--pf-fw-ui)!important}
+.pf-system-arrow{
+  right:-29px!important;
+  top:50%!important;
+  width:36px!important;
+  height:20px!important;
+  transform:translateY(-50%)!important;
+  display:block!important;
+  overflow:hidden!important;
+  color:transparent!important;
+  background:linear-gradient(90deg,rgba(15,122,100,.08),rgba(15,122,100,.24),rgba(15,122,100,.08)) center/100% 1px no-repeat!important;
+  font-size:0!important;
+  animation:none!important;
   pointer-events:none;
 }
-.pf-system-arrow{
-  overflow:visible!important;
-  color:var(--pf-brand-accent)!important;
-  font-weight:700!important;
-  animation:pfSystemArrow 1.8s ease-in-out infinite;
+.pf-system-arrow::before,.pf-system-arrow::after{
+  content:"→";
+  position:absolute;
+  left:-12px;
+  top:50%;
+  color:var(--pf-brand-accent);
+  font-family:var(--pf-display);
+  font-size:11px;
+  font-style:normal;
+  font-weight:700;
+  line-height:1;
+  transform:translateY(-52%);
+  animation:pfStepConnector 2s linear infinite;
 }
-.pf-system-node:nth-child(2) .pf-system-arrow{animation-delay:.18s}
-.pf-system-node:nth-child(3) .pf-system-arrow{animation-delay:.36s}
-.pf-system-node:nth-child(4) .pf-system-arrow{animation-delay:.54s}
-.pf-system-node.engine,.pf-system-node.control{transition:transform .32s cubic-bezier(.22,1,.36,1),box-shadow .32s ease}
-.pf-system-node.engine:hover,.pf-system-node.control:hover{transform:translateY(-3px)}
-
-@keyframes pfSystemLineFlow{to{background-position:56px 0}}
-@keyframes pfSystemRunner{0%{left:5%;opacity:0}5%{opacity:1}95%{opacity:1}100%{left:95%;opacity:0}}
-@keyframes pfSystemArrow{0%,100%{transform:translateY(-50%) translateX(0);opacity:.55}50%{transform:translateY(-50%) translateX(4px);opacity:1}}
+.pf-system-arrow::after{animation-delay:1s;opacity:.38}
+.pf-system-node:nth-child(2) .pf-system-arrow::before,.pf-system-node:nth-child(2) .pf-system-arrow::after{animation-delay:.18s}
+.pf-system-node:nth-child(3) .pf-system-arrow::before,.pf-system-node:nth-child(3) .pf-system-arrow::after{animation-delay:.36s}
+.pf-system-node:nth-child(4) .pf-system-arrow::before,.pf-system-node:nth-child(4) .pf-system-arrow::after{animation-delay:.54s}
+@keyframes pfStepConnector{0%{left:-12px;opacity:0}18%{opacity:.45}48%{opacity:1}82%{opacity:.55}100%{left:36px;opacity:0}}
 
 /* Featured project thumbnails */
 .pf-featured-project-grid{margin-top:50px!important;gap:16px!important}
 .pf-featured-project-card{padding:18px!important;border-radius:22px!important;gap:15px;background:linear-gradient(180deg,rgba(255,255,255,.74),rgba(247,247,244,.92))!important}
 .pf-featured-project-card:nth-child(1){background:linear-gradient(180deg,rgba(249,250,248,.96),rgba(235,241,237,.97))!important}
+.pf-featured-project-card>header>em{font-family:var(--pf-display)!important;font-style:normal!important;font-weight:var(--pf-fw-ui)!important}
 .pf-project-thumb{position:relative;width:100%;min-height:180px;aspect-ratio:16/10;border-radius:17px;overflow:hidden;border:1px solid rgba(22,26,31,.055);display:flex;align-items:flex-end;padding:16px;isolation:isolate}
 .pf-project-thumb::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 18% 18%,rgba(255,255,255,.8),transparent 28%),radial-gradient(circle at 82% 74%,rgba(32,40,45,.075),transparent 30%);z-index:0}
 .pf-project-thumb-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(35,42,48,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.045) 1px,transparent 1px);background-size:26px 26px;mask-image:linear-gradient(145deg,rgba(0,0,0,.9),transparent 78%);z-index:0}
-.pf-project-thumb-content{position:relative;z-index:1;display:grid;gap:5px;max-width:92%}.pf-project-thumb-content small{color:rgba(28,34,39,.56)!important;font-size:8px!important}.pf-project-thumb-content strong{color:#171b1f;font-size:clamp(19px,1.8vw,28px);line-height:1.04;font-weight:700;letter-spacing:-.035em}.pf-project-thumb-content b{width:max-content;margin-top:4px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.8);color:#616970;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.pf-project-thumb-content{position:relative;z-index:1;display:grid;gap:5px;max-width:92%}.pf-project-thumb-content small{color:rgba(28,34,39,.56)!important;font-size:8px!important}.pf-project-thumb-content strong{color:#171b1f;font-size:clamp(19px,1.8vw,28px);line-height:1.04;font-weight:var(--pf-fw-heading)!important;letter-spacing:-.035em}.pf-project-thumb-content b{width:max-content;margin-top:4px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.8);color:#616970;font-size:7px;font-weight:var(--pf-fw-ui)!important;letter-spacing:.08em;text-transform:uppercase;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .pf-project-thumb.tone-forest{background:linear-gradient(145deg,#edf5f0,#d9e8df)}.pf-project-thumb.tone-stone{background:linear-gradient(145deg,#f3f2ef,#e2e1dc)}.pf-project-thumb.tone-sand{background:linear-gradient(145deg,#f7f1e8,#eadfce)}.pf-project-thumb.tone-mist{background:linear-gradient(145deg,#f4f6f7,#e3e8eb)}.pf-project-thumb.tone-graphite{background:linear-gradient(145deg,#edf0f1,#d8dfe2)}
 
 /* Footer + feedback */
-.pf-home-signature{margin-bottom:28px!important;gap:20px!important;align-items:center!important}.pf-home-signature>em{font-size:clamp(36px,3.65vw,56px)!important;line-height:.94!important;letter-spacing:-.018em!important;color:var(--pf-brand-accent)!important;padding:.05em 0 .11em}.pf-home-footer-brand{line-height:.78!important;font-family:var(--pf-display)!important;letter-spacing:-.055em!important}
+.pf-home-signature{margin-bottom:28px!important;gap:20px!important;align-items:center!important}.pf-home-signature>em{font-size:clamp(36px,3.65vw,56px)!important;line-height:.94!important;letter-spacing:-.018em!important;color:var(--pf-brand-accent)!important;padding:.05em 0 .11em}.pf-home-footer-brand{line-height:.78!important;font-family:var(--pf-display)!important;letter-spacing:-.055em!important;font-weight:var(--pf-fw-display)!important}
 .pf-home-feedback-box.pf-liquid-glass{border-radius:22px!important;padding:18px!important}.pf-home-feedback textarea{font-size:14px!important;line-height:1.65!important;background:rgba(248,249,247,.74)!important;border:1px solid rgba(255,255,255,.62)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.76)!important}.pf-home-feedback-box footer small{font-size:9px!important}.pf-project-library.pf-liquid-glass{background:linear-gradient(145deg,rgba(248,248,246,.92),rgba(239,243,241,.8))!important;border-color:rgba(255,255,255,.7)!important}
 
 @media(max-width:1180px){
@@ -104,12 +103,10 @@
   .pf-home .pf-title-kicker{font-size:clamp(40px,10vw,56px)!important}.pf-home .pf-title-main{font-size:clamp(58px,14vw,80px)!important}.pf-home .pf-title-accent{font-size:clamp(66px,15vw,88px)!important;padding-bottom:.11em!important}.pf-home .pf-title-secondary{font-size:clamp(50px,12vw,68px)!important}.pf-home .pf-title-design{font-size:clamp(60px,14vw,84px)!important;padding-top:.09em!important}
   .pf-home-hero-copy>p{font-size:16px!important}
   .pf-home-hero-visual{min-height:auto!important;margin-top:36px!important}
-  .pf-system-map::before,.pf-system-map::after{display:none!important}
-  .pf-system-arrow{animation:none!important}
+  .pf-system-map::before,.pf-system-arrow{display:none!important}
   .pf-home-signature{align-items:flex-start!important;flex-direction:column!important;gap:8px!important}.pf-home-signature>em{font-size:40px!important}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .pf-system-map::before,.pf-system-map::after,.pf-system-arrow{animation:none!important}
-  .pf-system-map::after{display:none!important}
+  .pf-system-arrow::before,.pf-system-arrow::after{animation:none!important;display:none!important}
 }
