@@ -2,15 +2,15 @@ import { useEffect } from "react";
 import "./OverviewPenRuntime.css";
 
 const STORAGE_KEY = "phongflow-overview-pen-shapes-v1";
-const STYLE_KEY = "phongflow-overview-pen-style-v2";
+const STYLE_KEY = "phongflow-overview-pen-style-v3";
 const LEGACY_MARKUP_KEY = "phongflow-overview-markup-v2";
 
 const DEFAULT_STYLE = {
   fill: "#ff3b30",
   fillOpacity: 0.12,
   stroke: "#ff3b30",
-  strokeWidth: 1,
-  strokeOpacity: 0.92,
+  strokeWidth: 0.25,
+  strokeOpacity: 0.82,
 };
 
 function safeNumber(value, fallback) {
@@ -19,11 +19,13 @@ function safeNumber(value, fallback) {
 }
 
 function normalizeStyle(value = {}) {
+  const rawWidth = safeNumber(value.strokeWidth, DEFAULT_STYLE.strokeWidth);
+  const migratedWidth = Math.abs(rawWidth - 1) < 0.001 ? DEFAULT_STYLE.strokeWidth : rawWidth;
   return {
     fill: typeof value.fill === "string" ? value.fill : DEFAULT_STYLE.fill,
     fillOpacity: Math.max(0, Math.min(0.8, safeNumber(value.fillOpacity, DEFAULT_STYLE.fillOpacity))),
     stroke: typeof value.stroke === "string" ? value.stroke : DEFAULT_STYLE.stroke,
-    strokeWidth: Math.max(0.5, Math.min(4, safeNumber(value.strokeWidth, DEFAULT_STYLE.strokeWidth))),
+    strokeWidth: Math.max(0.15, Math.min(2, migratedWidth)),
     strokeOpacity: Math.max(0.1, Math.min(1, safeNumber(value.strokeOpacity, DEFAULT_STYLE.strokeOpacity))),
   };
 }
@@ -114,19 +116,11 @@ export default function OverviewPenRuntime() {
       return Math.hypot(a.x - b.x, a.y - b.y);
     }
 
-    function closeTolerance() {
-      if (!stage) return 1.6;
-      const screenWidth = Math.max(1, stage.clientWidth * Math.max(camera.scale, 0.0001));
-      return Math.max(0.35, Math.min(2, (12 / screenWidth) * 100));
-    }
-
     function cleanedDraft() {
-      const tolerance = closeTolerance() * 0.35;
       const clean = [];
       draft.forEach((point) => {
-        if (!clean.length || pointDistance(point, clean.at(-1)) > tolerance) clean.push(point);
+        if (!clean.length || pointDistance(point, clean.at(-1)) > 0.01) clean.push(point);
       });
-      if (clean.length > 3 && pointDistance(clean[0], clean.at(-1)) <= closeTolerance()) clean.pop();
       return clean;
     }
 
@@ -165,9 +159,18 @@ export default function OverviewPenRuntime() {
       draft.forEach((point, index) => {
         const pos = screenPoint(point);
         const node = document.createElement("i");
-        node.className = `pf-pen-screen-anchor${index === 0 ? " is-first" : ""}`;
+        node.className = `pf-pen-screen-anchor${index === 0 ? " is-first" : ""}${index === 0 && draft.length >= 3 ? " is-closable" : ""}`;
         node.style.left = `${pos.x}px`;
         node.style.top = `${pos.y}px`;
+        if (index === 0 && draft.length >= 3) {
+          node.title = "Close path";
+          node.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
+            finish();
+          });
+        }
         anchorLayer.appendChild(node);
       });
     }
@@ -263,7 +266,7 @@ export default function OverviewPenRuntime() {
 
     function onPointerDown(event) {
       if (!active || event.button !== 0 || !stage?.contains(event.target)) return;
-      if (event.target.closest?.(".pf-overview-control-rail,.pf-overview-zoom-toolbar,.pf-unit-navigator,.pf-overview-v2-controls,.pf-pen-style-menu")) return;
+      if (event.target.closest?.(".pf-overview-control-rail,.pf-overview-zoom-toolbar,.pf-unit-navigator,.pf-overview-v2-controls,.pf-pen-style-menu,.pf-pen-screen-anchor-layer")) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
@@ -276,10 +279,6 @@ export default function OverviewPenRuntime() {
 
       const point = worldPoint(event);
       if (!point) return;
-      if (draft.length >= 3 && pointDistance(point, draft[0]) <= closeTolerance()) {
-        finish();
-        return;
-      }
       draft.push(point);
       hover = point;
       render();
@@ -404,7 +403,7 @@ export default function OverviewPenRuntime() {
         button = document.createElement("button");
         button.type = "button";
         button.className = "pf-pen-tool-button";
-        button.title = "Highlight Pen (P) · click anchor points · click first point / double-click / Enter to close";
+        button.title = "Highlight Pen (P) · add as many points as needed · click first anchor / double-click / Enter to close";
         button.setAttribute("aria-label", "Highlight Pen polygon tool");
         button.innerHTML = `<span>✒</span><b>Highlight</b>`;
         button.addEventListener("click", (event) => {
@@ -425,11 +424,11 @@ export default function OverviewPenRuntime() {
           <div class="pf-pen-style-popover">
             <header><strong>Highlight style</strong><span data-pen-selection>New shapes</span></header>
             <label><span>Fill</span><input data-pen-style="fill" type="color"></label>
-            <label><span>Fill opacity</span><input data-pen-style="fillOpacity" type="range" min="0" max="0.8" step="0.02"></label>
+            <label><span>Fill opacity</span><input data-pen-style="fillOpacity" type="range" min="0" max="0.5" step="0.01"></label>
             <label><span>Stroke</span><input data-pen-style="stroke" type="color"></label>
-            <label><span>Stroke width</span><input data-pen-style="strokeWidth" type="range" min="0.5" max="4" step="0.25"></label>
+            <label><span>Stroke width</span><input data-pen-style="strokeWidth" type="range" min="0.15" max="1" step="0.05"></label>
             <label><span>Stroke opacity</span><input data-pen-style="strokeOpacity" type="range" min="0.1" max="1" step="0.05"></label>
-            <small>Click a finished highlight with Pen active to edit that shape only.</small>
+            <small>Add any number of anchors. Close only with the first anchor, double-click, or Enter.</small>
           </div>`;
         styleMenu.addEventListener("input", (event) => {
           const key = event.target?.dataset?.penStyle;
