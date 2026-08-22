@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import "./HomeLanding.css";
 import "./HomeLandingFeatured.css";
 import "./HomeLandingPremium.css";
+import HeroOrbitDiagram from "./HeroOrbitDiagram.jsx";
 
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
 
@@ -34,14 +35,6 @@ const FLOW = [
   { key: "engine", eyebrow: "PLOTFLOW", title: "Project engine", body: "Locate · map · compose", meta: "One source of truth" },
   { key: "control", eyebrow: "DESIGNER", title: "Human control", body: "Review · override · refine", meta: "Craft stays visible" },
   { key: "output", eyebrow: "OUTPUT", title: "Sales-ready design", body: "Overview + Detail", meta: "PNG · PDF · batch export" },
-];
-
-const HERO_NODES = [
-  { className: "top", index: "01", title: "Floorplan Locator", body: "Find the right unit inside a large PDF without hunting page by page." },
-  { className: "right", index: "02", title: "Data-linked Overview", body: "Sales cards, connectors and highlights stay tied to one source of truth." },
-  { className: "bottom-right", index: "03", title: "Detail Composer", body: "Prepare unit-level artwork with synced data, floorplan and assets." },
-  { className: "bottom-left", index: "04", title: "Review & Export", body: "Move from visual check to PNG or PDF output in the same workflow." },
-  { className: "left", index: "05", title: "Manual Override", body: "Automation stops where hierarchy, spacing and visual judgment begin." },
 ];
 
 export default function HomeLanding({ onOpenProject }) {
@@ -102,23 +95,8 @@ export default function HomeLanding({ onOpenProject }) {
             <div className="pf-home-proof"><span><b>01</b> One data source</span><span><b>02</b> Human-in-the-loop</span><span><b>03</b> Overview + Detail</span></div>
           </div>
 
-          <div className="pf-home-hero-visual" aria-label="PlotFlow designer-centered system">
-            <div className="pf-hero-orbit-stage">
-              <div className="pf-orbit-glow" />
-              <div className="pf-orbit-ring pf-orbit-ring-1" />
-              <div className="pf-orbit-ring pf-orbit-ring-2" />
-              <div className="pf-orbit-ring pf-orbit-ring-3" />
-              <div className="pf-orbit-center pf-liquid-glass">
-                <span>CORE PRINCIPLE</span>
-                <strong>Designer in control</strong>
-                <p>Automation handles repetition. Visual judgment stays with the human.</p>
-              </div>
-              {HERO_NODES.map((node) => (
-                <article className={`pf-orbit-node pf-orbit-node-${node.className} pf-liquid-glass`} key={node.index}>
-                  <small>{node.index}</small><strong>{node.title}</strong><span>{node.body}</span>
-                </article>
-              ))}
-            </div>
+          <div className="pf-home-hero-visual">
+            <HeroOrbitDiagram />
           </div>
         </section>
 
