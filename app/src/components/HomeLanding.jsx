@@ -1,58 +1,79 @@
 import { useMemo, useState } from "react";
 import "./HomeLanding.css";
 
+const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
+
 const PROJECTS = [
-  { id: "vhspark", name: "Vinhomes Green Paradise · Saigon Park", developer: "Vinhomes", location: "TP.HCM", status: "active", note: "Round 1 workspace" },
-  { id: "masterise", name: "Masterise Homes Project", developer: "Masterise", location: "Vietnam", status: "soon", note: "Coming soon" },
-  { id: "gamuda", name: "Gamuda Land Project", developer: "Gamuda", location: "Vietnam", status: "soon", note: "Coming soon" },
-  { id: "future", name: "Next residential collection", developer: "Other", location: "Vietnam", status: "soon", note: "Coming soon" },
+  { id: "vhspark", name: "Vinhomes Green Paradise · Saigon Park", developer: "Vinhomes", location: "TP.HCM", status: "active", note: "Active workspace" },
+  { id: "vh-grand-park", name: "Vinhomes Grand Park", developer: "Vinhomes", location: "TP.HCM", status: "soon", note: "Reference queue" },
+  { id: "vh-op2", name: "Vinhomes Ocean Park 2", developer: "Vinhomes", location: "Hưng Yên", status: "soon", note: "Reference queue" },
+  { id: "vh-op3", name: "Vinhomes Ocean Park 3", developer: "Vinhomes", location: "Hưng Yên", status: "soon", note: "Reference queue" },
+  { id: "global-city", name: "The Global City", developer: "Masterise", location: "TP.HCM", status: "soon", note: "Reference queue" },
+  { id: "masteri-centre-point", name: "Masteri Centre Point", developer: "Masterise", location: "TP.HCM", status: "soon", note: "Reference queue" },
+  { id: "lumiere-riverside", name: "LUMIÈRE Riverside", developer: "Masterise", location: "TP.HCM", status: "soon", note: "Reference queue" },
+  { id: "celadon-city", name: "Celadon City", developer: "Gamuda", location: "TP.HCM", status: "soon", note: "Reference queue" },
+  { id: "eaton-park", name: "Eaton Park", developer: "Gamuda", location: "TP.HCM", status: "soon", note: "Reference queue" },
+  { id: "elysian", name: "Elysian", developer: "Gamuda", location: "TP.HCM", status: "soon", note: "Reference queue" },
+  { id: "waterpoint", name: "Waterpoint", developer: "Nam Long", location: "Long An", status: "soon", note: "Reference queue" },
+  { id: "mizuki-park", name: "Mizuki Park", developer: "Nam Long", location: "TP.HCM", status: "soon", note: "Reference queue" },
 ];
 
 const FAQ = [
   [
-    "PlotFlow khác gì so với một template thiết kế thông thường?",
-    "Template chỉ giúp bạn bắt đầu nhanh. PlotFlow đi xa hơn: dữ liệu bán hàng, masterplan, locator, artwork và export nằm trong cùng một workflow. Designer không phải lặp lại những thao tác máy móc, nhưng vẫn giữ quyền quyết định ở những chỗ ảnh hưởng trực tiếp đến chất lượng hình ảnh.",
+    "PlotFlow được xây để giải quyết chính xác việc gì?",
+    "Một việc rất cụ thể: biến dữ liệu bán hàng bất động sản thành artwork có thể review và xuất bản mà không bắt designer lặp lại cùng một chuỗi thao tác cho hàng chục hay hàng trăm căn. PlotFlow không cố trở thành phần mềm thiết kế cho mọi thứ. Nó tối ưu thật sâu đoạn đường từ data → masterplan → composition → output.",
   ],
   [
-    "Tại sao PlotFlow vẫn cho chỉnh tay nếu đã có automation?",
-    "Vì sản phẩm bán hàng không nên trông như được sinh ra bởi một chiếc máy. Automation xử lý phần lặp lại; designer vẫn có thể chỉnh floorplan view, highlight, card layout, connector, hierarchy và asset. Mục tiêu là tăng tốc mà không đánh đổi craft.",
+    "Tại sao không chỉ dùng template rồi copy từng căn?",
+    "Vì copy-paste vẫn bắt con người làm phần máy móc: tìm đúng căn, thay đúng dữ liệu, kiểm tra đúng floorplan, dựng lại overview, giữ layout nhất quán rồi export. PlotFlow gom những bước đó thành một system. Designer dành thời gian cho hierarchy, hình ảnh và quyết định thị giác thay vì kiểm tra xem mình đã thay sót một con số hay chưa.",
   ],
   [
-    "Một project mới có phải làm lại mọi thứ từ đầu không?",
-    "Không. PlotFlow được xây theo cấu trúc project: dữ liệu, masterplan và asset thay đổi, nhưng logic vận hành có thể tái sử dụng. Khi hệ thống trưởng thành hơn, một project mới sẽ giống việc cấu hình một workspace mới hơn là dựng lại cả quy trình.",
+    "Automation có làm thiết kế bị giống máy không?",
+    "Không, nếu automation dừng đúng chỗ. PlotFlow tự động hóa những gì có quy luật, rồi trả quyền điều khiển cho designer ở floorplan view, highlight, connector, layout, asset và final composition. Tốc độ đến từ việc bỏ thao tác lặp; chất lượng vẫn đến từ mắt nghề.",
   ],
   [
-    "PlotFlow phù hợp nhất với ai?",
-    "Những team bất động sản cần sản xuất số lượng artwork lớn nhưng vẫn muốn giữ chuẩn thiết kế. Sales có dữ liệu rõ hơn, designer bớt thao tác lặp, còn người review nhìn được trạng thái và can thiệp đúng chỗ.",
+    "Điểm mạnh của Overview và Detail nằm ở đâu?",
+    "Chúng không phải hai file rời. Overview giúp nhìn cả dự án, card bán hàng, connector và vùng cần nhấn; Detail đi sâu vào từng unit với floorplan và thông tin bán hàng. Cùng một nguồn data đi qua hai cấp độ truyền thông, nên việc cập nhật và review có logic hơn nhiều so với quản lý từng artwork thủ công.",
   ],
   [
-    "Chất lượng file có bị hy sinh để đổi lấy tốc độ không?",
-    "Không theo hướng đó. PlotFlow ưu tiên preview nhẹ để làm việc nhanh, nhưng vẫn giữ workflow export độ phân giải cao và vector PDF khi nguồn cho phép. Tốc độ dùng để giảm thời gian thao tác, không phải giảm chất lượng đầu ra.",
+    "PlotFlow có thay designer không?",
+    "Không. PlotFlow được thiết kế để nâng leverage của designer: ít thời gian cho thao tác lặp, nhiều thời gian hơn cho lựa chọn có ý nghĩa. Nó giống một lớp vận hành phía sau design hơn là một nút 'generate' thay thế người làm nghề.",
   ],
+  [
+    "Một project mới có phải xây lại workflow từ đầu?",
+    "Mục tiêu là không. Khi project system đã được chuẩn hóa, phần thay đổi chủ yếu là data source, masterplan và asset library. Logic review, composition và export được tái sử dụng. Càng nhiều project đi qua PlotFlow, hệ thống càng có giá trị thay vì càng rối.",
+  ],
+];
+
+const FLOW = [
+  { key: "data", eyebrow: "INPUT 01", title: "Sales data", body: "Google Sheet / Excel", meta: "Unit code · price · type · specs" },
+  { key: "map", eyebrow: "INPUT 02", title: "Masterplan", body: "PDF + project assets", meta: "Floorplan · houses · amenities" },
+  { key: "engine", eyebrow: "PLOTFLOW", title: "Project engine", body: "Locate · map · compose", meta: "One source of truth" },
+  { key: "control", eyebrow: "DESIGNER", title: "Human control", body: "Review · override · refine", meta: "Craft stays visible" },
+  { key: "output", eyebrow: "OUTPUT", title: "Sales-ready design", body: "Overview + Detail", meta: "PNG · PDF · batch export" },
 ];
 
 export default function HomeLanding({ onOpenProject }) {
   const [filter, setFilter] = useState("All");
   const [feedback, setFeedback] = useState("");
-  const [savedFeedback, setSavedFeedback] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
-  const developers = ["All", "Vinhomes", "Masterise", "Gamuda"];
+  const developers = ["All", "Vinhomes", "Masterise", "Gamuda", "Nam Long"];
 
   const filtered = useMemo(() => (
     filter === "All" ? PROJECTS : PROJECTS.filter((project) => project.developer === filter)
   ), [filter]);
 
-  function saveFeedback() {
+  function sendFeedback() {
     const value = feedback.trim();
     if (!value) return;
     try {
       const history = JSON.parse(localStorage.getItem("plotflow-local-feedback-v1") || "[]");
       const next = [{ text: value, createdAt: new Date().toISOString() }, ...(Array.isArray(history) ? history : [])].slice(0, 20);
       localStorage.setItem("plotflow-local-feedback-v1", JSON.stringify(next));
-    } catch { /* local feedback is best-effort */ }
-    setFeedback("");
-    setSavedFeedback(true);
-    window.setTimeout(() => setSavedFeedback(false), 2600);
+    } catch { /* best effort local backup */ }
+    const subject = encodeURIComponent("PlotFlow · Product feedback");
+    const body = encodeURIComponent(`Hi Phong,\n\n${value}\n\n— Sent from PlotFlow product preview`);
+    window.location.href = `mailto:${FEEDBACK_EMAIL}?subject=${subject}&body=${body}`;
   }
 
   return (
@@ -61,9 +82,9 @@ export default function HomeLanding({ onOpenProject }) {
         <a className="pf-home-brand" href="#top" aria-label="PlotFlow home">PlotFlow</a>
         <nav aria-label="Homepage sections">
           <a href="#product">Product</a>
-          <a href="#workflow">Workflow</a>
+          <a href="#workflow">System</a>
           <a href="#projects">Projects</a>
-          <a href="#faq">FAQ</a>
+          <a href="#faq">Why PlotFlow</a>
         </nav>
         <button type="button" className="pf-home-open" onClick={onOpenProject}>Open workspace <span>↗</span></button>
       </header>
@@ -71,88 +92,101 @@ export default function HomeLanding({ onOpenProject }) {
       <main id="top">
         <section className="pf-home-hero" id="product">
           <div className="pf-home-hero-copy">
-            <div className="pf-home-eyebrow"><i /> Design operations for real estate</div>
+            <div className="pf-home-eyebrow"><i /> Real-estate design operations</div>
             <h1>Make the repetitive <em>disappear.</em><br />Keep the design.</h1>
-            <p>PlotFlow biến dữ liệu bán hàng và masterplan thành một workflow thiết kế có thể kiểm soát. Automation xử lý phần lặp lại; designer giữ lại những quyết định tạo nên chất lượng.</p>
+            <p>PlotFlow được xây cho một công việc rất cụ thể: đưa dữ liệu bán hàng bất động sản đi từ spreadsheet và masterplan tới artwork hoàn chỉnh — nhanh hơn, nhất quán hơn, nhưng vẫn để designer giữ quyền quyết định.</p>
             <div className="pf-home-hero-actions">
-              <button type="button" onClick={onOpenProject}>Explore Saigon Park <span>→</span></button>
-              <a href="#workflow">See the workflow</a>
+              <button type="button" onClick={onOpenProject}>Open PlotFlow <span>→</span></button>
+              <a href="#workflow">See how the system works</a>
             </div>
             <div className="pf-home-proof">
-              <span><b>01</b> Data connected</span>
-              <span><b>02</b> Designer controlled</span>
-              <span><b>03</b> Export ready</span>
+              <span><b>01</b> One data source</span>
+              <span><b>02</b> Human-in-the-loop</span>
+              <span><b>03</b> Overview + Detail</span>
             </div>
           </div>
 
-          <div className="pf-home-hero-visual" aria-label="PlotFlow product preview">
-            <div className="pf-home-product-frame">
-              <div className="pf-home-frame-top"><span>Saigon Park / Overview</span><b>Live workspace</b></div>
-              <div className="pf-home-product-canvas">
-                <div className="pf-home-plan">
-                  <i className="road r1" /><i className="road r2" /><i className="road r3" />
-                  {Array.from({ length: 16 }).map((_, index) => <i className={`lot l${index + 1}`} key={index} />)}
-                  <i className="highlight h1" /><i className="highlight h2" />
-                </div>
-                <svg className="pf-home-connectors" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                  <line x1="16" y1="29" x2="42" y2="35" />
-                  <line x1="16" y1="62" x2="39" y2="59" />
-                  <line x1="84" y1="38" x2="61" y2="43" />
-                  <line x1="84" y1="69" x2="64" y2="64" />
-                </svg>
-                <div className="pf-home-sales-card c1"><small>SA5-12</small><strong>24.8 tỷ</strong><span>216m² · Song lập</span></div>
-                <div className="pf-home-sales-card c2"><small>SA5-18</small><strong>21.6 tỷ</strong><span>180m² · Liền kề</span></div>
-                <div className="pf-home-sales-card c3"><small>SA6-03</small><strong>27.1 tỷ</strong><span>240m² · Song lập</span></div>
-                <div className="pf-home-sales-card c4"><small>SA6-08</small><strong>19.9 tỷ</strong><span>160m² · Liền kề</span></div>
-                <div className="pf-home-detail-preview">
-                  <small>DETAIL</small><b>SA5-12</b><span>Floorplan located · ready to compose</span>
+          <div className="pf-home-hero-visual" aria-label="PlotFlow running on a laptop mockup">
+            <div className="pf-laptop">
+              <div className="pf-laptop-screen">
+                <div className="pf-laptop-appbar"><span>PlotFlow</span><b>Project workspace</b><em>LIVE</em></div>
+                <div className="pf-laptop-workspace">
+                  <aside><small>PROJECT</small><strong>Overview</strong><span className="active">Masterplan</span><span>Units</span><span>Export</span></aside>
+                  <section>
+                    <div className="pf-mini-plan">
+                      <i className="road one" /><i className="road two" />
+                      {Array.from({ length: 18 }).map((_, index) => <i className={`lot lot-${index + 1}`} key={index} />)}
+                      <i className="mark mark-a" /><i className="mark mark-b" />
+                    </div>
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                      <line x1="18" y1="31" x2="43" y2="39" /><line x1="18" y1="67" x2="42" y2="60" />
+                      <line x1="82" y1="35" x2="61" y2="43" /><line x1="82" y1="70" x2="64" y2="61" />
+                    </svg>
+                    <article className="card left top"><b>SA5-12</b><strong>24.8 tỷ</strong><span>216m² · Song lập</span></article>
+                    <article className="card left bottom"><b>SA5-18</b><strong>21.6 tỷ</strong><span>180m² · Liền kề</span></article>
+                    <article className="card right top"><b>SA6-03</b><strong>27.1 tỷ</strong><span>240m² · Song lập</span></article>
+                    <article className="card right bottom"><b>SA6-08</b><strong>19.9 tỷ</strong><span>160m² · Liền kề</span></article>
+                  </section>
                 </div>
               </div>
+              <div className="pf-laptop-base"><i /></div>
             </div>
-            <div className="pf-home-product-note one"><i>⌖</i><div><b>Floorplan Locator</b><span>Find the right unit without hunting pages.</span></div></div>
-            <div className="pf-home-product-note two"><i>✦</i><div><b>Manual control stays</b><span>Move, highlight, refine and export.</span></div></div>
+            <div className="pf-feature-pop locator"><i>⌖</i><div><b>Floorplan Locator</b><span>Find the correct unit inside a large PDF.</span></div></div>
+            <div className="pf-feature-pop overview"><i>↗</i><div><b>Data-linked Overview</b><span>Cards, connectors and highlights stay in one view.</span></div></div>
+            <div className="pf-feature-pop control"><i>✦</i><div><b>Designer control</b><span>Automation stops where visual judgment begins.</span></div></div>
           </div>
         </section>
 
         <section className="pf-home-statement">
-          <span>PlotFlow is built around one idea:</span>
-          <p>“A designer should spend more time making decisions — and less time repeating them.”</p>
+          <span>THE PRINCIPLE</span>
+          <p>A designer should spend more time making <em>decisions that matter</em> — and less time repeating them.</p>
         </section>
 
         <section className="pf-home-workflow" id="workflow">
           <div className="pf-home-section-head">
-            <span>THE WORKFLOW</span>
-            <h2>From raw project data to something people actually want to look at.</h2>
-            <p>Mỗi bước đều đủ tự động để nhanh hơn, nhưng vẫn đủ mở để designer nhìn thấy, hiểu và chỉnh lại khi cần.</p>
+            <span>ONE JOB, DEEPLY OPTIMIZED</span>
+            <h2>A system for the messy space between <em>property data</em> and finished design.</h2>
+            <p>PlotFlow không gom thật nhiều feature để trông mạnh. Nó nối đúng những bước thường làm designer bất động sản mất thời gian nhất, rồi giữ chúng trong một luồng có thể nhìn thấy và kiểm soát.</p>
           </div>
-          <div className="pf-home-steps">
-            <article><b>01</b><div><h3>Connect the source</h3><p>Google Sheet hoặc Excel trở thành nguồn dữ liệu chung. Masterplan PDF chỉ được tải khi cần, để trải nghiệm khởi động vẫn nhẹ.</p></div></article>
-            <article><b>02</b><div><h3>Let PlotFlow do the repetitive work</h3><p>Locate floorplan, đưa dữ liệu vào đúng vị trí, dựng Overview và chuẩn bị những layer cần thiết cho một artwork có thể review.</p></div></article>
-            <article><b>03</b><div><h3>Make it yours</h3><p>Fine-tune view, highlight, connector, card layout và asset. Đây là nơi automation dừng lại và mắt nghề của designer tiếp tục.</p></div></article>
-            <article><b>04</b><div><h3>Export without shrinking the craft</h3><p>Xuất từng căn hoặc batch ở nhiều mức độ phân giải, phù hợp từ review nhanh đến zoom sâu và gửi file chất lượng cao.</p></div></article>
+
+          <div className="pf-system-map" aria-label="PlotFlow system diagram">
+            {FLOW.map((item, index) => (
+              <div className={`pf-system-node ${item.key}`} key={item.key}>
+                <span>{item.eyebrow}</span><strong>{item.title}</strong><b>{item.body}</b><small>{item.meta}</small>
+                {index < FLOW.length - 1 && <i className="pf-system-arrow">→</i>}
+              </div>
+            ))}
+          </div>
+          <div className="pf-system-caption"><span>INPUT</span><i /><span>AUTOMATION</span><i /><span>DESIGN JUDGMENT</span><i /><span>OUTPUT</span></div>
+
+          <div className="pf-home-benefits">
+            <article><span>01</span><h3>Stop hunting through files.</h3><p>Locator đưa designer tới đúng khu vực cần làm thay vì dò từng trang PDF bằng mắt.</p></article>
+            <article><span>02</span><h3>Stop rebuilding the same composition.</h3><p>Dữ liệu unit đi vào một hệ thống layout có sẵn, thay vì copy-paste rồi sửa từng layer.</p></article>
+            <article><span>03</span><h3>Keep the decisions human.</h3><p>Highlight, connector, framing và hierarchy vẫn mở để designer tinh chỉnh khi mắt nghề thấy cần.</p></article>
+            <article><span>04</span><h3>Scale without flattening the craft.</h3><p>Một project có thể sinh nhiều output hơn mà không buộc tất cả artwork trông như template vô hồn.</p></article>
           </div>
         </section>
 
         <section className="pf-home-projects" id="projects">
           <div className="pf-home-section-head compact">
             <span>PROJECT LIBRARY</span>
-            <h2>One system. Many projects.</h2>
-            <p>Saigon Park đang là workspace được phát triển sâu nhất. Những project kế tiếp sẽ dùng lại cùng nền tảng thay vì bắt đầu lại từ con số không.</p>
+            <h2>One system. <em>Many project worlds.</em></h2>
+            <p>Workspace active là nơi PlotFlow đang được kiểm thử sâu. Danh sách còn lại thể hiện hướng mở rộng của project system — cùng một nền vận hành, dữ liệu và asset khác nhau.</p>
           </div>
           <div className="pf-home-project-toolbar">
             <div className="pf-home-filters" role="group" aria-label="Filter projects by developer">
               {developers.map((item) => <button type="button" key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}
             </div>
-            <span>{filtered.length} project{filtered.length === 1 ? "" : "s"}</span>
+            <span>{filtered.length} projects</span>
           </div>
           <div className="pf-home-project-table" role="table" aria-label="PlotFlow projects">
             <div className="pf-home-project-row heading" role="row"><span>Project</span><span>Developer</span><span>Location</span><span>Status</span><span /></div>
-            {filtered.map((project) => (
+            {filtered.map((project, index) => (
               <div className={`pf-home-project-row ${project.status}`} role="row" key={project.id}>
-                <div><i>{project.status === "active" ? "01" : "—"}</i><strong>{project.name}</strong><small>{project.note}</small></div>
+                <div><i>{String(index + 1).padStart(2, "0")}</i><strong>{project.name}</strong><small>{project.note}</small></div>
                 <span>{project.developer}</span><span>{project.location}</span>
                 <span className="status"><i />{project.status === "active" ? "Active" : "Coming soon"}</span>
-                {project.status === "active" ? <button type="button" onClick={onOpenProject}>Open <b>↗</b></button> : <em>Locked</em>}
+                {project.status === "active" ? <button type="button" onClick={onOpenProject}>Open <b>↗</b></button> : <em>Limited</em>}
               </div>
             ))}
           </div>
@@ -161,8 +195,8 @@ export default function HomeLanding({ onOpenProject }) {
         <section className="pf-home-faq" id="faq">
           <div className="pf-home-section-head compact">
             <span>WHY PLOTFLOW</span>
-            <h2>Built for the part between data and design.</h2>
-            <p>Những câu hỏi quan trọng nhất không phải “có bao nhiêu tool”, mà là sản phẩm này giúp team làm tốt hơn ở đâu.</p>
+            <h2>Less software theatre.<br /><em>More useful leverage.</em></h2>
+            <p>Những câu dưới đây nói thẳng vào giá trị thật của sản phẩm: PlotFlow đang bỏ đi phần việc nào, giữ lại phần việc nào, và vì sao điều đó quan trọng với design bất động sản.</p>
           </div>
           <div className="pf-home-faq-list">
             {FAQ.map(([question, answer], index) => {
@@ -180,10 +214,15 @@ export default function HomeLanding({ onOpenProject }) {
         </section>
 
         <section className="pf-home-feedback">
-          <div><span>BUILD WITH US</span><h2>Thấy một bước có thể tốt hơn?</h2><p>PlotFlow đang được xây từ chính những tình huống xảy ra trong workflow thật. Một góp ý nhỏ hôm nay có thể trở thành một phần của hệ thống ngày mai.</p></div>
+          <div>
+            <span>BUILD THE NEXT VERSION</span>
+            <h2>Shape what PlotFlow <em>becomes next.</em></h2>
+            <p>Nếu có một thao tác vẫn làm bạn mất nhịp, một feature còn thiếu, hay một chi tiết khiến workflow chưa đủ mượt — gửi thẳng cho Phong. Feedback từ việc dùng thật là thứ quyết định phiên bản tiếp theo.</p>
+          </div>
           <div className="pf-home-feedback-box">
-            <textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Một workflow, một thao tác, hoặc một chi tiết bạn muốn PlotFlow làm tốt hơn…" rows={4} />
-            <footer><small>{savedFeedback ? "✓ Đã lưu feedback trên thiết bị" : "Local feedback · chỉ lưu trên thiết bị này"}</small><button type="button" onClick={saveFeedback} disabled={!feedback.trim()}>Save feedback</button></footer>
+            <label>What would make your workflow better?</label>
+            <textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Tell me what feels slow, repetitive, unclear — or what you wish PlotFlow could do next…" rows={5} />
+            <footer><small>Opens your email app · to {FEEDBACK_EMAIL}</small><button type="button" onClick={sendFeedback} disabled={!feedback.trim()}>Send to Phong <span>↗</span></button></footer>
           </div>
         </section>
       </main>
@@ -191,8 +230,8 @@ export default function HomeLanding({ onOpenProject }) {
       <footer className="pf-home-footer">
         <div className="pf-home-footer-brand">PlotFlow</div>
         <div className="pf-home-footer-meta">
-          <div><strong>Design operations for real estate.</strong><span>Data → Compose → Review → Export</span></div>
-          <div><span>Current workspace</span><strong>Vinhomes Green Paradise · Saigon Park</strong></div>
+          <div><strong>Real-estate design operations.</strong><span>One focused workflow, deeply optimized.</span></div>
+          <div><span>Product principle</span><strong>Automate repetition. Keep judgment human.</strong></div>
           <div className="right"><span>Product preview</span><strong>2026</strong></div>
         </div>
       </footer>
