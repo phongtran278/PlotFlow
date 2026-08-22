@@ -65,8 +65,6 @@ export default function QuickPinOverlay({ artboard, src, active, unitCode }) {
     };
   }, [unitCode]);
 
-  // The legacy template pin is hidden whenever the per-unit overlay is present.
-  // This makes preview and export use the same saved per-unit placement.
   useEffect(() => {
     if (!artboard || !src) return;
     const legacy = artboard.querySelector(".poster-pin-3d");
@@ -139,6 +137,8 @@ export default function QuickPinOverlay({ artboard, src, active, unitCode }) {
 
   return (
     <div
+      className="quick-pin-overlay"
+      data-preview-pan-ignore="true"
       onMouseDown={(event) => begin("drag", event)}
       style={{
         position: "absolute",
