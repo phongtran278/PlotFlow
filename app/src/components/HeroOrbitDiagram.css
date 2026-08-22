@@ -1,8 +1,8 @@
 .pf-human-orbit{
-  --orbit-size:min(92%,600px);
+  --orbit-size:min(100%,620px);
   position:relative;
   width:var(--orbit-size);
-  max-width:600px;
+  max-width:620px;
   aspect-ratio:1/1;
   margin-inline:auto;
   isolation:isolate;
@@ -17,7 +17,7 @@
 .pf-human-ring-inner{width:39%;height:39%;animation:pfOrbitCW 7.25s linear infinite;-webkit-animation:pfOrbitCW 7.25s linear infinite}
 .pf-human-ring-middle::after,.pf-human-ring-middle .pf-orbit-tracer{opacity:.8}.pf-human-ring-inner::after,.pf-human-ring-inner .pf-orbit-tracer{opacity:.66}
 
-.pf-human-core{position:absolute;left:50%;top:50%;z-index:5;width:202px;aspect-ratio:1/1;min-height:0;transform:translate(-50%,-50%);padding:31px 28px;border-radius:50%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(242,247,244,.91))!important;border:1px solid rgba(255,255,255,.95)!important;box-shadow:0 28px 68px rgba(18,30,26,.105),inset 0 1px 0 rgba(255,255,255,.98)!important}
+.pf-human-core{position:absolute;left:50%;top:50%;z-index:5;width:204px;aspect-ratio:1/1;min-height:0;transform:translate(-50%,-50%);padding:31px 28px;border-radius:50%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(242,247,244,.91))!important;border:1px solid rgba(255,255,255,.95)!important;box-shadow:0 28px 68px rgba(18,30,26,.105),inset 0 1px 0 rgba(255,255,255,.98)!important}
 .pf-human-core::before{display:none!important}
 .pf-human-core>strong{display:block;width:100%;max-width:148px;margin:0;color:#15191d;font-size:23px;line-height:1.06;font-weight:700;letter-spacing:-.025em;text-wrap:balance}
 .pf-human-core>p{width:100%;max-width:136px!important;margin:14px 0 0!important;color:#70787f!important;font-size:9.5px!important;line-height:1.5!important;font-weight:400!important;text-wrap:balance}
@@ -28,7 +28,7 @@
 .pf-human-feature>i{flex:0 0 5px;width:5px;height:5px;border-radius:50%;background:#0f7a64;box-shadow:0 0 0 4px rgba(15,122,100,.07)}
 .pf-human-feature strong{color:#1b2024;font-size:9px;line-height:1;font-weight:600;letter-spacing:-.006em}
 
-/* Perimeter labels stay inside the orbit box, so both Safari and Chromium preserve the same composition. */
+/* Perimeter labels stay inside the orbit box. */
 .pf-human-feature-locator{left:50%;top:2.5%;min-height:42px;padding:0 17px;transform:translateX(-50%)}
 .pf-human-feature-locator strong{font-size:10px}
 .pf-human-feature-overview{right:2.5%;top:26%;min-height:40px;padding:0 16px}
@@ -46,8 +46,8 @@
 @-webkit-keyframes pfOrbitCCW{from{-webkit-transform:rotate(360deg)}to{-webkit-transform:rotate(0deg)}}
 
 @media(max-width:1180px){
-  .pf-human-orbit{--orbit-size:min(90%,560px);max-width:560px}
-  .pf-human-core{width:188px}
+  .pf-human-orbit{--orbit-size:min(100%,580px);max-width:580px}
+  .pf-human-core{width:190px}
   .pf-human-feature{min-height:33px;padding:0 12px}
   .pf-human-feature strong{font-size:8.4px}
   .pf-human-feature-locator{top:2.5%;min-height:39px}.pf-human-feature-locator strong{font-size:9.5px}
