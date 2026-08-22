@@ -141,6 +141,14 @@
   transform:rotate(45deg)!important;
 }
 
+/* Safari/macOS: keep the rotating rings on their own composited layer. */
+.pf-human-ring{
+  -webkit-backface-visibility:hidden!important;
+  backface-visibility:hidden!important;
+  -webkit-transform-origin:50% 50%!important;
+  transform-origin:50% 50%!important;
+}
+
 @media(max-width:760px){
   .pf-home .pf-system-flow .pf-system-node:not(:last-child)::after{display:none!important}
   .pf-home .pf-system-flow::before{display:none!important}
@@ -148,8 +156,11 @@
 }
 
 @media(prefers-reduced-motion:reduce){
-  .pf-home .pf-system-flow .pf-system-node:not(:last-child)::after{animation-duration:5s!important}
+  .pf-human-ring-outer{animation-duration:20s!important}
+  .pf-human-ring-middle{animation-duration:17s!important}
+  .pf-human-ring-inner{animation-duration:14s!important}
+  .pf-home .pf-system-flow .pf-system-node:not(:last-child)::after{animation-duration:4s!important}
   .pf-home .pf-home-faq-list article .pf-home-faq-answer,
   .pf-home .pf-home-faq-list article .pf-home-faq-answer-inner,
-  .pf-home .pf-home-faq-list article>button i{transition-duration:.18s!important}
+  .pf-home .pf-home-faq-list article>button i{transition-duration:.22s!important}
 }
