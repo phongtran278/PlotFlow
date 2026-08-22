@@ -39,7 +39,7 @@
   box-sizing:border-box!important;
   display:grid!important;
   grid-template-columns:minmax(0,1fr)!important;
-  grid-template-rows:22px 258px 40px!important;
+  grid-template-rows:28px 258px 40px!important;
   row-gap:18px!important;
   align-content:start!important;
   align-items:stretch!important;
@@ -56,11 +56,11 @@
 .pf-home-projects .pf-featured-project-card.active{background:linear-gradient(180deg,rgba(249,252,250,.99),rgba(241,247,243,.97))!important}
 .pf-home-projects .pf-featured-project-card:hover{transform:none!important;box-shadow:0 18px 42px rgba(20,25,30,.055)!important}
 
-/* Header keeps exactly one status. */
+/* Status is a real badge, not loose text. */
 .pf-home-projects .pf-featured-project-card>header{
   width:100%!important;
-  height:22px!important;
-  min-height:22px!important;
+  height:28px!important;
+  min-height:28px!important;
   margin:0!important;
   padding:0!important;
   display:grid!important;
@@ -68,25 +68,54 @@
   align-items:center!important;
   gap:16px!important;
 }
-.pf-home-projects .pf-featured-project-card>header>span,
-.pf-home-projects .pf-featured-project-card>header>em{
+.pf-home-projects .pf-featured-project-card>header>span{
   margin:0!important;
   padding:0!important;
+  color:#a3a8ac!important;
+  font-family:var(--pf-display)!important;
+  font-size:8px!important;
+  line-height:1!important;
+  font-weight:600!important;
+  letter-spacing:.09em!important;
+}
+.pf-home-projects .pf-featured-project-card>header>em{
+  justify-self:end!important;
+  width:max-content!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:7px 10px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(25,31,36,.07)!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.72)!important;
+  color:#7d858c!important;
   font-family:var(--pf-display)!important;
   font-style:normal!important;
   font-size:8px!important;
   line-height:1!important;
   font-weight:600!important;
-  letter-spacing:.09em!important;
+  letter-spacing:.07em!important;
   text-transform:uppercase!important;
+  text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-.pf-home-projects .pf-featured-project-card>header>span{justify-self:start!important;color:#a3a8ac!important}
-.pf-home-projects .pf-featured-project-card>header>em{justify-self:end!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#92989d!important;text-align:right!important}
-.pf-home-projects .pf-featured-project-card.active>header>em,
-.pf-home-projects .pf-featured-project-card.hot>header>em{color:var(--pf-brand-accent)!important}
+.pf-home-projects .pf-featured-project-card.active>header>em{
+  color:#0f715d!important;
+  background:rgba(15,122,100,.09)!important;
+  border-color:rgba(15,122,100,.14)!important;
+}
+.pf-home-projects .pf-featured-project-card.hot>header>em{
+  color:#9a512d!important;
+  background:rgba(197,109,53,.10)!important;
+  border-color:rgba(197,109,53,.15)!important;
+}
+.pf-home-projects .pf-featured-project-card.launching>header>em{
+  color:#725ead!important;
+  background:rgba(138,117,200,.10)!important;
+  border-color:rgba(138,117,200,.15)!important;
+}
 
-/* The visual MUST fill the card. Legacy widths are explicitly neutralized. */
+/* The visual fills the card. */
 .pf-home-projects .pf-featured-project-card>.pf-project-thumb{
   position:relative!important;
   justify-self:stretch!important;
@@ -140,12 +169,12 @@
   mask-image:linear-gradient(145deg,#000 0 68%,transparent 100%)!important;
 }
 
-/* Fixed reading rhythm: developer/location -> 12px -> project title. */
+/* Developer/location and project name share one left edge and a fixed gap. */
 .pf-home-projects .pf-project-thumb>.pf-project-thumb-content{
   position:absolute!important;
-  left:26px!important;
-  right:26px!important;
-  top:26px!important;
+  left:28px!important;
+  right:28px!important;
+  top:28px!important;
   bottom:auto!important;
   width:auto!important;
   min-width:0!important;
@@ -159,18 +188,20 @@
   align-items:flex-start!important;
   justify-content:flex-start!important;
   gap:0!important;
+  text-align:left!important;
 }
 .pf-home-projects .pf-project-thumb-content>small{
   order:1!important;
   display:block!important;
   width:100%!important;
-  margin:0 0 12px!important;
+  margin:0 0 14px!important;
   padding:0!important;
-  color:rgba(29,35,40,.56)!important;
+  color:rgba(29,35,40,.58)!important;
   font-size:9px!important;
-  line-height:1.3!important;
+  line-height:1.25!important;
   font-weight:600!important;
   letter-spacing:.025em!important;
+  text-align:left!important;
   white-space:normal!important;
 }
 .pf-home-projects .pf-project-thumb-content>strong{
@@ -178,15 +209,16 @@
   display:-webkit-box!important;
   width:100%!important;
   max-width:100%!important;
-  min-height:62px!important;
-  max-height:62px!important;
+  min-height:66px!important;
+  max-height:66px!important;
   margin:0!important;
   padding:0!important;
   color:#15191d!important;
   font-size:clamp(23px,1.65vw,31px)!important;
-  line-height:1.02!important;
+  line-height:1.06!important;
   font-weight:600!important;
   letter-spacing:-.035em!important;
+  text-align:left!important;
   overflow:hidden!important;
   -webkit-box-orient:vertical!important;
   -webkit-line-clamp:2!important;
@@ -194,7 +226,6 @@
   word-break:normal!important;
   text-wrap:balance!important;
 }
-/* Soon is already communicated in the card header; never repeat it inside the visual. */
 .pf-home-projects .pf-project-thumb-content>b{display:none!important}
 
 .pf-home-projects .pf-project-thumb.tone-forest{background:linear-gradient(145deg,#edf5f0,#dceae2)!important}
@@ -203,7 +234,7 @@
 .pf-home-projects .pf-project-thumb.tone-mist{background:linear-gradient(145deg,#f4f6f7,#e4eaed)!important}
 .pf-home-projects .pf-project-thumb.tone-graphite{background:linear-gradient(145deg,#eef2f3,#dbe3e6)!important}
 
-/* Footer contains action only; duplicated phase/status text is removed. */
+/* Footer contains action only. */
 .pf-home-projects .pf-featured-project-card>footer{
   width:100%!important;
   height:40px!important;
@@ -273,6 +304,35 @@
 .pf-home .pf-system-node:nth-child(4) .pf-system-arrow::before{animation-delay:.54s!important}
 @keyframes pfFlowPacket{0%{left:0;opacity:0;transform:translateY(-50%) scale(.7)}16%{opacity:1}72%{opacity:1;transform:translateY(-50%) scale(1)}100%{left:33px;opacity:0;transform:translateY(-50%) scale(.72)}}
 
+/* FAQ — smooth open/close rather than a hard jump. */
+.pf-home .pf-home-faq-answer{
+  display:grid!important;
+  grid-template-rows:0fr!important;
+  opacity:0!important;
+  transition:grid-template-rows .48s cubic-bezier(.22,1,.36,1),opacity .30s ease!important;
+}
+.pf-home .pf-home-faq-answer>div{
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.pf-home .pf-home-faq-answer p{
+  transform:translateY(-8px)!important;
+  opacity:0!important;
+  transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .28s ease!important;
+}
+.pf-home .pf-home-faq-list article.open .pf-home-faq-answer{
+  grid-template-rows:1fr!important;
+  opacity:1!important;
+}
+.pf-home .pf-home-faq-list article.open .pf-home-faq-answer p{
+  transform:translateY(0)!important;
+  opacity:1!important;
+}
+.pf-home .pf-home-faq-list article>button i{
+  transition:transform .42s cubic-bezier(.22,1,.36,1)!important;
+}
+.pf-home .pf-home-faq-list article.open>button i{transform:rotate(45deg)!important}
+
 @media(max-width:1180px){
   .pf-home .pf-home-hero{grid-template-columns:minmax(0,1.35fr) minmax(440px,1fr)!important;gap:48px!important}
   .pf-home .pf-home-hero-visual{min-height:640px!important}
@@ -283,13 +343,14 @@
 @media(max-width:760px){
   .pf-home .pf-home-hero{grid-template-columns:1fr!important}
   .pf-home .pf-home-hero-visual{min-height:auto!important}
-  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:1/-1!important;grid-template-rows:22px 230px 40px!important}
+  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:1/-1!important;grid-template-rows:28px 230px 40px!important}
   .pf-home-projects .pf-featured-project-card>.pf-project-thumb{height:230px!important;min-height:230px!important;max-height:230px!important}
-  .pf-home-projects .pf-project-thumb-content>strong{font-size:26px!important;min-height:54px!important;max-height:54px!important}
+  .pf-home-projects .pf-project-thumb-content>strong{font-size:26px!important;min-height:56px!important;max-height:56px!important}
   .pf-home .pf-system-map{gap:16px!important}
   .pf-home .pf-system-arrow{display:none!important}
 }
 
 @media(prefers-reduced-motion:reduce){
   .pf-home .pf-system-arrow::before{animation:none!important;display:none!important}
+  .pf-home .pf-home-faq-answer,.pf-home .pf-home-faq-answer p,.pf-home .pf-home-faq-list article>button i{transition:none!important}
 }
