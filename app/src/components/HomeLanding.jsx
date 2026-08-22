@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import "./HomeLanding.css";
+import "./HomeLandingFeatured.css";
 
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
 
