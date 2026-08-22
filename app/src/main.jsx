@@ -18,7 +18,6 @@ import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
 import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
 import OverviewPdfRuntime from "./product/OverviewPdfRuntime.jsx";
 import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
-import OverviewPngExportRuntime from "./product/OverviewPngExportRuntime.jsx";
 import OverviewAnchorRuntime from "./product/OverviewAnchorRuntime.jsx";
 import OverviewLiveUnitsRuntime from "./product/OverviewLiveUnitsRuntime.jsx";
 import OverviewDetailLocatorBridge from "./product/OverviewDetailLocatorBridge.jsx";
@@ -28,7 +27,6 @@ import OverviewSellDataRuntime from "./product/OverviewSellDataRuntime.jsx";
 import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
 import OverviewLayoutPresetRuntime from "./product/OverviewLayoutPresetRuntime.jsx";
-import OverviewFinalUxRuntime from "./product/OverviewFinalUxRuntime.jsx";
 import "./product/OverviewCallouts.css";
 import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
@@ -70,7 +68,6 @@ createRoot(document.getElementById("root")).render(
       <OverviewZoomRuntime />
       <OverviewPdfRuntime />
       <OverviewExportRuntime />
-      <OverviewPngExportRuntime />
       <OverviewAnchorRuntime />
       <OverviewLiveUnitsRuntime />
       <OverviewDetailLocatorBridge />
@@ -79,7 +76,6 @@ createRoot(document.getElementById("root")).render(
       <OverviewPenRuntime />
       <OverviewSimplifiedRuntime />
       <OverviewLayoutPresetRuntime />
-      <OverviewFinalUxRuntime />
     </ProductShell>
   </AuthGate>
 );

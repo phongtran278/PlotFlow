@@ -319,6 +319,9 @@ export default function WorkspaceController() {
 
   if (!target) return null;
 
+  // Navigator size is now derived DIRECTLY from zoom at render time.
+  // This is intentionally independent of scrollHeight/clientHeight so it behaves
+  // identically on macOS, Windows, remote desktop and production hosting.
   const navWidth = clamp01(90 / Math.max(1, zoom));
   const navHeight = clamp01(48 / Math.max(1, zoom));
   const navLeft = navigator.left * (1 - navWidth);

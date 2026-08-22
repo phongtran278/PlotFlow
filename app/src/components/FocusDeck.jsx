@@ -148,7 +148,7 @@ export default function FocusDeck() {
     const next = spotifyDraft.trim();
     localStorage.setItem(SPOTIFY_KEY, next);
     setSpotifyUrl(next);
-    setSpotifyMessage("Spotify connected · playback stays mounted when this panel closes");
+    setSpotifyMessage("Spotify connected");
   }
 
   function disconnectSpotify() {
@@ -179,7 +179,10 @@ export default function FocusDeck() {
       {open && (
         <section className="focus-deck" aria-label="Creative Focus">
           <header className="focus-deck-head">
-            <div><span>CREATIVE FOCUS</span><strong>PhongFlow Session</strong></div>
+            <div>
+              <span>CREATIVE FOCUS</span>
+              <strong>PhongFlow Session</strong>
+            </div>
             <button type="button" onClick={() => setOpen(false)}>×</button>
           </header>
 
@@ -213,33 +216,37 @@ export default function FocusDeck() {
             <label className="focus-spotify-connect">
               <span>Spotify link</span>
               <div>
-                <input type="url" value={spotifyDraft} onChange={(event) => { setSpotifyDraft(event.target.value); setSpotifyMessage(""); }} onKeyDown={(event) => { if (event.key === "Enter") connectSpotify(); }} placeholder="Paste playlist / track / album link" />
+                <input
+                  type="url"
+                  value={spotifyDraft}
+                  onChange={(event) => { setSpotifyDraft(event.target.value); setSpotifyMessage(""); }}
+                  onKeyDown={(event) => { if (event.key === "Enter") connectSpotify(); }}
+                  placeholder="Paste playlist / track / album link"
+                />
                 <button type="button" onClick={connectSpotify}>Connect</button>
               </div>
             </label>
             {spotifyMessage && <small className="spotify-message">{spotifyMessage}</small>}
-            {embedUrl && <small className="spotify-background-note">Player stays active when Focus closes. Reopen Focus to control or stop it.</small>}
+            {embedUrl && (
+              <div className="spotify-embed-wrap">
+                <iframe
+                  title="Spotify focus player"
+                  src={embedUrl}
+                  width="100%"
+                  height="152"
+                  frameBorder="0"
+                  allowFullScreen
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                />
+                <button type="button" className="spotify-disconnect" onClick={disconnectSpotify}>Disconnect Spotify</button>
+              </div>
+            )}
             <label className="focus-volume">Brown Noise Volume<input type="range" min="0" max="0.4" step="0.01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} /></label>
           </div>
 
           <p className="focus-quote">Less noise. More intent.</p>
         </section>
-      )}
-
-      {embedUrl && (
-        <div className={`spotify-persistent-player ${open ? "is-open" : "is-background"}`} aria-label="Spotify player">
-          <iframe
-            title="Spotify focus player"
-            src={embedUrl}
-            width="100%"
-            height="152"
-            frameBorder="0"
-            allowFullScreen
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="eager"
-          />
-          {open && <button type="button" className="spotify-disconnect" onClick={disconnectSpotify}>Disconnect Spotify</button>}
-        </div>
       )}
     </div>,
     utilityTarget

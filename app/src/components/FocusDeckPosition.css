@@ -28,11 +28,112 @@
   max-width:calc(100vw - 32px);
 }
 
-.spotify-chip{display:inline-flex;align-items:center;min-height:30px;padding:0 10px;border-radius:999px;background:#191414;color:#fff;font-size:10px;font-weight:800;letter-spacing:.02em}
-.focus-spotify-connect{display:grid;gap:6px;margin-top:10px}.focus-spotify-connect>span{color:#8d96a4;font-size:9px;font-weight:760;letter-spacing:.08em;text-transform:uppercase}.focus-spotify-connect>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}.focus-spotify-connect input{min-width:0;height:36px;padding:0 10px;border:1px solid rgba(35,45,65,.10);border-radius:10px;background:#fff;color:#303744;outline:none;font-size:10px}.focus-spotify-connect input:focus{border-color:rgba(29,185,84,.45);box-shadow:0 0 0 3px rgba(29,185,84,.10)}.focus-spotify-connect button{min-width:72px;border:0;border-radius:10px;background:#1db954;color:#fff;font-size:10px;font-weight:800;cursor:pointer}.spotify-message,.spotify-background-note{display:block;margin-top:6px;color:#6c7684;font-size:9px;line-height:1.4}.spotify-background-note{color:#5f6b79}.spotify-disconnect{justify-self:end;border:0;background:transparent;color:#8b94a0;font-size:9px;font-weight:700;cursor:pointer}.spotify-disconnect:hover{color:#3d4653}
+.spotify-chip{
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:0 10px;
+  border-radius:999px;
+  background:#191414;
+  color:#fff;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.02em;
+}
 
-/* The iframe remains mounted even when the Focus panel closes, so Spotify does not reset playback. */
-.spotify-persistent-player{position:absolute;right:0;top:calc(100% + 286px);z-index:1295;width:360px;max-width:calc(100vw - 32px);display:grid;gap:6px;padding:8px;border:1px solid rgba(35,45,65,.09);border-radius:14px;background:rgba(255,255,255,.98);box-shadow:0 16px 44px rgba(35,46,66,.18)}.spotify-persistent-player iframe{display:block;width:100%;border:0;border-radius:12px;overflow:hidden;background:#191414}.spotify-persistent-player.is-background{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;padding:0;border:0;opacity:.001;pointer-events:none;overflow:hidden;box-shadow:none}.spotify-persistent-player.is-background iframe{width:320px;height:152px}
+.focus-spotify-connect{
+  display:grid;
+  gap:6px;
+  margin-top:10px;
+}
+.focus-spotify-connect>span{
+  color:#8d96a4;
+  font-size:9px;
+  font-weight:760;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.focus-spotify-connect>div{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:6px;
+}
+.focus-spotify-connect input{
+  min-width:0;
+  height:36px;
+  padding:0 10px;
+  border:1px solid rgba(35,45,65,.10);
+  border-radius:10px;
+  background:#fff;
+  color:#303744;
+  outline:none;
+  font-size:10px;
+}
+.focus-spotify-connect input:focus{
+  border-color:rgba(29,185,84,.45);
+  box-shadow:0 0 0 3px rgba(29,185,84,.10);
+}
+.focus-spotify-connect button{
+  min-width:72px;
+  border:0;
+  border-radius:10px;
+  background:#1db954;
+  color:#fff;
+  font-size:10px;
+  font-weight:800;
+  cursor:pointer;
+}
+.spotify-message{
+  display:block;
+  margin-top:6px;
+  color:#6c7684;
+  font-size:9px;
+}
+.spotify-embed-wrap{
+  display:grid;
+  gap:6px;
+  margin-top:10px;
+}
+.spotify-embed-wrap iframe{
+  display:block;
+  width:100%;
+  border:0;
+  border-radius:12px;
+  overflow:hidden;
+  background:#191414;
+}
+.spotify-disconnect{
+  justify-self:end;
+  border:0;
+  background:transparent;
+  color:#8b94a0;
+  font-size:9px;
+  font-weight:700;
+  cursor:pointer;
+}
+.spotify-disconnect:hover{color:#3d4653}
 
-@media (max-width:1380px) {.stage-utility-tools .focus-deck{right:0!important;left:auto!important}}
-@media (max-width:760px) {.stage-utility-tools .focus-orb{min-height:36px;height:36px}.stage-utility-tools .focus-deck{position:fixed!important;left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto;max-width:none;max-height:calc(100dvh - 24px);overflow:auto}.spotify-persistent-player.is-open{position:fixed;left:20px;right:20px;top:auto;bottom:20px;width:auto;max-width:none;z-index:1400}}
+@media (max-width:1380px) {
+  .stage-utility-tools .focus-deck {
+    right:0 !important;
+    left:auto !important;
+  }
+}
+
+@media (max-width:760px) {
+  .stage-utility-tools .focus-orb {
+    min-height:36px;
+    height:36px;
+  }
+  .stage-utility-tools .focus-deck {
+    position:fixed !important;
+    left:12px !important;
+    right:12px !important;
+    top:auto !important;
+    bottom:12px !important;
+    width:auto;
+    max-width:none;
+    max-height:calc(100dvh - 24px);
+    overflow:auto;
+  }
+}
