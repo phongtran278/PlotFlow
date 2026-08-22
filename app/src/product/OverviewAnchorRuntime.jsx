@@ -125,6 +125,19 @@ export default function OverviewAnchorRuntime() {
       }));
     }
 
+    function adjustCode(code) {
+      if (!code || !stage) return;
+      applySavedAnchor(code);
+      const anchor = anchorForCode(code);
+      if (!anchor) {
+        setStatus("Chưa có điểm để chỉnh cho mã này");
+        return;
+      }
+      setActive(code);
+      setStatus("Kéo chấm đỏ để chỉnh đầu connector");
+      anchor.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    }
+
     function focusCard(card) {
       focusCode(codeForCard(card));
     }
@@ -169,6 +182,7 @@ export default function OverviewAnchorRuntime() {
         <select aria-label="Chọn mã căn"></select>
         <button type="button" data-nav="next" title="Next unit">›</button>
         <button type="button" class="pf-unit-focus-button" data-nav="focus">Focus</button>
+        <button type="button" class="pf-unit-adjust-button" data-nav="adjust">Adjust point</button>
         <small>${list.length} căn</small>
         <em class="pf-unit-focus-status" hidden></em>`;
       navSelect = navigator.querySelector("select");
@@ -188,6 +202,7 @@ export default function OverviewAnchorRuntime() {
         if (button.dataset.nav === "prev") stepNavigator(-1);
         if (button.dataset.nav === "next") stepNavigator(1);
         if (button.dataset.nav === "focus") focusCode(navSelect?.value || list[0]);
+        if (button.dataset.nav === "adjust") adjustCode(navSelect?.value || list[0]);
       });
       navSelect.addEventListener("change", () => { setStatus(""); setActive(navSelect.value); });
       stage.appendChild(navigator);
@@ -240,6 +255,7 @@ export default function OverviewAnchorRuntime() {
       drag.anchor.classList.remove("is-dragging");
       drag.anchor.releasePointerCapture?.(event.pointerId);
       saveAnchors(anchors);
+      setStatus("Đã lưu vị trí đầu connector");
       drag = null;
     }
 
