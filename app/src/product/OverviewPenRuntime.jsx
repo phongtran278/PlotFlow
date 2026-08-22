@@ -83,6 +83,7 @@ export default function OverviewPenRuntime() {
   useEffect(() => {
     let stage = null;
     let layer = null;
+    let anchorLayer = null;
     let button = null;
     let styleMenu = null;
     let cursor = null;
@@ -115,18 +116,8 @@ export default function OverviewPenRuntime() {
 
     function closeTolerance() {
       if (!stage) return 1.6;
-      const rect = stage.getBoundingClientRect();
-      const screenWidth = Math.max(1, rect.width * Math.max(camera.scale, 0.0001));
-      return Math.max(0.75, Math.min(2.6, (14 / screenWidth) * 100));
-    }
-
-    function nodeRadius(first = false) {
-      if (!stage) return first ? 0.48 : 0.42;
-      const rect = stage.getBoundingClientRect();
-      const zoom = Math.max(camera.scale, 0.0001);
-      const screenWidth = Math.max(1, rect.width * zoom);
-      const targetPx = first ? 6 : 5;
-      return Math.max(0.025, Math.min(0.6, (targetPx / screenWidth) * 100));
+      const screenWidth = Math.max(1, stage.clientWidth * Math.max(camera.scale, 0.0001));
+      return Math.max(0.35, Math.min(2, (12 / screenWidth) * 100));
     }
 
     function cleanedDraft() {
@@ -159,6 +150,28 @@ export default function OverviewPenRuntime() {
       if (label) label.textContent = selectedShape() ? "Selected shape" : "New shapes";
     }
 
+    function screenPoint(point) {
+      if (!stage || !point) return { x: 0, y: 0 };
+      const scale = Math.max(camera.scale, 0.0001);
+      return {
+        x: camera.tx + (point.x / 100) * stage.clientWidth * scale,
+        y: camera.ty + (point.y / 100) * stage.clientHeight * scale,
+      };
+    }
+
+    function renderAnchors() {
+      if (!anchorLayer) return;
+      anchorLayer.innerHTML = "";
+      draft.forEach((point, index) => {
+        const pos = screenPoint(point);
+        const node = document.createElement("i");
+        node.className = `pf-pen-screen-anchor${index === 0 ? " is-first" : ""}`;
+        node.style.left = `${pos.x}px`;
+        node.style.top = `${pos.y}px`;
+        anchorLayer.appendChild(node);
+      });
+    }
+
     function render() {
       if (!layer) return;
       const committed = shapes.map((shape) => {
@@ -173,16 +186,15 @@ export default function OverviewPenRuntime() {
       const live = draft.length >= 2 && hover
         ? `<line class="pf-pen-draft-live" x1="${draft.at(-1).x}" y1="${draft.at(-1).y}" x2="${hover.x}" y2="${hover.y}" vector-effect="non-scaling-stroke" />`
         : "";
-      const firstRadius = nodeRadius(true);
-      const regularRadius = nodeRadius(false);
-      const nodes = draft.map((point, index) => `<circle class="pf-pen-node${index === 0 ? " is-first" : ""}" cx="${point.x}" cy="${point.y}" r="${index === 0 ? firstRadius : regularRadius}" vector-effect="non-scaling-stroke" />`).join("");
-      layer.innerHTML = committed + fixed + live + nodes;
+      layer.innerHTML = committed + fixed + live;
+      renderAnchors();
     }
 
     function applyCamera() {
       if (!layer) return;
       layer.style.transformOrigin = "0 0";
       layer.style.transform = `translate3d(${camera.tx}px,${camera.ty}px,0) scale(${camera.scale})`;
+      renderAnchors();
     }
 
     function worldPoint(event) {
@@ -192,8 +204,8 @@ export default function OverviewPenRuntime() {
       const xPx = (event.clientX - rect.left - camera.tx) / scale;
       const yPx = (event.clientY - rect.top - camera.ty) / scale;
       return {
-        x: Math.max(0, Math.min(100, (xPx / Math.max(1, rect.width)) * 100)),
-        y: Math.max(0, Math.min(100, (yPx / Math.max(1, rect.height)) * 100)),
+        x: Math.max(0, Math.min(100, (xPx / Math.max(1, stage.clientWidth)) * 100)),
+        y: Math.max(0, Math.min(100, (yPx / Math.max(1, stage.clientHeight)) * 100)),
       };
     }
 
@@ -333,7 +345,6 @@ export default function OverviewPenRuntime() {
       if (Number.isFinite(detail.tx)) camera.tx = detail.tx;
       if (Number.isFinite(detail.ty)) camera.ty = detail.ty;
       applyCamera();
-      render();
     }
 
     function onClearHighlights() {
@@ -357,6 +368,7 @@ export default function OverviewPenRuntime() {
       detachStage();
       stage = nextStage;
       layer?.remove();
+      anchorLayer?.remove();
       cursor?.remove();
 
       layer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -365,6 +377,11 @@ export default function OverviewPenRuntime() {
       layer.setAttribute("preserveAspectRatio", "none");
       layer.setAttribute("aria-label", "Highlight polygon layer");
       stage.appendChild(layer);
+
+      anchorLayer = document.createElement("div");
+      anchorLayer.className = "pf-pen-screen-anchor-layer";
+      stage.appendChild(anchorLayer);
+
       applyCamera();
       render();
 
@@ -460,6 +477,7 @@ export default function OverviewPenRuntime() {
       window.removeEventListener("keydown", onKeyDown, true);
       detachStage();
       layer?.remove();
+      anchorLayer?.remove();
       cursor?.remove();
       button?.remove();
       styleMenu?.remove();
