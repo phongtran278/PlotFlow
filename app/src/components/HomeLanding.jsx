@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import "./HomeLanding.css";
 import HeroOrbitDiagram from "./HeroOrbitDiagram.jsx";
+import ProjectCard from "./ProjectCard.jsx";
+import WorkflowFlow from "./WorkflowFlow.jsx";
+import FaqAccordion from "./FaqAccordion.jsx";
 
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
 
@@ -42,7 +45,6 @@ export default function HomeLanding({ onOpenProject }) {
   const [projectLibraryOpen, setProjectLibraryOpen] = useState(false);
   const [sendStatus, setSendStatus] = useState("idle");
   const developers = ["All", "Vinhomes", "Masterise", "Gamuda", "Nam Long"];
-
   const featuredProjects = PROJECTS.filter((project) => project.featured).slice(0, 5);
   const filtered = useMemo(() => (filter === "All" ? PROJECTS : PROJECTS.filter((project) => project.developer === filter)), [filter]);
 
@@ -82,51 +84,35 @@ export default function HomeLanding({ onOpenProject }) {
           <div className="pf-home-hero-copy">
             <div className="pf-home-eyebrow"><i /> Real-estate design operations</div>
             <h1 className="pf-home-hero-title" aria-label="Make the repetitive disappear. Keep the design.">
-              <span className="pf-title-kicker">Make the</span>
-              <span className="pf-title-main">repetitive</span>
-              <em className="pf-title-accent">disappear.</em>
-              <span className="pf-title-secondary">Keep the</span>
-              <span className="pf-title-main pf-title-design">design.</span>
+              <span className="pf-title-kicker">Make the</span><span className="pf-title-main">repetitive</span><em className="pf-title-accent">disappear.</em><span className="pf-title-secondary">Keep the</span><span className="pf-title-main pf-title-design">design.</span>
             </h1>
             <p>PlotFlow được xây cho một công việc rất cụ thể: đưa dữ liệu bán hàng bất động sản đi từ spreadsheet và masterplan tới artwork hoàn chỉnh — nhanh hơn, nhất quán hơn, nhưng vẫn để designer giữ quyền quyết định.</p>
             <div className="pf-home-hero-actions"><button type="button" onClick={onOpenProject}>Open PlotFlow <span>→</span></button><a href="#workflow">See how the system works</a></div>
             <div className="pf-home-proof"><span><b>01</b> One data source</span><span><b>02</b> Human-in-the-loop</span><span><b>03</b> Overview + Detail</span></div>
           </div>
-
-          <div className="pf-home-hero-visual">
-            <HeroOrbitDiagram />
-          </div>
+          <div className="pf-home-hero-visual"><HeroOrbitDiagram /></div>
         </section>
 
         <section className="pf-home-statement"><span>THE PRINCIPLE</span><p>A designer should spend more time making <em>decisions that matter</em> — and less time repeating them.</p></section>
 
         <section className="pf-home-workflow" id="workflow">
           <div className="pf-home-section-head"><span>ONE JOB, DEEPLY OPTIMIZED</span><h2>A system for the messy space between <em>property data</em> and finished design.</h2><p>PlotFlow không gom thật nhiều feature để trông mạnh. Nó nối đúng những bước thường làm designer bất động sản mất thời gian nhất, rồi giữ chúng trong một luồng có thể nhìn thấy và kiểm soát.</p></div>
-          <div className="pf-system-map pf-system-flow" aria-label="PlotFlow system diagram">{FLOW.map((item, index) => <div className={`pf-system-node ${item.key}`} key={item.key}><span>{item.eyebrow}</span><strong>{item.title}</strong><b>{item.body}</b><small>{item.meta}</small>{index < FLOW.length - 1 && <i className="pf-flow-arrow" aria-hidden="true">→</i>}</div>)}</div>
+          <WorkflowFlow items={FLOW} />
           <div className="pf-system-caption"><span>INPUT</span><i /><span>AUTOMATION</span><i /><span>DESIGN JUDGMENT</span><i /><span>OUTPUT</span></div>
           <div className="pf-home-benefits"><article><span>01</span><h3>Stop hunting through files.</h3><p>Locator đưa designer tới đúng khu vực cần làm thay vì dò từng trang PDF bằng mắt.</p></article><article><span>02</span><h3>Stop rebuilding the same composition.</h3><p>Dữ liệu unit đi vào một hệ thống layout có sẵn, thay vì copy-paste rồi sửa từng layer.</p></article><article><span>03</span><h3>Keep the decisions human.</h3><p>Highlight, connector, framing và hierarchy vẫn mở để designer tinh chỉnh khi mắt nghề thấy cần.</p></article><article><span>04</span><h3>Scale without flattening the craft.</h3><p>Một project có thể sinh nhiều output hơn mà không buộc tất cả artwork trông như template vô hồn.</p></article></div>
         </section>
 
         <section className="pf-home-projects" id="projects">
           <div className="pf-home-section-head compact pf-featured-project-heading"><div><span>FEATURED PROJECTS</span><h2>A few projects worth <em>watching now.</em></h2><p>Home chỉ ưu tiên những project đang active, đang được quan tâm hoặc sắp bước vào giai đoạn bán hàng. Toàn bộ library nằm trong một project space riêng để trang chủ luôn gọn.</p></div><button type="button" className="pf-view-library" onClick={() => setProjectLibraryOpen(true)}>View all projects <span>↗</span></button></div>
-          <div className="pf-featured-project-grid">
-            {featuredProjects.map((project, index) => (
-              <article className={`pf-featured-project-card ${project.status}`} key={project.id}>
-                <header><span>{String(index + 1).padStart(2, "0")}</span><em>{project.signal}</em></header>
-                <div className={`pf-project-thumb tone-${project.tone}`}>
-                  <div className="pf-project-thumb-grid" />
-                  <div className="pf-project-thumb-content">
-                    <strong className="pf-project-name">{project.name}</strong>
-                    <small className="pf-project-meta">{project.developer} · {project.location}</small>
-                  </div>
-                </div>
-                <footer>{project.status === "active" ? <button type="button" onClick={onOpenProject}>Open workspace <b>↗</b></button> : <button type="button" onClick={() => setProjectLibraryOpen(true)}>View in library <b>→</b></button>}</footer>
-              </article>
-            ))}
+          <div className="pf-project-card-grid">
+            {featuredProjects.map((project, index) => <ProjectCard key={project.id} project={project} index={index} onOpenProject={onOpenProject} onOpenLibrary={() => setProjectLibraryOpen(true)} />)}
           </div>
         </section>
 
-        <section className="pf-home-faq" id="faq"><div className="pf-home-section-head compact"><span>WHY PLOTFLOW</span><h2>Less software theatre.<br /><em>More useful leverage.</em></h2><p>Những câu dưới đây nói thẳng vào giá trị thật của sản phẩm: PlotFlow đang bỏ đi phần việc nào, giữ lại phần việc nào, và vì sao điều đó quan trọng với design bất động sản.</p></div><div className="pf-home-faq-list">{FAQ.map(([question, answer], index) => { const isOpen = openFaq === index; return <article className={isOpen ? "open" : ""} key={question}><button type="button" onClick={() => setOpenFaq(isOpen ? -1 : index)} aria-expanded={isOpen}><span>{String(index + 1).padStart(2, "0")}</span><strong>{question}</strong><i>＋</i></button><div className="pf-home-faq-answer" aria-hidden={!isOpen}><div className="pf-home-faq-answer-inner"><p>{answer}</p></div></div></article>; })}</div></section>
+        <section className="pf-home-faq" id="faq">
+          <div className="pf-home-section-head compact"><span>WHY PLOTFLOW</span><h2>Less software theatre.<br /><em>More useful leverage.</em></h2><p>Những câu dưới đây nói thẳng vào giá trị thật của sản phẩm: PlotFlow đang bỏ đi phần việc nào, giữ lại phần việc nào, và vì sao điều đó quan trọng với design bất động sản.</p></div>
+          <FaqAccordion items={FAQ} openIndex={openFaq} onToggle={setOpenFaq} />
+        </section>
 
         <section className="pf-home-feedback"><div><span>BUILD THE NEXT VERSION</span><h2>Shape what PlotFlow <em>becomes next.</em></h2><p>Nếu có một thao tác vẫn làm bạn mất nhịp, một feature còn thiếu, hay một chi tiết khiến workflow chưa đủ mượt — gửi thẳng cho Phong. Người gửi chỉ nhập và bấm gửi, không cần mở Gmail hay đăng nhập email.</p></div><div className="pf-home-feedback-box pf-liquid-glass"><label>What would make your workflow better?</label><textarea value={feedback} onChange={(event) => { setFeedback(event.target.value); if (sendStatus === "error") setSendStatus("idle"); }} placeholder="Tell me what feels slow, repetitive, unclear — or what you wish PlotFlow could do next…" rows={5} /><footer><small>{sendStatus === "sent" ? "✓ Feedback sent directly to Phong" : sendStatus === "error" ? "Could not send. Please try again." : "Direct feedback · no email login required"}</small><button type="button" onClick={sendFeedback} disabled={!feedback.trim() || sendStatus === "sending"}>{sendStatus === "sending" ? "Sending…" : sendStatus === "sent" ? "Sent ✓" : "Send feedback"}</button></footer></div></section>
       </main>
