@@ -41,19 +41,11 @@
   stroke-linecap:round;
 }
 
-.pf-human-ring-outer{
-  animation:pfHumanOrbitCW 26s linear infinite;
-}
+.pf-human-ring-outer{animation:pfHumanOrbitCW 26s linear infinite}
 .pf-human-ring-outer .pf-human-ring-accent{stroke-dasharray:26 86 10 120}
-
-.pf-human-ring-middle{
-  animation:pfHumanOrbitCCW 20s linear infinite;
-}
+.pf-human-ring-middle{animation:pfHumanOrbitCCW 20s linear infinite}
 .pf-human-ring-middle .pf-human-ring-accent{stroke-dasharray:12 64 38 92}
-
-.pf-human-ring-inner{
-  animation:pfHumanOrbitCW 15s linear infinite;
-}
+.pf-human-ring-inner{animation:pfHumanOrbitCW 15s linear infinite}
 .pf-human-ring-inner .pf-human-ring-accent{stroke-dasharray:42 54 8 76}
 
 .pf-human-core{
@@ -85,39 +77,11 @@
   pointer-events:none;
 }
 
-.pf-human-core>span{
-  margin-bottom:10px;
-  color:#7f898f;
-  font-size:8px;
-  font-weight:600;
-  letter-spacing:.14em;
-}
+.pf-human-core>span{margin-bottom:10px;color:#7f898f;font-size:8px;font-weight:600;letter-spacing:.14em}
+.pf-human-core>strong{max-width:180px;color:#15191d;font-size:30px;line-height:1.01;font-weight:700;letter-spacing:-.045em}
+.pf-human-core>p{max-width:178px!important;margin:12px 0 0!important;color:#68727a!important;font-size:10px!important;line-height:1.58!important;font-weight:400!important}
 
-.pf-human-core>strong{
-  max-width:180px;
-  color:#15191d;
-  font-size:30px;
-  line-height:1.01;
-  font-weight:700;
-  letter-spacing:-.045em;
-}
-
-.pf-human-core>p{
-  max-width:178px!important;
-  margin:12px 0 0!important;
-  color:#68727a!important;
-  font-size:10px!important;
-  line-height:1.58!important;
-  font-weight:400!important;
-}
-
-.pf-human-feature-field{
-  position:absolute;
-  inset:0;
-  z-index:6;
-  pointer-events:none;
-}
-
+.pf-human-feature-field{position:absolute;inset:0;z-index:6;pointer-events:none}
 .pf-human-feature{
   position:absolute;
   width:164px;
@@ -134,36 +98,11 @@
   pointer-events:auto;
   transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .3s ease;
 }
-
-.pf-human-feature:hover{
-  transform:translateY(-2px);
-  box-shadow:0 16px 34px rgba(22,28,33,.08);
-}
-
-.pf-human-feature>i{
-  flex:0 0 7px;
-  width:7px;
-  height:7px;
-  margin-top:4px;
-  border-radius:50%;
-  background:#0f7a64;
-  box-shadow:0 0 0 4px rgba(15,122,100,.08);
-}
-
+.pf-human-feature:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(22,28,33,.08)}
+.pf-human-feature>i{flex:0 0 7px;width:7px;height:7px;margin-top:4px;border-radius:50%;background:#0f7a64;box-shadow:0 0 0 4px rgba(15,122,100,.08)}
 .pf-human-feature>div{display:grid;gap:3px}
-.pf-human-feature strong{
-  color:#1b2024;
-  font-size:11px;
-  line-height:1.15;
-  font-weight:600;
-  letter-spacing:-.018em;
-}
-.pf-human-feature span{
-  color:#7a8289;
-  font-size:8px;
-  line-height:1.42;
-  font-weight:400;
-}
+.pf-human-feature strong{color:#1b2024;font-size:11px;line-height:1.15;font-weight:600;letter-spacing:-.018em}
+.pf-human-feature span{color:#7a8289;font-size:8px;line-height:1.42;font-weight:400}
 
 .pf-human-feature-locator{left:50%;top:3%;transform:translateX(-50%)}
 .pf-human-feature-locator:hover{transform:translateX(-50%) translateY(-2px)}
@@ -183,33 +122,12 @@
 }
 
 @media(max-width:760px){
-  .pf-human-orbit{
-    width:100%;
-    aspect-ratio:auto;
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:10px;
-  }
+  .pf-human-orbit{width:100%;aspect-ratio:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .pf-human-orbit-svg,.pf-human-orbit-glow{display:none}
-  .pf-human-core{
-    position:relative;
-    left:auto;
-    top:auto;
-    grid-column:1/-1;
-    width:auto;
-    min-height:190px;
-    transform:none;
-    border-radius:22px!important;
-  }
+  .pf-human-core{position:relative;left:auto;top:auto;grid-column:1/-1;width:auto;min-height:190px;transform:none;border-radius:22px!important}
   .pf-human-core::before{border-radius:16px}
-  .pf-human-feature-field{position:contents}
-  .pf-human-feature{
-    position:relative;
-    inset:auto!important;
-    width:auto;
-    min-height:88px;
-    transform:none!important;
-  }
+  .pf-human-feature-field{display:contents}
+  .pf-human-feature{position:relative;inset:auto!important;width:auto;min-height:88px;transform:none!important}
   .pf-human-feature-override{grid-column:1/-1}
 }
 
