@@ -24,9 +24,12 @@
   border:1px solid rgba(24,31,35,.055);
   transform-origin:50% 50%;
   will-change:transform;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  transform:translateZ(0);
+  -webkit-transform:translateZ(0);
 }
 
-/* A visible light arc + a tiny tracer move together, so rotation reads instantly. */
 .pf-human-ring::after{
   content:"";
   position:absolute;
@@ -46,24 +49,37 @@
   mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
   filter:drop-shadow(0 0 7px rgba(15,122,100,.20));
 }
-.pf-human-ring::before{
-  content:"";
+
+.pf-orbit-tracer{
   position:absolute;
   left:50%;
-  top:-4px;
-  width:7px;
-  height:7px;
+  top:-5px;
+  width:8px;
+  height:8px;
+  margin-left:-4px;
+  display:block;
   border-radius:50%;
-  transform:translateX(-50%);
-  background:rgba(15,122,100,.92);
-  box-shadow:0 0 0 4px rgba(15,122,100,.07),0 0 12px rgba(15,122,100,.22);
+  background:#0f7a64;
+  box-shadow:0 0 0 4px rgba(15,122,100,.08),0 0 14px rgba(15,122,100,.26);
 }
 
-.pf-human-ring-outer{width:100%;height:100%;animation:pfOrbitCW 15s linear infinite}
-.pf-human-ring-middle{width:66%;height:66%;animation:pfOrbitCCW 11.5s linear infinite}
-.pf-human-ring-inner{width:34%;height:34%;animation:pfOrbitCW 8.6s linear infinite}
-.pf-human-ring-middle::after,.pf-human-ring-middle::before{opacity:.82}
-.pf-human-ring-inner::after,.pf-human-ring-inner::before{opacity:.68}
+.pf-human-ring-outer{
+  width:100%;height:100%;
+  animation:pfOrbitCW 13s linear infinite;
+  -webkit-animation:pfOrbitCW 13s linear infinite;
+}
+.pf-human-ring-middle{
+  width:66%;height:66%;
+  animation:pfOrbitCCW 10s linear infinite;
+  -webkit-animation:pfOrbitCCW 10s linear infinite;
+}
+.pf-human-ring-inner{
+  width:34%;height:34%;
+  animation:pfOrbitCW 7.5s linear infinite;
+  -webkit-animation:pfOrbitCW 7.5s linear infinite;
+}
+.pf-human-ring-middle::after,.pf-human-ring-middle .pf-orbit-tracer{opacity:.82}
+.pf-human-ring-inner::after,.pf-human-ring-inner .pf-orbit-tracer{opacity:.68}
 
 .pf-human-core{
   position:absolute;
@@ -145,8 +161,8 @@
 .pf-human-feature-overview:hover,.pf-human-feature-override:hover{transform:translateY(calc(-50% - 2px))}
 .pf-human-feature-detail:hover,.pf-human-feature-export:hover{transform:translateY(-2px)}
 
-@keyframes pfOrbitCW{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-@keyframes pfOrbitCCW{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
+@keyframes pfOrbitCW{from{transform:rotate(0deg) translateZ(0)}to{transform:rotate(360deg) translateZ(0)}}
+@keyframes pfOrbitCCW{from{transform:rotate(360deg) translateZ(0)}to{transform:rotate(0deg) translateZ(0)}}
 
 @media(max-width:1180px){
   .pf-human-orbit{--orbit-size:min(100%,700px)}
@@ -173,8 +189,8 @@
 }
 
 @media(prefers-reduced-motion:reduce){
-  .pf-human-ring-outer{animation-duration:38s}
-  .pf-human-ring-middle{animation-duration:34s}
-  .pf-human-ring-inner{animation-duration:30s}
+  .pf-human-ring-outer{animation-duration:18s;-webkit-animation-duration:18s}
+  .pf-human-ring-middle{animation-duration:15s;-webkit-animation-duration:15s}
+  .pf-human-ring-inner{animation-duration:12s;-webkit-animation-duration:12s}
   .pf-human-feature{transition:none!important}
 }
