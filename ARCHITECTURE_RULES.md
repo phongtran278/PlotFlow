@@ -1,0 +1,101 @@
+# PlotFlow Architecture Rules
+
+This file is the source of truth for code ownership and cleanup decisions. Read it before modifying PlotFlow source.
+
+## Product principle
+
+PlotFlow is a real-estate design operations workflow:
+
+`data / spreadsheet -> masterplan / floorplan -> Overview / Detail -> review -> export`
+
+Automation removes repetitive work. The designer keeps judgment, hierarchy, composition, visual craft, review, override, and final control.
+
+## Architecture layers
+
+1. **Design system / tokens** — color, typography, spacing, radius, shadow, Liquid Glass, motion duration and easing.
+2. **Reusable master components** — one canonical component owns each reusable UI behavior.
+3. **Pages / runtimes** — compose masters, pass data, and coordinate page-level layout. Pages should not patch component internals.
+
+## Canonical Home owners
+
+- Home page composition: `app/src/components/HomeLanding.jsx` + `HomeLanding.css`
+- Buttons and button interaction language: `app/src/components/Button.jsx` + `Button.css`
+- Hero orbit: `app/src/components/HeroOrbitDiagram.jsx` + `HeroOrbitDiagram.css`
+- Project cards: `app/src/components/ProjectCard.jsx` + `ProjectCard.css`
+- Workflow: `app/src/components/WorkflowFlow.jsx` + `WorkflowFlow.css`
+- FAQ: `app/src/components/FaqAccordion.jsx` + `FaqAccordion.css`
+
+If a Home visual bug belongs to one of these components, fix the canonical owner. Do not patch it from another stylesheet.
+
+## Code ownership rules
+
+- One component = one style owner.
+- Do not import another component's CSS to patch its internals.
+- Do not create new patch files named `Final`, `Fix`, `Polish`, `Override`, `Last`, or numbered variations of them.
+- Do not add a new override layer to defeat an older override layer. Move the rule back to the canonical owner and remove obsolete rules when safe.
+- Avoid `!important` as normal conflict resolution. Existing `!important` is debt to understand before changing, not a pattern to copy.
+- Do not fix individual instances when the master component can own the fix.
+- Prefer shared spacing rhythm: 4 / 8 / 12 / 16 / 24 / 32 / 48.
+- If a system-level change requires many manual edits, question the architecture before doing the edits.
+
+## Runtime safety rules
+
+The Overview / workspace runtimes have historically suffered from feedback loops and renderer freezes.
+
+- Do not add body-wide `MutationObserver` logic without explicit architecture review.
+- Do not add continuous/unbounded layout, auto-fit, or measurement loops.
+- Prefer bounded, event-driven updates.
+- Do not casually modify high-risk runtime owners only because they are convenient places to intercept DOM behavior.
+- Stable/accepted features must not be changed unless there is explicit new product feedback.
+
+High-risk areas include Overview runtime layers, workspace control/runtime layers, and empty-workspace enhancement logic. Treat them as KEEP until dependency and behavior are understood.
+
+## Dead-code deletion checklist
+
+A file may be deleted only after checking that it has no live:
+
+- static import or re-export,
+- dynamic import,
+- route or app-shell reference,
+- runtime registration / event dependency,
+- CSS import,
+- asset reference,
+- expected selector/DOM contract used by another runtime.
+
+When a compatibility alias is the only remaining indirection, migrate consumers to the canonical master first, then delete the alias.
+
+Git history is the backup. Confirmed dead code should not remain in the active source tree "just in case."
+
+## Legacy CSS policy
+
+A legacy-looking filename is not proof that a file is dead. Some global polish/override styles are still imported from `main.jsx` and therefore remain active.
+
+Do not delete active global CSS in a broad sweep. Consolidate one subsystem at a time by moving valid rules into canonical owners, verifying the UI, and then removing the obsolete import/file.
+
+## Visual verification
+
+Home and product UI changes should be compared on both macOS and Windows when visual parity matters. Check font loading, container sizing, line-height, letter-spacing, responsive rules, browser rendering, and pixel density before introducing OS-specific hacks.
+
+## Branch discipline
+
+The current long-lived cleanup/fix branch is an exception, not the desired future workflow.
+
+After the current branch is stabilized, prefer short-lived branches such as:
+
+- `feature/<name>`
+- `fix/<name>`
+- `cleanup/<name>`
+
+Keep one coherent problem per branch, verify it, merge it, then start the next problem. This limits regression scope and makes known-good checkpoints easy to recover.
+
+## Definition of done
+
+A change is not "done" merely because code was generated or committed. Report separately:
+
+- what changed,
+- canonical owners touched,
+- what was runtime-verified,
+- macOS/Windows visual verification status when relevant,
+- actual CI status.
+
+Never claim pass/fixed/tested unless that verification actually happened.
