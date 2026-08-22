@@ -1,5 +1,4 @@
 import "./HeroOrbitDiagram.css";
-import "./HomeLandingPolish.css";
 import "./HomeLandingFinal.css";
 
 const FEATURES = [
@@ -14,9 +13,9 @@ export default function HeroOrbitDiagram() {
   return (
     <div className="pf-human-orbit" aria-label="PlotFlow keeps the designer in control while automation handles repetitive production work">
       <div className="pf-human-rings" aria-hidden="true">
-        <i className="pf-human-ring pf-human-ring-outer" />
-        <i className="pf-human-ring pf-human-ring-middle" />
-        <i className="pf-human-ring pf-human-ring-inner" />
+        <i className="pf-human-ring pf-human-ring-outer"><span className="pf-orbit-tracer" /></i>
+        <i className="pf-human-ring pf-human-ring-middle"><span className="pf-orbit-tracer" /></i>
+        <i className="pf-human-ring pf-human-ring-inner"><span className="pf-orbit-tracer" /></i>
       </div>
 
       <div className="pf-human-core pf-liquid-glass">
