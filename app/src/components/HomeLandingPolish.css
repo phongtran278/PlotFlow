@@ -1,22 +1,22 @@
-/* Home polish: final deterministic rules over legacy home styles. */
+/* Home polish: final, deterministic rules over legacy home styles. */
 
-/* Hero — editorial copy + a large 30–35% system visual. */
+/* HERO — copy and visual share the stage; the orbit is intentionally generous. */
 .pf-home .pf-home-hero{
-  grid-template-columns:minmax(0,1fr) minmax(480px,.52fr)!important;
-  gap:clamp(64px,6vw,104px)!important;
+  grid-template-columns:minmax(0,1.65fr) minmax(520px,1fr)!important;
+  gap:clamp(56px,5vw,92px)!important;
   align-items:center!important;
 }
 .pf-home .pf-home-hero-copy{min-width:0!important}
 .pf-home .pf-home-hero-visual{
   min-width:0!important;
-  min-height:700px!important;
+  min-height:720px!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
   overflow:visible!important;
 }
 
-/* Featured projects — exactly one skeleton and one information hierarchy. */
+/* FEATURED PROJECTS — one grid, one card rule. */
 .pf-home-projects .pf-featured-project-grid{
   margin-top:52px!important;
   display:grid!important;
@@ -31,29 +31,34 @@
   grid-column:span 4!important;
   width:100%!important;
   min-width:0!important;
-  min-height:0!important;
+  max-width:none!important;
   height:auto!important;
-  padding:20px!important;
+  min-height:0!important;
   margin:0!important;
+  padding:20px!important;
   box-sizing:border-box!important;
-  border-radius:24px!important;
   display:grid!important;
-  grid-template-rows:22px 248px 40px!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-rows:22px 258px 40px!important;
   row-gap:18px!important;
   align-content:start!important;
-  background:rgba(255,255,255,.84)!important;
+  align-items:stretch!important;
+  justify-items:stretch!important;
+  border-radius:24px!important;
+  background:rgba(255,255,255,.86)!important;
   border:1px solid rgba(24,29,34,.06)!important;
   box-shadow:0 14px 34px rgba(20,25,30,.035)!important;
   overflow:hidden!important;
   transform:none!important;
 }
-.pf-home-projects .pf-featured-project-card:hover{transform:none!important;box-shadow:0 18px 40px rgba(20,25,30,.055)!important}
 .pf-home-projects .pf-featured-project-card:nth-child(4),
 .pf-home-projects .pf-featured-project-card:nth-child(5){grid-column:span 6!important}
-.pf-home-projects .pf-featured-project-card.active{background:linear-gradient(180deg,rgba(249,252,250,.98),rgba(241,247,243,.96))!important}
+.pf-home-projects .pf-featured-project-card.active{background:linear-gradient(180deg,rgba(249,252,250,.99),rgba(241,247,243,.97))!important}
+.pf-home-projects .pf-featured-project-card:hover{transform:none!important;box-shadow:0 18px 42px rgba(20,25,30,.055)!important}
 
-/* One status lives here. No second status is repeated in the footer. */
+/* Header keeps exactly one status. */
 .pf-home-projects .pf-featured-project-card>header{
+  width:100%!important;
   height:22px!important;
   min-height:22px!important;
   margin:0!important;
@@ -61,7 +66,7 @@
   display:grid!important;
   grid-template-columns:auto minmax(0,1fr)!important;
   align-items:center!important;
-  column-gap:16px!important;
+  gap:16px!important;
 }
 .pf-home-projects .pf-featured-project-card>header>span,
 .pf-home-projects .pf-featured-project-card>header>em{
@@ -81,120 +86,126 @@
 .pf-home-projects .pf-featured-project-card.active>header>em,
 .pf-home-projects .pf-featured-project-card.hot>header>em{color:var(--pf-brand-accent)!important}
 
-.pf-home-projects .pf-project-thumb{
+/* The visual MUST fill the card. Legacy widths are explicitly neutralized. */
+.pf-home-projects .pf-featured-project-card>.pf-project-thumb{
   position:relative!important;
+  justify-self:stretch!important;
+  align-self:stretch!important;
   width:100%!important;
-  min-width:0!important;
-  height:248px!important;
-  min-height:248px!important;
-  max-height:248px!important;
-  aspect-ratio:auto!important;
+  min-width:100%!important;
+  max-width:100%!important;
+  height:258px!important;
+  min-height:258px!important;
+  max-height:258px!important;
   margin:0!important;
   padding:0!important;
   display:block!important;
-  border-radius:20px!important;
+  flex:none!important;
+  aspect-ratio:auto!important;
+  box-sizing:border-box!important;
   overflow:hidden!important;
+  border-radius:20px!important;
   border:1px solid rgba(25,31,36,.05)!important;
   isolation:isolate!important;
-  box-sizing:border-box!important;
 }
 .pf-home-projects .pf-project-thumb::before{
   content:""!important;
   position:absolute!important;
   inset:0!important;
   z-index:0!important;
-  background:linear-gradient(128deg,transparent 0 60%,rgba(255,255,255,.25) 60.2% 69%,transparent 69.2%),linear-gradient(154deg,transparent 0 75%,rgba(24,31,35,.024) 75.2% 80%,transparent 80.2%)!important;
+  background:linear-gradient(128deg,transparent 0 61%,rgba(255,255,255,.24) 61.2% 70%,transparent 70.2%),linear-gradient(154deg,transparent 0 76%,rgba(24,31,35,.022) 76.2% 81%,transparent 81.2%)!important;
 }
 .pf-home-projects .pf-project-thumb::after{
   content:""!important;
   position:absolute!important;
-  right:-8%!important;
-  bottom:-14%!important;
-  width:54%!important;
-  height:44%!important;
+  right:-5%!important;
+  bottom:-18%!important;
+  width:52%!important;
+  height:48%!important;
   z-index:0!important;
   border-top:1px solid rgba(25,32,37,.05)!important;
   border-left:1px solid rgba(25,32,37,.04)!important;
   transform:skewX(-12deg)!important;
-  background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.24))!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.22))!important;
 }
 .pf-home-projects .pf-project-thumb-grid{
   position:absolute!important;
   inset:0!important;
+  width:100%!important;
+  height:100%!important;
   z-index:0!important;
-  opacity:.45!important;
+  opacity:.42!important;
   background-image:linear-gradient(rgba(35,42,48,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.03) 1px,transparent 1px)!important;
   background-size:32px 32px!important;
   mask-image:linear-gradient(145deg,#000 0 68%,transparent 100%)!important;
 }
 
-/* Fixed rhythm: meta → 12px → title. A two-line title consumes the same title slot as a one-line title. */
-.pf-home-projects .pf-project-thumb-content{
+/* Fixed reading rhythm: developer/location -> 12px -> project title. */
+.pf-home-projects .pf-project-thumb>.pf-project-thumb-content{
   position:absolute!important;
-  left:24px!important;
-  right:24px!important;
-  top:24px!important;
+  left:26px!important;
+  right:26px!important;
+  top:26px!important;
   bottom:auto!important;
-  z-index:2!important;
   width:auto!important;
-  max-width:none!important;
   min-width:0!important;
+  max-width:none!important;
+  height:auto!important;
   margin:0!important;
   padding:0!important;
-  display:grid!important;
-  grid-template-rows:auto 60px auto!important;
-  align-content:start!important;
-  justify-items:start!important;
-  row-gap:12px!important;
+  z-index:2!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  justify-content:flex-start!important;
+  gap:0!important;
 }
-.pf-home-projects .pf-project-thumb-content small{
+.pf-home-projects .pf-project-thumb-content>small{
+  order:1!important;
   display:block!important;
-  margin:0!important;
+  width:100%!important;
+  margin:0 0 12px!important;
   padding:0!important;
-  color:rgba(29,35,40,.54)!important;
+  color:rgba(29,35,40,.56)!important;
   font-size:9px!important;
-  line-height:1.25!important;
+  line-height:1.3!important;
   font-weight:600!important;
   letter-spacing:.025em!important;
+  white-space:normal!important;
 }
-.pf-home-projects .pf-project-thumb-content strong{
+.pf-home-projects .pf-project-thumb-content>strong{
+  order:2!important;
   display:-webkit-box!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-height:62px!important;
+  max-height:62px!important;
   margin:0!important;
   padding:0!important;
-  max-width:100%!important;
-  min-width:0!important;
-  align-self:start!important;
   color:#15191d!important;
-  font-size:clamp(22px,1.72vw,30px)!important;
-  line-height:1.04!important;
+  font-size:clamp(23px,1.65vw,31px)!important;
+  line-height:1.02!important;
   font-weight:600!important;
-  letter-spacing:-.032em!important;
+  letter-spacing:-.035em!important;
   overflow:hidden!important;
   -webkit-box-orient:vertical!important;
   -webkit-line-clamp:2!important;
-  text-wrap:balance!important;
   overflow-wrap:normal!important;
+  word-break:normal!important;
+  text-wrap:balance!important;
 }
-.pf-home-projects .pf-project-thumb-content b{
-  margin:0!important;
-  padding:6px 9px!important;
-  border-radius:999px!important;
-  background:rgba(255,255,255,.72)!important;
-  border:1px solid rgba(255,255,255,.80)!important;
-  color:#687078!important;
-  font-size:7px!important;
-  line-height:1!important;
-  font-weight:600!important;
-  letter-spacing:.08em!important;
-  text-transform:uppercase!important;
-}
+/* Soon is already communicated in the card header; never repeat it inside the visual. */
+.pf-home-projects .pf-project-thumb-content>b{display:none!important}
+
 .pf-home-projects .pf-project-thumb.tone-forest{background:linear-gradient(145deg,#edf5f0,#dceae2)!important}
 .pf-home-projects .pf-project-thumb.tone-stone{background:linear-gradient(145deg,#f3f2ef,#e6e3de)!important}
 .pf-home-projects .pf-project-thumb.tone-sand{background:linear-gradient(145deg,#f8f2e9,#ebdfcf)!important}
 .pf-home-projects .pf-project-thumb.tone-mist{background:linear-gradient(145deg,#f4f6f7,#e4eaed)!important}
 .pf-home-projects .pf-project-thumb.tone-graphite{background:linear-gradient(145deg,#eef2f3,#dbe3e6)!important}
 
+/* Footer contains action only; duplicated phase/status text is removed. */
 .pf-home-projects .pf-featured-project-card>footer{
+  width:100%!important;
   height:40px!important;
   min-height:40px!important;
   margin:0!important;
@@ -214,18 +225,18 @@
   white-space:nowrap!important;
 }
 
-/* Workflow — visible hand-off: source card → moving packet → arrowhead → next card. */
-.pf-home .pf-system-map{gap:30px!important}
+/* WORKFLOW — each gap visibly hands work to the next step. */
+.pf-home .pf-system-map{gap:32px!important}
 .pf-home .pf-system-arrow{
-  right:-34px!important;
+  right:-35px!important;
   top:50%!important;
-  width:38px!important;
-  height:22px!important;
+  width:40px!important;
+  height:24px!important;
   transform:translateY(-50%)!important;
   display:block!important;
   overflow:visible!important;
   color:transparent!important;
-  background:linear-gradient(90deg,rgba(15,122,100,.10),rgba(15,122,100,.38)) center/100% 1px no-repeat!important;
+  background:linear-gradient(90deg,rgba(15,122,100,.12),rgba(15,122,100,.45)) center/100% 1px no-repeat!important;
   font-size:0!important;
   pointer-events:none!important;
 }
@@ -234,37 +245,37 @@
   position:absolute!important;
   left:0!important;
   top:50%!important;
-  width:6px!important;
-  height:6px!important;
+  width:7px!important;
+  height:7px!important;
   border-radius:50%!important;
   background:var(--pf-brand-accent)!important;
-  box-shadow:0 0 0 4px rgba(15,122,100,.09),0 0 12px rgba(15,122,100,.22)!important;
+  box-shadow:0 0 0 5px rgba(15,122,100,.09),0 0 16px rgba(15,122,100,.25)!important;
   transform:translateY(-50%)!important;
-  animation:pfFlowPacket 1.65s cubic-bezier(.4,0,.2,1) infinite!important;
+  animation:pfFlowPacket 1.55s cubic-bezier(.4,0,.2,1) infinite!important;
 }
 .pf-home .pf-system-arrow::after{
   content:"›"!important;
   display:block!important;
   position:absolute!important;
-  right:-1px!important;
+  right:-2px!important;
   top:50%!important;
   color:var(--pf-brand-accent)!important;
   font-family:var(--pf-display)!important;
-  font-size:18px!important;
+  font-size:20px!important;
   line-height:1!important;
   font-style:normal!important;
   font-weight:600!important;
   transform:translateY(-54%)!important;
-  opacity:.72!important;
+  opacity:.82!important;
 }
-.pf-home .pf-system-node:nth-child(2) .pf-system-arrow::before{animation-delay:.20s!important}
-.pf-home .pf-system-node:nth-child(3) .pf-system-arrow::before{animation-delay:.40s!important}
-.pf-home .pf-system-node:nth-child(4) .pf-system-arrow::before{animation-delay:.60s!important}
-@keyframes pfFlowPacket{0%{left:0;opacity:0;transform:translateY(-50%) scale(.72)}18%{opacity:1}72%{opacity:1;transform:translateY(-50%) scale(1)}100%{left:31px;opacity:0;transform:translateY(-50%) scale(.72)}}
+.pf-home .pf-system-node:nth-child(2) .pf-system-arrow::before{animation-delay:.18s!important}
+.pf-home .pf-system-node:nth-child(3) .pf-system-arrow::before{animation-delay:.36s!important}
+.pf-home .pf-system-node:nth-child(4) .pf-system-arrow::before{animation-delay:.54s!important}
+@keyframes pfFlowPacket{0%{left:0;opacity:0;transform:translateY(-50%) scale(.7)}16%{opacity:1}72%{opacity:1;transform:translateY(-50%) scale(1)}100%{left:33px;opacity:0;transform:translateY(-50%) scale(.72)}}
 
 @media(max-width:1180px){
-  .pf-home .pf-home-hero{grid-template-columns:minmax(0,1fr) minmax(420px,.68fr)!important;gap:52px!important}
-  .pf-home .pf-home-hero-visual{min-height:620px!important}
+  .pf-home .pf-home-hero{grid-template-columns:minmax(0,1.35fr) minmax(440px,1fr)!important;gap:48px!important}
+  .pf-home .pf-home-hero-visual{min-height:640px!important}
   .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:span 6!important}
   .pf-home-projects .pf-featured-project-card:nth-child(5){grid-column:1/-1!important}
 }
@@ -273,9 +284,8 @@
   .pf-home .pf-home-hero{grid-template-columns:1fr!important}
   .pf-home .pf-home-hero-visual{min-height:auto!important}
   .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:1/-1!important;grid-template-rows:22px 230px 40px!important}
-  .pf-home-projects .pf-project-thumb{height:230px!important;min-height:230px!important;max-height:230px!important}
-  .pf-home-projects .pf-project-thumb-content{grid-template-rows:auto 58px auto!important}
-  .pf-home-projects .pf-project-thumb-content strong{font-size:26px!important}
+  .pf-home-projects .pf-featured-project-card>.pf-project-thumb{height:230px!important;min-height:230px!important;max-height:230px!important}
+  .pf-home-projects .pf-project-thumb-content>strong{font-size:26px!important;min-height:54px!important;max-height:54px!important}
   .pf-home .pf-system-map{gap:16px!important}
   .pf-home .pf-system-arrow{display:none!important}
 }
