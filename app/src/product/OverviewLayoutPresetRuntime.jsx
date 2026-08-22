@@ -7,9 +7,13 @@ const UI_KEY = "phongflow-overview-layout-ui-v1";
 function readUi() {
   try {
     const value = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
-    return { size: Number(value.size) || 88 };
+    return {
+      size: Number(value.size) || 88,
+      map: value.map && typeof value.map === "object" ? value.map : {},
+      columns: value.columns && typeof value.columns === "object" ? value.columns : {},
+    };
   } catch {
-    return { size: 88 };
+    return { size: 88, map: {}, columns: {} };
   }
 }
 
@@ -27,6 +31,17 @@ function lineFor(stage, code) {
   return Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).find((node) => node.dataset.unitCode === code) || null;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, Number(value) || 0));
+}
+
+function median(values, fallback) {
+  const list = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!list.length) return fallback;
+  const middle = Math.floor(list.length / 2);
+  return list.length % 2 ? list[middle] : (list[middle - 1] + list[middle]) / 2;
+}
+
 export default function OverviewLayoutPresetRuntime() {
   useEffect(() => {
     let stage = null;
@@ -35,6 +50,8 @@ export default function OverviewLayoutPresetRuntime() {
     let disposed = false;
     let retryRaf = 0;
     let retryCount = 0;
+    let mapCanvas = null;
+    let mapDrag = null;
     const ui = readUi();
 
     function cards() {
@@ -43,6 +60,10 @@ export default function OverviewLayoutPresetRuntime() {
 
     function px(base, factor, min = 0) {
       return `${Math.max(min, base * factor).toFixed(2)}px`;
+    }
+
+    function saveUi() {
+      localStorage.setItem(UI_KEY, JSON.stringify(ui));
     }
 
     function applySize() {
@@ -81,22 +102,8 @@ export default function OverviewLayoutPresetRuntime() {
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
     }
 
-    function connectorStart(card, anchor, w, h) {
-      const left = card.offsetLeft;
-      const top = card.offsetTop;
-      const right = left + card.offsetWidth;
-      const bottom = top + card.offsetHeight;
-      const cx = left + card.offsetWidth / 2;
-      const cy = top + card.offsetHeight / 2;
-      const ax = (Number.parseFloat(anchor?.style.left || "50") / 100) * w;
-      const ay = (Number.parseFloat(anchor?.style.top || "50") / 100) * h;
-      const candidates = [
-        { x: left, y: cy, d: Math.abs(ax - left) },
-        { x: right, y: cy, d: Math.abs(ax - right) },
-        { x: cx, y: top, d: Math.abs(ay - top) },
-        { x: cx, y: bottom, d: Math.abs(ay - bottom) },
-      ];
-      return candidates.sort((a, b) => a.d - b.d)[0];
+    function cardSide(card, w) {
+      return card.offsetLeft + card.offsetWidth / 2 <= w / 2 ? "left" : "right";
     }
 
     function updateConnectors() {
@@ -108,55 +115,184 @@ export default function OverviewLayoutPresetRuntime() {
         const line = lineFor(stage, code);
         const anchor = anchorFor(stage, code);
         if (!line || !anchor) return;
-        const start = connectorStart(card, anchor, w, h);
-        line.setAttribute("x1", String((start.x / w) * 100));
-        line.setAttribute("y1", String((start.y / h) * 100));
+        const side = cardSide(card, w);
+        const x = side === "left" ? card.offsetLeft + card.offsetWidth : card.offsetLeft;
+        const y = card.offsetTop + card.offsetHeight / 2;
+        line.setAttribute("x1", String((x / w) * 100));
+        line.setAttribute("y1", String((y / h) * 100));
         line.setAttribute("x2", String(Number.parseFloat(anchor.style.left || "50")));
         line.setAttribute("y2", String(Number.parseFloat(anchor.style.top || "50")));
       });
     }
 
+    function captureMapFromCanvas(force = false) {
+      if (!stage) return;
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+      const leftCenters = [];
+      const rightCenters = [];
+      cards().forEach((card) => {
+        const code = codeFor(card);
+        if (!code) return;
+        const x = clamp((card.offsetLeft + card.offsetWidth / 2) / w, 0.04, 0.96);
+        const y = clamp((card.offsetTop + card.offsetHeight / 2) / h, 0.04, 0.96);
+        if (force || !ui.map[code]) ui.map[code] = { x, y };
+        (x <= 0.5 ? leftCenters : rightCenters).push(x);
+      });
+      if (force || !Number.isFinite(ui.columns.left)) ui.columns.left = median(leftCenters, 0.14);
+      if (force || !Number.isFinite(ui.columns.right)) ui.columns.right = median(rightCenters, 0.86);
+      ui.columns.left = clamp(ui.columns.left, 0.06, 0.44);
+      ui.columns.right = clamp(ui.columns.right, 0.56, 0.94);
+      saveUi();
+    }
+
+    function mapAnchorPoint(code) {
+      const anchor = anchorFor(stage, code);
+      return {
+        x: clamp(Number.parseFloat(anchor?.style.left || "50") / 100, 0.02, 0.98),
+        y: clamp(Number.parseFloat(anchor?.style.top || "50") / 100, 0.02, 0.98),
+      };
+    }
+
+    function renderLayoutMap() {
+      if (!mapCanvas || !stage) return;
+      captureMapFromCanvas(false);
+      mapCanvas.innerHTML = "";
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 100 100");
+      svg.classList.add("pf-layout-map-lines");
+      mapCanvas.appendChild(svg);
+
+      ["left", "right"].forEach((side) => {
+        const handle = document.createElement("button");
+        handle.type = "button";
+        handle.className = `pf-layout-column-handle ${side}`;
+        handle.dataset.column = side;
+        handle.style.left = `${ui.columns[side] * 100}%`;
+        handle.innerHTML = `<i></i><span>${side === "left" ? "L" : "R"}</span>`;
+        handle.title = `Kéo cột ${side === "left" ? "trái" : "phải"} vào / ra`;
+        handle.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          mapDrag = { type: "column", side, pointerId: event.pointerId, node: handle };
+          handle.setPointerCapture?.(event.pointerId);
+        });
+        mapCanvas.appendChild(handle);
+      });
+
+      cards().forEach((card) => {
+        const code = codeFor(card);
+        if (!code) return;
+        const point = ui.map[code] || { x: 0.5, y: 0.5 };
+        const anchor = mapAnchorPoint(code);
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.dataset.code = code;
+        line.setAttribute("x1", String(point.x * 100));
+        line.setAttribute("y1", String(point.y * 100));
+        line.setAttribute("x2", String(anchor.x * 100));
+        line.setAttribute("y2", String(anchor.y * 100));
+        svg.appendChild(line);
+
+        const dot = document.createElement("span");
+        dot.className = "pf-layout-anchor-dot";
+        dot.style.left = `${anchor.x * 100}%`;
+        dot.style.top = `${anchor.y * 100}%`;
+        dot.title = `Lot ${code}`;
+        mapCanvas.appendChild(dot);
+
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "pf-layout-map-chip";
+        chip.dataset.code = code;
+        chip.textContent = code;
+        chip.style.left = `${point.x * 100}%`;
+        chip.style.top = `${point.y * 100}%`;
+        chip.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          mapDrag = { type: "chip", code, pointerId: event.pointerId, node: chip, line };
+          chip.setPointerCapture?.(event.pointerId);
+        });
+        mapCanvas.appendChild(chip);
+      });
+    }
+
+    function moveMapDrag(event) {
+      if (!mapDrag || event.pointerId !== mapDrag.pointerId || !mapCanvas) return;
+      event.preventDefault();
+      const rect = mapCanvas.getBoundingClientRect();
+      const x = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0.04, 0.96);
+      const y = clamp((event.clientY - rect.top) / Math.max(1, rect.height), 0.04, 0.96);
+      if (mapDrag.type === "column") {
+        const value = mapDrag.side === "left" ? clamp(x, 0.06, 0.44) : clamp(x, 0.56, 0.94);
+        ui.columns[mapDrag.side] = value;
+        mapDrag.node.style.left = `${value * 100}%`;
+      } else {
+        ui.map[mapDrag.code] = { x, y };
+        mapDrag.node.style.left = `${x * 100}%`;
+        mapDrag.node.style.top = `${y * 100}%`;
+        mapDrag.line?.setAttribute("x1", String(x * 100));
+        mapDrag.line?.setAttribute("y1", String(y * 100));
+      }
+    }
+
+    function finishMapDrag(event) {
+      if (!mapDrag || event.pointerId !== mapDrag.pointerId) return;
+      try { mapDrag.node.releasePointerCapture?.(event.pointerId); } catch {}
+      mapDrag = null;
+      saveUi();
+    }
+
     function tidy() {
       if (!stage) return;
       applySize();
+      captureMapFromCanvas(false);
       const all = cards();
       if (!all.length) return;
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
-      const middle = w / 2;
-      const insetX = Math.max(34, Math.round(w * 0.055));
       const insetY = Math.max(20, Math.round(h * 0.035));
-
       const left = [];
       const right = [];
+
       all.forEach((card) => {
-        const bucket = card.offsetLeft + card.offsetWidth / 2 <= middle ? left : right;
-        bucket.push(card);
+        const code = codeFor(card);
+        const point = ui.map[code] || { x: (card.offsetLeft + card.offsetWidth / 2) / w, y: 0.5 };
+        (point.x <= 0.5 ? left : right).push({ card, code, point });
       });
-      left.sort((a, b) => a.offsetTop - b.offsetTop);
-      right.sort((a, b) => a.offsetTop - b.offsetTop);
+      left.sort((a, b) => a.point.y - b.point.y);
+      right.sort((a, b) => a.point.y - b.point.y);
 
       function place(list, side) {
         if (!list.length) return;
-        const heights = list.map((card) => card.offsetHeight || 180);
+        const heights = list.map(({ card }) => card.offsetHeight || 180);
         const total = heights.reduce((sum, value) => sum + value, 0);
         const available = Math.max(0, h - insetY * 2 - total);
         const gap = list.length > 1 ? Math.max(8, available / (list.length - 1)) : 0;
         let top = list.length === 1 ? Math.max(insetY, (h - heights[0]) / 2) : insetY;
-        list.forEach((card, index) => {
-          const leftPx = side === "left" ? insetX : Math.max(insetX, w - insetX - card.offsetWidth);
+        const centerX = (side === "left" ? ui.columns.left : ui.columns.right) * w;
+
+        list.forEach(({ card, code }, index) => {
+          const leftPx = clamp(centerX - card.offsetWidth / 2, 8, Math.max(8, w - card.offsetWidth - 8));
           card.style.left = `${leftPx}px`;
           card.style.right = "auto";
           card.style.top = `${top}px`;
+          ui.map[code] = {
+            x: clamp((leftPx + card.offsetWidth / 2) / w, 0.04, 0.96),
+            y: clamp((top + card.offsetHeight / 2) / h, 0.04, 0.96),
+          };
           top += heights[index] + gap;
         });
       }
 
       place(left, "left");
       place(right, "right");
+      saveUi();
       persistLayout();
       updateConnectors();
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length, mode: "keep-sides" } }));
+      renderLayoutMap();
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length, mode: "layout-map" } }));
     }
 
     function installExportMenu() {
@@ -197,9 +333,17 @@ export default function OverviewLayoutPresetRuntime() {
         control.className = "pf-card-layout-control";
         control.innerHTML = `
           <label><span>Card size</span><input data-layout-ui="size" type="range" min="45" max="115" step="1"><output></output></label>
-          <button type="button" data-layout-ui="tidy" title="Giữ card ở bên trái/phải hiện tại, chỉ căn thẳng và giãn đều">Tidy</button>`;
+          <details class="pf-layout-map-menu">
+            <summary>Layout map</summary>
+            <div class="pf-layout-map-popover">
+              <header><strong>Arrange cards</strong><small>Kéo mã để đổi bên / thứ tự · kéo L/R để đổi vị trí cột</small></header>
+              <div class="pf-layout-map-canvas"></div>
+              <footer><button type="button" data-layout-ui="capture">Capture canvas</button><button type="button" class="primary" data-layout-ui="tidy">Apply + Tidy</button></footer>
+            </div>
+          </details>`;
         const input = control.querySelector('[data-layout-ui="size"]');
         const output = control.querySelector("output");
+        mapCanvas = control.querySelector(".pf-layout-map-canvas");
         input.value = String(Math.max(45, Math.min(115, ui.size)));
         output.textContent = `${input.value}%`;
         input.addEventListener("input", () => {
@@ -207,10 +351,20 @@ export default function OverviewLayoutPresetRuntime() {
           output.textContent = `${ui.size}%`;
           applySize();
           updateConnectors();
-          localStorage.setItem(UI_KEY, JSON.stringify(ui));
+          saveUi();
         });
         input.addEventListener("change", persistLayout);
         control.querySelector('[data-layout-ui="tidy"]').addEventListener("click", tidy);
+        control.querySelector('[data-layout-ui="capture"]').addEventListener("click", () => {
+          captureMapFromCanvas(true);
+          renderLayoutMap();
+        });
+        control.querySelector(".pf-layout-map-menu").addEventListener("toggle", (event) => {
+          if (event.currentTarget.open) renderLayoutMap();
+        });
+        mapCanvas.addEventListener("pointermove", moveMapDrag);
+        mapCanvas.addEventListener("pointerup", finishMapDrag);
+        mapCanvas.addEventListener("pointercancel", finishMapDrag);
         rail.appendChild(control);
       }
       updateConnectors();
