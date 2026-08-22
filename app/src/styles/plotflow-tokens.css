@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,600;0,700;1,600&family=IBM+Plex+Serif:ital,wght@1,600&display=swap');
+
 :root {
   /* PlotFlow visual source of truth, extracted from the approved Home experience. */
   --pf-brand-accent: #0f7a64;
