@@ -1,4 +1,5 @@
 import "./ProjectCard.css";
+import Button from "./Button.jsx";
 
 export default function ProjectCard({ project, index, onOpenLibrary }) {
   return (
@@ -17,10 +18,10 @@ export default function ProjectCard({ project, index, onOpenLibrary }) {
       </div>
 
       <footer className="pf-project-card__footer">
-        <button className="pf-project-card__action" type="button" onClick={onOpenLibrary}>
+        <Button variant="secondary" className="pf-project-card__action" onClick={onOpenLibrary}>
           <span>Open in library</span>
           <b aria-hidden="true">→</b>
-        </button>
+        </Button>
       </footer>
     </article>
   );
