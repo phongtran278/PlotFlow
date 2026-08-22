@@ -14,10 +14,10 @@
 .pf-project-card{
   width:100%;
   min-width:0;
-  padding:24px;
+  padding:28px;
   display:grid;
   grid-template-rows:32px 286px 44px;
-  gap:20px;
+  gap:22px;
   border:1px solid rgba(22,27,31,.065);
   border-radius:26px;
   background:rgba(255,255,255,.86);
@@ -26,7 +26,7 @@
 }
 .pf-project-card--active{background:linear-gradient(180deg,rgba(249,252,250,.97),rgba(241,247,243,.93))}
 
-.pf-project-card__header{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:16px}
+.pf-project-card__header{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:18px;padding:0 2px}
 .pf-project-card__index{color:#a3a8ac;font-size:8px;font-weight:600;letter-spacing:.09em}
 .pf-project-card__status{
   position:relative;
@@ -58,7 +58,7 @@
 .pf-project-card__visual{position:relative;width:100%;height:286px;overflow:hidden;border:1px solid rgba(25,31,36,.05);border-radius:21px}
 .pf-project-card__visual::before{content:"";position:absolute;inset:0;background:linear-gradient(128deg,transparent 0 61%,rgba(255,255,255,.24) 61.2% 70%,transparent 70.2%),linear-gradient(154deg,transparent 0 76%,rgba(24,31,35,.022) 76.2% 81%,transparent 81.2%)}
 .pf-project-card__grid{position:absolute;inset:0;opacity:.42;background-image:linear-gradient(rgba(35,42,48,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.03) 1px,transparent 1px);background-size:32px 32px}
-.pf-project-card__copy{position:absolute;left:32px;right:32px;top:32px;display:block;text-align:left}
+.pf-project-card__copy{position:absolute;left:36px;right:36px;top:36px;display:block;text-align:left}
 .pf-project-card__copy>strong{
   display:block;
   width:100%;
@@ -79,7 +79,7 @@
 .pf-project-card__visual--mist{background:linear-gradient(145deg,#f4f6f7,#e4eaed)}
 .pf-project-card__visual--graphite{background:linear-gradient(145deg,#eef2f3,#dbe3e6)}
 
-.pf-project-card__footer{display:flex;align-items:center;justify-content:flex-end;padding-top:2px}
+.pf-project-card__footer{display:flex;align-items:center;justify-content:flex-end;padding:2px 2px 0}
 .pf-project-card__action{
   height:38px;
   padding:0 14px 0 15px;
@@ -101,23 +101,23 @@
 .pf-project-card__action b{font-size:10px;font-weight:600;line-height:1}
 .pf-project-card__action:hover{transform:translateY(-1px);background:rgba(255,255,255,.84);box-shadow:0 12px 26px rgba(25,31,36,.08),inset 0 1px 0 rgba(255,255,255,.97)}
 
-/* Narrow cards keep the same spacing logic, only the type scales slightly. */
+/* Narrow cards keep the same spacing system instead of collapsing toward the edges. */
 .pf-project-card-grid>.pf-project-card:nth-child(3) .pf-project-card__copy>strong{font-size:clamp(22px,1.45vw,28px)}
-.pf-project-card-grid>.pf-project-card:nth-child(3) .pf-project-card__copy{left:26px;right:26px}
+.pf-project-card-grid>.pf-project-card:nth-child(3) .pf-project-card__copy{left:32px;right:32px;top:34px}
 
 @media(max-width:1180px){
   .pf-project-card-grid{gap:20px}
   .pf-project-card-grid>.pf-project-card:nth-child(n){grid-column:span 6}
   .pf-project-card-grid>.pf-project-card:nth-child(5){grid-column:1/-1}
-  .pf-project-card{padding:22px;grid-template-rows:32px 260px 42px}
+  .pf-project-card{padding:24px;grid-template-rows:32px 260px 42px;gap:20px}
   .pf-project-card__visual{height:260px}
-  .pf-project-card__copy{left:28px;right:28px;top:28px}
+  .pf-project-card__copy{left:32px;right:32px;top:32px}
 }
 @media(max-width:760px){
   .pf-project-card-grid{grid-template-columns:1fr;gap:18px;margin-top:40px}
   .pf-project-card-grid>.pf-project-card:nth-child(n){grid-column:1/-1}
-  .pf-project-card{padding:18px;grid-template-rows:30px 230px 40px;gap:16px;border-radius:22px}
+  .pf-project-card{padding:20px;grid-template-rows:30px 230px 40px;gap:16px;border-radius:22px}
   .pf-project-card__visual{height:230px;border-radius:18px}
-  .pf-project-card__copy,.pf-project-card-grid>.pf-project-card:nth-child(3) .pf-project-card__copy{left:24px;right:24px;top:24px}
+  .pf-project-card__copy,.pf-project-card-grid>.pf-project-card:nth-child(3) .pf-project-card__copy{left:26px;right:26px;top:26px}
   .pf-project-card__copy>strong,.pf-project-card-grid>.pf-project-card:nth-child(3) .pf-project-card__copy>strong{font-size:26px}
 }
