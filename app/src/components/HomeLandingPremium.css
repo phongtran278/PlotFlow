@@ -4,155 +4,61 @@
   --pf-display:"IBM Plex Sans",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --pf-serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
 }
+.pf-home,.pf-home button,.pf-home input,.pf-home textarea{font-family:var(--pf-display)}
+.pf-home em,.pf-home-signature>em{font-family:var(--pf-serif)!important;font-style:italic!important;font-weight:600!important;font-synthesis:none;text-rendering:optimizeLegibility}
+.pf-home h2 em,.pf-home-statement em,.pf-home-feedback h2 em{display:inline-block;font-size:1.075em!important;line-height:.91!important;letter-spacing:-.018em!important;transform:translateY(.018em)}
 
-.pf-home,
-.pf-home button,
-.pf-home input,
-.pf-home textarea{
-  font-family:var(--pf-display);
-}
+/* Readability */
+.pf-home-hero-copy>p{max-width:690px!important;font-size:17px!important;line-height:1.78!important}
+.pf-home-section-head>p,.pf-home-feedback>div:first-child>p{font-size:14px!important;line-height:1.78!important;max-width:760px!important}
+.pf-home-benefits p,.pf-home-faq-answer p{font-size:11px!important;line-height:1.8!important}
 
-.pf-home em,.pf-home-signature>em{
-  font-family:var(--pf-serif)!important;
-  font-style:italic!important;
-  font-weight:600!important;
-  font-synthesis:none;
-  text-rendering:optimizeLegibility;
-}
+/* Hero typography: deliberately varied scale to avoid collisions and create hierarchy. */
+.pf-home .pf-home-hero-title{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:0!important;margin:28px 0 34px!important;color:#111316!important;font-family:var(--pf-display)!important;line-height:1!important;letter-spacing:-.055em!important;font-kerning:normal;font-synthesis:none;text-rendering:geometricPrecision}
+.pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{display:block!important;position:relative!important;margin:0!important;padding:0!important;white-space:nowrap}
+.pf-home .pf-title-kicker{font-size:clamp(54px,4.7vw,82px)!important;font-weight:700!important;line-height:.91!important;margin-bottom:.02em!important}
+.pf-home .pf-title-main{font-size:clamp(78px,6.75vw,116px)!important;font-weight:700!important;line-height:.86!important}
+.pf-home .pf-title-accent{font-family:var(--pf-serif)!important;font-size:clamp(88px,7.5vw,132px)!important;font-weight:600!important;line-height:.82!important;letter-spacing:-.035em!important;color:var(--pf-brand-accent)!important;margin:.018em 0 .08em .035em!important}
+.pf-home .pf-title-secondary{font-size:clamp(66px,5.75vw,98px)!important;font-weight:700!important;line-height:.9!important;margin-top:.02em!important;margin-bottom:.04em!important}
+.pf-home .pf-title-design{font-size:clamp(82px,7vw,120px)!important;line-height:.9!important;padding-top:.08em!important;padding-bottom:.055em!important}
 
-/* Optical sizing: IBM Plex Serif reads slightly smaller than Plex Sans at the same CSS size. */
-.pf-home h2 em,.pf-home-statement em,.pf-home-feedback h2 em{
-  display:inline-block;
-  font-size:1.075em!important;
-  line-height:.91!important;
-  letter-spacing:-.018em!important;
-  transform:translateY(.018em);
-}
+/* Liquid Glass only where it adds hierarchy. */
+.pf-liquid-glass{background:linear-gradient(135deg,rgba(255,255,255,.76),rgba(245,248,247,.54))!important;border:1px solid rgba(255,255,255,.76)!important;box-shadow:0 18px 48px rgba(25,31,38,.08),inset 0 1px 0 rgba(255,255,255,.9),inset 0 -1px 0 rgba(255,255,255,.2)!important;backdrop-filter:blur(24px) saturate(165%)!important;-webkit-backdrop-filter:blur(24px) saturate(165%)!important}
+.pf-home-nav.pf-liquid-glass{background:linear-gradient(180deg,rgba(247,247,245,.84),rgba(247,247,245,.64))!important;border-width:0 0 1px!important;border-color:rgba(255,255,255,.74)!important;box-shadow:0 6px 24px rgba(22,26,32,.035),inset 0 -1px 0 rgba(34,39,44,.045)!important}
 
-/* Tight editorial hero without glyph collisions. */
-.pf-home .pf-home-hero-title{
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:flex-start!important;
-  gap:0!important;
-  margin:28px 0 30px!important;
-  color:#111316!important;
-  font-family:var(--pf-display)!important;
-  font-size:clamp(58px,5.7vw,96px)!important;
-  line-height:1!important;
-  font-weight:700!important;
-  letter-spacing:-.058em!important;
-  font-kerning:normal;
-  font-synthesis:none;
-  text-rendering:geometricPrecision;
-}
+/* Designer-centered orbit hero */
+.pf-home-hero-visual{min-height:720px!important}
+.pf-hero-orbit-stage{position:relative;width:min(100%,820px);min-height:720px;display:grid;place-items:center;isolation:isolate;margin-inline:auto}
+.pf-orbit-glow{position:absolute;inset:16% 14% 18%;border-radius:50%;background:radial-gradient(circle at center,rgba(85,147,124,.18),rgba(85,147,124,.05) 42%,transparent 70%);filter:blur(22px);z-index:-3}
+.pf-orbit-ring{position:absolute;border:1px dashed rgba(69,118,102,.22);border-radius:50%;z-index:-2}
+.pf-orbit-ring-1{width:225px;height:225px}.pf-orbit-ring-2{width:430px;height:430px}.pf-orbit-ring-3{width:625px;height:625px}
+.pf-orbit-center{width:242px;min-height:242px;border-radius:50%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;z-index:3}
+.pf-orbit-center>span{margin-bottom:12px;color:#8a9096;font-size:8px;font-weight:700;letter-spacing:.15em}
+.pf-orbit-center>strong{max-width:180px;color:#15191d;font-size:27px;line-height:1.03;font-weight:700;letter-spacing:-.045em}
+.pf-orbit-center>p{margin:12px 0 0;color:#697078;font-size:11px!important;line-height:1.58!important}
+.pf-orbit-node{position:absolute;width:214px;min-height:126px;border-radius:20px!important;padding:17px 18px!important;display:flex;flex-direction:column;gap:6px;z-index:4;transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s ease}
+.pf-orbit-node:hover{transform:translateY(-3px);box-shadow:0 24px 58px rgba(25,31,38,.12),inset 0 1px 0 rgba(255,255,255,.94)!important}
+.pf-orbit-node small{color:var(--pf-brand-accent);font-size:8px;font-weight:750;letter-spacing:.12em}.pf-orbit-node strong{color:#171b1f;font-size:16px;line-height:1.06;font-weight:700;letter-spacing:-.03em}.pf-orbit-node span{color:#687079;font-size:9px;line-height:1.55}
+.pf-orbit-node-top{top:14px;left:50%;transform:translateX(-50%)}.pf-orbit-node-top:hover{transform:translateX(-50%) translateY(-3px)}
+.pf-orbit-node-right{top:178px;right:0}.pf-orbit-node-bottom-right{right:38px;bottom:46px}.pf-orbit-node-bottom-left{left:38px;bottom:46px}.pf-orbit-node-left{top:178px;left:0}
 
-.pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{
-  display:block!important;
-  position:relative!important;
-  margin:0!important;
-  padding:0!important;
-  white-space:nowrap;
-}
+/* Featured projects: restrained graphic thumbnails instead of placeholder circles. */
+.pf-featured-project-grid{margin-top:50px!important;gap:16px!important}
+.pf-featured-project-card{padding:18px!important;border-radius:22px!important;gap:15px;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(247,247,244,.9))!important}
+.pf-featured-project-card:nth-child(1){background:linear-gradient(180deg,rgba(249,250,248,.95),rgba(235,241,237,.96))!important}
+.pf-project-thumb{position:relative;width:100%;min-height:180px;aspect-ratio:16/10;border-radius:17px;overflow:hidden;border:1px solid rgba(22,26,31,.055);display:flex;align-items:flex-end;padding:16px;isolation:isolate}
+.pf-project-thumb::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 18% 18%,rgba(255,255,255,.8),transparent 28%),radial-gradient(circle at 82% 74%,rgba(32,40,45,.075),transparent 30%);z-index:0}
+.pf-project-thumb-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(35,42,48,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.045) 1px,transparent 1px);background-size:26px 26px;mask-image:linear-gradient(145deg,rgba(0,0,0,.9),transparent 78%);z-index:0}
+.pf-project-thumb-content{position:relative;z-index:1;display:grid;gap:5px;max-width:92%}.pf-project-thumb-content small{color:rgba(28,34,39,.56)!important;font-size:8px!important}.pf-project-thumb-content strong{color:#171b1f;font-size:clamp(19px,1.8vw,28px);line-height:1.04;font-weight:700;letter-spacing:-.035em}.pf-project-thumb-content b{width:max-content;margin-top:4px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.78);color:#616970;font-size:7px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.pf-project-thumb.tone-forest{background:linear-gradient(145deg,#edf5f0,#d9e8df)}.pf-project-thumb.tone-stone{background:linear-gradient(145deg,#f3f2ef,#e2e1dc)}.pf-project-thumb.tone-sand{background:linear-gradient(145deg,#f7f1e8,#eadfce)}.pf-project-thumb.tone-mist{background:linear-gradient(145deg,#f4f6f7,#e3e8eb)}.pf-project-thumb.tone-graphite{background:linear-gradient(145deg,#edf0f1,#d8dfe2)}
+.pf-featured-project-card>footer{margin-top:auto!important}.pf-project-signal{font-size:8px!important}
 
-.pf-home .pf-home-hero-title>span{
-  font-family:var(--pf-display)!important;
-  line-height:.875!important;
-}
+/* Footer signature */
+.pf-home-signature{margin-bottom:28px!important;gap:20px!important;align-items:center!important}.pf-home-signature>em{font-size:clamp(36px,3.65vw,56px)!important;line-height:.9!important;letter-spacing:-.018em!important;color:var(--pf-brand-accent)!important;padding:.05em 0 .11em}.pf-home-footer-brand{line-height:.76!important;font-family:var(--pf-display)!important;letter-spacing:-.058em!important}
 
-.pf-home .pf-home-hero-title>span:nth-child(1){margin-bottom:.02em!important}
-.pf-home .pf-home-hero-title>span:nth-child(2){margin-bottom:.018em!important}
+/* Feedback + library */
+.pf-home-feedback-box.pf-liquid-glass{border-radius:22px!important;padding:18px!important}.pf-home-feedback textarea{font-size:13px!important;background:rgba(248,249,247,.72)!important;border:1px solid rgba(255,255,255,.6)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.72)!important}.pf-home-feedback-box footer small{font-size:8px!important}.pf-project-library.pf-liquid-glass{background:linear-gradient(145deg,rgba(248,248,246,.9),rgba(239,243,241,.78))!important;border-color:rgba(255,255,255,.68)!important}
 
-/* Serif gets an optical bump so it carries the same visual height as the sans lines. */
-.pf-home .pf-home-hero-title>em{
-  margin:.008em 0 -.012em .045em!important;
-  font-size:1.075em!important;
-  line-height:.825!important;
-  letter-spacing:-.035em!important;
-  color:var(--pf-brand-accent)!important;
-}
-
-/* Keep the composition tight, but protect the i-dot in design. */
-.pf-home .pf-home-hero-title>.pf-title-keep{
-  margin-top:.04em!important;
-  margin-bottom:.12em!important;
-}
-
-.pf-home .pf-home-hero-title>span:last-child{
-  margin-top:0!important;
-  padding-top:.035em!important;
-  padding-bottom:.075em!important;
-  line-height:.89!important;
-}
-
-.pf-home-hero-copy>p{max-width:650px!important;line-height:1.82!important}
-
-/* Liquid Glass is an accent material, not the whole page. */
-.pf-liquid-glass{
-  background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(245,248,247,.5))!important;
-  border:1px solid rgba(255,255,255,.72)!important;
-  box-shadow:0 18px 48px rgba(25,31,38,.08),inset 0 1px 0 rgba(255,255,255,.86),inset 0 -1px 0 rgba(255,255,255,.2)!important;
-  backdrop-filter:blur(24px) saturate(165%)!important;
-  -webkit-backdrop-filter:blur(24px) saturate(165%)!important;
-}
-.pf-home-nav.pf-liquid-glass{
-  background:linear-gradient(180deg,rgba(247,247,245,.82),rgba(247,247,245,.62))!important;
-  border-width:0 0 1px!important;
-  border-color:rgba(255,255,255,.72)!important;
-  box-shadow:0 6px 24px rgba(22,26,32,.035),inset 0 -1px 0 rgba(34,39,44,.045)!important;
-}
-
-/* Product stage: restrained glass + a more photographic hardware silhouette. */
-.pf-device-stage{position:relative;width:min(100%,940px);min-height:660px;display:grid;place-items:center;isolation:isolate}
-.pf-device-stage::before{
-  content:"";position:absolute;inset:7% 4% 9%;z-index:-3;border-radius:44px;
-  background:radial-gradient(circle at 48% 38%,rgba(255,255,255,.98),rgba(239,244,242,.74) 43%,rgba(207,222,216,.15) 69%,transparent 77%);
-  filter:blur(3px)
-}
-.pf-device-glow{position:absolute;left:12%;right:12%;bottom:6%;height:70px;z-index:-2;border-radius:50%;background:rgba(31,39,43,.18);filter:blur(36px);opacity:.38}
-.pf-home .pf-laptop-premium{width:min(100%,850px)!important;transform:perspective(1500px) rotateX(1deg) translateY(2px);filter:drop-shadow(0 48px 62px rgba(21,25,30,.17))!important}
-.pf-home .pf-laptop-premium .pf-laptop-screen{
-  padding:8px!important;border:1px solid rgba(10,12,14,.34)!important;border-radius:21px 21px 11px 11px!important;
-  background:linear-gradient(160deg,#202428,#080a0c 80%)!important;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.045),inset 0 10px 24px rgba(255,255,255,.025)!important
-}
-.pf-home .pf-laptop-premium .pf-laptop-screen::after{content:"";position:absolute;inset:8px;z-index:3;pointer-events:none;border-radius:12px;background:linear-gradient(115deg,rgba(255,255,255,.08),transparent 24%,transparent 68%,rgba(255,255,255,.025));mix-blend-mode:screen}
-.pf-home .pf-laptop-premium .pf-laptop-base{width:114%!important;height:20px!important;margin-left:-7%!important;border-radius:2px 2px 18px 18px!important;background:linear-gradient(180deg,#e3e5e6 0%,#bec3c6 40%,#969da1 100%)!important;box-shadow:0 11px 20px rgba(20,24,30,.12),inset 0 1px 0 rgba(255,255,255,.92)!important}
-.pf-home .pf-laptop-premium .pf-laptop-base::after{content:"";position:absolute;left:8%;right:8%;bottom:-4px;height:5px;border-radius:50%;background:rgba(35,40,44,.15);filter:blur(4px)}
-.pf-home .pf-feature-pop.pf-liquid-glass{max-width:244px!important;padding:14px 16px!important;border-radius:18px!important}
-.pf-home .pf-feature-pop b{font-size:9px!important;letter-spacing:.005em}.pf-home .pf-feature-pop span{font-size:7px!important;line-height:1.5!important}
-.pf-home .pf-feature-pop.locator{left:-22px!important;top:68px!important}.pf-home .pf-feature-pop.overview{right:-18px!important;top:188px!important}.pf-home .pf-feature-pop.control{right:54px!important;bottom:28px!important}
-
-/* Signature: same IBM serif on macOS and Windows, plus optical compensation. */
-.pf-home-signature{margin-bottom:28px!important;gap:20px!important;align-items:center!important}
-.pf-home-signature>em{
-  font-size:clamp(36px,3.65vw,56px)!important;
-  line-height:.9!important;
-  letter-spacing:-.018em!important;
-  color:var(--pf-brand-accent)!important;
-  padding:.05em 0 .11em;
-}
-.pf-home-footer-brand{line-height:.76!important;font-family:var(--pf-display)!important;letter-spacing:-.058em!important}
-
-/* Direct feedback state + glass. */
-.pf-home-feedback-box.pf-liquid-glass{border-radius:22px!important;padding:18px!important;background:linear-gradient(140deg,rgba(255,255,255,.76),rgba(244,247,245,.52))!important}
-.pf-home-feedback textarea{background:rgba(248,249,247,.72)!important;border:1px solid rgba(255,255,255,.6)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.72)!important}
-.pf-home-feedback-box footer small{font-size:8px!important}.pf-home-feedback-box footer button{min-width:112px;height:35px!important;transition:transform .25s ease,opacity .25s ease,box-shadow .25s ease}.pf-home-feedback-box footer button:not(:disabled):hover{box-shadow:0 10px 24px color-mix(in srgb,var(--pf-brand-accent) 18%,transparent)}
-
-.pf-project-library.pf-liquid-glass{background:linear-gradient(145deg,rgba(248,248,246,.9),rgba(239,243,241,.78))!important;border-color:rgba(255,255,255,.68)!important}
-
-@media(max-width:1180px){
-  .pf-device-stage{min-height:600px}
-  .pf-home .pf-home-hero-title{font-size:clamp(58px,8vw,88px)!important;max-width:760px}
-}
-@media(max-width:760px){
-  .pf-home .pf-home-hero-title{font-size:clamp(48px,13vw,68px)!important}
-  .pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{white-space:normal}
-  .pf-home .pf-home-hero-title>em{font-size:1.065em!important;margin-left:.025em!important}
-  .pf-home .pf-home-hero-title>.pf-title-keep{margin-top:.055em!important;margin-bottom:.13em!important}
-  .pf-device-stage{min-height:390px}
-  .pf-home .pf-laptop-premium{width:100%!important;transform:none}
-  .pf-home-signature{align-items:flex-start!important;flex-direction:column!important;gap:8px!important}
-  .pf-home-signature>em{font-size:40px!important}
-}
-@media(prefers-reduced-motion:reduce){.pf-home .pf-laptop-premium{transform:none!important}}
+@media(max-width:1180px){.pf-home .pf-title-main{font-size:clamp(74px,9vw,104px)!important}.pf-home .pf-title-accent{font-size:clamp(82px,10vw,116px)!important}.pf-hero-orbit-stage{min-height:680px}.pf-orbit-ring-3{width:560px;height:560px}.pf-orbit-node{width:195px}.pf-orbit-node-right,.pf-orbit-node-left{top:190px}.pf-featured-project-card:nth-child(n){min-height:unset!important}}
+@media(max-width:760px){.pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{white-space:normal}.pf-home .pf-title-kicker{font-size:clamp(42px,10vw,58px)!important}.pf-home .pf-title-main{font-size:clamp(62px,15vw,84px)!important}.pf-home .pf-title-accent{font-size:clamp(70px,16vw,92px)!important;margin-bottom:.1em!important}.pf-home .pf-title-secondary{font-size:clamp(54px,12vw,70px)!important}.pf-home .pf-title-design{font-size:clamp(64px,15vw,88px)!important;padding-top:.1em!important}.pf-home-hero-copy>p{font-size:16px!important}.pf-home-hero-visual{min-height:auto!important}.pf-hero-orbit-stage{min-height:auto;display:flex;flex-direction:column;gap:14px}.pf-orbit-ring,.pf-orbit-glow{display:none}.pf-orbit-center,.pf-orbit-node{position:static!important;width:100%;min-height:0;border-radius:18px!important;transform:none!important}.pf-orbit-center{padding:26px}.pf-orbit-node:hover{transform:none}.pf-home-signature{align-items:flex-start!important;flex-direction:column!important;gap:8px!important}.pf-home-signature>em{font-size:40px!important}}
+@media(prefers-reduced-motion:reduce){.pf-orbit-node{transition:none!important}}
