@@ -16,6 +16,26 @@ Automation removes repetitive work. The designer keeps judgment, hierarchy, comp
 2. **Reusable master components** — one canonical component owns each reusable UI behavior.
 3. **Pages / runtimes** — compose masters, pass data, and coordinate page-level layout. Pages should not patch component internals.
 
+## Visual source of truth
+
+The approved Home experience is PlotFlow's visual reference implementation.
+
+- Canonical design tokens: `app/src/styles/plotflow-tokens.css`
+- Reference page: `app/src/components/HomeLanding.jsx` + `HomeLanding.css`
+- Reference masters: Hero Orbit, Project Card, Workflow, FAQ and shared button language on Home.
+
+When styling Overview, Detail, Auth, project settings, future screens, or new reusable components:
+
+1. Start from the global PlotFlow tokens.
+2. Match Home's visual language before introducing a new value.
+3. Preserve Home's hierarchy: alignment -> grid -> spacing -> hierarchy -> typography -> motion -> effects.
+4. Treat Liquid Glass as a controlled material, not a default decoration.
+5. Use IBM Plex Sans as the primary family and IBM Plex Serif Italic only for selective emphasis.
+6. Prefer the shared spacing rhythm and semantic radius/motion tokens instead of one-off values.
+7. If a genuinely new visual primitive is required, add or revise the global token first, then consume it in components.
+
+Home may temporarily retain local variables while legacy styles are consolidated, but the global token file is the forward-looking design-system API. Do not copy Home's raw hex, shadow, easing, radius or spacing values into new stylesheets.
+
 ## Canonical Home owners
 
 - Home page composition: `app/src/components/HomeLanding.jsx` + `HomeLanding.css`
