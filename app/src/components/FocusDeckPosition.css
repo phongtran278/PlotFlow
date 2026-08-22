@@ -26,6 +26,20 @@
   z-index: 1300;
   width:360px;
   max-width:calc(100vw - 32px);
+  transform-origin: top right;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+}
+.stage-utility-tools .focus-deck.is-closed{
+  visibility:hidden;
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(-5px) scale(.985);
+}
+.stage-utility-tools .focus-deck.is-open{
+  visibility:visible;
+  opacity:1;
+  pointer-events:auto;
+  transform:none;
 }
 
 .spotify-chip{
@@ -135,5 +149,6 @@
     max-width:none;
     max-height:calc(100dvh - 24px);
     overflow:auto;
+    transform-origin: bottom center;
   }
 }
