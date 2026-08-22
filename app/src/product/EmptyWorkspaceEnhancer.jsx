@@ -25,16 +25,18 @@ export default function EmptyWorkspaceEnhancer() {
 
   return createPortal(
     <div className="pf-empty-detail">
-      <div className="pf-empty-poster">
-        <div className="pf-empty-poster-top"><span>PF</span><i /></div>
-        <div className="pf-empty-house"><i /><i /><i /></div>
-        <div className="pf-empty-grid"><span/><span/><span/><span/></div>
+      <div className="pf-empty-index" aria-hidden="true">
+        <span>DETAIL / 00</span>
+        <div className="pf-empty-gridline"><i /><i /><i /></div>
+        <strong>Waiting<br />for project data.</strong>
+        <small>1080 × 1920 · composition surface</small>
       </div>
       <div className="pf-empty-copy">
         <span>DETAIL WORKSPACE</span>
-        <h2>Your canvas is ready.</h2>
-        <p>Connect a Google Sheet or choose a unit from Overview. The layout stays composed even before live data arrives.</p>
-        <div className="pf-empty-steps"><b>01</b><span>Connect project data</span><b>02</b><span>Select a unit</span><b>03</b><span>Build the sales visual</span></div>
+        <h2>Start with <em>the source.</em></h2>
+        <p>Connect project data or choose a unit from Overview. PlotFlow will bring the structure in; you decide what the final composition needs.</p>
+        <div className="pf-empty-steps"><b>01</b><span>Connect data</span><b>02</b><span>Select a unit</span><b>03</b><span>Review the composition</span></div>
+        <div className="pf-empty-note"><strong>Note</strong><span>No placeholder content is exported. This state disappears as soon as live unit data arrives.</span></div>
       </div>
     </div>,
     target
