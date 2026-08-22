@@ -1,0 +1,224 @@
+.pf-orbit-diagram{
+  position:relative;
+  width:min(100%,760px);
+  aspect-ratio:760/660;
+  margin-inline:auto;
+  isolation:isolate;
+}
+
+.pf-orbit-diagram::before{
+  content:"";
+  position:absolute;
+  inset:12% 14% 10%;
+  z-index:-2;
+  border-radius:50%;
+  background:radial-gradient(circle at center,rgba(15,122,100,.14),rgba(15,122,100,.035) 44%,transparent 72%);
+  filter:blur(18px);
+}
+
+.pf-orbit-svg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  overflow:visible;
+}
+
+.pf-orbit-circle{
+  fill:none;
+  vector-effect:non-scaling-stroke;
+}
+
+.pf-orbit-circle-outer{
+  stroke:rgba(15,122,100,.17);
+  stroke-width:1;
+  stroke-dasharray:5 9;
+  animation:pfOrbitDash 18s linear infinite;
+}
+
+.pf-orbit-circle-inner{
+  stroke:rgba(26,32,38,.11);
+  stroke-width:1;
+  stroke-dasharray:2 7;
+  animation:pfOrbitDashReverse 14s linear infinite;
+}
+
+.pf-orbit-circle-core{
+  stroke:rgba(15,122,100,.16);
+  stroke-width:1;
+}
+
+.pf-orbit-flow-path{
+  fill:none;
+  stroke:url(#pfOrbitLine);
+  stroke-width:1.4;
+  stroke-linecap:round;
+  stroke-dasharray:18 22;
+  vector-effect:non-scaling-stroke;
+  animation:pfOrbitFlow 7s linear infinite;
+}
+
+.pf-orbit-runner{
+  fill:#0f7a64;
+  opacity:.88;
+}
+
+.pf-orbit-core,
+.pf-orbit-feature{
+  position:absolute;
+  z-index:3;
+}
+
+.pf-orbit-core{
+  left:50%;
+  top:50%;
+  width:224px;
+  min-height:224px;
+  transform:translate(-50%,-50%);
+  padding:28px;
+  border-radius:50%!important;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  background:linear-gradient(145deg,rgba(255,255,255,.84),rgba(240,246,243,.67))!important;
+  box-shadow:0 24px 60px rgba(18,30,26,.1),inset 0 1px 0 rgba(255,255,255,.92)!important;
+}
+
+.pf-orbit-core::after{
+  content:"";
+  position:absolute;
+  inset:14px;
+  border-radius:50%;
+  border:1px solid rgba(15,122,100,.09);
+  pointer-events:none;
+}
+
+.pf-orbit-core>span{
+  margin-bottom:10px;
+  color:#8a9298;
+  font-size:8px;
+  font-weight:700;
+  letter-spacing:.15em;
+}
+
+.pf-orbit-core>strong{
+  max-width:170px;
+  color:#15191d;
+  font-size:27px;
+  line-height:1.02;
+  font-weight:650;
+  letter-spacing:-.045em;
+}
+
+.pf-orbit-core>p{
+  max-width:170px!important;
+  margin:11px 0 0!important;
+  color:#6e767d!important;
+  font-size:10px!important;
+  line-height:1.55!important;
+}
+
+.pf-orbit-feature{
+  width:182px;
+  min-height:104px;
+  padding:15px 16px!important;
+  border-radius:18px!important;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:5px;
+  background:linear-gradient(145deg,rgba(255,255,255,.82),rgba(245,247,246,.62))!important;
+  border:1px solid rgba(255,255,255,.78)!important;
+  box-shadow:0 16px 38px rgba(22,28,33,.075),inset 0 1px 0 rgba(255,255,255,.92)!important;
+  transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s ease;
+}
+
+.pf-orbit-feature:hover{
+  transform:translateY(-3px);
+  box-shadow:0 22px 48px rgba(22,28,33,.11),inset 0 1px 0 rgba(255,255,255,.96)!important;
+}
+
+.pf-orbit-feature small{
+  color:#0f7a64;
+  font-size:8px;
+  font-weight:750;
+  letter-spacing:.14em;
+}
+
+.pf-orbit-feature strong{
+  color:#171b1f;
+  font-size:15px;
+  line-height:1.08;
+  font-weight:650;
+  letter-spacing:-.028em;
+}
+
+.pf-orbit-feature span{
+  color:#6f777e;
+  font-size:9px;
+  line-height:1.48;
+}
+
+.pf-orbit-feature-locator{left:50%;top:2%;transform:translateX(-50%)}
+.pf-orbit-feature-locator:hover{transform:translateX(-50%) translateY(-3px)}
+.pf-orbit-feature-overview{right:0;top:25%}
+.pf-orbit-feature-detail{right:7%;bottom:7%}
+.pf-orbit-feature-export{left:7%;bottom:7%}
+.pf-orbit-feature-override{left:0;top:25%}
+
+@keyframes pfOrbitDash{to{stroke-dashoffset:-140}}
+@keyframes pfOrbitDashReverse{to{stroke-dashoffset:120}}
+@keyframes pfOrbitFlow{to{stroke-dashoffset:-180}}
+
+@media(max-width:1180px){
+  .pf-orbit-diagram{width:min(100%,680px)}
+  .pf-orbit-feature{width:168px;min-height:98px}
+  .pf-orbit-core{width:208px;min-height:208px}
+}
+
+@media(max-width:760px){
+  .pf-orbit-diagram{
+    width:100%;
+    aspect-ratio:auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+  .pf-orbit-svg{display:none}
+  .pf-orbit-diagram::before{display:none}
+  .pf-orbit-core,
+  .pf-orbit-feature{
+    position:relative;
+    inset:auto;
+    transform:none!important;
+    width:auto;
+    min-height:130px;
+  }
+  .pf-orbit-core{
+    grid-column:1/-1;
+    min-height:190px;
+    border-radius:22px!important;
+  }
+  .pf-orbit-core::after{border-radius:16px}
+  .pf-orbit-feature-locator,
+  .pf-orbit-feature-overview,
+  .pf-orbit-feature-detail,
+  .pf-orbit-feature-export,
+  .pf-orbit-feature-override{left:auto;right:auto;top:auto;bottom:auto}
+  .pf-orbit-feature-override{grid-column:1/-1}
+}
+
+@media(max-width:520px){
+  .pf-orbit-diagram{grid-template-columns:1fr}
+  .pf-orbit-core,.pf-orbit-feature,.pf-orbit-feature-override{grid-column:1}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .pf-orbit-circle-outer,
+  .pf-orbit-circle-inner,
+  .pf-orbit-flow-path{animation:none!important}
+  .pf-orbit-runner{display:none}
+  .pf-orbit-feature{transition:none!important}
+}
