@@ -1,0 +1,24 @@
+.pf-project-card{
+  width:100%;min-width:0;padding:20px;display:grid;grid-template-rows:28px 258px 40px;gap:18px;
+  border:1px solid rgba(22,27,31,.065);border-radius:24px;background:rgba(255,255,255,.86);
+  box-shadow:0 14px 34px rgba(20,25,30,.035);overflow:hidden;
+}
+.pf-project-card--active{background:linear-gradient(180deg,rgba(249,252,250,.95),rgba(241,247,243,.9))}
+.pf-project-card__header{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:16px}
+.pf-project-card__header>span{color:#a3a8ac;font-size:8px;font-weight:600;letter-spacing:.09em}
+.pf-project-card__header>em{justify-self:end;margin:0;padding:7px 11px;border:1px solid rgba(255,255,255,.8);border-radius:999px;background:rgba(255,255,255,.56);box-shadow:inset 0 1px 0 rgba(255,255,255,.9);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);color:#697178;font-family:inherit;font-style:normal;font-size:7.5px;font-weight:650;letter-spacing:.085em;text-transform:uppercase}
+.pf-project-card--active .pf-project-card__header>em{color:#0e6757}.pf-project-card--hot .pf-project-card__header>em{color:#8b4f31}.pf-project-card--launching .pf-project-card__header>em{color:#65539b}
+.pf-project-card__visual{position:relative;width:100%;height:258px;overflow:hidden;border:1px solid rgba(25,31,36,.05);border-radius:20px}
+.pf-project-card__visual::before{content:"";position:absolute;inset:0;background:linear-gradient(128deg,transparent 0 61%,rgba(255,255,255,.24) 61.2% 70%,transparent 70.2%),linear-gradient(154deg,transparent 0 76%,rgba(24,31,35,.022) 76.2% 81%,transparent 81.2%)}
+.pf-project-card__grid{position:absolute;inset:0;opacity:.42;background-image:linear-gradient(rgba(35,42,48,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.03) 1px,transparent 1px);background-size:32px 32px}
+.pf-project-card__copy{position:absolute;left:28px;right:28px;top:28px;display:block;text-align:left}
+.pf-project-card__copy>strong{display:-webkit-box;width:100%;margin:0;color:#15191d;font-size:clamp(23px,1.65vw,31px);line-height:1.08;font-weight:600;letter-spacing:-.035em;text-align:left;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.pf-project-card__copy>small{display:block;width:100%;margin:12px 0 0;color:rgba(29,35,40,.56);font-size:9px;line-height:1.35;font-weight:550;letter-spacing:.02em;text-align:left}
+.pf-project-card__visual--forest{background:linear-gradient(145deg,#edf5f0,#dceae2)}
+.pf-project-card__visual--stone{background:linear-gradient(145deg,#f3f2ef,#e6e3de)}
+.pf-project-card__visual--sand{background:linear-gradient(145deg,#f8f2e9,#ebdfcf)}
+.pf-project-card__visual--mist{background:linear-gradient(145deg,#f4f6f7,#e4eaed)}
+.pf-project-card__visual--graphite{background:linear-gradient(145deg,#eef2f3,#dbe3e6)}
+.pf-project-card__footer{display:flex;align-items:center;justify-content:flex-end}
+.pf-project-card__footer button{height:36px;padding:0 14px;border:1px solid rgba(255,255,255,.72);border-radius:12px;background:rgba(255,255,255,.58);box-shadow:0 7px 18px rgba(25,31,36,.055),inset 0 1px 0 rgba(255,255,255,.9);backdrop-filter:blur(14px) saturate(135%);-webkit-backdrop-filter:blur(14px) saturate(135%);color:#32383d;font-size:8px;font-weight:600;cursor:pointer}
+@media(max-width:760px){.pf-project-card{grid-template-rows:28px 230px 40px}.pf-project-card__visual{height:230px}.pf-project-card__copy>strong{font-size:26px}}
