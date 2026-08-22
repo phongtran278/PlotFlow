@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import "./OverviewPenRuntime.css";
 
 const STORAGE_KEY = "phongflow-overview-pen-shapes-v1";
+const LEGACY_MARKUP_KEY = "phongflow-overview-markup-v2";
 
 function readShapes() {
   try {
@@ -16,21 +17,55 @@ function saveShapes(value) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
 }
 
+function removeLegacyRectangles() {
+  try {
+    const items = JSON.parse(localStorage.getItem(LEGACY_MARKUP_KEY) || "[]");
+    if (!Array.isArray(items)) return;
+    const next = items.filter((item) => item?.type !== "rect");
+    if (next.length !== items.length) localStorage.setItem(LEGACY_MARKUP_KEY, JSON.stringify(next));
+  } catch { /* noop */ }
+}
+
 export default function OverviewPenRuntime() {
   useEffect(() => {
     let stage = null;
     let layer = null;
     let button = null;
     let cursor = null;
-    let observer = null;
     let active = false;
     let draft = [];
     let hover = null;
     let shapes = readShapes();
     let camera = { scale: 1, tx: 0, ty: 0 };
+    let disposed = false;
+    let retryRaf = 0;
+    let retryCount = 0;
+
+    removeLegacyRectangles();
 
     function pointsAttr(points) {
       return points.map((point) => `${point.x.toFixed(3)},${point.y.toFixed(3)}`).join(" ");
+    }
+
+    function pointDistance(a, b) {
+      if (!a || !b) return Number.POSITIVE_INFINITY;
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function closeTolerance() {
+      if (!stage) return 12;
+      const rect = stage.getBoundingClientRect();
+      return Math.max(5, (14 / Math.max(1, rect.width * Math.max(camera.scale, 0.0001))) * 1000);
+    }
+
+    function cleanedDraft() {
+      const tolerance = closeTolerance() * 0.45;
+      const clean = [];
+      draft.forEach((point) => {
+        if (!clean.length || pointDistance(point, clean.at(-1)) > tolerance) clean.push(point);
+      });
+      if (clean.length > 3 && pointDistance(clean[0], clean.at(-1)) <= closeTolerance()) clean.pop();
+      return clean;
     }
 
     function render() {
@@ -38,7 +73,7 @@ export default function OverviewPenRuntime() {
       const committed = shapes.map((shape) => `<polygon points="${pointsAttr(shape.points)}" vector-effect="non-scaling-stroke" />`).join("");
       const previewPoints = draft.length ? [...draft, ...(hover ? [hover] : [])] : [];
       const preview = previewPoints.length >= 2 ? `<polyline class="pf-pen-draft" points="${pointsAttr(previewPoints)}" vector-effect="non-scaling-stroke" />` : "";
-      const nodes = draft.map((point) => `<circle class="pf-pen-node" cx="${point.x}" cy="${point.y}" r="3.5" vector-effect="non-scaling-stroke" />`).join("");
+      const nodes = draft.map((point, index) => `<circle class="pf-pen-node${index === 0 ? " is-first" : ""}" cx="${point.x}" cy="${point.y}" r="${index === 0 ? 4.4 : 3.4}" vector-effect="non-scaling-stroke" />`).join("");
       layer.innerHTML = committed + preview + nodes;
     }
 
@@ -61,8 +96,9 @@ export default function OverviewPenRuntime() {
     }
 
     function finish() {
-      if (draft.length >= 3) {
-        shapes = [...shapes, { id: Date.now(), points: draft.map((point) => ({ ...point })) }];
+      const points = cleanedDraft();
+      if (points.length >= 3) {
+        shapes = [...shapes, { id: Date.now(), points: points.map((point) => ({ ...point })) }];
         saveShapes(shapes);
       }
       draft = [];
@@ -92,17 +128,23 @@ export default function OverviewPenRuntime() {
       event.stopImmediatePropagation?.();
       const point = worldPoint(event);
       if (!point) return;
+
+      // Illustrator-like close: once there are 3+ points, click the first point to close the polygon.
+      if (draft.length >= 3 && pointDistance(point, draft[0]) <= closeTolerance()) {
+        finish();
+        return;
+      }
+
       draft.push(point);
       hover = point;
       render();
     }
 
     function onDoubleClick(event) {
-      if (!active) return;
+      if (!active || draft.length < 3) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
-      if (draft.length > 3) draft.pop();
       finish();
     }
 
@@ -122,11 +164,26 @@ export default function OverviewPenRuntime() {
     function onKeyDown(event) {
       const target = event.target;
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
-      if (event.key.toLowerCase() === "p") { event.preventDefault(); setActive(!active); return; }
+      const key = event.key.toLowerCase();
+
+      // Rectangle is retired. Block the old R shortcut before OverviewZoomRuntime sees it.
+      if (key === "r" && stage) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        return;
+      }
+
+      if (key === "p") {
+        event.preventDefault();
+        event.stopPropagation();
+        setActive(!active);
+        return;
+      }
       if (!active) return;
       if (event.key === "Enter") { event.preventDefault(); finish(); }
       if (event.key === "Escape") { event.preventDefault(); cancelDraft(); setActive(false); }
-      if (event.key === "Backspace" && draft.length) { event.preventDefault(); draft.pop(); render(); }
+      if (event.key === "Backspace" && draft.length) { event.preventDefault(); draft.pop(); hover = draft.at(-1) || null; render(); }
     }
 
     function onCamera(event) {
@@ -162,6 +219,7 @@ export default function OverviewPenRuntime() {
       layer.setAttribute("class", "pf-overview-pen-layer");
       layer.setAttribute("viewBox", "0 0 1000 1000");
       layer.setAttribute("preserveAspectRatio", "none");
+      layer.setAttribute("aria-label", "Highlight polygon layer");
       stage.appendChild(layer);
       applyCamera();
       render();
@@ -178,38 +236,59 @@ export default function OverviewPenRuntime() {
 
     function installButton() {
       const tools = document.querySelector(".pf-overview-zoom-toolbar .pf-editor-tools");
-      if (!tools || button?.isConnected) return;
-      button = document.createElement("button");
-      button.type = "button";
-      button.className = "pf-pen-tool-button";
-      button.title = "Pen / Polygon (P) · click points, Enter or double-click to finish";
-      button.setAttribute("aria-label", "Pen polygon tool");
-      button.textContent = "✒";
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        setActive(!active);
-      });
-      const rectButton = tools.querySelector('[data-tool="rect"]');
-      rectButton?.after(button);
-      if (!rectButton) tools.appendChild(button);
+      if (!tools) return false;
+
+      // Remove the legacy rectangle UI completely.
+      tools.querySelector('[data-tool="rect"]')?.remove();
+
+      if (!button?.isConnected) {
+        button = document.createElement("button");
+        button.type = "button";
+        button.className = "pf-pen-tool-button";
+        button.title = "Highlight Pen (P) · click points · click first point / double-click / Enter to close";
+        button.setAttribute("aria-label", "Highlight Pen polygon tool");
+        button.innerHTML = `<span>✒</span><b>Highlight</b>`;
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setActive(!active);
+        });
+        const divider = tools.querySelector(".pf-overview-zoom-divider");
+        divider?.after(button);
+        if (!divider) tools.appendChild(button);
+      }
+      return true;
     }
 
     function sync() {
+      if (disposed) return true;
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (nextStage && nextStage !== stage) attach(nextStage);
-      installButton();
+      const hasButton = installButton();
+      return Boolean(nextStage && hasButton);
     }
 
-    sync();
-    observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
+    function syncWithRetry() {
+      cancelAnimationFrame(retryRaf);
+      retryCount = 0;
+      const attempt = () => {
+        if (disposed || sync()) return;
+        retryCount += 1;
+        if (retryCount < 60) retryRaf = requestAnimationFrame(attempt);
+      };
+      attempt();
+    }
+
+    syncWithRetry();
+    window.addEventListener("pf-overview-live-units-ready", syncWithRetry);
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-clear-highlights", onClearHighlights);
     window.addEventListener("keydown", onKeyDown, true);
 
     return () => {
-      observer?.disconnect();
+      disposed = true;
+      cancelAnimationFrame(retryRaf);
+      window.removeEventListener("pf-overview-live-units-ready", syncWithRetry);
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-clear-highlights", onClearHighlights);
       window.removeEventListener("keydown", onKeyDown, true);
