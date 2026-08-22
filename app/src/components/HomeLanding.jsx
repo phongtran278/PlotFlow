@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 import "./HomeLanding.css";
-import "./HomeLandingFeatured.css";
-import "./HomeLandingPremium.css";
 import HeroOrbitDiagram from "./HeroOrbitDiagram.jsx";
 
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
@@ -104,7 +102,7 @@ export default function HomeLanding({ onOpenProject }) {
 
         <section className="pf-home-workflow" id="workflow">
           <div className="pf-home-section-head"><span>ONE JOB, DEEPLY OPTIMIZED</span><h2>A system for the messy space between <em>property data</em> and finished design.</h2><p>PlotFlow không gom thật nhiều feature để trông mạnh. Nó nối đúng những bước thường làm designer bất động sản mất thời gian nhất, rồi giữ chúng trong một luồng có thể nhìn thấy và kiểm soát.</p></div>
-          <div className="pf-system-map pf-system-flow" aria-label="PlotFlow system diagram">{FLOW.map((item) => <div className={`pf-system-node ${item.key}`} key={item.key}><span>{item.eyebrow}</span><strong>{item.title}</strong><b>{item.body}</b><small>{item.meta}</small></div>)}</div>
+          <div className="pf-system-map pf-system-flow" aria-label="PlotFlow system diagram">{FLOW.map((item, index) => <div className={`pf-system-node ${item.key}`} key={item.key}><span>{item.eyebrow}</span><strong>{item.title}</strong><b>{item.body}</b><small>{item.meta}</small>{index < FLOW.length - 1 && <i className="pf-flow-arrow" aria-hidden="true">→</i>}</div>)}</div>
           <div className="pf-system-caption"><span>INPUT</span><i /><span>AUTOMATION</span><i /><span>DESIGN JUDGMENT</span><i /><span>OUTPUT</span></div>
           <div className="pf-home-benefits"><article><span>01</span><h3>Stop hunting through files.</h3><p>Locator đưa designer tới đúng khu vực cần làm thay vì dò từng trang PDF bằng mắt.</p></article><article><span>02</span><h3>Stop rebuilding the same composition.</h3><p>Dữ liệu unit đi vào một hệ thống layout có sẵn, thay vì copy-paste rồi sửa từng layer.</p></article><article><span>03</span><h3>Keep the decisions human.</h3><p>Highlight, connector, framing và hierarchy vẫn mở để designer tinh chỉnh khi mắt nghề thấy cần.</p></article><article><span>04</span><h3>Scale without flattening the craft.</h3><p>Một project có thể sinh nhiều output hơn mà không buộc tất cả artwork trông như template vô hồn.</p></article></div>
         </section>
