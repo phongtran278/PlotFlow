@@ -1,5 +1,5 @@
 .pf-human-orbit{
-  --orbit-size:min(100%,780px);
+  --orbit-size:min(100%,840px);
   position:relative;
   width:var(--orbit-size);
   aspect-ratio:1 / 1;
@@ -10,21 +10,20 @@
 
 .pf-human-rings{
   position:absolute;
-  inset:0;
+  inset:-2%;
   display:grid;
   place-items:center;
   pointer-events:none;
 }
 
-/* One quiet base stroke + one clearly moving light arc per orbit. */
+/* Each orbit is a quiet base stroke with one clearly moving highlight. */
 .pf-human-ring{
   position:absolute;
   display:block;
   border-radius:50%;
   box-sizing:border-box;
-  border:1px solid rgba(24,31,35,.055);
+  border:1px solid rgba(24,31,35,.05);
 }
-
 .pf-human-ring::after{
   content:"";
   position:absolute;
@@ -32,53 +31,73 @@
   border-radius:50%;
   background:conic-gradient(
     from 0deg,
-    transparent 0 60%,
-    rgba(91,119,176,.08) 65%,
-    rgba(15,122,100,.24) 71%,
-    rgba(15,122,100,.92) 79%,
-    rgba(95,163,183,.52) 84%,
-    rgba(130,151,205,.18) 89%,
-    transparent 96% 100%
+    transparent 0 55%,
+    rgba(91,119,176,.08) 61%,
+    rgba(15,122,100,.28) 68%,
+    rgba(15,122,100,.95) 77%,
+    rgba(91,163,184,.58) 83%,
+    rgba(132,151,205,.18) 90%,
+    transparent 97% 100%
   );
   -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
   mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
-  filter:drop-shadow(0 0 5px rgba(15,122,100,.16));
+  filter:drop-shadow(0 0 6px rgba(15,122,100,.18));
   will-change:transform;
 }
 
-/* Generous radial spacing is deliberate: core / inner / middle / outer each breathe. */
+/* More air between rings so the composition reads from a distance. */
 .pf-human-ring-outer{width:100%;height:100%}
-.pf-human-ring-middle{width:69%;height:69%}
-.pf-human-ring-inner{width:39%;height:39%}
-.pf-human-ring-outer::after{animation:pfHumanArcCW 14s linear infinite}
-.pf-human-ring-middle::after{animation:pfHumanArcCCW 10.5s linear infinite;opacity:.82}
-.pf-human-ring-inner::after{animation:pfHumanArcCW 8s linear infinite;opacity:.68}
+.pf-human-ring-middle{width:66%;height:66%}
+.pf-human-ring-inner{width:34%;height:34%}
+.pf-human-ring-outer::after{animation:pfHumanArcCW 12.5s linear infinite}
+.pf-human-ring-middle::after{animation:pfHumanArcCCW 9.5s linear infinite;opacity:.84}
+.pf-human-ring-inner::after{animation:pfHumanArcCW 7.4s linear infinite;opacity:.72}
 
+/* Two-line core only. No eyebrow label competing for space. */
 .pf-human-core{
   position:absolute;
   left:50%;
   top:50%;
   z-index:5;
-  width:160px;
+  width:196px;
   aspect-ratio:1 / 1;
   min-height:0;
   transform:translate(-50%,-50%);
-  padding:22px;
+  padding:30px 26px;
   border-radius:50%!important;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   text-align:center;
+  overflow:hidden;
   background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(242,247,244,.91))!important;
   border:1px solid rgba(255,255,255,.95)!important;
   box-shadow:0 26px 62px rgba(18,30,26,.10),inset 0 1px 0 rgba(255,255,255,.98)!important;
 }
-
 .pf-human-core::before{display:none!important}
-.pf-human-core>span{margin-bottom:9px;color:#7d868d;font-size:7px;line-height:1;font-weight:600;letter-spacing:.14em}
-.pf-human-core>strong{max-width:124px;color:#15191d;font-size:22px;line-height:1.03;font-weight:700;letter-spacing:-.04em}
-.pf-human-core>p{max-width:116px!important;margin:10px 0 0!important;color:#70787f!important;font-size:9px!important;line-height:1.42!important;font-weight:400!important}
+.pf-human-core>strong{
+  display:block;
+  width:100%;
+  max-width:144px;
+  margin:0;
+  color:#15191d;
+  font-size:23px;
+  line-height:1.02;
+  font-weight:700;
+  letter-spacing:-.04em;
+  text-wrap:balance;
+}
+.pf-human-core>p{
+  width:100%;
+  max-width:132px!important;
+  margin:13px 0 0!important;
+  color:#70787f!important;
+  font-size:9.5px!important;
+  line-height:1.45!important;
+  font-weight:400!important;
+  text-wrap:balance;
+}
 
 .pf-human-feature-field{position:absolute;inset:0;z-index:6;pointer-events:none}
 .pf-human-feature{
@@ -102,15 +121,15 @@
 .pf-human-feature>i{flex:0 0 5px;width:5px;height:5px;border-radius:50%;background:#0f7a64;box-shadow:0 0 0 4px rgba(15,122,100,.07)}
 .pf-human-feature strong{color:#1b2024;font-size:9px;line-height:1;font-weight:600;letter-spacing:-.012em}
 
-/* Hierarchy: two primary product-value pills, three supporting pills. */
-.pf-human-feature-locator{left:50%;top:-1%;min-height:42px;padding:0 17px;transform:translateX(-50%)}
+/* Primary messages are larger; supporting messages are quieter. */
+.pf-human-feature-locator{left:50%;top:-2%;min-height:43px;padding:0 18px;transform:translateX(-50%)}
 .pf-human-feature-locator strong{font-size:11px}
-.pf-human-feature-overview{right:-5%;top:28%;min-height:40px;padding:0 16px;transform:translateY(-50%)}
+.pf-human-feature-overview{right:-6%;top:27%;min-height:41px;padding:0 17px;transform:translateY(-50%)}
 .pf-human-feature-overview strong{font-size:10px}
 .pf-human-feature-detail{right:4%;bottom:5%}
-.pf-human-feature-export{left:8%;bottom:7%;min-height:38px;padding:0 15px}
+.pf-human-feature-export{left:8%;bottom:7%;min-height:39px;padding:0 15px}
 .pf-human-feature-export strong{font-size:9.5px}
-.pf-human-feature-override{left:-4%;top:32%;transform:translateY(-50%)}
+.pf-human-feature-override{left:-5%;top:33%;transform:translateY(-50%)}
 
 .pf-human-feature-locator:hover{transform:translateX(-50%) translateY(-2px)}
 .pf-human-feature-overview:hover,.pf-human-feature-override:hover{transform:translateY(calc(-50% - 2px))}
@@ -120,7 +139,8 @@
 @keyframes pfHumanArcCCW{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
 
 @media(max-width:1180px){
-  .pf-human-orbit{--orbit-size:min(100%,680px)}
+  .pf-human-orbit{--orbit-size:min(100%,700px)}
+  .pf-human-core{width:184px}
   .pf-human-feature-overview{right:-2%}
   .pf-human-feature-override{left:-2%}
   .pf-human-feature strong{font-size:8.5px}
