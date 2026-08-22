@@ -2,16 +2,16 @@ import "./HeroOrbitDiagram.css";
 import "./HomeLandingPolish.css";
 
 const FEATURES = [
-  { id: "locator", title: "Floorplan Locator" },
-  { id: "overview", title: "Data-linked Overview" },
-  { id: "detail", title: "Detail Composer" },
-  { id: "export", title: "Review & Export" },
-  { id: "override", title: "Manual Override" },
+  { id: "locator", title: "Find the right lot in seconds" },
+  { id: "overview", title: "One data source → Overview + Detail" },
+  { id: "detail", title: "Manual override stays open" },
+  { id: "export", title: "Review faster. Export cleaner." },
+  { id: "override", title: "Automation handles repetition" },
 ];
 
 export default function HeroOrbitDiagram() {
   return (
-    <div className="pf-human-orbit" aria-label="PlotFlow keeps the designer at the center of the system">
+    <div className="pf-human-orbit" aria-label="PlotFlow keeps the designer in control while automation handles repetitive production work">
       <div className="pf-human-rings" aria-hidden="true">
         <i className="pf-human-ring pf-human-ring-outer" />
         <i className="pf-human-ring pf-human-ring-middle" />
@@ -19,12 +19,12 @@ export default function HeroOrbitDiagram() {
       </div>
 
       <div className="pf-human-core pf-liquid-glass">
-        <span>HUMAN-CENTERED</span>
-        <strong>Designer at the center.</strong>
-        <p>Automation supports. You decide.</p>
+        <span>HUMAN IN CONTROL</span>
+        <strong>Designer decides.</strong>
+        <p>PlotFlow handles the repetition.</p>
       </div>
 
-      <div className="pf-human-feature-field" aria-label="PlotFlow core capabilities">
+      <div className="pf-human-feature-field" aria-label="PlotFlow core product value">
         {FEATURES.map((feature) => (
           <div className={`pf-human-feature pf-human-feature-${feature.id}`} key={feature.id}>
             <i aria-hidden="true" />
