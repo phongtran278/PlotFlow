@@ -1,5 +1,4 @@
 import "./HeroOrbitDiagram.css";
-import "./HomeLandingPolish.css";
 
 const FEATURES = [
   { id: "locator", title: "Find the right lot in seconds" },
@@ -19,7 +18,6 @@ export default function HeroOrbitDiagram() {
       </div>
 
       <div className="pf-human-core pf-liquid-glass">
-        <span>HUMAN IN CONTROL</span>
         <strong>Designer decides.</strong>
         <p>PlotFlow handles the repetition.</p>
       </div>
