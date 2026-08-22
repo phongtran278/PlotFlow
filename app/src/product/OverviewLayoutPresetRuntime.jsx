@@ -41,14 +41,28 @@ export default function OverviewLayoutPresetRuntime() {
       return stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
     }
 
+    function px(base, factor, min = 0) {
+      return `${Math.max(min, base * factor).toFixed(2)}px`;
+    }
+
     function applySize() {
       if (!stage) return;
-      stage.style.setProperty("--pf-sell-card-scale", String(ui.size / 100));
-      cards().forEach((card) => {
-        card.style.width = "";
-        card.style.height = "";
-        card.style.minHeight = "";
-      });
+      const factor = Math.max(0.45, Math.min(1.15, Number(ui.size || 88) / 100));
+      stage.style.setProperty("--pf-sell-card-width", px(218, factor, 98));
+      stage.style.setProperty("--pf-sell-card-pad-y", px(10, factor, 4.5));
+      stage.style.setProperty("--pf-sell-card-pad-x", px(11, factor, 5));
+      stage.style.setProperty("--pf-sell-card-radius", px(17, factor, 8));
+      stage.style.setProperty("--pf-sell-code-size", px(34, factor, 15));
+      stage.style.setProperty("--pf-sell-code-gap", px(8, factor, 3));
+      stage.style.setProperty("--pf-sell-spec-size", px(10.2, factor, 5));
+      stage.style.setProperty("--pf-sell-spec-gap", px(2.4, factor, 1));
+      stage.style.setProperty("--pf-sell-spec-bottom", px(8, factor, 3));
+      stage.style.setProperty("--pf-sell-price-pad-y", px(8.5, factor, 4));
+      stage.style.setProperty("--pf-sell-price-pad-x", px(8, factor, 4));
+      stage.style.setProperty("--pf-sell-price-radius", px(12, factor, 6));
+      stage.style.setProperty("--pf-sell-price-label-size", px(9.3, factor, 4.8));
+      stage.style.setProperty("--pf-sell-price-size", px(27.5, factor, 13));
+      stage.style.setProperty("--pf-sell-price-gap", px(4, factor, 1.5));
     }
 
     function persistLayout() {
@@ -118,7 +132,6 @@ export default function OverviewLayoutPresetRuntime() {
       const left = ordered.slice(0, leftCount).sort((a, b) => a.y - b.y);
       const right = ordered.slice(leftCount).sort((a, b) => a.y - b.y);
 
-      // Keep cards clearly inside the PDF composition rather than hugging the stage edge.
       const insetX = Math.max(34, Math.round(w * 0.055));
       const insetY = Math.max(20, Math.round(h * 0.035));
       const sampleW = all[0].offsetWidth || 190;
@@ -186,28 +199,26 @@ export default function OverviewLayoutPresetRuntime() {
       rail = nextRail;
       applySize();
       installExportMenu();
-
-      // The older arrange group is superseded by the compact layout control.
       document.querySelector(".pf-v2-arrange")?.classList.add("pf-v2-arrange-superseded");
 
       if (!control?.isConnected) {
         control = document.createElement("div");
         control.className = "pf-card-layout-control";
         control.innerHTML = `
-          <label><span>Card size</span><input data-layout-ui="size" type="range" min="68" max="118" step="2"><output></output></label>
+          <label><span>Card size</span><input data-layout-ui="size" type="range" min="45" max="115" step="1"><output></output></label>
           <button type="button" data-layout-ui="cycle">Layout · ${LABELS[ui.mode]}</button>`;
         const input = control.querySelector('[data-layout-ui="size"]');
         const output = control.querySelector("output");
-        input.value = String(ui.size);
-        output.textContent = `${ui.size}%`;
+        input.value = String(Math.max(45, Math.min(115, ui.size)));
+        output.textContent = `${input.value}%`;
         input.addEventListener("input", () => {
           ui.size = Number(input.value) || 88;
           output.textContent = `${ui.size}%`;
           applySize();
-          persistLayout();
           updateConnectors();
           localStorage.setItem(UI_KEY, JSON.stringify(ui));
         });
+        input.addEventListener("change", persistLayout);
         control.querySelector('[data-layout-ui="cycle"]').addEventListener("click", cycleLayout);
         rail.appendChild(control);
       }
