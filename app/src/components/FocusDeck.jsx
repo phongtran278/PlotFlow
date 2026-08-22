@@ -176,78 +176,76 @@ export default function FocusDeck() {
         <strong>{running ? formatClock(secondsLeft) : "Focus"}</strong>
       </button>
 
-      {open && (
-        <section className="focus-deck" aria-label="Creative Focus">
-          <header className="focus-deck-head">
+      <section className={`focus-deck ${open ? "is-open" : "is-closed"}`} aria-label="Creative Focus" aria-hidden={!open}>
+        <header className="focus-deck-head">
+          <div>
+            <span>CREATIVE FOCUS</span>
+            <strong>PhongFlow Session</strong>
+          </div>
+          <button type="button" onClick={() => setOpen(false)}>×</button>
+        </header>
+
+        <div className="focus-modes">
+          <button type="button" className={mode === "focus" ? "active" : ""} onClick={() => switchMode("focus")}>25 Focus</button>
+          <button type="button" className={mode === "break" ? "active" : ""} onClick={() => switchMode("break")}>5 Break</button>
+        </div>
+
+        <div className="focus-clock-wrap">
+          <div className="focus-clock">{formatClock(secondsLeft)}</div>
+          <div className="focus-progress"><i style={{ width: `${progress * 100}%` }} /></div>
+          <div className="focus-clock-actions">
+            <button type="button" className="primary" onClick={() => setRunning((value) => !value)}>{running ? "Pause" : secondsLeft === 0 ? "Restart" : "Start"}</button>
+            <button type="button" onClick={resetTimer}>Reset</button>
+          </div>
+        </div>
+
+        <div className="focus-divider" />
+
+        <button type="button" className={`zen-toggle ${zen ? "active" : ""}`} onClick={() => setZen((value) => !value)}>
+          <span>⌘</span>
+          <div><strong>Zen Canvas</strong><small>{zen ? "Canvas only · distraction off" : "Hide panels, keep the artwork"}</small></div>
+          <b>{zen ? "ON" : "OFF"}</b>
+        </button>
+
+        <div className="focus-audio">
+          <div className="focus-audio-row">
+            <button type="button" className={noiseOn ? "active" : ""} onClick={toggleNoise}>≈ Brown Noise</button>
+            <span className="spotify-chip">Spotify</span>
+          </div>
+          <label className="focus-spotify-connect">
+            <span>Spotify link</span>
             <div>
-              <span>CREATIVE FOCUS</span>
-              <strong>PhongFlow Session</strong>
+              <input
+                type="url"
+                value={spotifyDraft}
+                onChange={(event) => { setSpotifyDraft(event.target.value); setSpotifyMessage(""); }}
+                onKeyDown={(event) => { if (event.key === "Enter") connectSpotify(); }}
+                placeholder="Paste playlist / track / album link"
+              />
+              <button type="button" onClick={connectSpotify}>Connect</button>
             </div>
-            <button type="button" onClick={() => setOpen(false)}>×</button>
-          </header>
-
-          <div className="focus-modes">
-            <button type="button" className={mode === "focus" ? "active" : ""} onClick={() => switchMode("focus")}>25 Focus</button>
-            <button type="button" className={mode === "break" ? "active" : ""} onClick={() => switchMode("break")}>5 Break</button>
-          </div>
-
-          <div className="focus-clock-wrap">
-            <div className="focus-clock">{formatClock(secondsLeft)}</div>
-            <div className="focus-progress"><i style={{ width: `${progress * 100}%` }} /></div>
-            <div className="focus-clock-actions">
-              <button type="button" className="primary" onClick={() => setRunning((value) => !value)}>{running ? "Pause" : secondsLeft === 0 ? "Restart" : "Start"}</button>
-              <button type="button" onClick={resetTimer}>Reset</button>
+          </label>
+          {spotifyMessage && <small className="spotify-message">{spotifyMessage}</small>}
+          {embedUrl && (
+            <div className="spotify-embed-wrap">
+              <iframe
+                title="Spotify focus player"
+                src={embedUrl}
+                width="100%"
+                height="152"
+                frameBorder="0"
+                allowFullScreen
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+              />
+              <button type="button" className="spotify-disconnect" onClick={disconnectSpotify}>Disconnect Spotify</button>
             </div>
-          </div>
+          )}
+          <label className="focus-volume">Brown Noise Volume<input type="range" min="0" max="0.4" step="0.01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} /></label>
+        </div>
 
-          <div className="focus-divider" />
-
-          <button type="button" className={`zen-toggle ${zen ? "active" : ""}`} onClick={() => setZen((value) => !value)}>
-            <span>⌘</span>
-            <div><strong>Zen Canvas</strong><small>{zen ? "Canvas only · distraction off" : "Hide panels, keep the artwork"}</small></div>
-            <b>{zen ? "ON" : "OFF"}</b>
-          </button>
-
-          <div className="focus-audio">
-            <div className="focus-audio-row">
-              <button type="button" className={noiseOn ? "active" : ""} onClick={toggleNoise}>≈ Brown Noise</button>
-              <span className="spotify-chip">Spotify</span>
-            </div>
-            <label className="focus-spotify-connect">
-              <span>Spotify link</span>
-              <div>
-                <input
-                  type="url"
-                  value={spotifyDraft}
-                  onChange={(event) => { setSpotifyDraft(event.target.value); setSpotifyMessage(""); }}
-                  onKeyDown={(event) => { if (event.key === "Enter") connectSpotify(); }}
-                  placeholder="Paste playlist / track / album link"
-                />
-                <button type="button" onClick={connectSpotify}>Connect</button>
-              </div>
-            </label>
-            {spotifyMessage && <small className="spotify-message">{spotifyMessage}</small>}
-            {embedUrl && (
-              <div className="spotify-embed-wrap">
-                <iframe
-                  title="Spotify focus player"
-                  src={embedUrl}
-                  width="100%"
-                  height="152"
-                  frameBorder="0"
-                  allowFullScreen
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                />
-                <button type="button" className="spotify-disconnect" onClick={disconnectSpotify}>Disconnect Spotify</button>
-              </div>
-            )}
-            <label className="focus-volume">Brown Noise Volume<input type="range" min="0" max="0.4" step="0.01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} /></label>
-          </div>
-
-          <p className="focus-quote">Less noise. More intent.</p>
-        </section>
-      )}
+        <p className="focus-quote">Less noise. More intent.</p>
+      </section>
     </div>,
     utilityTarget
   );
