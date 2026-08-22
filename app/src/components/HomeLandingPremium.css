@@ -1,43 +1,149 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Inter+Tight:wght@600;700;800&display=swap');
 
-.pf-home{--pf-serif:"Cormorant Garamond",Georgia,"Times New Roman",serif}
-.pf-home em,.pf-home-signature>em{font-family:var(--pf-serif)!important;font-style:italic!important;font-weight:600!important;font-synthesis:none;text-rendering:optimizeLegibility}
+.pf-home{
+  --pf-display:"Inter Tight",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --pf-serif:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+}
 
-/* Cross-platform hero typography: every line owns its own box, so descenders/dots never collide. */
-.pf-home .pf-home-hero-title{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:0!important;margin:30px 0 30px!important;color:#121417!important;font-size:clamp(58px,5.65vw,94px)!important;line-height:1!important;font-weight:710!important;letter-spacing:-.052em!important;font-kerning:normal;font-synthesis:none;text-rendering:geometricPrecision}
-.pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{display:block!important;position:relative!important;line-height:.91!important;margin:0!important;padding:.025em 0 .095em!important;white-space:nowrap}
-.pf-home .pf-home-hero-title>em{margin:.045em 0 .12em .19em!important;padding-bottom:.14em!important;font-size:.92em!important;line-height:.95!important;letter-spacing:.012em!important;color:var(--pf-brand-accent)!important}
-.pf-home .pf-home-hero-title>.pf-title-keep{margin-top:.025em!important;padding-top:.08em!important}
-.pf-home .pf-home-hero-title>span:last-child{padding-bottom:.15em!important}
+.pf-home em,.pf-home-signature>em{
+  font-family:var(--pf-serif)!important;
+  font-style:italic!important;
+  font-weight:600!important;
+  font-synthesis:none;
+  font-optical-sizing:auto;
+  text-rendering:optimizeLegibility;
+}
+
+/* Optical sizing rule: serif accents are deliberately larger than the nominal sans size. */
+.pf-home h2 em,.pf-home-statement em,.pf-home-feedback h2 em{
+  display:inline-block;
+  font-size:1.1em!important;
+  line-height:.88!important;
+  letter-spacing:-.012em!important;
+  transform:translateY(.025em);
+}
+
+/* Hero keeps the tight editorial rhythm, but each glyph gets enough real vertical room. */
+.pf-home .pf-home-hero-title{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:0!important;
+  margin:28px 0 28px!important;
+  color:#111316!important;
+  font-family:var(--pf-display)!important;
+  font-size:clamp(58px,5.7vw,96px)!important;
+  line-height:1!important;
+  font-weight:800!important;
+  letter-spacing:-.064em!important;
+  font-kerning:normal;
+  font-synthesis:none;
+  text-rendering:geometricPrecision;
+}
+
+.pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{
+  display:block!important;
+  position:relative!important;
+  margin:0!important;
+  padding:0!important;
+  white-space:nowrap;
+}
+
+/* Sans-to-sans lines stay close, like the original direction. */
+.pf-home .pf-home-hero-title>span{
+  font-family:var(--pf-display)!important;
+  line-height:.86!important;
+}
+.pf-home .pf-home-hero-title>span:nth-child(1){margin-bottom:.035em!important}
+.pf-home .pf-home-hero-title>span:nth-child(2){margin-bottom:.025em!important}
+
+/* Cormorant has a smaller x/cap-height, so 1.10em is the optical match to Inter Tight. */
+.pf-home .pf-home-hero-title>em{
+  margin:.015em 0 -.01em .055em!important;
+  font-size:1.10em!important;
+  line-height:.80!important;
+  letter-spacing:-.026em!important;
+  color:var(--pf-brand-accent)!important;
+}
+
+/* Only this transition needs extra air: it protects the i-dot in “design.” */
+.pf-home .pf-home-hero-title>.pf-title-keep{
+  margin-top:.055em!important;
+  margin-bottom:.095em!important;
+}
+.pf-home .pf-home-hero-title>span:last-child{
+  margin-top:0!important;
+  padding-bottom:.06em!important;
+}
+
+.pf-home-hero-copy>p{max-width:650px!important;line-height:1.82!important}
 
 /* Liquid Glass is an accent material, not the whole page. */
-.pf-liquid-glass{background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(245,248,247,.5))!important;border:1px solid rgba(255,255,255,.72)!important;box-shadow:0 18px 48px rgba(25,31,38,.08),inset 0 1px 0 rgba(255,255,255,.86),inset 0 -1px 0 rgba(255,255,255,.2)!important;backdrop-filter:blur(24px) saturate(165%)!important;-webkit-backdrop-filter:blur(24px) saturate(165%)!important}
-.pf-home-nav.pf-liquid-glass{background:linear-gradient(180deg,rgba(247,247,245,.82),rgba(247,247,245,.62))!important;border-width:0 0 1px!important;border-color:rgba(255,255,255,.72)!important;box-shadow:0 6px 24px rgba(22,26,32,.035),inset 0 -1px 0 rgba(34,39,44,.045)!important}
+.pf-liquid-glass{
+  background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(245,248,247,.5))!important;
+  border:1px solid rgba(255,255,255,.72)!important;
+  box-shadow:0 18px 48px rgba(25,31,38,.08),inset 0 1px 0 rgba(255,255,255,.86),inset 0 -1px 0 rgba(255,255,255,.2)!important;
+  backdrop-filter:blur(24px) saturate(165%)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(165%)!important;
+}
+.pf-home-nav.pf-liquid-glass{
+  background:linear-gradient(180deg,rgba(247,247,245,.82),rgba(247,247,245,.62))!important;
+  border-width:0 0 1px!important;
+  border-color:rgba(255,255,255,.72)!important;
+  box-shadow:0 6px 24px rgba(22,26,32,.035),inset 0 -1px 0 rgba(34,39,44,.045)!important;
+}
 
-/* Premium device stage: less toy-like, more product photography in spirit. */
-.pf-device-stage{position:relative;width:min(100%,900px);min-height:650px;display:grid;place-items:center;isolation:isolate}
-.pf-device-stage::before{content:"";position:absolute;inset:6% 5% 10%;z-index:-3;border-radius:48% 52% 46% 54%;background:radial-gradient(circle at 48% 45%,rgba(255,255,255,.95),rgba(240,244,242,.72) 44%,rgba(216,226,222,.15) 68%,transparent 76%);filter:blur(4px)}
-.pf-device-glow{position:absolute;left:12%;right:12%;bottom:8%;height:74px;z-index:-2;border-radius:50%;background:rgba(31,39,43,.18);filter:blur(38px);opacity:.42}
-.pf-home .pf-laptop-premium{width:min(100%,830px)!important;transform:perspective(1300px) rotateX(1.7deg) translateY(2px);filter:drop-shadow(0 46px 58px rgba(21,25,30,.18))!important}
-.pf-home .pf-laptop-premium .pf-laptop-screen{padding:8px!important;border:1px solid rgba(10,12,14,.32)!important;border-radius:20px 20px 11px 11px!important;background:linear-gradient(160deg,#202428,#090b0d 80%)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.045),inset 0 10px 24px rgba(255,255,255,.025)!important}
+/* Product stage: restrained glass + a more photographic hardware silhouette. */
+.pf-device-stage{position:relative;width:min(100%,940px);min-height:660px;display:grid;place-items:center;isolation:isolate}
+.pf-device-stage::before{
+  content:"";position:absolute;inset:7% 4% 9%;z-index:-3;border-radius:44px;
+  background:radial-gradient(circle at 48% 38%,rgba(255,255,255,.98),rgba(239,244,242,.74) 43%,rgba(207,222,216,.15) 69%,transparent 77%);
+  filter:blur(3px)
+}
+.pf-device-glow{position:absolute;left:12%;right:12%;bottom:6%;height:70px;z-index:-2;border-radius:50%;background:rgba(31,39,43,.18);filter:blur(36px);opacity:.38}
+.pf-home .pf-laptop-premium{width:min(100%,850px)!important;transform:perspective(1500px) rotateX(1deg) translateY(2px);filter:drop-shadow(0 48px 62px rgba(21,25,30,.17))!important}
+.pf-home .pf-laptop-premium .pf-laptop-screen{
+  padding:8px!important;border:1px solid rgba(10,12,14,.34)!important;border-radius:21px 21px 11px 11px!important;
+  background:linear-gradient(160deg,#202428,#080a0c 80%)!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.045),inset 0 10px 24px rgba(255,255,255,.025)!important
+}
 .pf-home .pf-laptop-premium .pf-laptop-screen::after{content:"";position:absolute;inset:8px;z-index:3;pointer-events:none;border-radius:12px;background:linear-gradient(115deg,rgba(255,255,255,.08),transparent 24%,transparent 68%,rgba(255,255,255,.025));mix-blend-mode:screen}
-.pf-home .pf-laptop-premium .pf-laptop-base{width:114%!important;height:21px!important;margin-left:-7%!important;border-radius:2px 2px 18px 18px!important;background:linear-gradient(180deg,#e0e2e3 0%,#bcc1c4 38%,#969da1 100%)!important;box-shadow:0 11px 20px rgba(20,24,30,.12),inset 0 1px 0 rgba(255,255,255,.9)!important}
-.pf-home .pf-laptop-premium .pf-laptop-base::after{content:"";position:absolute;left:8%;right:8%;bottom:-4px;height:5px;border-radius:50%;background:rgba(35,40,44,.16);filter:blur(4px)}
+.pf-home .pf-laptop-premium .pf-laptop-base{width:114%!important;height:20px!important;margin-left:-7%!important;border-radius:2px 2px 18px 18px!important;background:linear-gradient(180deg,#e3e5e6 0%,#bec3c6 40%,#969da1 100%)!important;box-shadow:0 11px 20px rgba(20,24,30,.12),inset 0 1px 0 rgba(255,255,255,.92)!important}
+.pf-home .pf-laptop-premium .pf-laptop-base::after{content:"";position:absolute;left:8%;right:8%;bottom:-4px;height:5px;border-radius:50%;background:rgba(35,40,44,.15);filter:blur(4px)}
 .pf-home .pf-feature-pop.pf-liquid-glass{max-width:244px!important;padding:14px 16px!important;border-radius:18px!important}
 .pf-home .pf-feature-pop b{font-size:9px!important;letter-spacing:.005em}.pf-home .pf-feature-pop span{font-size:7px!important;line-height:1.5!important}
-.pf-home .pf-feature-pop.locator{left:-28px!important;top:68px!important}.pf-home .pf-feature-pop.overview{right:-22px!important;top:188px!important}.pf-home .pf-feature-pop.control{right:54px!important;bottom:30px!important}
+.pf-home .pf-feature-pop.locator{left:-22px!important;top:68px!important}.pf-home .pf-feature-pop.overview{right:-18px!important;top:188px!important}.pf-home .pf-feature-pop.control{right:54px!important;bottom:28px!important}
 
-/* Signature uses the same downloaded serif everywhere, avoiding OS-specific Georgia metrics. */
-.pf-home-signature{margin-bottom:30px!important;gap:20px!important}.pf-home-signature>em{font-size:clamp(30px,3.2vw,48px)!important;line-height:1.12!important;letter-spacing:.012em!important;color:var(--pf-brand-accent)!important;padding:.04em 0 .12em}
+/* Signature: same webfont on macOS and Windows, plus optical compensation. */
+.pf-home-signature{margin-bottom:28px!important;gap:20px!important;align-items:center!important}
+.pf-home-signature>em{
+  font-size:clamp(34px,3.55vw,54px)!important;
+  line-height:.88!important;
+  letter-spacing:-.008em!important;
+  color:var(--pf-brand-accent)!important;
+  padding:.06em 0 .12em;
+}
+.pf-home-footer-brand{line-height:.76!important;font-family:var(--pf-display)!important;letter-spacing:-.065em!important}
 
 /* Direct feedback state + glass. */
 .pf-home-feedback-box.pf-liquid-glass{border-radius:22px!important;padding:18px!important;background:linear-gradient(140deg,rgba(255,255,255,.76),rgba(244,247,245,.52))!important}
 .pf-home-feedback textarea{background:rgba(248,249,247,.72)!important;border:1px solid rgba(255,255,255,.6)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.72)!important}
 .pf-home-feedback-box footer small{font-size:8px!important}.pf-home-feedback-box footer button{min-width:112px;height:35px!important;transition:transform .25s ease,opacity .25s ease,box-shadow .25s ease}.pf-home-feedback-box footer button:not(:disabled):hover{box-shadow:0 10px 24px color-mix(in srgb,var(--pf-brand-accent) 18%,transparent)}
 
-/* Project library uses glass only as the foreground material. */
 .pf-project-library.pf-liquid-glass{background:linear-gradient(145deg,rgba(248,248,246,.9),rgba(239,243,241,.78))!important;border-color:rgba(255,255,255,.68)!important}
 
-@media(max-width:1180px){.pf-device-stage{min-height:600px}.pf-home .pf-home-hero-title{font-size:clamp(58px,8vw,88px)!important;max-width:760px}}
-@media(max-width:760px){.pf-home .pf-home-hero-title{font-size:clamp(48px,13vw,68px)!important}.pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{white-space:normal}.pf-home .pf-home-hero-title>em{margin-left:.08em!important}.pf-device-stage{min-height:390px}.pf-home .pf-laptop-premium{width:100%!important;transform:none}.pf-home-signature>em{font-size:34px!important}}
+@media(max-width:1180px){
+  .pf-device-stage{min-height:600px}
+  .pf-home .pf-home-hero-title{font-size:clamp(58px,8vw,88px)!important;max-width:760px}
+}
+@media(max-width:760px){
+  .pf-home .pf-home-hero-title{font-size:clamp(48px,13vw,68px)!important}
+  .pf-home .pf-home-hero-title>span,.pf-home .pf-home-hero-title>em{white-space:normal}
+  .pf-home .pf-home-hero-title>em{font-size:1.08em!important;margin-left:.035em!important}
+  .pf-home .pf-home-hero-title>.pf-title-keep{margin-top:.07em!important;margin-bottom:.1em!important}
+  .pf-device-stage{min-height:390px}
+  .pf-home .pf-laptop-premium{width:100%!important;transform:none}
+  .pf-home-signature{align-items:flex-start!important;flex-direction:column!important;gap:8px!important}
+  .pf-home-signature>em{font-size:38px!important}
+}
 @media(prefers-reduced-motion:reduce){.pf-home .pf-laptop-premium{transform:none!important}}
