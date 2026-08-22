@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./components/CommercialShell.css";
 import "./product/overviewV2Migration.js";
 import App from "./App.jsx";
+import HomeLanding from "./components/HomeLanding.jsx";
 import UnitReviewBar from "./components/UnitReviewBar.jsx";
 import PerformanceFeedback from "./components/PerformanceFeedback.jsx";
 import WorkspaceController from "./components/WorkspaceController.jsx";
@@ -50,32 +52,47 @@ if (import.meta.hot) {
   });
 }
 
+function PlotFlowExperience() {
+  const [view, setView] = useState("home");
+
+  if (view === "home") {
+    return <HomeLanding onOpenProject={() => setView("workspace")} />;
+  }
+
+  return (
+    <>
+      <button type="button" className="pf-back-home" onClick={() => setView("home")} title="Back to PlotFlow home">← Home</button>
+      <ProductShell>
+        <OverviewSellDataRuntime />
+        <App />
+        <AutoFloorplanSource />
+        <MemoryGovernor />
+        <LotTileRuntime />
+        <UnitReviewBar />
+        <PerformanceFeedback />
+        <WorkspaceController />
+        <WorkspaceScrollSurfaceFix />
+        <ProjectSettings />
+        <PinScaleControl />
+        <EmptyWorkspaceEnhancer />
+        <OverviewZoomRuntime />
+        <OverviewPdfRuntime />
+        <OverviewExportRuntime />
+        <OverviewAnchorRuntime />
+        <OverviewLiveUnitsRuntime />
+        <OverviewDetailLocatorBridge />
+        <OverviewControlRailRuntime />
+        <OverviewV2Runtime />
+        <OverviewPenRuntime />
+        <OverviewSimplifiedRuntime />
+        <OverviewLayoutPresetRuntime />
+      </ProductShell>
+    </>
+  );
+}
+
 createRoot(document.getElementById("root")).render(
   <AuthGate>
-    <ProductShell>
-      <OverviewSellDataRuntime />
-      <App />
-      <AutoFloorplanSource />
-      <MemoryGovernor />
-      <LotTileRuntime />
-      <UnitReviewBar />
-      <PerformanceFeedback />
-      <WorkspaceController />
-      <WorkspaceScrollSurfaceFix />
-      <ProjectSettings />
-      <PinScaleControl />
-      <EmptyWorkspaceEnhancer />
-      <OverviewZoomRuntime />
-      <OverviewPdfRuntime />
-      <OverviewExportRuntime />
-      <OverviewAnchorRuntime />
-      <OverviewLiveUnitsRuntime />
-      <OverviewDetailLocatorBridge />
-      <OverviewControlRailRuntime />
-      <OverviewV2Runtime />
-      <OverviewPenRuntime />
-      <OverviewSimplifiedRuntime />
-      <OverviewLayoutPresetRuntime />
-    </ProductShell>
+    <PlotFlowExperience />
   </AuthGate>
 );
