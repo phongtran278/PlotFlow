@@ -33,7 +33,6 @@ import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
 import OverviewLayoutPresetRuntime from "./product/OverviewLayoutPresetRuntime.jsx";
 import "./product/OverviewCallouts.css";
 import "./product/PremiumProductPolish.css";
-import "./product/PremiumAuthPolish.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
