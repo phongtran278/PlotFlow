@@ -7,7 +7,7 @@ import HeroOrbitDiagram from "./HeroOrbitDiagram.jsx";
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
 
 const PROJECTS = [
-  { id: "vhspark", name: "Vinhomes Green Paradise · Saigon Park", developer: "Vinhomes", location: "TP.HCM", status: "active", signal: "Active workspace", phase: "Đang triển khai", tone: "forest", featured: true },
+  { id: "vh-green-paradise", name: "Vinhomes Green Paradise", developer: "Vinhomes", location: "TP.HCM", status: "active", signal: "Active workspace", phase: "Đang triển khai", tone: "forest", featured: true },
   { id: "global-city", name: "The Global City", developer: "Masterise", location: "TP.HCM", status: "hot", signal: "Hot right now", phase: "Đang được quan tâm", tone: "stone", featured: true },
   { id: "eaton-park", name: "Eaton Park", developer: "Gamuda", location: "TP.HCM", status: "launching", signal: "Sắp mở bán", phase: "Chuẩn bị mở bán", tone: "sand", featured: true },
   { id: "vh-grand-park", name: "Vinhomes Grand Park", developer: "Vinhomes", location: "TP.HCM", status: "soon", signal: "Coming soon", phase: "Workspace kế tiếp", tone: "mist", featured: true },
@@ -117,9 +117,9 @@ export default function HomeLanding({ onOpenProject }) {
                 <header><span>{String(index + 1).padStart(2, "0")}</span><em>{project.signal}</em></header>
                 <div className={`pf-project-thumb tone-${project.tone}`}>
                   <div className="pf-project-thumb-grid" />
-                  <div className="pf-project-thumb-content"><small>{project.developer} · {project.location}</small><strong>{project.name}</strong>{project.status === "soon" && <b>Coming Soon</b>}</div>
+                  <div className="pf-project-thumb-content"><small>{project.developer} · {project.location}</small><strong>{project.name}</strong></div>
                 </div>
-                <footer><span className="pf-project-signal"><i />{project.phase}</span>{project.status === "active" ? <button type="button" onClick={onOpenProject}>Open workspace <b>↗</b></button> : <button type="button" onClick={() => setProjectLibraryOpen(true)}>View in library <b>→</b></button>}</footer>
+                <footer>{project.status === "active" ? <button type="button" onClick={onOpenProject}>Open workspace <b>↗</b></button> : <button type="button" onClick={() => setProjectLibraryOpen(true)}>View in library <b>→</b></button>}</footer>
               </article>
             ))}
           </div>
