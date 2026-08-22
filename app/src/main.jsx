@@ -32,7 +32,6 @@ import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
 import OverviewLayoutPresetRuntime from "./product/OverviewLayoutPresetRuntime.jsx";
 import "./product/OverviewCallouts.css";
-import "./components/ToolbarConsistency.css";
 import "./components/AuroraTheme.css";
 import "./product/PremiumProductPolish.css";
 import "./product/PremiumAuthPolish.css";
