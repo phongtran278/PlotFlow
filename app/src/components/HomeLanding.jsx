@@ -6,18 +6,18 @@ import "./HomeLandingPremium.css";
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
 
 const PROJECTS = [
-  { id: "vhspark", name: "Vinhomes Green Paradise · Saigon Park", developer: "Vinhomes", location: "TP.HCM", status: "active", signal: "Active workspace", featured: true },
-  { id: "global-city", name: "The Global City", developer: "Masterise", location: "TP.HCM", status: "hot", signal: "Hot right now", featured: true },
-  { id: "eaton-park", name: "Eaton Park", developer: "Gamuda", location: "TP.HCM", status: "launching", signal: "Sắp mở bán", featured: true },
-  { id: "vh-grand-park", name: "Vinhomes Grand Park", developer: "Vinhomes", location: "TP.HCM", status: "hot", signal: "Featured", featured: true },
-  { id: "waterpoint", name: "Waterpoint", developer: "Nam Long", location: "Long An", status: "launching", signal: "Sắp mở bán", featured: true },
-  { id: "vh-op2", name: "Vinhomes Ocean Park 2", developer: "Vinhomes", location: "Hưng Yên", status: "soon", signal: "Reference queue" },
-  { id: "vh-op3", name: "Vinhomes Ocean Park 3", developer: "Vinhomes", location: "Hưng Yên", status: "soon", signal: "Reference queue" },
-  { id: "masteri-centre-point", name: "Masteri Centre Point", developer: "Masterise", location: "TP.HCM", status: "soon", signal: "Coming soon" },
-  { id: "lumiere-riverside", name: "LUMIÈRE Riverside", developer: "Masterise", location: "TP.HCM", status: "soon", signal: "Reference queue" },
-  { id: "celadon-city", name: "Celadon City", developer: "Gamuda", location: "TP.HCM", status: "soon", signal: "Coming soon" },
-  { id: "elysian", name: "Elysian", developer: "Gamuda", location: "TP.HCM", status: "soon", signal: "Reference queue" },
-  { id: "mizuki-park", name: "Mizuki Park", developer: "Nam Long", location: "TP.HCM", status: "soon", signal: "Reference queue" },
+  { id: "vhspark", name: "Vinhomes Green Paradise · Saigon Park", developer: "Vinhomes", location: "TP.HCM", status: "active", signal: "Active workspace", phase: "Đang triển khai", tone: "forest", featured: true },
+  { id: "global-city", name: "The Global City", developer: "Masterise", location: "TP.HCM", status: "hot", signal: "Hot right now", phase: "Đang được quan tâm", tone: "stone", featured: true },
+  { id: "eaton-park", name: "Eaton Park", developer: "Gamuda", location: "TP.HCM", status: "launching", signal: "Sắp mở bán", phase: "Chuẩn bị mở bán", tone: "sand", featured: true },
+  { id: "vh-grand-park", name: "Vinhomes Grand Park", developer: "Vinhomes", location: "TP.HCM", status: "soon", signal: "Coming soon", phase: "Workspace kế tiếp", tone: "mist", featured: true },
+  { id: "waterpoint", name: "Waterpoint", developer: "Nam Long", location: "Long An", status: "soon", signal: "Coming soon", phase: "Đang chuẩn hóa dữ liệu", tone: "graphite", featured: true },
+  { id: "vh-op2", name: "Vinhomes Ocean Park 2", developer: "Vinhomes", location: "Hưng Yên", status: "soon", signal: "Coming soon", phase: "Reference queue", tone: "mist" },
+  { id: "vh-op3", name: "Vinhomes Ocean Park 3", developer: "Vinhomes", location: "Hưng Yên", status: "soon", signal: "Coming soon", phase: "Reference queue", tone: "stone" },
+  { id: "masteri-centre-point", name: "Masteri Centre Point", developer: "Masterise", location: "TP.HCM", status: "soon", signal: "Coming soon", phase: "Reference queue", tone: "graphite" },
+  { id: "lumiere-riverside", name: "LUMIÈRE Riverside", developer: "Masterise", location: "TP.HCM", status: "soon", signal: "Coming soon", phase: "Reference queue", tone: "mist" },
+  { id: "celadon-city", name: "Celadon City", developer: "Gamuda", location: "TP.HCM", status: "soon", signal: "Coming soon", phase: "Reference queue", tone: "forest" },
+  { id: "elysian", name: "Elysian", developer: "Gamuda", location: "TP.HCM", status: "soon", signal: "Coming soon", phase: "Reference queue", tone: "sand" },
+  { id: "mizuki-park", name: "Mizuki Park", developer: "Nam Long", location: "TP.HCM", status: "soon", signal: "Coming soon", phase: "Reference queue", tone: "stone" },
 ];
 
 const FAQ = [
@@ -34,6 +34,14 @@ const FLOW = [
   { key: "engine", eyebrow: "PLOTFLOW", title: "Project engine", body: "Locate · map · compose", meta: "One source of truth" },
   { key: "control", eyebrow: "DESIGNER", title: "Human control", body: "Review · override · refine", meta: "Craft stays visible" },
   { key: "output", eyebrow: "OUTPUT", title: "Sales-ready design", body: "Overview + Detail", meta: "PNG · PDF · batch export" },
+];
+
+const HERO_NODES = [
+  { className: "top", index: "01", title: "Floorplan Locator", body: "Find the right unit inside a large PDF without hunting page by page." },
+  { className: "right", index: "02", title: "Data-linked Overview", body: "Sales cards, connectors and highlights stay tied to one source of truth." },
+  { className: "bottom-right", index: "03", title: "Detail Composer", body: "Prepare unit-level artwork with synced data, floorplan and assets." },
+  { className: "bottom-left", index: "04", title: "Review & Export", body: "Move from visual check to PNG or PDF output in the same workflow." },
+  { className: "left", index: "05", title: "Manual Override", body: "Automation stops where hierarchy, spacing and visual judgment begin." },
 ];
 
 export default function HomeLanding({ onOpenProject }) {
@@ -83,37 +91,33 @@ export default function HomeLanding({ onOpenProject }) {
           <div className="pf-home-hero-copy">
             <div className="pf-home-eyebrow"><i /> Real-estate design operations</div>
             <h1 className="pf-home-hero-title" aria-label="Make the repetitive disappear. Keep the design.">
-              <span>Make the</span>
-              <span>repetitive</span>
-              <em>disappear.</em>
-              <span className="pf-title-keep">Keep the</span>
-              <span>design.</span>
+              <span className="pf-title-kicker">Make the</span>
+              <span className="pf-title-main">repetitive</span>
+              <em className="pf-title-accent">disappear.</em>
+              <span className="pf-title-secondary">Keep the</span>
+              <span className="pf-title-main pf-title-design">design.</span>
             </h1>
             <p>PlotFlow được xây cho một công việc rất cụ thể: đưa dữ liệu bán hàng bất động sản đi từ spreadsheet và masterplan tới artwork hoàn chỉnh — nhanh hơn, nhất quán hơn, nhưng vẫn để designer giữ quyền quyết định.</p>
             <div className="pf-home-hero-actions"><button type="button" onClick={onOpenProject}>Open PlotFlow <span>→</span></button><a href="#workflow">See how the system works</a></div>
             <div className="pf-home-proof"><span><b>01</b> One data source</span><span><b>02</b> Human-in-the-loop</span><span><b>03</b> Overview + Detail</span></div>
           </div>
 
-          <div className="pf-home-hero-visual" aria-label="PlotFlow product showcase">
-            <div className="pf-device-stage">
-              <div className="pf-device-glow" />
-              <div className="pf-laptop pf-laptop-premium">
-                <div className="pf-laptop-screen">
-                  <div className="pf-laptop-appbar"><span>PlotFlow</span><b>Project workspace</b><em>LIVE</em></div>
-                  <div className="pf-laptop-workspace">
-                    <aside><small>PROJECT</small><strong>Overview</strong><span className="active">Masterplan</span><span>Units</span><span>Export</span></aside>
-                    <section>
-                      <div className="pf-mini-plan"><i className="road one" /><i className="road two" />{Array.from({ length: 18 }).map((_, index) => <i className={`lot lot-${index + 1}`} key={index} />)}<i className="mark mark-a" /><i className="mark mark-b" /></div>
-                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="18" y1="31" x2="43" y2="39" /><line x1="18" y1="67" x2="42" y2="60" /><line x1="82" y1="35" x2="61" y2="43" /><line x1="82" y1="70" x2="64" y2="61" /></svg>
-                      <article className="card left top"><b>SA5-12</b><strong>24.8 tỷ</strong><span>216m² · Song lập</span></article><article className="card left bottom"><b>SA5-18</b><strong>21.6 tỷ</strong><span>180m² · Liền kề</span></article><article className="card right top"><b>SA6-03</b><strong>27.1 tỷ</strong><span>240m² · Song lập</span></article><article className="card right bottom"><b>SA6-08</b><strong>19.9 tỷ</strong><span>160m² · Liền kề</span></article>
-                    </section>
-                  </div>
-                </div>
-                <div className="pf-laptop-base"><i /></div>
+          <div className="pf-home-hero-visual" aria-label="PlotFlow designer-centered system">
+            <div className="pf-hero-orbit-stage">
+              <div className="pf-orbit-glow" />
+              <div className="pf-orbit-ring pf-orbit-ring-1" />
+              <div className="pf-orbit-ring pf-orbit-ring-2" />
+              <div className="pf-orbit-ring pf-orbit-ring-3" />
+              <div className="pf-orbit-center pf-liquid-glass">
+                <span>CORE PRINCIPLE</span>
+                <strong>Designer in control</strong>
+                <p>Automation handles repetition. Visual judgment stays with the human.</p>
               </div>
-              <div className="pf-feature-pop locator pf-liquid-glass"><i>⌖</i><div><b>Floorplan Locator</b><span>Find the correct unit inside a large PDF.</span></div></div>
-              <div className="pf-feature-pop overview pf-liquid-glass"><i>↗</i><div><b>Data-linked Overview</b><span>Cards, connectors and highlights stay in one view.</span></div></div>
-              <div className="pf-feature-pop control pf-liquid-glass"><i>✦</i><div><b>Designer control</b><span>Automation stops where visual judgment begins.</span></div></div>
+              {HERO_NODES.map((node) => (
+                <article className={`pf-orbit-node pf-orbit-node-${node.className} pf-liquid-glass`} key={node.index}>
+                  <small>{node.index}</small><strong>{node.title}</strong><span>{node.body}</span>
+                </article>
+              ))}
             </div>
           </div>
         </section>
@@ -129,7 +133,18 @@ export default function HomeLanding({ onOpenProject }) {
 
         <section className="pf-home-projects" id="projects">
           <div className="pf-home-section-head compact pf-featured-project-heading"><div><span>FEATURED PROJECTS</span><h2>A few projects worth <em>watching now.</em></h2><p>Home chỉ ưu tiên những project đang active, đang được quan tâm hoặc sắp bước vào giai đoạn bán hàng. Toàn bộ library nằm trong một project space riêng để trang chủ luôn gọn.</p></div><button type="button" className="pf-view-library" onClick={() => setProjectLibraryOpen(true)}>View all projects <span>↗</span></button></div>
-          <div className="pf-featured-project-grid">{featuredProjects.map((project, index) => <article className={`pf-featured-project-card ${project.status}`} key={project.id}><header><span>{String(index + 1).padStart(2, "0")}</span><em>{project.signal}</em></header><div><small>{project.developer} · {project.location}</small><h3>{project.name}</h3></div><footer><span className="pf-project-signal"><i />{project.signal}</span>{project.status === "active" ? <button type="button" onClick={onOpenProject}>Open workspace <b>↗</b></button> : <button type="button" onClick={() => setProjectLibraryOpen(true)}>View in library <b>→</b></button>}</footer></article>)}</div>
+          <div className="pf-featured-project-grid">
+            {featuredProjects.map((project, index) => (
+              <article className={`pf-featured-project-card ${project.status}`} key={project.id}>
+                <header><span>{String(index + 1).padStart(2, "0")}</span><em>{project.signal}</em></header>
+                <div className={`pf-project-thumb tone-${project.tone}`}>
+                  <div className="pf-project-thumb-grid" />
+                  <div className="pf-project-thumb-content"><small>{project.developer} · {project.location}</small><strong>{project.name}</strong>{project.status === "soon" && <b>Coming Soon</b>}</div>
+                </div>
+                <footer><span className="pf-project-signal"><i />{project.phase}</span>{project.status === "active" ? <button type="button" onClick={onOpenProject}>Open workspace <b>↗</b></button> : <button type="button" onClick={() => setProjectLibraryOpen(true)}>View in library <b>→</b></button>}</footer>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="pf-home-faq" id="faq"><div className="pf-home-section-head compact"><span>WHY PLOTFLOW</span><h2>Less software theatre.<br /><em>More useful leverage.</em></h2><p>Những câu dưới đây nói thẳng vào giá trị thật của sản phẩm: PlotFlow đang bỏ đi phần việc nào, giữ lại phần việc nào, và vì sao điều đó quan trọng với design bất động sản.</p></div><div className="pf-home-faq-list">{FAQ.map(([question, answer], index) => { const isOpen = openFaq === index; return <article className={isOpen ? "open" : ""} key={question}><button type="button" onClick={() => setOpenFaq(isOpen ? -1 : index)} aria-expanded={isOpen}><span>{String(index + 1).padStart(2, "0")}</span><strong>{question}</strong><i>＋</i></button><div className="pf-home-faq-answer"><div><p>{answer}</p></div></div></article>; })}</div></section>
