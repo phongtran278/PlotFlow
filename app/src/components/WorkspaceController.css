@@ -220,8 +220,8 @@ body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; use
 
 .component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-canvas-scroll[data-workspace-pan-surface="true"] > .studio-poster-viewport[data-workspace-zoom] {
   position: absolute !important;
-  left: 48px !important;
-  top: 48px !important;
+  left: max(32px, calc(50% - (1080px * var(--studio-zoom)) / 2)) !important;
+  top: max(32px, calc(50% - (1920px * var(--studio-zoom)) / 2)) !important;
   width: calc(1080px * var(--studio-zoom)) !important;
   min-width: calc(1080px * var(--studio-zoom)) !important;
   height: calc(1920px * var(--studio-zoom)) !important;
@@ -242,6 +242,8 @@ body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; use
   transform-origin: top left !important;
   margin: 0 !important;
 }
+
+.workspace-controls{gap:3px;padding:4px 5px;border-color:rgba(16,20,28,.07);border-radius:12px;background:rgba(255,255,255,.92);box-shadow:0 8px 24px rgba(22,28,38,.08);font-family:PlotFlowBrand,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.workspace-controls button,.workspace-zoom-field{height:31px;border-radius:8px;color:#3c4148;font-family:PlotFlowBrand,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:9px;font-weight:700}.workspace-tool-toggle{gap:1px}.workspace-tool-toggle button.active{background:#15171b;color:#fff}.workspace-fit{background:#f3f4f6!important;color:#17191d!important;font-weight:750!important}.workspace-zoom-field{min-width:58px;background:#f7f7f8;border-color:transparent}.workspace-map-toggle,.workspace-panel-toggle{color:#5d626a!important}.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas{padding:22px;gap:20px;background:#f7f8fa}.component-stage:not(.layout-studio-mode):not(.finetune-mode) .round1-canvas .studio-canvas-scroll{border:1px solid rgba(18,22,30,.06);border-radius:20px;background:radial-gradient(circle at 50% 18%,#fff 0%,#f2f3f5 48%,#eaecf0 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 12px 34px rgba(24,30,42,.06)}.component-stage:not(.layout-studio-mode):not(.finetune-mode) .studio-poster-viewport[data-workspace-zoom]{filter:drop-shadow(0 18px 35px rgba(18,24,34,.16))}.component-stage:not(.layout-studio-mode):not(.finetune-mode) .design-assignment-dock{border-radius:18px!important;box-shadow:0 12px 30px rgba(24,30,42,.08)!important}.stage-actions{gap:8px}.workspace-navigator-popover{width:210px;padding:12px;border-radius:15px}.workspace-navigator-artwork{width:92px}
 
 @media (max-width: 1320px) {
   .workspace-controls { gap: 3px; }
