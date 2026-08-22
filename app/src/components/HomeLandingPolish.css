@@ -1,30 +1,41 @@
-/* Final home polish: one visual system, no competing legacy rules. */
+/* Home polish: deterministic layout rules that override legacy presentation safely. */
 
-/* Projects — disciplined product shelf */
+/* Featured projects — one skeleton, one alignment rule. */
 .pf-home-projects .pf-featured-project-grid{
   margin-top:52px!important;
   display:grid!important;
   grid-template-columns:repeat(12,minmax(0,1fr))!important;
   gap:20px!important;
-  align-items:stretch!important;
+  align-items:start!important;
+  grid-auto-flow:row!important;
 }
 
 .pf-home-projects .pf-featured-project-card,
 .pf-home-projects .pf-featured-project-card:nth-child(n){
   grid-column:span 4!important;
-  min-height:420px!important;
-  padding:22px!important;
-  border-radius:26px!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:auto!important;
+  padding:20px!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+  border-radius:24px!important;
   display:grid!important;
-  grid-template-rows:22px minmax(0,1fr) 40px!important;
-  row-gap:20px!important;
-  background:rgba(255,255,255,.82)!important;
+  grid-template-rows:22px 236px 40px!important;
+  row-gap:18px!important;
+  align-content:start!important;
+  justify-content:stretch!important;
+  background:rgba(255,255,255,.84)!important;
   border:1px solid rgba(24,29,34,.06)!important;
   box-shadow:0 14px 34px rgba(20,25,30,.035)!important;
   overflow:hidden!important;
+  transform:none!important;
 }
+
+.pf-home-projects .pf-featured-project-card:hover{transform:none!important;box-shadow:0 18px 40px rgba(20,25,30,.055)!important}
 .pf-home-projects .pf-featured-project-card:nth-child(4),
-.pf-home-projects .pf-featured-project-card:nth-child(5){grid-column:span 6!important;min-height:390px!important}
+.pf-home-projects .pf-featured-project-card:nth-child(5){grid-column:span 6!important}
 .pf-home-projects .pf-featured-project-card.active{background:linear-gradient(180deg,rgba(249,252,250,.98),rgba(241,247,243,.96))!important}
 
 .pf-home-projects .pf-featured-project-card>header{
@@ -33,10 +44,11 @@
   margin:0!important;
   padding:0!important;
   display:grid!important;
-  grid-template-columns:auto 1fr!important;
+  grid-template-columns:auto minmax(0,1fr)!important;
   align-items:center!important;
   column-gap:16px!important;
 }
+
 .pf-home-projects .pf-featured-project-card>header>span,
 .pf-home-projects .pf-featured-project-card>header>em{
   margin:0!important;
@@ -48,76 +60,88 @@
   font-weight:600!important;
   letter-spacing:.09em!important;
   text-transform:uppercase!important;
+  white-space:nowrap!important;
 }
 .pf-home-projects .pf-featured-project-card>header>span{justify-self:start!important;color:#a3a8ac!important}
-.pf-home-projects .pf-featured-project-card>header>em{justify-self:end!important;color:#92989d!important;text-align:right!important}
+.pf-home-projects .pf-featured-project-card>header>em{justify-self:end!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#92989d!important;text-align:right!important}
 .pf-home-projects .pf-featured-project-card.active>header>em,
 .pf-home-projects .pf-featured-project-card.hot>header>em{color:var(--pf-brand-accent)!important}
 
 .pf-home-projects .pf-project-thumb{
   position:relative!important;
   width:100%!important;
-  height:100%!important;
-  min-height:0!important;
+  min-width:0!important;
+  height:236px!important;
+  min-height:236px!important;
+  max-height:236px!important;
   aspect-ratio:auto!important;
   margin:0!important;
   padding:0!important;
   display:block!important;
-  border-radius:21px!important;
+  border-radius:20px!important;
   overflow:hidden!important;
   border:1px solid rgba(25,31,36,.05)!important;
   isolation:isolate!important;
+  box-sizing:border-box!important;
 }
 
-/* Quiet architectural texture: grid + planes, never competing with typography. */
 .pf-home-projects .pf-project-thumb::before{
   content:""!important;
   position:absolute!important;
   inset:0!important;
   z-index:0!important;
   background:
-    linear-gradient(128deg,transparent 0 58%,rgba(255,255,255,.30) 58.2% 67%,transparent 67.2%),
-    linear-gradient(154deg,transparent 0 72%,rgba(24,31,35,.025) 72.2% 78%,transparent 78.2%)!important;
+    linear-gradient(128deg,transparent 0 60%,rgba(255,255,255,.26) 60.2% 69%,transparent 69.2%),
+    linear-gradient(154deg,transparent 0 75%,rgba(24,31,35,.024) 75.2% 80%,transparent 80.2%)!important;
 }
+
 .pf-home-projects .pf-project-thumb::after{
   content:""!important;
   position:absolute!important;
-  right:-10%!important;
-  bottom:-12%!important;
-  width:62%!important;
-  height:48%!important;
+  right:-8%!important;
+  bottom:-14%!important;
+  width:54%!important;
+  height:44%!important;
   z-index:0!important;
-  border-top:1px solid rgba(25,32,37,.055)!important;
-  border-left:1px solid rgba(25,32,37,.045)!important;
+  border-top:1px solid rgba(25,32,37,.05)!important;
+  border-left:1px solid rgba(25,32,37,.04)!important;
   transform:skewX(-12deg)!important;
-  background:linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.28))!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.24))!important;
 }
+
 .pf-home-projects .pf-project-thumb-grid{
   position:absolute!important;
   inset:0!important;
   z-index:0!important;
-  opacity:.60!important;
+  opacity:.48!important;
   background-image:
-    linear-gradient(rgba(35,42,48,.032) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(35,42,48,.032) 1px,transparent 1px)!important;
+    linear-gradient(rgba(35,42,48,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(35,42,48,.03) 1px,transparent 1px)!important;
   background-size:32px 32px!important;
-  mask-image:linear-gradient(145deg,#000 0 72%,transparent 100%)!important;
+  mask-image:linear-gradient(145deg,#000 0 68%,transparent 100%)!important;
 }
 
 .pf-home-projects .pf-project-thumb-content{
   position:absolute!important;
-  inset:auto 26px 26px 26px!important;
+  left:22px!important;
+  right:22px!important;
+  bottom:22px!important;
+  top:auto!important;
   z-index:2!important;
   width:auto!important;
-  max-width:calc(100% - 52px)!important;
+  max-width:none!important;
   min-width:0!important;
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:flex-start!important;
-  gap:9px!important;
+  margin:0!important;
+  padding:0!important;
+  display:grid!important;
+  grid-template-rows:auto auto auto!important;
+  align-content:end!important;
+  justify-items:start!important;
+  row-gap:7px!important;
 }
+
 .pf-home-projects .pf-project-thumb-content small{
-  order:0!important;
+  display:block!important;
   margin:0!important;
   padding:0!important;
   color:rgba(29,35,40,.54)!important;
@@ -126,34 +150,37 @@
   font-weight:600!important;
   letter-spacing:.025em!important;
 }
+
 .pf-home-projects .pf-project-thumb-content strong{
-  order:1!important;
+  display:-webkit-box!important;
   margin:0!important;
   padding:0!important;
   max-width:100%!important;
+  min-width:0!important;
   color:#15191d!important;
-  font-size:clamp(25px,1.9vw,34px)!important;
+  font-size:clamp(21px,1.65vw,28px)!important;
   line-height:1.04!important;
   font-weight:600!important;
-  letter-spacing:-.035em!important;
+  letter-spacing:-.032em!important;
+  overflow:hidden!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
   text-wrap:balance!important;
-  overflow-wrap:break-word!important;
+  overflow-wrap:anywhere!important;
 }
+
 .pf-home-projects .pf-project-thumb-content b{
-  order:2!important;
   margin:1px 0 0!important;
   padding:6px 9px!important;
   border-radius:999px!important;
-  background:rgba(255,255,255,.70)!important;
-  border:1px solid rgba(255,255,255,.78)!important;
+  background:rgba(255,255,255,.72)!important;
+  border:1px solid rgba(255,255,255,.80)!important;
   color:#687078!important;
   font-size:7px!important;
   line-height:1!important;
   font-weight:600!important;
   letter-spacing:.08em!important;
   text-transform:uppercase!important;
-  backdrop-filter:blur(10px)!important;
-  -webkit-backdrop-filter:blur(10px)!important;
 }
 
 .pf-home-projects .pf-project-thumb.tone-forest{background:linear-gradient(145deg,#edf5f0,#dceae2)!important}
@@ -170,8 +197,9 @@
   display:grid!important;
   grid-template-columns:minmax(0,1fr) auto!important;
   align-items:center!important;
-  column-gap:16px!important;
+  column-gap:14px!important;
 }
+
 .pf-home-projects .pf-project-signal{
   min-width:0!important;
   display:flex!important;
@@ -186,6 +214,7 @@
   text-overflow:ellipsis!important;
 }
 .pf-home-projects .pf-project-signal i{flex:0 0 6px!important;width:6px!important;height:6px!important}
+
 .pf-home-projects .pf-featured-project-card>footer button{
   justify-self:end!important;
   height:36px!important;
@@ -196,7 +225,7 @@
   white-space:nowrap!important;
 }
 
-/* Workflow connector: one moving arrow between each adjacent stage. */
+/* Workflow connector: one moving relationship between adjacent stages. */
 .pf-home .pf-system-arrow{
   right:-29px!important;
   width:36px!important;
@@ -227,14 +256,15 @@
 @keyframes pfPolishArrow{0%{left:-10px;opacity:0}20%{opacity:.45}52%{opacity:1}84%{opacity:.55}100%{left:36px;opacity:0}}
 
 @media(max-width:1180px){
-  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:span 6!important;min-height:410px!important}
+  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:span 6!important}
   .pf-home-projects .pf-featured-project-card:nth-child(5){grid-column:1/-1!important}
 }
 
 @media(max-width:760px){
-  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:1/-1!important;min-height:390px!important}
-  .pf-home-projects .pf-project-thumb-content{inset:auto 22px 22px 22px!important;max-width:calc(100% - 44px)!important}
-  .pf-home-projects .pf-project-thumb-content strong{font-size:28px!important}
+  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-column:1/-1!important}
+  .pf-home-projects .pf-project-thumb{height:220px!important;min-height:220px!important;max-height:220px!important}
+  .pf-home-projects .pf-featured-project-card,.pf-home-projects .pf-featured-project-card:nth-child(n){grid-template-rows:22px 220px 40px!important}
+  .pf-home-projects .pf-project-thumb-content strong{font-size:26px!important}
   .pf-home .pf-system-arrow{display:none!important}
 }
 
