@@ -7,9 +7,12 @@ const UI_KEY = "phongflow-overview-layout-ui-v1";
 function readUi() {
   try {
     const value = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
-    return { size: Number(value.size) || 88, mode: value.mode || "balanced" };
+    return {
+      size: Number(value.size) || 88,
+      split: value.split || "keep",
+    };
   } catch {
-    return { size: 88, mode: "balanced" };
+    return { size: 88, split: "keep" };
   }
 }
 
@@ -27,6 +30,10 @@ function lineFor(stage, code) {
   return Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).find((node) => node.dataset.unitCode === code) || null;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 export default function OverviewLayoutPresetRuntime() {
   useEffect(() => {
     let stage = null;
@@ -34,8 +41,6 @@ export default function OverviewLayoutPresetRuntime() {
     let control = null;
     let observer = null;
     let ui = readUi();
-    const MODES = ["balanced", "left-heavy", "right-heavy", "natural"];
-    const LABELS = { balanced: "Balanced", "left-heavy": "Left+", "right-heavy": "Right+", natural: "Natural" };
 
     function cards() {
       return stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
@@ -81,6 +86,25 @@ export default function OverviewLayoutPresetRuntime() {
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
     }
 
+    function nearestCardEdge(card, anchorX, anchorY) {
+      const left = card.offsetLeft;
+      const top = card.offsetTop;
+      const right = left + card.offsetWidth;
+      const bottom = top + card.offsetHeight;
+      const cx = left + card.offsetWidth / 2;
+      const cy = top + card.offsetHeight / 2;
+      const candidates = [
+        { x: left, y: cy },
+        { x: right, y: cy },
+        { x: cx, y: top },
+        { x: cx, y: bottom },
+      ];
+      return candidates.reduce((best, point) => {
+        const distance = (point.x - anchorX) ** 2 + (point.y - anchorY) ** 2;
+        return !best || distance < best.distance ? { ...point, distance } : best;
+      }, null);
+    }
+
     function updateConnectors() {
       if (!stage) return;
       const w = stage.clientWidth || 1;
@@ -90,33 +114,20 @@ export default function OverviewLayoutPresetRuntime() {
         const line = lineFor(stage, code);
         const anchor = anchorFor(stage, code);
         if (!line || !anchor) return;
-        line.setAttribute("x1", String(((card.offsetLeft + card.offsetWidth / 2) / w) * 100));
-        line.setAttribute("y1", String(((card.offsetTop + card.offsetHeight / 2) / h) * 100));
-        line.setAttribute("x2", String(Number.parseFloat(anchor.style.left || "50")));
-        line.setAttribute("y2", String(Number.parseFloat(anchor.style.top || "50")));
+        const anchorPctX = Number.parseFloat(anchor.style.left || "50");
+        const anchorPctY = Number.parseFloat(anchor.style.top || "50");
+        const anchorX = (anchorPctX / 100) * w;
+        const anchorY = (anchorPctY / 100) * h;
+        const edge = nearestCardEdge(card, anchorX, anchorY);
+        line.setAttribute("x1", String((edge.x / w) * 100));
+        line.setAttribute("y1", String((edge.y / h) * 100));
+        line.setAttribute("x2", String(anchorPctX));
+        line.setAttribute("y2", String(anchorPctY));
       });
     }
 
-    function splitCount(items) {
-      const n = items.length;
-      if (n < 2) return n;
-      if (ui.mode === "left-heavy") return Math.min(n - 1, Math.ceil(n * 0.62));
-      if (ui.mode === "right-heavy") return Math.max(1, Math.floor(n * 0.38));
-      if (ui.mode === "natural") {
-        const natural = items.filter((item) => item.x <= 50).length;
-        return Math.max(1, Math.min(n - 1, natural || Math.ceil(n / 2)));
-      }
-      return Math.ceil(n / 2);
-    }
-
-    function arrange() {
-      if (!stage) return;
-      applySize();
-      const all = cards();
-      if (!all.length) return;
-      const w = stage.clientWidth || 1;
-      const h = stage.clientHeight || 1;
-      const items = all.map((card) => {
+    function itemsForLayout() {
+      return cards().map((card) => {
         const code = codeFor(card);
         const anchor = anchorFor(stage, code);
         return {
@@ -125,27 +136,66 @@ export default function OverviewLayoutPresetRuntime() {
           anchor,
           x: Number.parseFloat(anchor?.style.left || "50"),
           y: Number.parseFloat(anchor?.style.top || "50"),
+          currentX: card.offsetLeft + card.offsetWidth / 2,
         };
       });
-      const ordered = [...items].sort((a, b) => a.x - b.x);
-      const leftCount = splitCount(ordered);
-      const left = ordered.slice(0, leftCount).sort((a, b) => a.y - b.y);
-      const right = ordered.slice(leftCount).sort((a, b) => a.y - b.y);
+    }
 
-      const insetX = Math.max(34, Math.round(w * 0.055));
-      const insetY = Math.max(20, Math.round(h * 0.035));
-      const sampleW = all[0].offsetWidth || 190;
+    function splitItems(items) {
+      const w = stage?.clientWidth || 1;
+      if (ui.split === "keep") {
+        let left = items.filter((item) => item.currentX < w / 2);
+        let right = items.filter((item) => item.currentX >= w / 2);
+        if (!left.length || !right.length) {
+          const half = Math.ceil(items.length / 2);
+          const ordered = [...items].sort((a, b) => a.x - b.x);
+          left = ordered.slice(0, half);
+          right = ordered.slice(half);
+        }
+        return { left, right };
+      }
+
+      if (ui.split === "auto") {
+        const left = items.filter((item) => item.x <= 50);
+        const right = items.filter((item) => item.x > 50);
+        if (left.length && right.length) return { left, right };
+      }
+
+      const requested = Number(ui.split);
+      const leftCount = Number.isFinite(requested)
+        ? clamp(Math.round(requested), 1, Math.max(1, items.length - 1))
+        : Math.ceil(items.length / 2);
+      const ordered = [...items].sort((a, b) => a.x - b.x);
+      return { left: ordered.slice(0, leftCount), right: ordered.slice(leftCount) };
+    }
+
+    function tidy() {
+      if (!stage) return;
+      applySize();
+      const all = cards();
+      if (!all.length) return;
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+      const items = itemsForLayout();
+      let { left, right } = splitItems(items);
+      left = [...left].sort((a, b) => a.y - b.y);
+      right = [...right].sort((a, b) => a.y - b.y);
+
+      const insetX = Math.max(36, Math.round(w * 0.06));
+      const insetY = Math.max(18, Math.round(h * 0.035));
 
       function place(list, side) {
         if (!list.length) return;
-        const heights = list.map(({ card }) => card.offsetHeight || 220);
-        const total = heights.reduce((sum, value) => sum + value, 0);
-        const gap = list.length > 1 ? Math.max(8, (h - insetY * 2 - total) / (list.length - 1)) : 0;
+        const heights = list.map(({ card }) => card.offsetHeight || 160);
+        const totalHeight = heights.reduce((sum, value) => sum + value, 0);
+        const available = Math.max(0, h - insetY * 2 - totalHeight);
+        const gap = list.length > 1 ? Math.max(6, available / (list.length - 1)) : 0;
         let top = list.length === 1 ? (h - heights[0]) / 2 : insetY;
+
         list.forEach(({ card }, index) => {
-          const cardW = card.offsetWidth || sampleW;
-          const leftPx = side === "left" ? insetX : Math.max(insetX, w - insetX - cardW);
-          card.style.left = `${leftPx}px`;
+          const cardW = card.offsetWidth || 180;
+          const x = side === "left" ? insetX : Math.max(insetX, w - insetX - cardW);
+          card.style.left = `${x}px`;
           card.style.right = "auto";
           card.style.top = `${top}px`;
           card.dataset.pfAutoSide = side;
@@ -158,15 +208,9 @@ export default function OverviewLayoutPresetRuntime() {
       persistLayout();
       updateConnectors();
       localStorage.setItem(UI_KEY, JSON.stringify(ui));
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length, mode: ui.mode } }));
-    }
-
-    function cycleLayout() {
-      const index = MODES.indexOf(ui.mode);
-      ui.mode = MODES[(index + 1) % MODES.length];
-      const button = control?.querySelector('[data-layout-ui="cycle"]');
-      if (button) button.textContent = `Layout · ${LABELS[ui.mode]}`;
-      arrange();
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", {
+        detail: { left: left.length, right: right.length, mode: "tidy", split: ui.split },
+      }));
     }
 
     function installExportMenu() {
@@ -191,6 +235,22 @@ export default function OverviewLayoutPresetRuntime() {
       png.before(wrap);
     }
 
+    function syncSplitOptions(select) {
+      if (!select || !stage) return;
+      const count = cards().length;
+      const previous = ui.split;
+      select.innerHTML = `<option value="keep">Keep sides</option><option value="auto">Auto by lot</option>`;
+      for (let left = 1; left < count; left += 1) {
+        const option = document.createElement("option");
+        option.value = String(left);
+        option.textContent = `${left}L / ${count - left}R`;
+        select.appendChild(option);
+      }
+      const valid = Array.from(select.options).some((option) => option.value === String(previous));
+      if (!valid) ui.split = "keep";
+      select.value = String(ui.split);
+    }
+
     function install() {
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       const nextRail = document.querySelector(".pf-overview-control-rail");
@@ -205,12 +265,19 @@ export default function OverviewLayoutPresetRuntime() {
         control = document.createElement("div");
         control.className = "pf-card-layout-control";
         control.innerHTML = `
-          <label><span>Card size</span><input data-layout-ui="size" type="range" min="45" max="115" step="1"><output></output></label>
-          <button type="button" data-layout-ui="cycle">Layout · ${LABELS[ui.mode]}</button>`;
+          <label class="pf-card-size-field"><span>Card size</span><input data-layout-ui="size" type="range" min="45" max="115" step="1"><output></output></label>
+          <div class="pf-layout-tidy-control">
+            <span>Layout</span>
+            <select data-layout-ui="split" title="Choose how cards are divided left and right"></select>
+            <button type="button" data-layout-ui="tidy" title="Keep your left/right choice, then align and distribute cards">Tidy</button>
+          </div>`;
         const input = control.querySelector('[data-layout-ui="size"]');
         const output = control.querySelector("output");
+        const split = control.querySelector('[data-layout-ui="split"]');
         input.value = String(Math.max(45, Math.min(115, ui.size)));
         output.textContent = `${input.value}%`;
+        syncSplitOptions(split);
+
         input.addEventListener("input", () => {
           ui.size = Number(input.value) || 88;
           output.textContent = `${ui.size}%`;
@@ -219,8 +286,15 @@ export default function OverviewLayoutPresetRuntime() {
           localStorage.setItem(UI_KEY, JSON.stringify(ui));
         });
         input.addEventListener("change", persistLayout);
-        control.querySelector('[data-layout-ui="cycle"]').addEventListener("click", cycleLayout);
+        split.addEventListener("change", () => {
+          ui.split = split.value;
+          localStorage.setItem(UI_KEY, JSON.stringify(ui));
+        });
+        control.querySelector('[data-layout-ui="tidy"]').addEventListener("click", tidy);
         rail.appendChild(control);
+      } else {
+        syncSplitOptions(control.querySelector('[data-layout-ui="split"]'));
+        updateConnectors();
       }
     }
 
@@ -228,9 +302,11 @@ export default function OverviewLayoutPresetRuntime() {
     observer = new MutationObserver(install);
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("pf-overview-live-units-ready", install);
+    window.addEventListener("pf-overview-auto-arranged", updateConnectors);
     return () => {
       observer?.disconnect();
       window.removeEventListener("pf-overview-live-units-ready", install);
+      window.removeEventListener("pf-overview-auto-arranged", updateConnectors);
       control?.remove();
     };
   }, []);
