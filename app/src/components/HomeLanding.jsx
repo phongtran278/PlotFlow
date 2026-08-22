@@ -4,18 +4,18 @@ import "./HomeLanding.css";
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
 
 const PROJECTS = [
-  { id: "vhspark", name: "Vinhomes Green Paradise · Saigon Park", developer: "Vinhomes", location: "TP.HCM", status: "active", note: "Active workspace" },
-  { id: "vh-grand-park", name: "Vinhomes Grand Park", developer: "Vinhomes", location: "TP.HCM", status: "soon", note: "Reference queue" },
-  { id: "vh-op2", name: "Vinhomes Ocean Park 2", developer: "Vinhomes", location: "Hưng Yên", status: "soon", note: "Reference queue" },
-  { id: "vh-op3", name: "Vinhomes Ocean Park 3", developer: "Vinhomes", location: "Hưng Yên", status: "soon", note: "Reference queue" },
-  { id: "global-city", name: "The Global City", developer: "Masterise", location: "TP.HCM", status: "soon", note: "Reference queue" },
-  { id: "masteri-centre-point", name: "Masteri Centre Point", developer: "Masterise", location: "TP.HCM", status: "soon", note: "Reference queue" },
-  { id: "lumiere-riverside", name: "LUMIÈRE Riverside", developer: "Masterise", location: "TP.HCM", status: "soon", note: "Reference queue" },
-  { id: "celadon-city", name: "Celadon City", developer: "Gamuda", location: "TP.HCM", status: "soon", note: "Reference queue" },
-  { id: "eaton-park", name: "Eaton Park", developer: "Gamuda", location: "TP.HCM", status: "soon", note: "Reference queue" },
-  { id: "elysian", name: "Elysian", developer: "Gamuda", location: "TP.HCM", status: "soon", note: "Reference queue" },
-  { id: "waterpoint", name: "Waterpoint", developer: "Nam Long", location: "Long An", status: "soon", note: "Reference queue" },
-  { id: "mizuki-park", name: "Mizuki Park", developer: "Nam Long", location: "TP.HCM", status: "soon", note: "Reference queue" },
+  { id: "vhspark", name: "Vinhomes Green Paradise · Saigon Park", developer: "Vinhomes", location: "TP.HCM", status: "active", signal: "Active workspace", featured: true },
+  { id: "global-city", name: "The Global City", developer: "Masterise", location: "TP.HCM", status: "hot", signal: "Hot right now", featured: true },
+  { id: "eaton-park", name: "Eaton Park", developer: "Gamuda", location: "TP.HCM", status: "launching", signal: "Sắp mở bán", featured: true },
+  { id: "vh-grand-park", name: "Vinhomes Grand Park", developer: "Vinhomes", location: "TP.HCM", status: "hot", signal: "Featured", featured: true },
+  { id: "waterpoint", name: "Waterpoint", developer: "Nam Long", location: "Long An", status: "launching", signal: "Sắp mở bán", featured: true },
+  { id: "vh-op2", name: "Vinhomes Ocean Park 2", developer: "Vinhomes", location: "Hưng Yên", status: "soon", signal: "Reference queue" },
+  { id: "vh-op3", name: "Vinhomes Ocean Park 3", developer: "Vinhomes", location: "Hưng Yên", status: "soon", signal: "Reference queue" },
+  { id: "masteri-centre-point", name: "Masteri Centre Point", developer: "Masterise", location: "TP.HCM", status: "soon", signal: "Coming soon" },
+  { id: "lumiere-riverside", name: "LUMIÈRE Riverside", developer: "Masterise", location: "TP.HCM", status: "soon", signal: "Reference queue" },
+  { id: "celadon-city", name: "Celadon City", developer: "Gamuda", location: "TP.HCM", status: "soon", signal: "Coming soon" },
+  { id: "elysian", name: "Elysian", developer: "Gamuda", location: "TP.HCM", status: "soon", signal: "Reference queue" },
+  { id: "mizuki-park", name: "Mizuki Park", developer: "Nam Long", location: "TP.HCM", status: "soon", signal: "Reference queue" },
 ];
 
 const FAQ = [
@@ -57,8 +57,10 @@ export default function HomeLanding({ onOpenProject }) {
   const [filter, setFilter] = useState("All");
   const [feedback, setFeedback] = useState("");
   const [openFaq, setOpenFaq] = useState(0);
+  const [projectLibraryOpen, setProjectLibraryOpen] = useState(false);
   const developers = ["All", "Vinhomes", "Masterise", "Gamuda", "Nam Long"];
 
+  const featuredProjects = PROJECTS.filter((project) => project.featured).slice(0, 5);
   const filtered = useMemo(() => (
     filter === "All" ? PROJECTS : PROJECTS.filter((project) => project.developer === filter)
   ), [filter]);
@@ -93,7 +95,7 @@ export default function HomeLanding({ onOpenProject }) {
         <section className="pf-home-hero" id="product">
           <div className="pf-home-hero-copy">
             <div className="pf-home-eyebrow"><i /> Real-estate design operations</div>
-            <h1>Make the repetitive <em>disappear.</em><br />Keep the design.</h1>
+            <h1><span>Make the repetitive</span><em>disappear.</em><span>Keep the design.</span></h1>
             <p>PlotFlow được xây cho một công việc rất cụ thể: đưa dữ liệu bán hàng bất động sản đi từ spreadsheet và masterplan tới artwork hoàn chỉnh — nhanh hơn, nhất quán hơn, nhưng vẫn để designer giữ quyền quyết định.</p>
             <div className="pf-home-hero-actions">
               <button type="button" onClick={onOpenProject}>Open PlotFlow <span>→</span></button>
@@ -168,26 +170,25 @@ export default function HomeLanding({ onOpenProject }) {
         </section>
 
         <section className="pf-home-projects" id="projects">
-          <div className="pf-home-section-head compact">
-            <span>PROJECT LIBRARY</span>
-            <h2>One system. <em>Many project worlds.</em></h2>
-            <p>Workspace active là nơi PlotFlow đang được kiểm thử sâu. Danh sách còn lại thể hiện hướng mở rộng của project system — cùng một nền vận hành, dữ liệu và asset khác nhau.</p>
-          </div>
-          <div className="pf-home-project-toolbar">
-            <div className="pf-home-filters" role="group" aria-label="Filter projects by developer">
-              {developers.map((item) => <button type="button" key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}
+          <div className="pf-home-section-head compact pf-featured-project-heading">
+            <div>
+              <span>FEATURED PROJECTS</span>
+              <h2>A few projects worth <em>watching now.</em></h2>
+              <p>Home chỉ ưu tiên những project đang active, đang được quan tâm hoặc sắp bước vào giai đoạn bán hàng. Toàn bộ library nằm trong một project space riêng để trang chủ luôn gọn.</p>
             </div>
-            <span>{filtered.length} projects</span>
+            <button type="button" className="pf-view-library" onClick={() => setProjectLibraryOpen(true)}>View all projects <span>↗</span></button>
           </div>
-          <div className="pf-home-project-table" role="table" aria-label="PlotFlow projects">
-            <div className="pf-home-project-row heading" role="row"><span>Project</span><span>Developer</span><span>Location</span><span>Status</span><span /></div>
-            {filtered.map((project, index) => (
-              <div className={`pf-home-project-row ${project.status}`} role="row" key={project.id}>
-                <div><i>{String(index + 1).padStart(2, "0")}</i><strong>{project.name}</strong><small>{project.note}</small></div>
-                <span>{project.developer}</span><span>{project.location}</span>
-                <span className="status"><i />{project.status === "active" ? "Active" : "Coming soon"}</span>
-                {project.status === "active" ? <button type="button" onClick={onOpenProject}>Open <b>↗</b></button> : <em>Limited</em>}
-              </div>
+
+          <div className="pf-featured-project-grid">
+            {featuredProjects.map((project, index) => (
+              <article className={`pf-featured-project-card ${project.status}`} key={project.id}>
+                <header><span>{String(index + 1).padStart(2, "0")}</span><em>{project.signal}</em></header>
+                <div><small>{project.developer} · {project.location}</small><h3>{project.name}</h3></div>
+                <footer>
+                  <span className="pf-project-signal"><i />{project.signal}</span>
+                  {project.status === "active" ? <button type="button" onClick={onOpenProject}>Open workspace <b>↗</b></button> : <button type="button" onClick={() => setProjectLibraryOpen(true)}>View in library <b>→</b></button>}
+                </footer>
+              </article>
             ))}
           </div>
         </section>
@@ -228,6 +229,7 @@ export default function HomeLanding({ onOpenProject }) {
       </main>
 
       <footer className="pf-home-footer">
+        <div className="pf-home-signature"><span>Personal note by Phong Trần</span><em>Đời lắm phong trần.</em></div>
         <div className="pf-home-footer-brand">PlotFlow</div>
         <div className="pf-home-footer-meta">
           <div><strong>Real-estate design operations.</strong><span>One focused workflow, deeply optimized.</span></div>
@@ -235,6 +237,31 @@ export default function HomeLanding({ onOpenProject }) {
           <div className="right"><span>Product preview</span><strong>2026</strong></div>
         </div>
       </footer>
+
+      {projectLibraryOpen && (
+        <div className="pf-project-library-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProjectLibraryOpen(false); }}>
+          <section className="pf-project-library" role="dialog" aria-modal="true" aria-label="Project library">
+            <header>
+              <div><span>PROJECT SPACE</span><h2>Browse the full library.</h2><p>Filter theo chủ đầu tư để tìm nhanh project cần xem. Home chỉ giữ featured projects; mọi thứ còn lại nằm ở đây.</p></div>
+              <button type="button" onClick={() => setProjectLibraryOpen(false)} aria-label="Close project library">×</button>
+            </header>
+            <div className="pf-project-library-filters" role="group" aria-label="Filter projects by developer">
+              {developers.map((item) => <button type="button" key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}
+              <span>{filtered.length} projects</span>
+            </div>
+            <div className="pf-project-library-list">
+              {filtered.map((project, index) => (
+                <article key={project.id} className={project.status}>
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <div><strong>{project.name}</strong><small>{project.developer} · {project.location}</small></div>
+                  <em>{project.signal}</em>
+                  {project.status === "active" ? <button type="button" onClick={onOpenProject}>Open <b>↗</b></button> : <button type="button" disabled>Coming soon</button>}
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
