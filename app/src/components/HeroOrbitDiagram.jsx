@@ -23,7 +23,7 @@ export default function HeroOrbitDiagram() {
       <div className="pf-human-core pf-liquid-glass">
         <span>HUMAN-CENTERED</span>
         <strong>Designer at the center.</strong>
-        <p>Human judgment stays in control.</p>
+        <p>Automation supports. You decide.</p>
       </div>
 
       <div className="pf-human-feature-field" aria-label="PlotFlow core capabilities">
