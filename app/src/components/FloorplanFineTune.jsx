@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditorV2.jsx";
 import "./UnifiedFloorplanEntry.css";
 import { assetLibrary } from "../data/assetLibrary";
@@ -103,7 +102,7 @@ export default function FloorplanFineTune({
     ? ({ ...DEFAULT_FLOORPLAN_VIEW, ...(initialView || {}) })
     : DEFAULT_FLOORPLAN_VIEW;
 
-  const posterAssets = useMemo(() => resolvePosterAssets(unit), [unit?.unitCode, unit?.houseModel, unit?.architectureLabel]);
+  const posterAssets = resolvePosterAssets(unit);
 
   async function saveComposition(view, overlay) {
     persistOverlay(code, overlay);
