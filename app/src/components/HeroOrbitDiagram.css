@@ -16,14 +16,17 @@
   pointer-events:none;
 }
 
-/* Each orbit is a quiet base stroke with one clearly moving highlight. */
 .pf-human-ring{
   position:absolute;
   display:block;
   border-radius:50%;
   box-sizing:border-box;
-  border:1px solid rgba(24,31,35,.05);
+  border:1px solid rgba(24,31,35,.055);
+  transform-origin:50% 50%;
+  will-change:transform;
 }
+
+/* A visible light arc + a tiny tracer move together, so rotation reads instantly. */
 .pf-human-ring::after{
   content:"";
   position:absolute;
@@ -31,29 +34,37 @@
   border-radius:50%;
   background:conic-gradient(
     from 0deg,
-    transparent 0 55%,
-    rgba(91,119,176,.08) 61%,
-    rgba(15,122,100,.28) 68%,
-    rgba(15,122,100,.95) 77%,
-    rgba(91,163,184,.58) 83%,
-    rgba(132,151,205,.18) 90%,
-    transparent 97% 100%
+    transparent 0 49%,
+    rgba(86,118,173,.06) 56%,
+    rgba(15,122,100,.20) 63%,
+    rgba(15,122,100,.92) 73%,
+    rgba(94,164,184,.62) 80%,
+    rgba(128,150,202,.16) 88%,
+    transparent 96% 100%
   );
   -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
   mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
-  filter:drop-shadow(0 0 6px rgba(15,122,100,.18));
-  will-change:transform;
+  filter:drop-shadow(0 0 7px rgba(15,122,100,.20));
+}
+.pf-human-ring::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-4px;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  transform:translateX(-50%);
+  background:rgba(15,122,100,.92);
+  box-shadow:0 0 0 4px rgba(15,122,100,.07),0 0 12px rgba(15,122,100,.22);
 }
 
-/* More air between rings so the composition reads from a distance. */
-.pf-human-ring-outer{width:100%;height:100%}
-.pf-human-ring-middle{width:66%;height:66%}
-.pf-human-ring-inner{width:34%;height:34%}
-.pf-human-ring-outer::after{animation:pfHumanArcCW 12.5s linear infinite}
-.pf-human-ring-middle::after{animation:pfHumanArcCCW 9.5s linear infinite;opacity:.84}
-.pf-human-ring-inner::after{animation:pfHumanArcCW 7.4s linear infinite;opacity:.72}
+.pf-human-ring-outer{width:100%;height:100%;animation:pfOrbitCW 15s linear infinite}
+.pf-human-ring-middle{width:66%;height:66%;animation:pfOrbitCCW 11.5s linear infinite}
+.pf-human-ring-inner{width:34%;height:34%;animation:pfOrbitCW 8.6s linear infinite}
+.pf-human-ring-middle::after,.pf-human-ring-middle::before{opacity:.82}
+.pf-human-ring-inner::after,.pf-human-ring-inner::before{opacity:.68}
 
-/* Two-line core only. No eyebrow label competing for space. */
 .pf-human-core{
   position:absolute;
   left:50%;
@@ -121,7 +132,6 @@
 .pf-human-feature>i{flex:0 0 5px;width:5px;height:5px;border-radius:50%;background:#0f7a64;box-shadow:0 0 0 4px rgba(15,122,100,.07)}
 .pf-human-feature strong{color:#1b2024;font-size:9px;line-height:1;font-weight:600;letter-spacing:-.012em}
 
-/* Primary messages are larger; supporting messages are quieter. */
 .pf-human-feature-locator{left:50%;top:-2%;min-height:43px;padding:0 18px;transform:translateX(-50%)}
 .pf-human-feature-locator strong{font-size:11px}
 .pf-human-feature-overview{right:-6%;top:27%;min-height:41px;padding:0 17px;transform:translateY(-50%)}
@@ -135,8 +145,8 @@
 .pf-human-feature-overview:hover,.pf-human-feature-override:hover{transform:translateY(calc(-50% - 2px))}
 .pf-human-feature-detail:hover,.pf-human-feature-export:hover{transform:translateY(-2px)}
 
-@keyframes pfHumanArcCW{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-@keyframes pfHumanArcCCW{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
+@keyframes pfOrbitCW{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes pfOrbitCCW{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
 
 @media(max-width:1180px){
   .pf-human-orbit{--orbit-size:min(100%,700px)}
@@ -163,6 +173,8 @@
 }
 
 @media(prefers-reduced-motion:reduce){
-  .pf-human-ring::after{animation:none!important}
+  .pf-human-ring-outer{animation-duration:38s}
+  .pf-human-ring-middle{animation-duration:34s}
+  .pf-human-ring-inner{animation-duration:30s}
   .pf-human-feature{transition:none!important}
 }
