@@ -1,8 +1,6 @@
 import "./ProjectCard.css";
 
-export default function ProjectCard({ project, index, onOpenProject, onOpenLibrary }) {
-  const isActive = project.status === "active";
-
+export default function ProjectCard({ project, index, onOpenLibrary }) {
   return (
     <article className={`pf-project-card pf-project-card--${project.status}`}>
       <header className="pf-project-card__header">
@@ -19,9 +17,9 @@ export default function ProjectCard({ project, index, onOpenProject, onOpenLibra
       </div>
 
       <footer className="pf-project-card__footer">
-        <button className="pf-project-card__action" type="button" onClick={isActive ? onOpenProject : onOpenLibrary}>
-          <span>{isActive ? "Open workspace" : "View in library"}</span>
-          <b aria-hidden="true">{isActive ? "↗" : "→"}</b>
+        <button className="pf-project-card__action" type="button" onClick={onOpenLibrary}>
+          <span>Open in library</span>
+          <b aria-hidden="true">→</b>
         </button>
       </footer>
     </article>
