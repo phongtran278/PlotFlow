@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditor.jsx";
+import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditorV2.jsx";
 import "./UnifiedFloorplanEntry.css";
 import { assetLibrary } from "../data/assetLibrary";
 import {
