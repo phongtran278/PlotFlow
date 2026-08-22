@@ -1,4 +1,5 @@
 import "./HeroOrbitDiagram.css";
+import "./HomeLandingPolish.css";
 
 const FEATURES = [
   { id: "locator", title: "Floorplan Locator" },
