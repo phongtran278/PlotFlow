@@ -4,6 +4,7 @@ import HeroOrbitDiagram from "./HeroOrbitDiagram.jsx";
 import ProjectCard from "./ProjectCard.jsx";
 import WorkflowFlow from "./WorkflowFlow.jsx";
 import FaqAccordion from "./FaqAccordion.jsx";
+import Button from "./Button.jsx";
 
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
 
@@ -76,7 +77,7 @@ export default function HomeLanding({ onOpenProject }) {
       <header className="pf-home-nav pf-liquid-glass">
         <a className="pf-home-brand" href="#top" aria-label="PlotFlow home">PlotFlow</a>
         <nav aria-label="Homepage sections"><a href="#product">Product</a><a href="#workflow">System</a><a href="#projects">Projects</a><a href="#faq">Why PlotFlow</a></nav>
-        <button type="button" className="pf-home-open" onClick={onOpenProject}>Open workspace <span>↗</span></button>
+        <Button variant="secondary" className="pf-home-open" onClick={onOpenProject}>Open workspace <span>↗</span></Button>
       </header>
 
       <main id="top">
@@ -87,7 +88,7 @@ export default function HomeLanding({ onOpenProject }) {
               <span className="pf-title-kicker">Make the</span><span className="pf-title-main">repetitive</span><em className="pf-title-accent">disappear.</em><span className="pf-title-secondary">Keep the</span><span className="pf-title-main pf-title-design">design.</span>
             </h1>
             <p>PlotFlow được xây cho một công việc rất cụ thể: đưa dữ liệu bán hàng bất động sản đi từ spreadsheet và masterplan tới artwork hoàn chỉnh — nhanh hơn, nhất quán hơn, nhưng vẫn để designer giữ quyền quyết định.</p>
-            <div className="pf-home-hero-actions"><button type="button" onClick={onOpenProject}>Open PlotFlow <span>→</span></button><a href="#workflow">See how the system works</a></div>
+            <div className="pf-home-hero-actions"><Button variant="primary" size="lg" onClick={onOpenProject}>Open PlotFlow <span>→</span></Button><a href="#workflow">See how the system works</a></div>
             <div className="pf-home-proof"><span><b>01</b> One data source</span><span><b>02</b> Human-in-the-loop</span><span><b>03</b> Overview + Detail</span></div>
           </div>
           <div className="pf-home-hero-visual"><HeroOrbitDiagram /></div>
@@ -103,7 +104,7 @@ export default function HomeLanding({ onOpenProject }) {
         </section>
 
         <section className="pf-home-projects" id="projects">
-          <div className="pf-home-section-head compact pf-featured-project-heading"><div><span>FEATURED PROJECTS</span><h2>A few projects worth <em>watching now.</em></h2><p>Home chỉ ưu tiên những project đang active, đang được quan tâm hoặc sắp bước vào giai đoạn bán hàng. Toàn bộ library nằm trong một project space riêng để trang chủ luôn gọn.</p></div><button type="button" className="pf-view-library" onClick={() => setProjectLibraryOpen(true)}>View all projects <span>↗</span></button></div>
+          <div className="pf-home-section-head compact pf-featured-project-heading"><div><span>FEATURED PROJECTS</span><h2>A few projects worth <em>watching now.</em></h2><p>Home chỉ ưu tiên những project đang active, đang được quan tâm hoặc sắp bước vào giai đoạn bán hàng. Toàn bộ library nằm trong một project space riêng để trang chủ luôn gọn.</p></div><Button variant="secondary" className="pf-view-library" onClick={() => setProjectLibraryOpen(true)}>View all projects <span>↗</span></Button></div>
           <div className="pf-project-card-grid">
             {featuredProjects.map((project, index) => <ProjectCard key={project.id} project={project} index={index} onOpenProject={onOpenProject} onOpenLibrary={() => setProjectLibraryOpen(true)} />)}
           </div>
@@ -114,12 +115,12 @@ export default function HomeLanding({ onOpenProject }) {
           <FaqAccordion items={FAQ} openIndex={openFaq} onToggle={setOpenFaq} />
         </section>
 
-        <section className="pf-home-feedback"><div><span>BUILD THE NEXT VERSION</span><h2>Shape what PlotFlow <em>becomes next.</em></h2><p>Nếu có một thao tác vẫn làm bạn mất nhịp, một feature còn thiếu, hay một chi tiết khiến workflow chưa đủ mượt — gửi thẳng cho Phong. Người gửi chỉ nhập và bấm gửi, không cần mở Gmail hay đăng nhập email.</p></div><div className="pf-home-feedback-box pf-liquid-glass"><label>What would make your workflow better?</label><textarea value={feedback} onChange={(event) => { setFeedback(event.target.value); if (sendStatus === "error") setSendStatus("idle"); }} placeholder="Tell me what feels slow, repetitive, unclear — or what you wish PlotFlow could do next…" rows={5} /><footer><small>{sendStatus === "sent" ? "✓ Feedback sent directly to Phong" : sendStatus === "error" ? "Could not send. Please try again." : "Direct feedback · no email login required"}</small><button type="button" onClick={sendFeedback} disabled={!feedback.trim() || sendStatus === "sending"}>{sendStatus === "sending" ? "Sending…" : sendStatus === "sent" ? "Sent ✓" : "Send feedback"}</button></footer></div></section>
+        <section className="pf-home-feedback"><div><span>BUILD THE NEXT VERSION</span><h2>Shape what PlotFlow <em>becomes next.</em></h2><p>Nếu có một thao tác vẫn làm bạn mất nhịp, một feature còn thiếu, hay một chi tiết khiến workflow chưa đủ mượt — gửi thẳng cho Phong. Người gửi chỉ nhập và bấm gửi, không cần mở Gmail hay đăng nhập email.</p></div><div className="pf-home-feedback-box pf-liquid-glass"><label>What would make your workflow better?</label><textarea value={feedback} onChange={(event) => { setFeedback(event.target.value); if (sendStatus === "error") setSendStatus("idle"); }} placeholder="Tell me what feels slow, repetitive, unclear — or what you wish PlotFlow could do next…" rows={5} /><footer><small>{sendStatus === "sent" ? "✓ Feedback sent directly to Phong" : sendStatus === "error" ? "Could not send. Please try again." : "Direct feedback · no email login required"}</small><Button variant="primary" size="sm" onClick={sendFeedback} disabled={!feedback.trim() || sendStatus === "sending"}>{sendStatus === "sending" ? "Sending…" : sendStatus === "sent" ? "Sent ✓" : "Send feedback"}</Button></footer></div></section>
       </main>
 
       <footer className="pf-home-footer"><div className="pf-home-signature"><span>Personal note by Phong Trần</span><em>Đời lắm phong trần.</em></div><div className="pf-home-footer-brand">PlotFlow</div><div className="pf-home-footer-meta"><div><strong>Real-estate design operations.</strong><span>One focused workflow, deeply optimized.</span></div><div><span>Product principle</span><strong>Automate repetition. Keep judgment human.</strong></div><div className="right"><span>Product preview</span><strong>2026</strong></div></div></footer>
 
-      {projectLibraryOpen && <div className="pf-project-library-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProjectLibraryOpen(false); }}><section className="pf-project-library pf-liquid-glass" role="dialog" aria-modal="true" aria-label="Project library"><header><div><span>PROJECT SPACE</span><h2>Browse the full library.</h2><p>Filter theo chủ đầu tư để tìm nhanh project cần xem. Home chỉ giữ featured projects; mọi thứ còn lại nằm ở đây.</p></div><button type="button" onClick={() => setProjectLibraryOpen(false)} aria-label="Close project library">×</button></header><div className="pf-project-library-filters" role="group" aria-label="Filter projects by developer">{developers.map((item) => <button type="button" key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}<span>{filtered.length} projects</span></div><div className="pf-project-library-list">{filtered.map((project, index) => <article key={project.id} className={project.status}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{project.name}</strong><small>{project.developer} · {project.location}</small></div><em>{project.signal}</em>{project.status === "active" ? <button type="button" onClick={onOpenProject}>Open <b>↗</b></button> : <button type="button" disabled>Coming soon</button>}</article>)}</div></section></div>}
+      {projectLibraryOpen && <div className="pf-project-library-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProjectLibraryOpen(false); }}><section className="pf-project-library pf-liquid-glass" role="dialog" aria-modal="true" aria-label="Project library"><header><div><span>PROJECT SPACE</span><h2>Browse the full library.</h2><p>Filter theo chủ đầu tư để tìm nhanh project cần xem. Home chỉ giữ featured projects; mọi thứ còn lại nằm ở đây.</p></div><Button variant="secondary" size="sm" iconOnly onClick={() => setProjectLibraryOpen(false)} aria-label="Close project library">×</Button></header><div className="pf-project-library-filters" role="group" aria-label="Filter projects by developer">{developers.map((item) => <Button variant={filter === item ? "selected" : "quiet"} size="sm" key={item} onClick={() => setFilter(item)}>{item}</Button>)}<span>{filtered.length} projects</span></div><div className="pf-project-library-list">{filtered.map((project, index) => <article key={project.id} className={project.status}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{project.name}</strong><small>{project.developer} · {project.location}</small></div><em>{project.signal}</em>{project.status === "active" ? <Button variant="primary" size="sm" onClick={onOpenProject}>Open <b>↗</b></Button> : <Button variant="secondary" size="sm" disabled>Coming soon</Button>}</article>)}</div></section></div>}
     </div>
   );
 }
