@@ -3,8 +3,8 @@ import { toPng } from "html-to-image";
 import "./OverviewZoomRuntime.css";
 
 const MIN_SCALE = 0.7;
-const MAX_SCALE = 12;
-const DEFAULT_FOCUS_SCALE = 4.5;
+const MAX_SCALE = 54;
+const DEFAULT_FOCUS_SCALE = 54;
 const STORAGE_KEY = "phongflow-overview-markup-v2";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 
