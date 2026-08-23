@@ -3,6 +3,7 @@ import "./ProductShell.css";
 import "./OverviewCallouts.css";
 import ProjectLanding from "./ProjectLanding.jsx";
 import WorkspaceNav from "./WorkspaceNav.jsx";
+import OverviewWorkspace from "./OverviewWorkspace.jsx";
 import { PROJECTS } from "./projectCatalog.js";
 
 const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Bàn giao thô"];
@@ -163,38 +164,15 @@ export default function ProductShell({ children, onExitWorkspace }) {
       )}
 
       {screen === "project" && mode === "overview" && (
-        <main className="pf-overview">
-          {project.masterplan && <div className="pf-overview-control-rail" aria-label="Overview editor controls" />}
-
-          <div className="pf-overview-layout pf-overview-layout-wide">
-            <section className="pf-masterplan-card">
-              <div className="pf-masterplan-head pf-masterplan-head-callouts">
-                <div><span>OVERVIEW</span><h1>{project.name}</h1></div>
-                <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
-                  {overviewGroups.map((group) => <button key={group} type="button" className={overviewGroup === group ? "active" : ""} onClick={() => setOverviewGroup(group)}>{group}</button>)}
-                </div>
-              </div>
-              <div className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`} data-overview-group={overviewGroup}>
-                {project.masterplan ? (
-                  <iframe className="pf-masterplan-pdf" title={`${project.name} masterplan`} src="/masterplan/masterplan.pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitH" />
-                ) : (
-                  <div className={`pf-project-overview-placeholder tone-${project.tone}`}><strong>{project.name}</strong><span>{project.developer}</span></div>
-                )}
-                {project.masterplan && sellUnits.length > 0 && visibleSellUnits.length === 0 && (
-                  <div className="pf-overview-coming"><strong>{overviewGroup}</strong><span>Không có căn nào thuộc đúng tiêu chuẩn bàn giao này trong file sell đang kết nối.</span></div>
-                )}
-                {project.masterplan && sellUnits.length === 0 && units.length === 0 && (
-                  <div className="pf-overview-coming"><strong>Chưa có dữ liệu căn thật</strong><span>Connect Sheet ở Detail. Overview sẽ đọc nguyên dữ liệu sell và không dùng dữ liệu demo.</span></div>
-                )}
-              </div>
-            </section>
-
-            <aside className="pf-overview-side pf-overview-guide">
-              <div className="pf-side-card"><span>LIVE DATA</span><strong>{sellUnits.length || units.length} unit thật</strong><p>Tab TCBG và card Overview lấy trực tiếp từ file sell đang kết nối.</p></div>
-              <div className="pf-side-card"><span>WORKFLOW</span><strong>Focus → Arrange → Style</strong><p>Định vị lô, tự dàn card trái/phải rồi tinh chỉnh style và highlight.</p></div>
-            </aside>
-          </div>
-        </main>
+        <OverviewWorkspace
+          project={project}
+          overviewGroups={overviewGroups}
+          overviewGroup={overviewGroup}
+          onOverviewGroup={setOverviewGroup}
+          sellUnits={sellUnits}
+          units={units}
+          visibleSellUnits={visibleSellUnits}
+        />
       )}
     </div>
   );
