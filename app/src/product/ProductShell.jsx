@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./ProductShell.css";
 import "./OverviewCallouts.css";
+import ProjectLanding from "./ProjectLanding.jsx";
 
 const PROJECTS = [
   { id: "vinhomes-saigon-park", code: "VSP", name: "Vinhomes Saigon Park", developer: "Vinhomes", location: "Hóc Môn, TP.HCM", status: "Active", tone: "sage", masterplan: true },
@@ -63,6 +64,7 @@ function WorkspaceNav({ screen, mode, onExitWorkspace, onProjects, onMode }) {
       <button type="button" className="pf-workspace-brand" onClick={onExitWorkspace} aria-label="Back to PlotFlow home">PlotFlow</button>
       <nav aria-label="Workspace navigation">
         <button type="button" className={screen === "home" ? "active" : ""} onClick={onProjects}>Projects</button>
+        {inProject && <button type="button" className={mode === "landing" ? "active" : ""} onClick={() => onMode("landing")}>Project</button>}
         {inProject && <button type="button" className={mode === "overview" ? "active" : ""} onClick={() => onMode("overview")}>Overview</button>}
         {inProject && <button type="button" className={mode === "detail" ? "active" : ""} onClick={() => onMode("detail")}>Detail</button>}
       </nav>
@@ -74,7 +76,7 @@ function WorkspaceNav({ screen, mode, onExitWorkspace, onProjects, onMode }) {
 export default function ProductShell({ children, onExitWorkspace }) {
   const [screen, setScreen] = useState("home");
   const [project, setProject] = useState(PROJECTS[0]);
-  const [mode, setMode] = useState("overview");
+  const [mode, setMode] = useState("landing");
   const [developer, setDeveloper] = useState("All developers");
   const [query, setQuery] = useState("");
   const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
@@ -93,10 +95,11 @@ export default function ProductShell({ children, onExitWorkspace }) {
   useEffect(() => {
     const detail = { screen, mode };
     document.body.classList.toggle("pf-product-home", screen === "home");
+    document.body.classList.toggle("pf-product-project", screen === "project" && mode === "landing");
     document.body.classList.toggle("pf-product-overview", screen === "project" && mode === "overview");
     document.body.classList.toggle("pf-product-detail", screen === "project" && mode === "detail");
     window.dispatchEvent(new CustomEvent("plotflow-product-view-changed", { detail }));
-    return () => document.body.classList.remove("pf-product-home", "pf-product-overview", "pf-product-detail");
+    return () => document.body.classList.remove("pf-product-home", "pf-product-project", "pf-product-overview", "pf-product-detail");
   }, [screen, mode]);
 
   const developers = useMemo(() => ["All developers", ...Array.from(new Set(PROJECTS.map((item) => item.developer)))], []);
@@ -126,7 +129,7 @@ export default function ProductShell({ children, onExitWorkspace }) {
   function openProject(nextProject) {
     setProject(nextProject);
     setScreen("project");
-    setMode("overview");
+    setMode("landing");
   }
 
   const detailVisible = screen === "project" && mode === "detail";
@@ -154,7 +157,7 @@ export default function ProductShell({ children, onExitWorkspace }) {
             <div className="pf-hub-stat">
               <strong>{PROJECTS.length}</strong>
               <span>projects in workspace</span>
-              <small>Overview ↔ Detail</small>
+              <small>Project → Overview → Detail</small>
             </div>
           </section>
 
@@ -181,6 +184,10 @@ export default function ProductShell({ children, onExitWorkspace }) {
             </div>
           </section>
         </main>
+      )}
+
+      {screen === "project" && mode === "landing" && (
+        <ProjectLanding project={project} onOverview={() => setMode("overview")} onDetail={() => setMode("detail")} />
       )}
 
       {screen === "project" && mode === "overview" && (
