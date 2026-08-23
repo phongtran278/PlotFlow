@@ -5,12 +5,14 @@ const UI_KEY = "plotflow-overview-precision-arrange-v2";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const LEGACY_LAYOUT_UI_KEY = "phongflow-overview-layout-ui-v1";
 const BASE_CARD_WIDTH = 192;
+const DEFAULT_CARD_WIDTH = 180;
+const DEFAULT_CARD_HEIGHT = 132;
 
 function readUi() {
   try {
-    return { cardWidth: 180, cardHeight: 100, scale: 100, gap: 12, constrain: true, ...(JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}) };
+    return { cardWidth: DEFAULT_CARD_WIDTH, cardHeight: DEFAULT_CARD_HEIGHT, scale: 100, gap: 14, constrain: true, ...(JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}) };
   } catch {
-    return { cardWidth: 180, cardHeight: 100, scale: 100, gap: 12, constrain: true };
+    return { cardWidth: DEFAULT_CARD_WIDTH, cardHeight: DEFAULT_CARD_HEIGHT, scale: 100, gap: 14, constrain: true };
   }
 }
 
@@ -85,8 +87,8 @@ export default function OverviewPrecisionArrangeRuntime() {
     function applyDimensionsTo(list, { width = null, height = null, ratio = null } = {}) {
       if (!list.length) return;
       list.forEach((card) => {
-        const currentWidth = card.offsetWidth || 180;
-        const currentHeight = card.offsetHeight || 100;
+        const currentWidth = card.offsetWidth || DEFAULT_CARD_WIDTH;
+        const currentHeight = card.offsetHeight || DEFAULT_CARD_HEIGHT;
         const nextWidth = ratio == null ? (width ?? currentWidth) : currentWidth * ratio;
         const nextHeight = ratio == null ? (height ?? currentHeight) : currentHeight * ratio;
         setCardSize(card, nextWidth, nextHeight);
@@ -203,16 +205,16 @@ export default function OverviewPrecisionArrangeRuntime() {
         const scale = panel.querySelector("[data-precision-scale]");
         const gap = panel.querySelector("[data-precision-gap]");
         const applyAll = panel.querySelector("[data-precision-all-size]");
-        width.value = String(clamp(ui.cardWidth, 64, 420));
-        height.value = String(clamp(ui.cardHeight || 100, 56, 420));
+        width.value = String(clamp(ui.cardWidth || DEFAULT_CARD_WIDTH, 64, 420));
+        height.value = String(clamp(ui.cardHeight || DEFAULT_CARD_HEIGHT, 56, 420));
         constrain.checked = ui.constrain !== false;
         ui.scale = clamp(ui.scale || 100, 10, 300);
         scale.value = String(ui.scale);
         gap.value = String(clamp(ui.gap, 0, 120));
 
         function currentRatio() {
-          const w = Math.max(1, Number(width.value) || ui.cardWidth || 180);
-          const h = Math.max(1, Number(height.value) || ui.cardHeight || 100);
+          const w = Math.max(1, Number(width.value) || ui.cardWidth || DEFAULT_CARD_WIDTH);
+          const h = Math.max(1, Number(height.value) || ui.cardHeight || DEFAULT_CARD_HEIGHT);
           return w / h;
         }
         let ratio = currentRatio();
