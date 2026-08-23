@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { logoCatalog } from "../data/assetCatalog.js";
 import "./OverviewAnnotationsRuntime.css";
 
-const PLAQUE_KEY = "plotflow-overview-map-plaque-v3";
+const PLAQUE_KEY = "plotflow-overview-map-plaque-v4";
 const BADGE_KEY = "plotflow-overview-unit-badges-v1";
 
 const DEFAULT_PLAQUE = {
@@ -11,9 +11,9 @@ const DEFAULT_PLAQUE = {
   subtitle: "Dòng sản phẩm xây sẵn",
   colorA: "#0f7a64",
   colorB: "#073f39",
-  left: 8,
-  top: 3,
-  width: 84,
+  left: 0,
+  top: 0,
+  width: 100,
   height: 13,
   titleSize: 18,
   subtitleSize: 10,
@@ -47,11 +47,22 @@ export default function OverviewAnnotationsRuntime() {
     let frame = 0;
     let attempts = 0;
     let camera = { scale: 1, tx: 0, ty: 0 };
+    let pdfBounds = null;
     let plaqueData = { ...DEFAULT_PLAQUE, ...readJson(PLAQUE_KEY, {}) };
     let badges = { ...readJson(BADGE_KEY, {}) };
 
     function selectedLogo() {
       return logoCatalog.find((item) => item.id === plaqueData.logoId) || logoCatalog.find((item) => item.id === DEFAULT_PLAQUE.logoId) || logoCatalog[0] || null;
+    }
+
+    function stagePdfBounds() {
+      if (!stage) return null;
+      const x = Number(stage.dataset.pfPdfX);
+      const y = Number(stage.dataset.pfPdfY);
+      const width = Number(stage.dataset.pfPdfWidth);
+      const height = Number(stage.dataset.pfPdfHeight);
+      if ([x, y, width, height].every(Number.isFinite) && width > 0 && height > 0) return { x, y, width, height };
+      return null;
     }
 
     function applyCamera() {
@@ -62,16 +73,26 @@ export default function OverviewAnnotationsRuntime() {
 
     function renderPlaque() {
       if (!plaque) return;
+      const bounds = pdfBounds || stagePdfBounds();
+      if (!bounds) {
+        plaque.hidden = true;
+        return;
+      }
+      plaque.hidden = false;
+      const leftPct = clamp(plaqueData.left, 0, 95, DEFAULT_PLAQUE.left) / 100;
+      const topPct = clamp(plaqueData.top, 0, 90, DEFAULT_PLAQUE.top) / 100;
+      const widthPct = clamp(plaqueData.width, 20, 100, DEFAULT_PLAQUE.width) / 100;
+      const heightPct = clamp(plaqueData.height, 7, 36, DEFAULT_PLAQUE.height) / 100;
       plaque.style.setProperty("--pf-plaque-a", plaqueData.colorA || DEFAULT_PLAQUE.colorA);
       plaque.style.setProperty("--pf-plaque-b", plaqueData.colorB || DEFAULT_PLAQUE.colorB);
       plaque.style.setProperty("--pf-plaque-title-size", `${clamp(plaqueData.titleSize, 10, 48, DEFAULT_PLAQUE.titleSize)}px`);
       plaque.style.setProperty("--pf-plaque-subtitle-size", `${clamp(plaqueData.subtitleSize, 7, 26, DEFAULT_PLAQUE.subtitleSize)}px`);
       plaque.style.setProperty("--pf-plaque-logo-size", `${clamp(plaqueData.logoSize, 36, 180, DEFAULT_PLAQUE.logoSize)}px`);
       plaque.style.setProperty("--pf-plaque-gap", `${clamp(plaqueData.gap, 0, 64, DEFAULT_PLAQUE.gap)}px`);
-      plaque.style.left = `${clamp(plaqueData.left, 0, 95, DEFAULT_PLAQUE.left)}%`;
-      plaque.style.top = `${clamp(plaqueData.top, 0, 90, DEFAULT_PLAQUE.top)}%`;
-      plaque.style.width = `${clamp(plaqueData.width, 20, 100, DEFAULT_PLAQUE.width)}%`;
-      plaque.style.height = `${clamp(plaqueData.height, 7, 36, DEFAULT_PLAQUE.height)}%`;
+      plaque.style.left = `${bounds.x + bounds.width * leftPct}px`;
+      plaque.style.top = `${bounds.y + bounds.height * topPct}px`;
+      plaque.style.width = `${Math.min(bounds.width - bounds.width * leftPct, bounds.width * widthPct)}px`;
+      plaque.style.height = `${bounds.height * heightPct}px`;
       plaque.dataset.font = plaqueData.font || "sans";
       plaque.dataset.contentAlign = plaqueData.contentAlign || "center";
       plaque.dataset.textAlign = plaqueData.textAlign || "left";
@@ -101,7 +122,7 @@ export default function OverviewAnnotationsRuntime() {
       editor.className = "pf-map-plaque-editor";
       const logoOptions = logoCatalog.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
       editor.innerHTML = `
-        <header><strong>Map banner</strong><small>Moves and zooms with the PDF</small></header>
+        <header><strong>Map banner</strong><small>Frame coordinates are relative to the PDF page</small></header>
         <label><span>Logo</span><select data-plaque="logoId">${logoOptions}</select></label>
         <label><span>Title</span><input data-plaque="title" type="text"></label>
         <label><span>Subtitle</span><input data-plaque="subtitle" type="text"></label>
@@ -173,6 +194,7 @@ export default function OverviewAnnotationsRuntime() {
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!nextStage) return false;
       stage = nextStage;
+      pdfBounds = stagePdfBounds() || pdfBounds;
       const layer = ensureAnnotationLayer();
       if (!plaque?.isConnected) {
         plaque = document.createElement("button");
@@ -181,8 +203,8 @@ export default function OverviewAnnotationsRuntime() {
         plaque.title = "Double-click to edit map banner";
         plaque.addEventListener("dblclick", (event) => { event.preventDefault(); event.stopPropagation(); openEditor(); });
         layer.appendChild(plaque);
-        renderPlaque();
       }
+      renderPlaque();
       applyBadges();
       return true;
     }
@@ -206,6 +228,12 @@ export default function OverviewAnnotationsRuntime() {
       if (Number.isFinite(detail.ty)) camera.ty = detail.ty;
       applyCamera();
     }
+    function onPdfBounds(event) {
+      const next = event.detail || {};
+      if (![next.x, next.y, next.width, next.height].every(Number.isFinite)) return;
+      pdfBounds = next;
+      renderPlaque();
+    }
     function onEditPlaque() { if (install()) openEditor(); }
     function onOutside(event) { if (editor?.isConnected && !editor.contains(event.target) && !plaque?.contains(event.target)) closeEditor(); }
     function onKey(event) { if (event.key === "Escape") closeEditor(); }
@@ -214,6 +242,7 @@ export default function OverviewAnnotationsRuntime() {
     window.addEventListener("pf-overview-unit-badge-set", onBadgeSet);
     window.addEventListener("pf-overview-edit-map-label", onEditPlaque);
     window.addEventListener("pf-overview-camera", onCamera);
+    window.addEventListener("pf-overview-pdf-bounds", onPdfBounds);
     document.addEventListener("pointerdown", onOutside, true);
     document.addEventListener("keydown", onKey, true);
     scheduleInstall();
@@ -224,6 +253,7 @@ export default function OverviewAnnotationsRuntime() {
       window.removeEventListener("pf-overview-unit-badge-set", onBadgeSet);
       window.removeEventListener("pf-overview-edit-map-label", onEditPlaque);
       window.removeEventListener("pf-overview-camera", onCamera);
+      window.removeEventListener("pf-overview-pdf-bounds", onPdfBounds);
       document.removeEventListener("pointerdown", onOutside, true);
       document.removeEventListener("keydown", onKey, true);
       closeEditor(); annotationLayer?.remove(); stage?.querySelectorAll(".pf-unit-card-badge").forEach((node) => node.remove());
