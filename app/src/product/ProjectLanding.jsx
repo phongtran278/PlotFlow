@@ -15,7 +15,7 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
   const landing = project.landing;
 
   return (
-    <main className="pf-project-landing">
+    <main className="pf-project-landing" data-tone={project.tone}>
       <section className="pf-project-landing-hero">
         <div className="pf-project-landing-hero-copy">
           <SectionLabel>PROJECT INTRODUCTION</SectionLabel>
@@ -26,7 +26,7 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
             <button type="button" className="quiet" onClick={onDetail}>Open design workspace</button>
           </div>
         </div>
-        <div className={`pf-project-landing-hero-media tone-${project.tone}`} aria-label="Project hero visual placeholder">
+        <div className="pf-project-landing-hero-media" aria-label="Project hero visual placeholder">
           <span>HERO VISUAL / PROJECT FILM</span>
           <b>{project.code}</b>
         </div>
