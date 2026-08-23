@@ -70,9 +70,11 @@ export default function ProductShell({ children }) {
   }, []);
 
   useEffect(() => {
+    const detail = { screen, mode };
     document.body.classList.toggle("pf-product-home", screen === "home");
     document.body.classList.toggle("pf-product-overview", screen === "project" && mode === "overview");
     document.body.classList.toggle("pf-product-detail", screen === "project" && mode === "detail");
+    window.dispatchEvent(new CustomEvent("plotflow-product-view-changed", { detail }));
     return () => document.body.classList.remove("pf-product-home", "pf-product-overview", "pf-product-detail");
   }, [screen, mode]);
 
