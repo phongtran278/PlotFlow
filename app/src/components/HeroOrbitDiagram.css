@@ -1,8 +1,10 @@
 .pf-human-orbit{
-  --orbit-size:clamp(600px,calc(100% + 72px),660px);
+  /* The orbit is container-bound. Never grow beyond the visual column: the old
+     calc(100% + 72px) relied on viewport/DPI luck and could be clipped on macOS. */
+  --orbit-size:min(100%,660px);
   position:relative;
   width:var(--orbit-size);
-  max-width:none;
+  max-width:660px;
   aspect-ratio:1/1;
   margin-inline:auto;
   isolation:isolate;
@@ -46,7 +48,7 @@
 @-webkit-keyframes pfOrbitCCW{from{-webkit-transform:rotate(360deg)}to{-webkit-transform:rotate(0deg)}}
 
 @media(max-width:1180px){
-  .pf-human-orbit{--orbit-size:clamp(520px,calc(100% + 40px),600px)}
+  .pf-human-orbit{--orbit-size:min(100%,576px);max-width:576px}
   .pf-human-core{width:190px}
   .pf-human-feature{min-height:33px;padding:0 12px}
   .pf-human-feature strong{font-size:8.4px}
