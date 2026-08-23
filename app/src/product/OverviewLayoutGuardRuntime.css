@@ -1,7 +1,13 @@
-.pf-overview-all-scale-control{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 9px;border:1px solid rgba(17,24,39,.12);border-radius:8px;background:#fff;color:#25313c;font:600 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif}
-.pf-overview-all-scale-control span{white-space:nowrap;color:#56616c}
-.pf-overview-all-scale-control input{width:52px;height:22px;padding:0 5px;border:1px solid rgba(17,24,39,.12);border-radius:6px;background:#f8fafb;color:#17212b;font:650 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif;text-align:right}
-.pf-overview-all-scale-control b{font-size:10px;color:#6c7680}
+.pf-overview-all-size-control{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border:1px solid rgba(17,24,39,.12);border-radius:8px;background:#fff;color:#25313c;font:600 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif}
+.pf-overview-all-size-control>span{white-space:nowrap;color:#56616c;margin-right:2px}
+.pf-overview-all-size-control label{display:inline-flex;align-items:center;gap:4px;color:#64707b;font-size:10px}
+.pf-overview-all-size-control input{width:48px;height:22px;padding:0 5px;border:1px solid rgba(17,24,39,.12);border-radius:6px;background:#f8fafb;color:#17212b;font:650 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif;text-align:right}
+.pf-overview-all-size-control b{font-size:9px;color:#7a838c}
+.pf-overview-all-size-control button{height:22px;padding:0 8px;border:0;border-radius:6px;background:#17212b;color:#fff;font:650 10px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif;cursor:pointer}
 .pf-precision-arrange label:has([data-precision-scale]){display:none!important}
 .pf-overview-groups{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));min-width:285px}
 .pf-overview-groups button{width:100%;padding-inline:10px!important}
+.pf-grid-snap-marker{position:absolute;z-index:31;pointer-events:none;border:1px solid #12a8ff;border-radius:4px;background:rgba(18,168,255,.16);box-shadow:0 0 0 2px rgba(18,168,255,.12),0 0 18px rgba(18,168,255,.26);animation:pf-grid-pulse .7s ease-in-out infinite alternate}
+article.pf-live-sales-callout.pf-grid-snap-candidate{outline:2px solid #12a8ff!important;outline-offset:4px!important;box-shadow:0 0 0 4px rgba(18,168,255,.11),0 10px 28px rgba(18,168,255,.18)!important}
+.pf-masterplan-stage.pf-grid-snap-flash .pf-overview-grid{filter:brightness(1.24);opacity:.95}
+@keyframes pf-grid-pulse{from{opacity:.55}to{opacity:1}}
