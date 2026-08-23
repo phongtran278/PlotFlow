@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./HeroOrbitDiagram.css";
 
 const FEATURES = [
@@ -34,6 +35,25 @@ function getClippingAncestors(node) {
     current = current.parentElement;
   }
   return items;
+}
+
+function OrbitDebugPanel({ debug }) {
+  if (!debug) return null;
+  return (
+    <aside className="pf-orbit-debug" aria-label="Hero orbit debug measurements">
+      <strong>ORBIT DEBUG · LIVE</strong>
+      <span>viewport {debug.viewport.innerWidth}×{debug.viewport.innerHeight} · vv {debug.viewport.visualWidth} · scale {debug.viewport.visualScale} · DPR {debug.viewport.dpr}</span>
+      <span>hero {debug.hero?.width}w · x {debug.hero?.x} → {debug.hero?.right}</span>
+      <span>visual {debug.visual?.width}w · x {debug.visual?.x} → {debug.visual?.right}</span>
+      <span>orbit {debug.orbit?.width}w · x {debug.orbit?.x} → {debug.orbit?.right} · gapR {debug.rightGap}</span>
+      <span>outer {debug.outerRing?.width}w · x {debug.outerRing?.x} → {debug.outerRing?.right} · gapR {debug.outerRightGap}</span>
+      <span>overflow main {debug.overflow.main}</span>
+      <span>overflow hero {debug.overflow.hero}</span>
+      <span>overflow visual {debug.overflow.visual}</span>
+      <span>overflow orbit {debug.overflow.orbit}</span>
+      <span>clippers {debug.clippingAncestors.length ? debug.clippingAncestors.join(" → ") : "none"}</span>
+    </aside>
+  );
 }
 
 export default function HeroOrbitDiagram() {
@@ -96,42 +116,29 @@ export default function HeroOrbitDiagram() {
   }, []);
 
   return (
-    <div ref={orbitRef} className="pf-human-orbit" aria-label="PlotFlow keeps the designer in control while automation handles repetitive production work">
-      <div className="pf-human-rings" aria-hidden="true">
-        <i className="pf-human-ring pf-human-ring-outer"><span className="pf-orbit-tracer" /></i>
-        <i className="pf-human-ring pf-human-ring-middle"><span className="pf-orbit-tracer" /></i>
-        <i className="pf-human-ring pf-human-ring-inner"><span className="pf-orbit-tracer" /></i>
-      </div>
+    <>
+      <div ref={orbitRef} className="pf-human-orbit" aria-label="PlotFlow keeps the designer in control while automation handles repetitive production work">
+        <div className="pf-human-rings" aria-hidden="true">
+          <i className="pf-human-ring pf-human-ring-outer"><span className="pf-orbit-tracer" /></i>
+          <i className="pf-human-ring pf-human-ring-middle"><span className="pf-orbit-tracer" /></i>
+          <i className="pf-human-ring pf-human-ring-inner"><span className="pf-orbit-tracer" /></i>
+        </div>
 
-      <div className="pf-human-core pf-liquid-glass">
-        <strong>Designer decides.</strong>
-        <p>PlotFlow handles the repetition.</p>
-      </div>
+        <div className="pf-human-core pf-liquid-glass">
+          <strong>Designer decides.</strong>
+          <p>PlotFlow handles the repetition.</p>
+        </div>
 
-      <div className="pf-human-feature-field" aria-label="PlotFlow core product value">
-        {FEATURES.map((feature) => (
-          <div className={`pf-human-feature pf-human-feature-${feature.id}`} key={feature.id}>
-            <i aria-hidden="true" />
-            <strong>{feature.title}</strong>
-          </div>
-        ))}
+        <div className="pf-human-feature-field" aria-label="PlotFlow core product value">
+          {FEATURES.map((feature) => (
+            <div className={`pf-human-feature pf-human-feature-${feature.id}`} key={feature.id}>
+              <i aria-hidden="true" />
+              <strong>{feature.title}</strong>
+            </div>
+          ))}
+        </div>
       </div>
-
-      {debug && (
-        <aside className="pf-orbit-debug" aria-label="Hero orbit debug measurements">
-          <strong>Orbit debug</strong>
-          <span>viewport {debug.viewport.innerWidth}×{debug.viewport.innerHeight} · vv {debug.viewport.visualWidth} · scale {debug.viewport.visualScale} · DPR {debug.viewport.dpr}</span>
-          <span>hero {debug.hero?.width}w · x {debug.hero?.x} → {debug.hero?.right}</span>
-          <span>visual {debug.visual?.width}w · x {debug.visual?.x} → {debug.visual?.right}</span>
-          <span>orbit {debug.orbit?.width}w · x {debug.orbit?.x} → {debug.orbit?.right} · gapR {debug.rightGap}</span>
-          <span>outer {debug.outerRing?.width}w · x {debug.outerRing?.x} → {debug.outerRing?.right} · gapR {debug.outerRightGap}</span>
-          <span>overflow main {debug.overflow.main}</span>
-          <span>overflow hero {debug.overflow.hero}</span>
-          <span>overflow visual {debug.overflow.visual}</span>
-          <span>overflow orbit {debug.overflow.orbit}</span>
-          <span>clippers {debug.clippingAncestors.length ? debug.clippingAncestors.join(" → ") : "none"}</span>
-        </aside>
-      )}
-    </div>
+      {typeof document !== "undefined" && createPortal(<OrbitDebugPanel debug={debug} />, document.body)}
+    </>
   );
 }
