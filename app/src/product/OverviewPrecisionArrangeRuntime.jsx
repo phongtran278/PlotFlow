@@ -12,17 +12,9 @@ function readUi() {
   }
 }
 
-function saveUi(value) {
-  localStorage.setItem(UI_KEY, JSON.stringify(value));
-}
-
-function codeFor(card) {
-  return card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code")?.textContent?.trim() || "";
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, Number(value) || 0));
-}
+function saveUi(value) { localStorage.setItem(UI_KEY, JSON.stringify(value)); }
+function codeFor(card) { return card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code")?.textContent?.trim() || ""; }
+function clamp(value, min, max) { return Math.max(min, Math.min(max, Number(value) || 0)); }
 
 export default function OverviewPrecisionArrangeRuntime() {
   useEffect(() => {
@@ -81,6 +73,18 @@ export default function OverviewPrecisionArrangeRuntime() {
       requestAnimationFrame(() => { persist(); updateConnectors(); });
     }
 
+    function syncLegacyGap(value) {
+      if (!rail) return;
+      const oldGap = rail.querySelector('.pf-card-layout-control [data-layout-ui="gap"]');
+      const oldLabel = oldGap?.closest("label");
+      if (oldLabel) oldLabel.hidden = true;
+      if (!oldGap) return;
+      const next = String(clamp(value, 0, 96));
+      if (oldGap.value === next) return;
+      oldGap.value = next;
+      oldGap.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
     function align(kind) {
       const list = selected();
       if (list.length < 2) return;
@@ -119,6 +123,7 @@ export default function OverviewPrecisionArrangeRuntime() {
       applyCardWidth();
       const oldSize = rail.querySelector('.pf-card-layout-control [data-layout-ui="size"]')?.closest("label");
       if (oldSize) oldSize.hidden = true;
+      syncLegacyGap(ui.gap);
       if (!panel?.isConnected) {
         panel = document.createElement("details");
         panel.className = "pf-precision-arrange";
@@ -136,7 +141,7 @@ export default function OverviewPrecisionArrangeRuntime() {
         width.value = String(clamp(ui.cardWidth, 72, 320));
         gap.value = String(clamp(ui.gap, 0, 120));
         width.addEventListener("input", () => { ui.cardWidth = Number(width.value) || 180; saveUi(ui); applyCardWidth(); });
-        gap.addEventListener("input", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); });
+        gap.addEventListener("input", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); syncLegacyGap(ui.gap); });
         panel.querySelectorAll("[data-align]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); align(button.dataset.align); }));
         panel.querySelector("[data-distribute]").addEventListener("click", (event) => { event.preventDefault(); equalGap(); });
         rail.appendChild(panel);
