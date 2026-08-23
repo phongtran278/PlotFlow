@@ -22,6 +22,7 @@ import LotTileRuntime from "./components/LotTileRuntime.jsx";
 import AuthGate from "./auth/AuthGate.jsx";
 import ProductShell from "./product/ProductShell.jsx";
 import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
+import DetailModeRecovery from "./product/DetailModeRecovery.jsx";
 import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
 import OverviewPdfRuntime from "./product/OverviewPdfRuntime.jsx";
 import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
@@ -39,6 +40,7 @@ import OverviewGuideRuntime from "./product/OverviewGuideRuntime.jsx";
 import OverviewLayoutGuardRuntime from "./product/OverviewLayoutGuardRuntime.jsx";
 import OverviewArrangeModesRuntime from "./product/OverviewArrangeModesRuntime.jsx";
 import OverviewInteractionRuntime from "./product/OverviewInteractionRuntime.jsx";
+import OverviewLayerRevealRuntime from "./product/OverviewLayerRevealRuntime.jsx";
 import OverviewUnitBadgeRuntime from "./product/OverviewUnitBadgeRuntime.jsx";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
@@ -79,6 +81,7 @@ function PlotFlowExperience() {
       <ProjectSettings />
       <PinScaleControl />
       <EmptyWorkspaceEnhancer />
+      <DetailModeRecovery />
       <OverviewZoomRuntime />
       <OverviewPdfRuntime />
       <OverviewExportRuntime />
@@ -95,6 +98,7 @@ function PlotFlowExperience() {
       <OverviewLayoutGuardRuntime />
       <OverviewArrangeModesRuntime />
       <OverviewInteractionRuntime />
+      <OverviewLayerRevealRuntime />
       <OverviewUnitBadgeRuntime />
     </ProductShell>
   );
