@@ -91,7 +91,7 @@
 .pf-hub-project-card:hover{transform:translateY(-3px);border-color:rgba(19,22,26,.12);box-shadow:0 22px 48px rgba(20,25,30,.07)}
 .pf-hub-project-media{position:relative;overflow:hidden;border:1px solid rgba(25,31,36,.05);border-radius:19px}
 .pf-hub-project-media::before{content:"";position:absolute;inset:0;background:linear-gradient(128deg,transparent 0 61%,rgba(255,255,255,.22) 61.2% 70%,transparent 70.2%),linear-gradient(154deg,transparent 0 76%,rgba(24,31,35,.018) 76.2% 81%,transparent 81.2%)}
-.pf-hub-project-grid{position:absolute;inset:0;opacity:.28;background-image:linear-gradient(rgba(35,42,48,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.026) 1px,transparent 1px);background-size:32px 32px}
+.pf-hub-project-media>.pf-hub-project-grid{position:absolute;inset:0;opacity:.28;background-image:linear-gradient(rgba(35,42,48,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.026) 1px,transparent 1px);background-size:32px 32px}
 .tone-sage{background:#dfe8dc}.tone-sea{background:#d9e9ee}.tone-sky{background:#dce7f7}.tone-sand{background:#eee5d7}.tone-mist{background:#e7e4eb}.tone-olive{background:#e4e7d7}.tone-peach{background:#f0dfd6}.tone-lake{background:#dce8e8}.tone-stone{background:#e3e3e0}.tone-mint{background:#dcebe3}.tone-clay{background:#eadfd9}.tone-forest{background:#dbe5d8}
 .pf-hub-project-body{min-width:0;display:grid;grid-template-rows:auto auto 1fr;gap:16px;padding:0 7px 5px}
 .pf-hub-project-meta{display:flex;align-items:center;justify-content:space-between;gap:16px}.pf-hub-project-meta>span{color:#a3a8ac;font-size:9px;font-weight:650;letter-spacing:.11em}.pf-hub-project-meta em{font-style:normal;color:var(--pf-brand-accent);font-size:7.5px;font-weight:650;letter-spacing:.08em;text-transform:uppercase}
