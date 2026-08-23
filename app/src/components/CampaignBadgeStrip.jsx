@@ -9,13 +9,13 @@ const DEFAULT_VISIBLE_HEIGHT = 156;
 const ALPHA_THRESHOLD = 8;
 
 const BADGES = [
-  { id: "hotdeal", name: "Hot Deal", src: "/assets/badges/hotdeal.png", enabled: false },
-  { id: "veosom", name: "Về ở sớm", src: "/assets/badges/veosom.png", enabled: false },
-  { id: "gold1", name: "Tặng 1 chỉ vàng", shortName: "1 chỉ vàng", src: "/assets/badges/1 chỉ.png", enabled: false },
-  { id: "gold3", name: "Tặng 3 chỉ vàng", shortName: "3 chỉ vàng", src: "/assets/badges/3 chỉ.png", enabled: false },
-  { id: "gold5", name: "Tặng 5 chỉ vàng", shortName: "5 chỉ vàng", src: "/assets/badges/5 chỉ.png", enabled: false },
-  { id: "gold6", name: "Tặng 6 chỉ vàng", shortName: "6 chỉ vàng", src: "/assets/badges/6 chỉ.png", enabled: false },
-  { id: "gold9", name: "Tặng 9 chỉ vàng", shortName: "9 chỉ vàng", src: "/assets/badges/9 chỉ.png", enabled: false },
+  { id: "hotdeal", name: "Hot Deal", src: "/assets/ui/badge_hotdeal.png", enabled: false },
+  { id: "veosom", name: "Về ở sớm", src: "/assets/ui/badge_veosom.png", enabled: false },
+  { id: "gold1", name: "Tặng 1 chỉ vàng", shortName: "1 chỉ vàng", src: "/assets/badges/1%20ch%E1%BB%89.png", enabled: false },
+  { id: "gold3", name: "Tặng 3 chỉ vàng", shortName: "3 chỉ vàng", src: "/assets/badges/3%20ch%E1%BB%89.png", enabled: false },
+  { id: "gold5", name: "Tặng 5 chỉ vàng", shortName: "5 chỉ vàng", src: "/assets/badges/5%20ch%E1%BB%89.png", enabled: false },
+  { id: "gold6", name: "Tặng 6 chỉ vàng", shortName: "6 chỉ vàng", src: "/assets/badges/6%20ch%E1%BB%89.png", enabled: false },
+  { id: "gold9", name: "Tặng 9 chỉ vàng", shortName: "9 chỉ vàng", src: "/assets/badges/9%20ch%E1%BB%89.png", enabled: false },
 ];
 
 const GOLD_IDS = BADGES.filter((badge) => badge.id.startsWith("gold")).map((badge) => badge.id);
@@ -117,6 +117,20 @@ function saveConfig(unitCode, config) {
   }
 }
 
+function fallbackBounds(image) {
+  if (!image?.naturalWidth || !image?.naturalHeight) return null;
+  return {
+    minX: 0,
+    minY: 0,
+    maxX: image.naturalWidth - 1,
+    maxY: image.naturalHeight - 1,
+    width: image.naturalWidth,
+    height: image.naturalHeight,
+    naturalWidth: image.naturalWidth,
+    naturalHeight: image.naturalHeight,
+  };
+}
+
 function measureVisibleBounds(image) {
   if (!image?.naturalWidth || !image?.naturalHeight) return null;
   const cached = pixelBoundsCache.get(image.src);
@@ -126,11 +140,11 @@ function measureVisibleBounds(image) {
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return null;
+  if (!ctx) return fallbackBounds(image);
   ctx.drawImage(image, 0, 0);
 
   let data;
-  try { data = ctx.getImageData(0, 0, canvas.width, canvas.height).data; } catch { return null; }
+  try { data = ctx.getImageData(0, 0, canvas.width, canvas.height).data; } catch { return fallbackBounds(image); }
 
   let minX = canvas.width;
   let minY = canvas.height;
@@ -147,7 +161,7 @@ function measureVisibleBounds(image) {
     }
   }
 
-  if (maxX < minX || maxY < minY) return null;
+  if (maxX < minX || maxY < minY) return fallbackBounds(image);
   const result = {
     minX, minY, maxX, maxY,
     width: maxX - minX + 1,
@@ -345,7 +359,7 @@ export default function CampaignBadgeStrip({
   function handleLoad(id, event) {
     const image = event.currentTarget;
     imageRefs.current[id] = image;
-    const bounds = measureVisibleBounds(image);
+    const bounds = measureVisibleBounds(image) || fallbackBounds(image);
     if (!bounds) return;
     setErrorById((prev) => ({ ...prev, [id]: false }));
     setBoundsById((prev) => ({ ...prev, [id]: bounds }));
@@ -379,7 +393,7 @@ export default function CampaignBadgeStrip({
       .map((item) => {
         const bounds = boundsById[item.id];
         const visibleHeight = config.visibleHeight * item.scale;
-        const renderScale = visibleHeight / bounds.height;
+        const renderScale = visibleHeight / Math.max(1, bounds.height);
         return { ...item, bounds, renderScale, visibleWidth: bounds.width * renderScale };
       });
 
