@@ -11,6 +11,9 @@ export default function OverviewWorkspace({
 }) {
   const liveUnitCount = sellUnits.length || units.length;
   const groupUnitCount = sellUnits.length ? visibleSellUnits.length : liveUnitCount;
+  const scopedInventoryLabel = groupUnitCount
+    ? `${groupUnitCount} / ${groupUnitCount} units loaded for ${overviewGroup}`
+    : "Waiting for inventory in this view";
 
   return (
     <main className="pf-overview">
@@ -22,8 +25,8 @@ export default function OverviewWorkspace({
         </div>
         <div className="pf-overview-summary" aria-label="Overview project summary">
           <div><span>STATUS</span><strong>{project.status}</strong></div>
-          <div><span>LIVE INVENTORY</span><strong>{liveUnitCount}</strong><small>units connected</small></div>
-          <div><span>VIEW</span><strong>{overviewGroup}</strong><small>{groupUnitCount} units in view</small></div>
+          <div><span>LIVE INVENTORY</span><strong>{groupUnitCount}</strong><small>{overviewGroup} in current view</small></div>
+          <div><span>VIEW</span><strong>{overviewGroup}</strong><small>{groupUnitCount} units in scope</small></div>
         </div>
       </header>
 
@@ -71,9 +74,9 @@ export default function OverviewWorkspace({
           <section className="pf-overview-context-card pf-overview-context-primary">
             <span>CURRENT VIEW</span>
             <strong>{overviewGroup}</strong>
-            <p>{groupUnitCount} unit đang nằm trong nhóm hiển thị hiện tại.</p>
-            <div className="pf-overview-context-meter"><i style={{ width: `${liveUnitCount ? Math.min(100, Math.max(8, (groupUnitCount / liveUnitCount) * 100)) : 8}%` }} /></div>
-            <small>{liveUnitCount ? `${groupUnitCount} / ${liveUnitCount} connected units` : "Waiting for connected inventory"}</small>
+            <p>{groupUnitCount} unit đang nằm trong đúng nhóm hiển thị hiện tại.</p>
+            <div className="pf-overview-context-meter"><i style={{ width: groupUnitCount ? "100%" : "8%" }} /></div>
+            <small>{scopedInventoryLabel}</small>
           </section>
 
           <section className="pf-overview-context-card pf-overview-context-note">
