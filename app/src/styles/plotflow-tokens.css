@@ -7,10 +7,14 @@
 
   --pf-bg-canvas: #f5f4f1;
   --pf-surface: #f8f9f7;
+  --pf-surface-raised: #ffffff;
+  --pf-surface-soft: #eeefeb;
   --pf-ink: #15171a;
   --pf-ink-2: #2b3035;
   --pf-muted: #737980;
+  --pf-muted-soft: #969ba0;
   --pf-line: rgba(19, 22, 26, 0.085);
+  --pf-line-soft: rgba(19, 22, 26, 0.05);
 
   --pf-font-sans: "IBM Plex Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --pf-font-serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
@@ -32,6 +36,10 @@
   --pf-radius-card: 18px;
   --pf-radius-panel: 22px;
   --pf-radius-pill: 999px;
+
+  /* Reusable elevation. Keep product pages on these before inventing local shadows. */
+  --pf-shadow-card: 0 16px 42px rgba(25, 31, 38, 0.06);
+  --pf-shadow-floating: 0 24px 70px rgba(20, 25, 30, 0.08);
 
   /* Liquid Glass: controlled, not a default treatment for every surface. */
   --pf-glass-fill: linear-gradient(138deg, rgba(255, 255, 255, 0.70), rgba(248, 250, 249, 0.42));
