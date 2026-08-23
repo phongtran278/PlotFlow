@@ -56,7 +56,7 @@ export default function OverviewWorkspace({
 
           <div className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`} data-overview-group={overviewGroup}>
             {project.masterplan ? (
-              <iframe className="pf-masterplan-pdf" title={`${project.name} masterplan`} src="/masterplan/masterplan.pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitH" />
+              <iframe className="pf-masterplan-pdf" title={`${project.name} overview masterplan`} src="/overview-masterplan/masterplan.pdf#toolbar=0&navpanes=0&scrollbar=0&view=FitH" />
             ) : (
               <div className={`pf-project-overview-placeholder tone-${project.tone}`}><strong>{project.name}</strong><span>{project.developer}</span></div>
             )}
