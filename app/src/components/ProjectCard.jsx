@@ -16,16 +16,16 @@ export default function ProjectCard({ project, index, onOpenLibrary }) {
 
         <div className="pf-project-card__copy">
           <strong>{project.name}</strong>
+        </div>
+
+        <div className="pf-project-card__utility">
           <small>{project.developer} · {project.location}</small>
+          <Button variant="secondary" className="pf-project-card__action" onClick={onOpenLibrary}>
+            <span>Open in library</span>
+            <b aria-hidden="true">→</b>
+          </Button>
         </div>
       </div>
-
-      <footer className="pf-project-card__footer">
-        <Button variant="secondary" className="pf-project-card__action" onClick={onOpenLibrary}>
-          <span>Open in library</span>
-          <b aria-hidden="true">→</b>
-        </Button>
-      </footer>
     </article>
   );
 }
