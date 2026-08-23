@@ -28,11 +28,11 @@ export default function OverviewLayoutGuardRuntime() {
     let disposed = false;
     let stage = null;
     let rail = null;
-    let scaleControl = null;
+    let sizeControl = null;
     let observer = null;
     let cardDrag = null;
+    let snapMarker = null;
     let needsFit = true;
-    let allScale = 100;
 
     const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
 
@@ -51,12 +51,7 @@ export default function OverviewLayoutGuardRuntime() {
       list.forEach((card) => {
         const code = codeFor(card);
         if (!code) return;
-        layout[code] = {
-          left: card.offsetLeft,
-          top: card.offsetTop,
-          width: card.offsetWidth,
-          height: card.offsetHeight,
-        };
+        layout[code] = { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight };
       });
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
     }
@@ -91,46 +86,90 @@ export default function OverviewLayoutGuardRuntime() {
       });
     }
 
-    function applyAllScale(nextValue) {
-      const next = clamp(nextValue, 10, 300);
-      const previous = clamp(allScale, 10, 300);
-      const ratio = next / Math.max(10, previous);
+    function applyAllSize(width, height) {
       const list = cards();
       if (!list.length) return;
-      list.forEach((card) => setCardSize(card, card.offsetWidth * ratio, card.offsetHeight * ratio));
-      allScale = next;
+      const nextWidth = clamp(width, 64, 420);
+      const nextHeight = clamp(height, 56, 420);
+      list.forEach((card) => setCardSize(card, nextWidth, nextHeight));
       const precision = readJson(PRECISION_KEY, {});
-      precision.scale = next;
+      precision.cardWidth = nextWidth;
+      precision.cardHeight = nextHeight;
       localStorage.setItem(PRECISION_KEY, JSON.stringify(precision));
       persistCards(list);
       ensureCardsFit();
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: "scale-all", scale: next } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", { detail: { width: nextWidth, height: nextHeight, count: list.length } }));
+    }
+
+    function gridTarget(card) {
+      if (!card || !stage) return null;
+      const guides = readJson(GUIDE_KEY, {});
+      if (guides.snapGrid === false) return null;
+      const bounds = pdfBounds();
+      if (!bounds) return null;
+      const size = clamp(guides.gridSize ?? 16, 8, 64);
+      const localLeft = card.offsetLeft - bounds.x;
+      const localTop = card.offsetTop - bounds.y;
+      const snappedLeft = Math.round(localLeft / size) * size;
+      const snappedTop = Math.round(localTop / size) * size;
+      return {
+        bounds,
+        size,
+        left: bounds.x + snappedLeft,
+        top: bounds.y + snappedTop,
+        dx: snappedLeft - localLeft,
+        dy: snappedTop - localTop,
+      };
+    }
+
+    function showSnapPreview(card) {
+      const target = gridTarget(card);
+      if (!target || !stage) {
+        card?.classList.remove("pf-grid-snap-candidate");
+        if (snapMarker) snapMarker.hidden = true;
+        return;
+      }
+      if (!snapMarker?.isConnected) {
+        snapMarker = document.createElement("div");
+        snapMarker.className = "pf-grid-snap-marker";
+        stage.appendChild(snapMarker);
+      }
+      card.classList.add("pf-grid-snap-candidate");
+      snapMarker.hidden = false;
+      snapMarker.style.left = `${target.left}px`;
+      snapMarker.style.top = `${target.top}px`;
+      snapMarker.style.width = `${Math.min(target.size, card.offsetWidth)}px`;
+      snapMarker.style.height = `${Math.min(target.size, card.offsetHeight)}px`;
+    }
+
+    function clearSnapPreview() {
+      cardDrag?.card?.classList.remove("pf-grid-snap-candidate");
+      cards().forEach((card) => card.classList.remove("pf-grid-snap-candidate"));
+      if (snapMarker) snapMarker.hidden = true;
     }
 
     function snapDraggedCards() {
       if (!cardDrag || !stage) return;
       const candidate = cardDrag.card;
+      const target = gridTarget(candidate);
       cardDrag = null;
-      if (!candidate?.isConnected) return;
-      const guides = readJson(GUIDE_KEY, {});
-      if (guides.snapGrid === false) return;
-      const bounds = pdfBounds();
-      if (!bounds) return;
-      const gridSize = clamp(guides.gridSize ?? 16, 8, 64);
-      const localLeft = candidate.offsetLeft - bounds.x;
-      const localTop = candidate.offsetTop - bounds.y;
-      const dx = Math.round(localLeft / gridSize) * gridSize - localLeft;
-      const dy = Math.round(localTop / gridSize) * gridSize - localTop;
+      if (!candidate?.isConnected || !target) {
+        clearSnapPreview();
+        return;
+      }
       const selected = cards().filter((card) => card.classList.contains("pf-card-selected"));
       const list = selected.length ? selected : [candidate];
       list.forEach((card) => {
-        const left = clamp(card.offsetLeft + dx, bounds.x, bounds.x + bounds.width - card.offsetWidth);
-        const top = clamp(card.offsetTop + dy, bounds.y, bounds.y + bounds.height - card.offsetHeight);
+        const left = clamp(card.offsetLeft + target.dx, target.bounds.x, target.bounds.x + target.bounds.width - card.offsetWidth);
+        const top = clamp(card.offsetTop + target.dy, target.bounds.y, target.bounds.y + target.bounds.height - card.offsetHeight);
         card.style.left = `${left}px`;
         card.style.top = `${top}px`;
         card.style.right = "auto";
       });
       persistCards(list);
+      clearSnapPreview();
+      stage.classList.add("pf-grid-snap-flash");
+      window.setTimeout(() => stage?.classList.remove("pf-grid-snap-flash"), 220);
       window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: "grid-snap" } }));
     }
 
@@ -139,6 +178,12 @@ export default function OverviewLayoutGuardRuntime() {
       const card = event.target.closest?.(".pf-live-sales-callout");
       if (!card || !stage?.contains(card)) return;
       cardDrag = { card, pointerId: event.pointerId };
+      showSnapPreview(card);
+    }
+
+    function onPointerMove(event) {
+      if (!cardDrag || event.pointerId !== cardDrag.pointerId) return;
+      requestAnimationFrame(() => showSnapPreview(cardDrag?.card));
     }
 
     function onPointerUp(event) {
@@ -148,8 +193,7 @@ export default function OverviewLayoutGuardRuntime() {
 
     function triggerFit() {
       if (!document.body.classList.contains("pf-product-overview")) return;
-      const fit = document.querySelector('.pf-overview-zoom-toolbar [data-action="fit"]');
-      fit?.click();
+      document.querySelector('.pf-overview-zoom-toolbar [data-action="fit"]')?.click();
       needsFit = false;
     }
 
@@ -168,20 +212,18 @@ export default function OverviewLayoutGuardRuntime() {
       window.setTimeout(requestFit, 120);
     }
 
-    function installScaleControl() {
+    function installSizeControl() {
       rail = document.querySelector(".pf-overview-control-rail");
       if (!rail) return;
-      if (!scaleControl?.isConnected) {
-        scaleControl = document.createElement("label");
-        scaleControl.className = "pf-overview-all-scale-control";
-        scaleControl.innerHTML = '<span>All cards</span><input type="number" min="10" max="300" step="5" value="100" aria-label="Scale all cards"><b>%</b>';
-        const input = scaleControl.querySelector("input");
-        input.addEventListener("change", () => {
-          const next = clamp(input.value, 10, 300);
-          input.value = String(next);
-          applyAllScale(next);
-        });
-        rail.appendChild(scaleControl);
+      if (!sizeControl?.isConnected) {
+        const precision = readJson(PRECISION_KEY, {});
+        sizeControl = document.createElement("div");
+        sizeControl.className = "pf-overview-all-size-control";
+        sizeControl.innerHTML = `<span>All cards</span><label>W <input data-all-width type="number" min="64" max="420" step="1" value="${clamp(precision.cardWidth ?? 180, 64, 420)}"><b>px</b></label><label>H <input data-all-height type="number" min="56" max="420" step="1" value="${clamp(precision.cardHeight ?? 132, 56, 420)}"><b>px</b></label><button type="button" data-all-apply>Apply</button>`;
+        const width = sizeControl.querySelector("[data-all-width]");
+        const height = sizeControl.querySelector("[data-all-height]");
+        sizeControl.querySelector("[data-all-apply]").addEventListener("click", () => applyAllSize(width.value, height.value));
+        rail.appendChild(sizeControl);
       }
     }
 
@@ -189,11 +231,14 @@ export default function OverviewLayoutGuardRuntime() {
       if (!nextStage || nextStage === stage) return;
       if (stage) {
         stage.removeEventListener("pointerdown", onPointerDown, true);
+        stage.removeEventListener("pointermove", onPointerMove, true);
         stage.removeEventListener("pointerup", onPointerUp, true);
         stage.removeEventListener("pointercancel", onPointerUp, true);
       }
+      clearSnapPreview();
       stage = nextStage;
       stage.addEventListener("pointerdown", onPointerDown, true);
+      stage.addEventListener("pointermove", onPointerMove, true);
       stage.addEventListener("pointerup", onPointerUp, true);
       stage.addEventListener("pointercancel", onPointerUp, true);
       requestFit();
@@ -202,7 +247,7 @@ export default function OverviewLayoutGuardRuntime() {
 
     function sync() {
       if (disposed) return;
-      installScaleControl();
+      installSizeControl();
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (nextStage && nextStage !== stage) attach(nextStage);
     }
@@ -222,10 +267,13 @@ export default function OverviewLayoutGuardRuntime() {
       window.removeEventListener("pf-overview-live-units-ready", sync);
       if (stage) {
         stage.removeEventListener("pointerdown", onPointerDown, true);
+        stage.removeEventListener("pointermove", onPointerMove, true);
         stage.removeEventListener("pointerup", onPointerUp, true);
         stage.removeEventListener("pointercancel", onPointerUp, true);
       }
-      scaleControl?.remove();
+      clearSnapPreview();
+      snapMarker?.remove();
+      sizeControl?.remove();
     };
   }, []);
 
