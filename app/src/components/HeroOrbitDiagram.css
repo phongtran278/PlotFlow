@@ -20,16 +20,53 @@
 }
 
 .pf-human-rings{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
-.pf-human-ring{position:absolute;display:block;border-radius:50%;box-sizing:border-box;border:1px solid rgba(24,31,35,.055);transform-origin:50% 50%;-webkit-transform-origin:50% 50%;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;animation-play-state:running;-webkit-animation-play-state:running}
-/* Keep the painted arc inside its animated layer. */
-.pf-human-ring::after{content:"";position:absolute;inset:1px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 52%,rgba(86,118,173,.04) 58%,rgba(15,122,100,.14) 65%,rgba(15,122,100,.76) 74%,rgba(94,164,184,.46) 82%,rgba(128,150,202,.10) 90%,transparent 97% 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));filter:drop-shadow(0 0 5px rgba(15,122,100,.12))}
-.pf-orbit-tracer{position:absolute;left:50%;top:2px;width:8px;height:8px;margin-left:-4px;display:block;border-radius:50%;background:#0f7a64;box-shadow:0 0 0 3px rgba(15,122,100,.07),0 0 10px rgba(15,122,100,.20)}
+.pf-human-ring{
+  --ring-stroke:3px;
+  --ring-inset:1px;
+  --tracer-size:8px;
+  position:absolute;
+  display:block;
+  border-radius:50%;
+  box-sizing:border-box;
+  border:1px solid rgba(24,31,35,.055);
+  transform-origin:50% 50%;
+  -webkit-transform-origin:50% 50%;
+  will-change:transform;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  animation-play-state:running;
+  -webkit-animation-play-state:running;
+}
+/* Keep the painted arc inside its animated layer. The same stroke geometry also
+   positions the tracer so its center rides directly on the visible orbit path. */
+.pf-human-ring::after{
+  content:"";
+  position:absolute;
+  inset:var(--ring-inset);
+  border-radius:50%;
+  background:conic-gradient(from 0deg,transparent 0 52%,rgba(86,118,173,.04) 58%,rgba(15,122,100,.14) 65%,rgba(15,122,100,.76) 74%,rgba(94,164,184,.46) 82%,rgba(128,150,202,.10) 90%,transparent 97% 100%);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - var(--ring-stroke) - 1px),#000 calc(100% - var(--ring-stroke)));
+  mask:radial-gradient(farthest-side,transparent calc(100% - var(--ring-stroke) - 1px),#000 calc(100% - var(--ring-stroke)));
+  filter:drop-shadow(0 0 5px rgba(15,122,100,.12));
+}
+.pf-orbit-tracer{
+  position:absolute;
+  left:50%;
+  top:calc(var(--ring-inset) + (var(--ring-stroke) / 2));
+  width:var(--tracer-size);
+  height:var(--tracer-size);
+  display:block;
+  border-radius:50%;
+  background:#0f7a64;
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 0 3px rgba(15,122,100,.07),0 0 10px rgba(15,122,100,.20);
+}
 
 /* Three deliberately separated tracks. Pixel floors keep the inner track away
    from the human-control core on laptop-width production layouts. */
-.pf-human-ring-outer{width:calc(100% - 16px);height:calc(100% - 16px);animation:pfOrbitCW 12.5s linear infinite;-webkit-animation:pfOrbitCW 12.5s linear infinite}
-.pf-human-ring-middle{width:clamp(340px,72%,475px);height:clamp(340px,72%,475px);animation:pfOrbitCCW 9.75s linear infinite;-webkit-animation:pfOrbitCCW 9.75s linear infinite}
-.pf-human-ring-inner{width:clamp(238px,48%,316px);height:clamp(238px,48%,316px);animation:pfOrbitCW 7.25s linear infinite;-webkit-animation:pfOrbitCW 7.25s linear infinite}
+.pf-human-ring-outer{--tracer-size:8px;width:calc(100% - 16px);height:calc(100% - 16px);animation:pfOrbitCW 12.5s linear infinite;-webkit-animation:pfOrbitCW 12.5s linear infinite}
+.pf-human-ring-middle{--tracer-size:7px;width:clamp(340px,72%,475px);height:clamp(340px,72%,475px);animation:pfOrbitCCW 9.75s linear infinite;-webkit-animation:pfOrbitCCW 9.75s linear infinite}
+.pf-human-ring-inner{--tracer-size:6px;width:clamp(238px,48%,316px);height:clamp(238px,48%,316px);animation:pfOrbitCW 7.25s linear infinite;-webkit-animation:pfOrbitCW 7.25s linear infinite}
 .pf-human-ring-middle::after{opacity:.72}.pf-human-ring-inner::after{opacity:.56}
 .pf-human-ring-middle .pf-orbit-tracer{opacity:.88}.pf-human-ring-inner .pf-orbit-tracer{opacity:.78}
 
