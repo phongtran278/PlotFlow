@@ -1,0 +1,32 @@
+.pf-shell-nav{
+  position:fixed;
+  inset:0 0 auto;
+  z-index:1800;
+  height:70px;
+  padding:0 clamp(22px,5vw,74px);
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;
+  border-bottom:1px solid rgba(255,255,255,.72);
+  background:linear-gradient(180deg,rgba(248,249,247,.72),rgba(245,247,245,.48));
+  box-shadow:0 8px 30px rgba(22,26,32,.045),inset 0 -1px 0 rgba(34,39,44,.035);
+  backdrop-filter:blur(28px) saturate(150%);
+  -webkit-backdrop-filter:blur(28px) saturate(150%);
+}
+.pf-shell-nav::after{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.92) 18% 82%,transparent);pointer-events:none}
+.pf-shell-nav-left{position:relative;z-index:1;min-width:0;display:flex;align-items:center;gap:18px}
+.pf-shell-nav-brand,.pf-shell-nav-back,.pf-shell-nav-modes button{border:0;background:transparent;cursor:pointer}
+.pf-shell-nav-brand{padding:0;color:var(--pf-ink);font-size:18px;font-weight:700;line-height:1;letter-spacing:-.015em}
+.pf-shell-nav-back{padding:4px 0;color:var(--pf-muted);font-size:9px;font-weight:600;line-height:1.3;white-space:nowrap;transition:color var(--pf-duration-control) ease}
+.pf-shell-nav-back:hover{color:var(--pf-ink)}
+.pf-shell-nav-modes{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:28px}
+.pf-shell-nav-modes button{position:relative;padding:4px 0;color:var(--pf-muted);font-size:10px;font-weight:600;line-height:1.4;white-space:nowrap;transition:color var(--pf-duration-control) ease}
+.pf-shell-nav-modes button:hover,.pf-shell-nav-modes button.active{color:var(--pf-ink)}
+.pf-shell-nav-modes button.active::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:1px;background:var(--pf-ink)}
+.pf-shell-nav-context{position:relative;z-index:1;justify-self:end;max-width:300px;overflow:hidden;color:var(--pf-muted);font-size:9px;font-weight:550;white-space:nowrap;text-overflow:ellipsis}
+
+@media(max-width:900px){.pf-shell-nav-context{display:none}.pf-shell-nav{grid-template-columns:minmax(0,1fr) auto}.pf-shell-nav-modes{justify-self:end}}
+@media(max-width:680px){.pf-shell-nav{height:64px;padding:0 18px}.pf-shell-nav-left{gap:12px}.pf-shell-nav-brand{font-size:16px}.pf-shell-nav-modes{gap:16px}.pf-shell-nav-modes button{font-size:9px}.pf-shell-nav-back{font-size:8.5px}}
+@media(max-width:520px){.pf-shell-nav-left{gap:9px}.pf-shell-nav-modes{gap:12px}.pf-shell-nav-modes button{font-size:8.5px}.pf-shell-nav-back span{display:none}}
+@media(max-width:430px){.pf-shell-nav-back{display:none}.pf-shell-nav-modes{gap:10px}}
+@media(prefers-reduced-transparency:reduce){.pf-shell-nav{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--pf-surface)}}
