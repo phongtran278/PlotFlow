@@ -4,6 +4,7 @@ import "./OverviewPrecisionArrangeRuntime.css";
 const UI_KEY = "plotflow-overview-precision-arrange-v2";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const LEGACY_LAYOUT_UI_KEY = "phongflow-overview-layout-ui-v1";
+const BASE_CARD_WIDTH = 192;
 
 function readUi() {
   try {
@@ -59,6 +60,16 @@ export default function OverviewPrecisionArrangeRuntime() {
       });
     }
 
+    function syncCardVisualScale(card, width = card?.offsetWidth || BASE_CARD_WIDTH) {
+      if (!card) return;
+      const visualScale = clamp(width / BASE_CARD_WIDTH, 0.34, 2.2);
+      card.style.setProperty("--pf-card-content-scale", String(visualScale));
+    }
+
+    function syncAllCardVisualScales() {
+      cards().forEach((card) => syncCardVisualScale(card));
+    }
+
     function setCardSize(card, width, height) {
       const nextWidth = clamp(width, 64, 420);
       const nextHeight = clamp(height, 56, 420);
@@ -68,6 +79,7 @@ export default function OverviewPrecisionArrangeRuntime() {
       card.style.height = `${nextHeight}px`;
       card.style.minHeight = `${nextHeight}px`;
       card.style.right = "auto";
+      syncCardVisualScale(card, nextWidth);
     }
 
     function applyDimensionsTo(list, { width = null, height = null, ratio = null } = {}) {
@@ -161,8 +173,12 @@ export default function OverviewPrecisionArrangeRuntime() {
       if (!stage || !rail) return false;
       hideLegacySizing();
       syncQuickArrangeGap(ui.gap);
+      syncAllCardVisualScales();
       if (!railObserver) {
-        railObserver = new MutationObserver(hideLegacySizing);
+        railObserver = new MutationObserver(() => {
+          hideLegacySizing();
+          syncAllCardVisualScales();
+        });
         railObserver.observe(rail, { childList: true, subtree: true });
       }
       if (!panel?.isConnected) {
@@ -246,10 +262,11 @@ export default function OverviewPrecisionArrangeRuntime() {
     }
 
     function onSelectionChange() { requestAnimationFrame(syncPanelFromSelection); }
+    function onUnitsReady() { requestAnimationFrame(() => { syncAllCardVisualScales(); install(); }); }
     function tick() { if (disposed || install()) return; frame = requestAnimationFrame(tick); }
 
     tick();
-    window.addEventListener("pf-overview-live-units-ready", install);
+    window.addEventListener("pf-overview-live-units-ready", onUnitsReady);
     window.addEventListener("pf-overview-auto-arranged", () => requestAnimationFrame(updateConnectors));
     document.addEventListener("pointerup", onSelectionChange, true);
 
@@ -257,7 +274,7 @@ export default function OverviewPrecisionArrangeRuntime() {
       disposed = true;
       cancelAnimationFrame(frame);
       railObserver?.disconnect();
-      window.removeEventListener("pf-overview-live-units-ready", install);
+      window.removeEventListener("pf-overview-live-units-ready", onUnitsReady);
       document.removeEventListener("pointerup", onSelectionChange, true);
       panel?.remove();
     };
