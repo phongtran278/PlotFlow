@@ -9,4 +9,18 @@ body.pf-product-detail.pf-detail-lot-mode .lot-editor-actions{display:flex!impor
 body.pf-product-detail.pf-detail-lot-mode .lot-editor-layout{min-height:0!important;height:100%!important;overflow:hidden!important}
 body.pf-product-detail.pf-detail-lot-mode .lot-canvas-wrap{min-height:0!important;height:100%!important;overflow:auto!important;padding:24px!important}
 body.pf-product-detail.pf-detail-finetune-mode .component-stage.finetune-mode{padding-top:52px!important;overflow:auto!important}
-@media(max-width:1180px){.pf-detail-mode-back{top:72px;left:14px}body.pf-product-detail.pf-detail-lot-mode .lot-editor-header{padding:56px 14px 12px!important;grid-template-columns:1fr auto!important}body.pf-product-detail.pf-detail-lot-mode .lot-view-controls{grid-column:1/-1!important;grid-row:2!important;min-width:0!important;width:100%!important;justify-content:flex-start!important;overflow-x:auto!important}body.pf-product-detail.pf-detail-lot-mode .lot-editor-actions{grid-column:2!important;grid-row:1!important}}
+
+/* Campaign artwork fallback: keeps badges visible when Git LFS assets are unavailable locally. */
+.pf-campaign-fallback-layer{position:absolute;top:26px;right:28px;z-index:20;display:flex;align-items:flex-start;justify-content:flex-end;gap:12px;pointer-events:none;font-family:PlotFlowBrand,"IBM Plex Sans",sans-serif}
+.pf-campaign-fallback-badge{min-height:54px;padding:0 22px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid rgba(255,255,255,.55);box-shadow:0 10px 24px rgba(23,31,38,.14);font-size:18px;font-weight:800;letter-spacing:.02em;white-space:nowrap;text-transform:uppercase}
+.pf-campaign-fallback-badge.is-hot{background:linear-gradient(135deg,#e72542,#c91031);color:#fff}
+.pf-campaign-fallback-badge.is-early{background:linear-gradient(135deg,#0f8068,#0a6554);color:#fff}
+.pf-campaign-fallback-badge.is-gold{background:linear-gradient(135deg,#f4df9a,#c99325);color:#4e3609;border-color:rgba(105,75,17,.18);box-shadow:0 10px 24px rgba(136,94,19,.16)}
+
+/* Edit Layout is a protected master-editing surface. */
+.pf-layout-safety-note{flex:1 1 100%;display:flex;align-items:center;gap:12px;min-width:0;margin:0 0 8px;padding:9px 12px;border:1px solid rgba(178,132,42,.18);border-radius:10px;background:#fbf6e9;color:#6c5424;font-family:"IBM Plex Sans",sans-serif}
+.pf-layout-safety-note strong{flex:0 0 auto;font-size:8px;letter-spacing:.1em;color:#8b681f}
+.pf-layout-safety-note span{min-width:0;font-size:8.5px;line-height:1.45;color:#79653e}
+body.pf-detail-layout-mode .pf-detail-mode-back{background:#fffaf0;color:#76561d;border-color:rgba(178,132,42,.22)}
+
+@media(max-width:1180px){.pf-detail-mode-back{top:72px;left:14px}body.pf-product-detail.pf-detail-lot-mode .lot-editor-header{padding:56px 14px 12px!important;grid-template-columns:1fr auto!important}body.pf-product-detail.pf-detail-lot-mode .lot-view-controls{grid-column:1/-1!important;grid-row:2!important;min-width:0!important;width:100%!important;justify-content:flex-start!important;overflow-x:auto!important}body.pf-product-detail.pf-detail-lot-mode .lot-editor-actions{grid-column:2!important;grid-row:1!important}.pf-layout-safety-note{align-items:flex-start;flex-direction:column;gap:4px}}
