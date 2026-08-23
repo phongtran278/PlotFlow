@@ -8,12 +8,13 @@
     "sync-assets": "node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
     "optimize-assets": "node tools/optimize-assets.mjs && node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
     "prepare-masterplan": "node tools/prepare-masterplan.mjs && node tools/generate-lot-tiles.mjs",
-    "predev": "npm run setup",
-    "dev": "vite",
+    "dev": "npm run build && vite preview --host 0.0.0.0 --port 4173 --strictPort",
+    "predev:hot": "npm run setup",
+    "dev:hot": "vite",
     "prebuild": "npm run setup",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
