@@ -152,6 +152,17 @@ export default function OverviewInteractionRuntime() {
       return `<div class="pf-layer-connector-block">${row("Connector", "connector", visible)}<div class="pf-layer-subrows"><button type="button" data-layer-focus="connector-start" title="Double-click to zoom connector start"><i></i><span>Start · card edge</span></button><button type="button" data-layer-focus="connector-end" title="Double-click to zoom connector end"><i></i><span>End · lot point</span></button></div></div>`;
     }
 
+    function applyOpenState() {
+      if (!panel) return;
+      panel.querySelectorAll(".pf-layer-unit[data-unit-code]").forEach((group) => {
+        const open = group.dataset.unitCode === openUnit;
+        group.classList.toggle("is-open", open);
+        group.querySelector("[data-layer-toggle]")?.setAttribute("aria-expanded", String(open));
+        const body = group.querySelector(".pf-layer-unit-body");
+        if (body) body.hidden = !open;
+      });
+    }
+
     function renderPanel() {
       if (!panel || !stage) return;
       associateUnownedHighlights();
@@ -166,6 +177,7 @@ export default function OverviewInteractionRuntime() {
       });
       const orphanShapes = shapes.filter((shape) => !validCodes.has(highlightOwners[shape.dataset.penShapeId || ""]));
       badges = readJson(BADGE_KEY, {});
+      if (openUnit && !validCodes.has(openUnit)) openUnit = "";
 
       panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>LAYERS</span><strong>Visual objects</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div><div class="pf-layer-panel-foot"><button type="button" data-layer-action="show-all">Show all</button></div>`;
       const list = panel.querySelector(".pf-layer-panel-list");
@@ -174,12 +186,11 @@ export default function OverviewInteractionRuntime() {
         const nodes = unitNodes(code);
         const unitShapes = shapes.filter((shape) => highlightOwners[shape.dataset.penShapeId || ""] === code);
         const needsPlacement = nodes.anchor && nodes.anchor.dataset.located !== "1" && nodes.anchor.dataset.saved !== "1";
-        const group = document.createElement("details");
+        const group = document.createElement("section");
         group.className = `pf-layer-unit${needsPlacement ? " is-unresolved" : ""}`;
         group.dataset.unitCode = code;
-        group.open = openUnit === code;
-        group.innerHTML = `<summary data-layer-toggle title="Click to expand · double-click to zoom ${code}"><span>${code}</span><small>${needsPlacement ? "Needs placement" : unitShapes.length ? `${unitShapes.length} highlight` : "card · connector"}</small></summary><div></div>`;
-        const body = group.querySelector("div");
+        group.innerHTML = `<button type="button" class="pf-layer-unit-toggle" data-layer-toggle aria-expanded="${openUnit === code}" title="Click to expand · double-click to zoom ${code}"><span>${code}</span><small>${needsPlacement ? "Needs placement" : unitShapes.length ? `${unitShapes.length} highlight` : "card · connector"}</small></button><div class="pf-layer-unit-body" ${openUnit === code ? "" : "hidden"}></div>`;
+        const body = group.querySelector(".pf-layer-unit-body");
         body.insertAdjacentHTML("beforeend", row("Info card", "card", !hidden[code]?.card));
         body.insertAdjacentHTML("beforeend", connectorBlock(!hidden[code]?.connector));
         unitShapes.forEach((shape, index) => {
@@ -191,10 +202,10 @@ export default function OverviewInteractionRuntime() {
       });
 
       if (orphanLines.length || orphanShapes.length) {
-        const exceptions = document.createElement("details");
-        exceptions.className = "pf-layer-unit pf-layer-exceptions"; exceptions.open = true;
-        exceptions.innerHTML = `<summary><span>Exceptions</span><small>${orphanLines.length + orphanShapes.length} objects</small></summary><div></div>`;
-        const body = exceptions.querySelector("div");
+        const exceptions = document.createElement("section");
+        exceptions.className = "pf-layer-unit pf-layer-exceptions is-open";
+        exceptions.innerHTML = `<div class="pf-layer-unit-toggle"><span>Exceptions</span><small>${orphanLines.length + orphanShapes.length} objects</small></div><div class="pf-layer-unit-body"></div>`;
+        const body = exceptions.querySelector(".pf-layer-unit-body");
         orphanLines.forEach((line, index) => {
           const label = line.dataset.unitCode ? `Extra connector · ${line.dataset.unitCode}` : `Unassigned connector ${index + 1}`;
           const item = document.createElement("div"); item.className = "pf-layer-row";
@@ -207,6 +218,7 @@ export default function OverviewInteractionRuntime() {
         });
         list.appendChild(exceptions);
       }
+      applyOpenState();
     }
 
     function installPanel() {
@@ -224,23 +236,17 @@ export default function OverviewInteractionRuntime() {
     }
 
     function closeOtherDetails(current) {
-      document.querySelectorAll(".pf-overview details[open]").forEach((node) => { if (node !== current && !node.closest(".pf-overview-layer-panel")) node.removeAttribute("open"); });
-    }
-
-    function onToggle(event) {
-      const detail = event.target;
-      if (!(detail instanceof HTMLDetailsElement) || !detail.open || !detail.closest(".pf-overview") || detail.closest(".pf-overview-layer-panel")) return;
-      closeOtherDetails(detail);
+      document.querySelectorAll(".pf-overview details[open]").forEach((node) => { if (node !== current) node.removeAttribute("open"); });
     }
 
     function onPointerDown(event) {
       const overview = document.querySelector(".pf-overview"); if (!overview) return;
-      Array.from(overview.querySelectorAll("details[open]")).filter((node) => !node.closest(".pf-overview-layer-panel")).forEach((detail) => { if (!detail.contains(event.target)) detail.removeAttribute("open"); });
+      Array.from(overview.querySelectorAll("details[open]")).forEach((detail) => { if (!detail.contains(event.target)) detail.removeAttribute("open"); });
     }
 
     function onKeyDown(event) {
       if (event.key !== "Escape") return;
-      document.querySelectorAll(".pf-overview details[open]").forEach((node) => { if (!node.closest(".pf-overview-layer-panel")) node.removeAttribute("open"); });
+      document.querySelectorAll(".pf-overview details[open]").forEach((node) => node.removeAttribute("open"));
     }
 
     function onPanelClick(event) {
@@ -251,8 +257,8 @@ export default function OverviewInteractionRuntime() {
       const exceptionRemove = event.target.closest("[data-exception-remove-line]"); const action = event.target.closest("[data-layer-action]");
       if (toggle && group && code) {
         event.preventDefault();
-        const nextOpen = openUnit !== code; openUnit = nextOpen ? code : "";
-        panel.querySelectorAll(".pf-layer-unit[data-unit-code]").forEach((node) => { node.open = nextOpen && node.dataset.unitCode === code; });
+        openUnit = openUnit === code ? "" : code;
+        applyOpenState();
         return;
       }
       if (eye && code) setLayerVisible(code, eye.dataset.layerEye, Boolean(hidden[code]?.[eye.dataset.layerEye]));
@@ -284,7 +290,6 @@ export default function OverviewInteractionRuntime() {
     function onHighlightsChanged(event) { associateUnownedHighlights(event.detail?.selectedId || ""); requestAnimationFrame(renderPanel); }
     function refreshPanel() { requestAnimationFrame(() => { if (!installPanel()) scheduleInstall(); else renderPanel(); }); }
 
-    document.addEventListener("toggle", onToggle, true);
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKeyDown, true);
     document.addEventListener("click", onPanelClick);
@@ -299,7 +304,7 @@ export default function OverviewInteractionRuntime() {
 
     return () => {
       disposed = true; cancelAnimationFrame(frame);
-      document.removeEventListener("toggle", onToggle, true); document.removeEventListener("pointerdown", onPointerDown, true); document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("pointerdown", onPointerDown, true); document.removeEventListener("keydown", onKeyDown, true);
       document.removeEventListener("click", onPanelClick); document.removeEventListener("dblclick", onPanelDoubleClick); document.removeEventListener("change", onPanelChange);
       window.removeEventListener("pf-overview-live-units-ready", refreshPanel); window.removeEventListener("pf-overview-highlights-changed", onHighlightsChanged);
       window.removeEventListener("pf-overview-annotations-changed", refreshPanel); window.removeEventListener("pf-overview-group-changed", refreshPanel); window.removeEventListener("plotflow-product-view-changed", refreshPanel);
