@@ -6,7 +6,7 @@ import WorkspaceNav from "./WorkspaceNav.jsx";
 import OverviewWorkspace from "./OverviewWorkspace.jsx";
 import { PROJECTS } from "./projectCatalog.js";
 
-const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Bàn giao thô"];
+const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Xây thô"];
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 
 function readAvailableUnits() {
