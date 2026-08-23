@@ -13,6 +13,7 @@ body.pf-product-detail .studio-canvas-scroll,body.pf-product-detail .lot-canvas-
 
 /* The Detail command bar is a true sticky owner and never scrolls away with artwork. */
 body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .stage-header{position:sticky!important;top:8px!important;z-index:6500!important;flex:0 0 auto!important;overflow:visible!important;isolation:isolate!important}
+body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .stage-header>div:first-child{display:none!important}
 body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .stage-actions,body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .workspace-controls-host,body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .workspace-controls{overflow:visible!important}
 
 /* Settings belongs to the sidebar, not as a floating object over the artwork. */
