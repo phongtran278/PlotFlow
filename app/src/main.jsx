@@ -33,6 +33,7 @@ import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
 import OverviewLayoutPresetRuntime from "./product/OverviewLayoutPresetRuntime.jsx";
 import OverviewPrecisionArrangeRuntime from "./product/OverviewPrecisionArrangeRuntime.jsx";
 import OverviewInteractionRuntime from "./product/OverviewInteractionRuntime.jsx";
+import OverviewLayerDisclosureRuntime from "./product/OverviewLayerDisclosureRuntime.jsx";
 import OverviewAnnotationsRuntime from "./product/OverviewAnnotationsRuntime.jsx";
 import OverviewPerformanceRuntime from "./product/OverviewPerformanceRuntime.jsx";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
@@ -87,6 +88,7 @@ function PlotFlowExperience() {
       <OverviewLayoutPresetRuntime />
       <OverviewPrecisionArrangeRuntime />
       <OverviewInteractionRuntime />
+      <OverviewLayerDisclosureRuntime />
       <OverviewAnnotationsRuntime />
       <OverviewPerformanceRuntime />
     </ProductShell>
