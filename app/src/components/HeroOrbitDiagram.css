@@ -1,7 +1,6 @@
 .pf-human-orbit{
-  /* The orbit is container-bound. Never grow beyond the visual column: the old
-     calc(100% + 72px) relied on viewport/DPI luck and could be clipped on macOS. */
-  --orbit-size:min(100%,660px);
+  /* The orbit is container-bound. Never grow beyond the visual column. */
+  --orbit-size:min(100%,clamp(440px,42vw,660px));
   position:relative;
   width:var(--orbit-size);
   max-width:660px;
@@ -10,6 +9,16 @@
   isolation:isolate;
   flex:0 0 auto;
 }
+
+/* HomeLanding used to reserve a hard 560px/500px minimum for the visual column.
+   That makes the two-column hero cross an overflow threshold on narrower desktop
+   viewports (notably MacBook Chrome at 100% zoom). Let the orbit column shrink
+   with the real container instead of relying on browser zoom or OS DPI. */
+@media (min-width:761px){
+  .pf-home-hero:has(.pf-human-orbit){grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}
+  .pf-home-hero:has(.pf-human-orbit) .pf-home-hero-visual{width:100%;min-width:0;overflow:visible}
+}
+
 .pf-human-rings{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
 .pf-human-ring{position:absolute;display:block;border-radius:50%;box-sizing:border-box;border:1px solid rgba(24,31,35,.055);transform-origin:50% 50%;-webkit-transform-origin:50% 50%;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;animation-play-state:running;-webkit-animation-play-state:running}
 /* Keep the painted arc inside its animated layer. Safari/Chrome on macOS can clip
@@ -49,8 +58,9 @@
 @-webkit-keyframes pfOrbitCW{from{-webkit-transform:rotate(0deg)}to{-webkit-transform:rotate(360deg)}}
 @-webkit-keyframes pfOrbitCCW{from{-webkit-transform:rotate(360deg)}to{-webkit-transform:rotate(0deg)}}
 
-@media(max-width:1180px){
-  .pf-human-orbit{--orbit-size:min(100%,576px);max-width:576px}
+@media(max-width:1180px) and (min-width:761px){
+  .pf-home-hero:has(.pf-human-orbit){grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+  .pf-human-orbit{--orbit-size:min(100%,clamp(420px,44vw,576px));max-width:576px}
   .pf-human-core{width:190px}
   .pf-human-feature{min-height:33px;padding:0 12px}
   .pf-human-feature strong{font-size:8.4px}
