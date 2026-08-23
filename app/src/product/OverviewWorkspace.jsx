@@ -42,14 +42,13 @@ export default function OverviewWorkspace({
       {project.masterplan && <div className="pf-overview-control-rail" aria-label="Overview editor controls" />}
 
       <div className="pf-overview-layout pf-overview-layout-wide">
-        <section className="pf-masterplan-card">
-          <div className="pf-masterplan-head pf-masterplan-head-callouts">
-            <div className="pf-masterplan-head-copy">
-              <span>MASTERPLAN EXPLORER</span>
-              <strong>Availability by handover standard</strong>
-              <small>Select a handover group, focus a unit, then refine the callout layout.</small>
-            </div>
-            <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
+        <section className="pf-masterplan-card pf-masterplan-card-compact">
+          <div
+            className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}
+            data-overview-group={overviewGroup}
+            data-overview-pdf-url={overviewPdfUrl}
+          >
+            <div className="pf-overview-groups pf-overview-groups-overlay" role="group" aria-label="Tiêu chuẩn bàn giao">
               {overviewGroups.map((group) => (
                 <button
                   key={group}
@@ -61,13 +60,7 @@ export default function OverviewWorkspace({
                 </button>
               ))}
             </div>
-          </div>
 
-          <div
-            className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}
-            data-overview-group={overviewGroup}
-            data-overview-pdf-url={overviewPdfUrl}
-          >
             {project.masterplan ? (
               <iframe className="pf-masterplan-pdf" title={`${project.name} overview masterplan`} src={`${overviewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} />
             ) : (
