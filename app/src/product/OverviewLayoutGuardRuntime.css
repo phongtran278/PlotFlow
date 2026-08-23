@@ -1,0 +1,7 @@
+.pf-overview-all-scale-control{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 9px;border:1px solid rgba(17,24,39,.12);border-radius:8px;background:#fff;color:#25313c;font:600 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif}
+.pf-overview-all-scale-control span{white-space:nowrap;color:#56616c}
+.pf-overview-all-scale-control input{width:52px;height:22px;padding:0 5px;border:1px solid rgba(17,24,39,.12);border-radius:6px;background:#f8fafb;color:#17212b;font:650 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif;text-align:right}
+.pf-overview-all-scale-control b{font-size:10px;color:#6c7680}
+.pf-precision-arrange label:has([data-precision-scale]){display:none!important}
+.pf-overview-groups{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));min-width:285px}
+.pf-overview-groups button{width:100%;padding-inline:10px!important}
