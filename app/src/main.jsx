@@ -6,6 +6,7 @@ import "./components/CommercialShell.css";
 import "./components/WorkspaceReturn.css";
 import "./product/overviewV2Migration.js";
 import "./product/DetailHomeLanguage.css";
+import "./product/DetailExperience.css";
 import "./styles/buttonToneRefinement.css";
 import App from "./App.jsx";
 import HomeLanding from "./components/HomeLanding.jsx";
