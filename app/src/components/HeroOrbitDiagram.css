@@ -53,6 +53,35 @@
 .pf-human-feature-locator:hover{transform:translateX(-50%) translateY(-2px)}
 .pf-human-feature-overview:hover,.pf-human-feature-override:hover,.pf-human-feature-detail:hover,.pf-human-feature-export:hover{transform:translateY(-2px)}
 
+/* Temporary runtime diagnostics. This panel is intentionally fixed to the viewport
+   so it cannot inherit or hide inside the hero clipping geometry we are measuring. */
+.pf-orbit-debug{
+  position:fixed;
+  z-index:99999;
+  right:12px;
+  bottom:12px;
+  width:min(430px,calc(100vw - 24px));
+  max-height:46vh;
+  overflow:auto;
+  display:grid;
+  gap:4px;
+  padding:12px 14px;
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:12px;
+  background:rgba(16,18,21,.92);
+  color:#f4f6f7;
+  box-shadow:0 18px 54px rgba(0,0,0,.26);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:11px;
+  line-height:1.45;
+  text-align:left;
+  pointer-events:none;
+}
+.pf-orbit-debug strong{margin-bottom:3px;color:#fff;font-size:12px}
+.pf-orbit-debug span{display:block;overflow-wrap:anywhere;color:#d7dde1}
+
 @keyframes pfOrbitCW{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes pfOrbitCCW{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
 @-webkit-keyframes pfOrbitCW{from{-webkit-transform:rotate(0deg)}to{-webkit-transform:rotate(360deg)}}
