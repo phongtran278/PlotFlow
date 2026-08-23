@@ -4,13 +4,16 @@ import Button from "./Button.jsx";
 export default function ProjectCard({ project, index, onOpenLibrary }) {
   return (
     <article className={`pf-project-card pf-project-card--${project.status}`}>
-      <header className="pf-project-card__header">
-        <span className="pf-project-card__index">{String(index + 1).padStart(2, "0")}</span>
-        <span className={`pf-project-card__status pf-project-card__status--${project.status}`}>{project.signal}</span>
-      </header>
-
-      <div className={`pf-project-card__visual pf-project-card__visual--${project.tone}`}>
+      <div className={`pf-project-card__visual pf-project-card__visual--${project.tone}`} aria-label={`${project.name} project thumbnail placeholder`}>
         <div className="pf-project-card__grid" aria-hidden="true" />
+      </div>
+
+      <div className="pf-project-card__content">
+        <div className="pf-project-card__meta">
+          <span className="pf-project-card__index">{String(index + 1).padStart(2, "0")}</span>
+          <span className={`pf-project-card__status pf-project-card__status--${project.status}`}>{project.signal}</span>
+        </div>
+
         <div className="pf-project-card__copy">
           <strong>{project.name}</strong>
           <small>{project.developer} · {project.location}</small>
