@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./ProductShell.css";
 import "./OverviewCallouts.css";
 import ProjectLanding from "./ProjectLanding.jsx";
+import WorkspaceNav from "./WorkspaceNav.jsx";
 import { PROJECTS } from "./projectCatalog.js";
 
 const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Bàn giao thô"];
@@ -40,22 +41,6 @@ function HubProjectCard({ project, index, onOpen }) {
         </div>
       </div>
     </button>
-  );
-}
-
-function WorkspaceNav({ screen, mode, onExitWorkspace, onProjects, onMode }) {
-  const inProject = screen === "project";
-  return (
-    <header className="pf-workspace-nav">
-      <button type="button" className="pf-workspace-brand" onClick={onExitWorkspace} aria-label="Back to PlotFlow home">PlotFlow</button>
-      <nav aria-label="Workspace navigation">
-        <button type="button" className={screen === "home" ? "active" : ""} onClick={onProjects}>Projects</button>
-        {inProject && <button type="button" className={mode === "landing" ? "active" : ""} onClick={() => onMode("landing")}>Project</button>}
-        {inProject && <button type="button" className={mode === "overview" ? "active" : ""} onClick={() => onMode("overview")}>Overview</button>}
-        {inProject && <button type="button" className={mode === "detail" ? "active" : ""} onClick={() => onMode("detail")}>Detail</button>}
-      </nav>
-      <div className="pf-workspace-nav-spacer" aria-hidden="true" />
-    </header>
   );
 }
 
@@ -125,6 +110,7 @@ export default function ProductShell({ children, onExitWorkspace }) {
       <WorkspaceNav
         screen={screen}
         mode={mode}
+        project={project}
         onExitWorkspace={onExitWorkspace}
         onProjects={() => setScreen("home")}
         onMode={setMode}
@@ -143,7 +129,7 @@ export default function ProductShell({ children, onExitWorkspace }) {
             <div className="pf-hub-stat">
               <strong>{PROJECTS.length}</strong>
               <span>projects in workspace</span>
-              <small>Project → Overview → Detail</small>
+              <small>Project Home → Overview → Detail</small>
             </div>
           </section>
 
