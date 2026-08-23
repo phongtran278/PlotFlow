@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./ProductShell.css";
+import "./OverviewCallouts.css";
 
 const PROJECTS = [
   { id: "vinhomes-saigon-park", code: "VSP", name: "Vinhomes Saigon Park", developer: "Vinhomes", location: "Hóc Môn, TP.HCM", status: "Active", tone: "sage", masterplan: true },
