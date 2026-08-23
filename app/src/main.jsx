@@ -57,34 +57,31 @@ function PlotFlowExperience() {
   }
 
   return (
-    <>
-      <button type="button" className="pf-back-home" onClick={() => setView("home")} title="Back to PlotFlow home">← Home</button>
-      <ProductShell>
-        <OverviewSellDataRuntime />
-        <App />
-        <AutoFloorplanSource />
-        <MemoryGovernor />
-        <LotTileRuntime />
-        <UnitReviewBar />
-        <PerformanceFeedback />
-        <WorkspaceController />
-        <WorkspaceScrollSurfaceFix />
-        <ProjectSettings />
-        <PinScaleControl />
-        <EmptyWorkspaceEnhancer />
-        <OverviewZoomRuntime />
-        <OverviewPdfRuntime />
-        <OverviewExportRuntime />
-        <OverviewAnchorRuntime />
-        <OverviewLiveUnitsRuntime />
-        <OverviewDetailLocatorBridge />
-        <OverviewControlRailRuntime />
-        <OverviewV2Runtime />
-        <OverviewPenRuntime />
-        <OverviewSimplifiedRuntime />
-        <OverviewLayoutPresetRuntime />
-      </ProductShell>
-    </>
+    <ProductShell onExitWorkspace={() => setView("home")}>
+      <OverviewSellDataRuntime />
+      <App />
+      <AutoFloorplanSource />
+      <MemoryGovernor />
+      <LotTileRuntime />
+      <UnitReviewBar />
+      <PerformanceFeedback />
+      <WorkspaceController />
+      <WorkspaceScrollSurfaceFix />
+      <ProjectSettings />
+      <PinScaleControl />
+      <EmptyWorkspaceEnhancer />
+      <OverviewZoomRuntime />
+      <OverviewPdfRuntime />
+      <OverviewExportRuntime />
+      <OverviewAnchorRuntime />
+      <OverviewLiveUnitsRuntime />
+      <OverviewDetailLocatorBridge />
+      <OverviewControlRailRuntime />
+      <OverviewV2Runtime />
+      <OverviewPenRuntime />
+      <OverviewSimplifiedRuntime />
+      <OverviewLayoutPresetRuntime />
+    </ProductShell>
   );
 }
 
