@@ -103,6 +103,10 @@ export default function OverviewPenRuntime() {
     removeLegacyRectangles();
     saveShapes(shapes);
 
+    function emitHighlightsChanged() {
+      window.dispatchEvent(new CustomEvent("pf-overview-highlights-changed", { detail: { count: shapes.length, selectedId } }));
+    }
+
     function escapeAttr(value) {
       return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
     }
@@ -142,6 +146,7 @@ export default function OverviewPenRuntime() {
       set("strokeOpacity", style.strokeOpacity);
       const label = styleMenu.querySelector("[data-pen-selection]");
       if (label) label.textContent = selectedShape() ? "Selected shape" : "New shapes";
+      styleMenu.classList.toggle("has-selection", Boolean(selectedShape()));
     }
 
     function screenPoint(point) {
@@ -223,6 +228,7 @@ export default function OverviewPenRuntime() {
         shapes = [...shapes, shape];
         selectedId = shape.id;
         saveShapes(shapes);
+        emitHighlightsChanged();
       }
       draft = [];
       hover = null;
@@ -241,6 +247,7 @@ export default function OverviewPenRuntime() {
       button?.classList.toggle("active", active);
       stage?.classList.toggle("pf-pen-active", active);
       cursor?.classList.toggle("active", active);
+      styleMenu?.classList.toggle("is-contextual", active || Boolean(selectedShape()));
       if (!active) cancelDraft();
     }
 
@@ -248,6 +255,21 @@ export default function OverviewPenRuntime() {
       selectedId = id || null;
       render();
       syncStyleControls();
+      styleMenu?.classList.toggle("is-contextual", active || Boolean(selectedShape()));
+      emitHighlightsChanged();
+    }
+
+    function deleteShape(id) {
+      if (!id) return;
+      const before = shapes.length;
+      shapes = shapes.filter((shape) => String(shape.id) !== String(id));
+      if (shapes.length === before) return;
+      if (String(selectedId) === String(id)) selectedId = shapes.at(-1)?.id || null;
+      saveShapes(shapes);
+      render();
+      syncStyleControls();
+      styleMenu?.classList.toggle("is-contextual", active || Boolean(selectedShape()));
+      emitHighlightsChanged();
     }
 
     function applyStylePatch(patch) {
@@ -262,6 +284,7 @@ export default function OverviewPenRuntime() {
       }
       render();
       syncStyleControls();
+      emitHighlightsChanged();
     }
 
     function onPointerDown(event) {
@@ -330,11 +353,7 @@ export default function OverviewPenRuntime() {
         render();
       } else if ((event.key === "Backspace" || event.key === "Delete") && selectedShape()) {
         event.preventDefault();
-        shapes = shapes.filter((shape) => String(shape.id) !== String(selectedId));
-        selectedId = shapes.at(-1)?.id || null;
-        saveShapes(shapes);
-        render();
-        syncStyleControls();
+        deleteShape(selectedId);
       }
     }
 
@@ -354,6 +373,19 @@ export default function OverviewPenRuntime() {
       saveShapes(shapes);
       render();
       syncStyleControls();
+      styleMenu?.classList.toggle("is-contextual", active);
+      emitHighlightsChanged();
+    }
+
+    function onSelectHighlight(event) {
+      const id = event.detail?.id;
+      if (!id) return;
+      selectShape(id);
+      styleMenu?.setAttribute("open", "");
+    }
+
+    function onDeleteHighlight(event) {
+      deleteShape(event.detail?.id);
     }
 
     function detachStage() {
@@ -383,6 +415,7 @@ export default function OverviewPenRuntime() {
 
       applyCamera();
       render();
+      emitHighlightsChanged();
 
       cursor = document.createElement("div");
       cursor.className = "pf-pen-cursor";
@@ -420,7 +453,7 @@ export default function OverviewPenRuntime() {
         styleMenu = document.createElement("details");
         styleMenu.className = "pf-pen-style-menu";
         styleMenu.innerHTML = `
-          <summary title="Highlight appearance">Style</summary>
+          <summary title="Highlight appearance">Highlight style</summary>
           <div class="pf-pen-style-popover">
             <header><strong>Highlight style</strong><span data-pen-selection>New shapes</span></header>
             <label><span>Fill</span><input data-pen-style="fill" type="color"></label>
@@ -428,7 +461,7 @@ export default function OverviewPenRuntime() {
             <label><span>Stroke</span><input data-pen-style="stroke" type="color"></label>
             <label><span>Stroke width</span><input data-pen-style="strokeWidth" type="range" min="0.15" max="1" step="0.05"></label>
             <label><span>Stroke opacity</span><input data-pen-style="strokeOpacity" type="range" min="0.1" max="1" step="0.05"></label>
-            <small>Add any number of anchors. Close only with the first anchor, double-click, or Enter.</small>
+            <small>Applies to the selected highlight. With nothing selected, these values become the default for new shapes.</small>
           </div>`;
         styleMenu.addEventListener("input", (event) => {
           const key = event.target?.dataset?.penStyle;
@@ -438,6 +471,7 @@ export default function OverviewPenRuntime() {
         });
         button.after(styleMenu);
         syncStyleControls();
+        styleMenu.classList.toggle("is-contextual", active || Boolean(selectedShape()));
       }
       return true;
     }
@@ -465,6 +499,8 @@ export default function OverviewPenRuntime() {
     window.addEventListener("pf-overview-live-units-ready", syncWithRetry);
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-clear-highlights", onClearHighlights);
+    window.addEventListener("pf-overview-select-highlight", onSelectHighlight);
+    window.addEventListener("pf-overview-delete-highlight", onDeleteHighlight);
     window.addEventListener("keydown", onKeyDown, true);
 
     return () => {
@@ -473,6 +509,8 @@ export default function OverviewPenRuntime() {
       window.removeEventListener("pf-overview-live-units-ready", syncWithRetry);
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-clear-highlights", onClearHighlights);
+      window.removeEventListener("pf-overview-select-highlight", onSelectHighlight);
+      window.removeEventListener("pf-overview-delete-highlight", onDeleteHighlight);
       window.removeEventListener("keydown", onKeyDown, true);
       detachStage();
       layer?.remove();
