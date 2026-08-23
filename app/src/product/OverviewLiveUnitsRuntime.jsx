@@ -3,6 +3,20 @@ import "./OverviewLiveUnitsRuntime.css";
 
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 
+function canonicalOverviewGroup(value = "") {
+  const raw = String(value).trim();
+  const normalized = raw.toLowerCase();
+  if (normalized.includes("hoàn thiện") || normalized.includes("hoan thien")) return "Hoàn thiện";
+  if (normalized.includes("giãn xây") || normalized.includes("gian xay")) return "Giãn xây";
+  if (
+    normalized.includes("xây thô") ||
+    normalized.includes("xay tho") ||
+    normalized.includes("bàn giao thô") ||
+    normalized.includes("ban giao tho")
+  ) return "Xây thô";
+  return raw;
+}
+
 function readSellUnits() {
   if (Array.isArray(window.__plotflowOverviewSellUnits)) return window.__plotflowOverviewSellUnits;
   try {
@@ -68,7 +82,7 @@ export default function OverviewLiveUnitsRuntime() {
     let disposed = false;
 
     function currentGroup() {
-      return stage?.dataset?.overviewGroup || document.querySelector(".pf-overview-groups button.active")?.textContent?.trim() || "";
+      return canonicalOverviewGroup(stage?.dataset?.overviewGroup || document.querySelector(".pf-overview-groups button.active")?.textContent?.trim() || "");
     }
 
     function sourceUnits() {
@@ -80,7 +94,7 @@ export default function OverviewLiveUnitsRuntime() {
       const all = sourceUnits();
       const group = currentGroup();
       if (!group || !all.some((item) => item.handover)) return all;
-      return all.filter((item) => String(item.handover || "").trim() === group);
+      return all.filter((item) => canonicalOverviewGroup(item.handover) === group);
     }
 
     function render(force = false) {
@@ -135,7 +149,7 @@ export default function OverviewLiveUnitsRuntime() {
 
         const card = makeNode("article", `pf-sales-callout pf-live-sales-callout pf-sell-reference-card side-${side}`);
         card.dataset.unitCode = unit.code;
-        card.dataset.handover = unit.handover || "";
+        card.dataset.handover = canonicalOverviewGroup(unit.handover || "");
         card.style.top = `${topPct}%`;
         if (side === "left") card.style.left = "5.5%";
         else card.style.right = "5.5%";
@@ -146,7 +160,7 @@ export default function OverviewLiveUnitsRuntime() {
             <span>DIỆN TÍCH ĐẤT:</span><b>${escapeHtml(formatArea(unit.land))}</b>
             <span>DIỆN TÍCH SÀN:</span><b>${escapeHtml(formatArea(unit.floor))}</b>
             <span>LOẠI HÌNH:</span><b>${escapeHtml(unit.type || "—")}</b>
-            <span>TCBG:</span><b>${escapeHtml(unit.handover || "—")}</b>
+            <span>TCBG:</span><b>${escapeHtml(canonicalOverviewGroup(unit.handover || "—"))}</b>
           </div>
           <div class="pf-sell-card-pricebox">
             <small>GIÁ ĐẤT &amp; GT TM (ĐÃ VAT)</small>
