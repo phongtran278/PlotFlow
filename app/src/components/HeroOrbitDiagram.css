@@ -21,14 +21,17 @@
 
 .pf-human-rings{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
 .pf-human-ring{position:absolute;display:block;border-radius:50%;box-sizing:border-box;border:1px solid rgba(24,31,35,.055);transform-origin:50% 50%;-webkit-transform-origin:50% 50%;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;animation-play-state:running;-webkit-animation-play-state:running}
-/* Keep the painted arc inside its animated layer. Safari/Chrome on macOS can clip
-   masked/filter pixels that extend outside a rotating composited layer. */
-.pf-human-ring::after{content:"";position:absolute;inset:1px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 49%,rgba(86,118,173,.05) 56%,rgba(15,122,100,.18) 63%,rgba(15,122,100,.88) 73%,rgba(94,164,184,.58) 80%,rgba(128,150,202,.14) 88%,transparent 96% 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));filter:drop-shadow(0 0 6px rgba(15,122,100,.16))}
-.pf-orbit-tracer{position:absolute;left:50%;top:2px;width:8px;height:8px;margin-left:-4px;display:block;border-radius:50%;background:#0f7a64;box-shadow:0 0 0 4px rgba(15,122,100,.08),0 0 12px rgba(15,122,100,.22)}
+/* Keep the painted arc inside its animated layer. */
+.pf-human-ring::after{content:"";position:absolute;inset:1px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 52%,rgba(86,118,173,.04) 58%,rgba(15,122,100,.14) 65%,rgba(15,122,100,.76) 74%,rgba(94,164,184,.46) 82%,rgba(128,150,202,.10) 90%,transparent 97% 100%);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));filter:drop-shadow(0 0 5px rgba(15,122,100,.12))}
+.pf-orbit-tracer{position:absolute;left:50%;top:2px;width:8px;height:8px;margin-left:-4px;display:block;border-radius:50%;background:#0f7a64;box-shadow:0 0 0 3px rgba(15,122,100,.07),0 0 10px rgba(15,122,100,.20)}
+
+/* Three deliberately separated tracks. Pixel floors keep the inner track away
+   from the human-control core on laptop-width production layouts. */
 .pf-human-ring-outer{width:calc(100% - 16px);height:calc(100% - 16px);animation:pfOrbitCW 12.5s linear infinite;-webkit-animation:pfOrbitCW 12.5s linear infinite}
-.pf-human-ring-middle{width:69%;height:69%;animation:pfOrbitCCW 9.75s linear infinite;-webkit-animation:pfOrbitCCW 9.75s linear infinite}
-.pf-human-ring-inner{width:39%;height:39%;animation:pfOrbitCW 7.25s linear infinite;-webkit-animation:pfOrbitCW 7.25s linear infinite}
-.pf-human-ring-middle::after,.pf-human-ring-middle .pf-orbit-tracer{opacity:.8}.pf-human-ring-inner::after,.pf-human-ring-inner .pf-orbit-tracer{opacity:.66}
+.pf-human-ring-middle{width:clamp(340px,72%,475px);height:clamp(340px,72%,475px);animation:pfOrbitCCW 9.75s linear infinite;-webkit-animation:pfOrbitCCW 9.75s linear infinite}
+.pf-human-ring-inner{width:clamp(238px,48%,316px);height:clamp(238px,48%,316px);animation:pfOrbitCW 7.25s linear infinite;-webkit-animation:pfOrbitCW 7.25s linear infinite}
+.pf-human-ring-middle::after{opacity:.72}.pf-human-ring-inner::after{opacity:.56}
+.pf-human-ring-middle .pf-orbit-tracer{opacity:.88}.pf-human-ring-inner .pf-orbit-tracer{opacity:.78}
 
 .pf-human-core{position:absolute;left:50%;top:50%;z-index:5;width:204px;aspect-ratio:1/1;min-height:0;transform:translate(-50%,-50%);padding:31px 28px;border-radius:50%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(242,247,244,.91))!important;border:1px solid rgba(255,255,255,.95)!important;box-shadow:0 28px 68px rgba(18,30,26,.105),inset 0 1px 0 rgba(255,255,255,.98)!important}
 .pf-human-core::before{display:none!important}
@@ -53,35 +56,6 @@
 .pf-human-feature-locator:hover{transform:translateX(-50%) translateY(-2px)}
 .pf-human-feature-overview:hover,.pf-human-feature-override:hover,.pf-human-feature-detail:hover,.pf-human-feature-export:hover{transform:translateY(-2px)}
 
-/* Temporary runtime diagnostics. This panel is intentionally fixed to the viewport
-   so it cannot inherit or hide inside the hero clipping geometry we are measuring. */
-.pf-orbit-debug{
-  position:fixed;
-  z-index:99999;
-  right:12px;
-  bottom:12px;
-  width:min(430px,calc(100vw - 24px));
-  max-height:46vh;
-  overflow:auto;
-  display:grid;
-  gap:4px;
-  padding:12px 14px;
-  border:1px solid rgba(255,255,255,.22);
-  border-radius:12px;
-  background:rgba(16,18,21,.92);
-  color:#f4f6f7;
-  box-shadow:0 18px 54px rgba(0,0,0,.26);
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
-  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
-  font-size:11px;
-  line-height:1.45;
-  text-align:left;
-  pointer-events:none;
-}
-.pf-orbit-debug strong{margin-bottom:3px;color:#fff;font-size:12px}
-.pf-orbit-debug span{display:block;overflow-wrap:anywhere;color:#d7dde1}
-
 @keyframes pfOrbitCW{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes pfOrbitCCW{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
 @-webkit-keyframes pfOrbitCW{from{-webkit-transform:rotate(0deg)}to{-webkit-transform:rotate(360deg)}}
@@ -91,6 +65,8 @@
   .pf-home-hero:has(.pf-human-orbit){grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
   .pf-human-orbit{--orbit-size:min(100%,clamp(420px,44vw,576px));max-width:576px}
   .pf-human-core{width:190px}
+  .pf-human-ring-middle{width:clamp(330px,72%,415px);height:clamp(330px,72%,415px)}
+  .pf-human-ring-inner{width:clamp(228px,48%,276px);height:clamp(228px,48%,276px)}
   .pf-human-feature{min-height:33px;padding:0 12px}
   .pf-human-feature strong{font-size:8.4px}
   .pf-human-feature-locator{top:2.5%;min-height:39px}.pf-human-feature-locator strong{font-size:9.5px}
