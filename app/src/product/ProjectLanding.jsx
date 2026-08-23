@@ -1,4 +1,5 @@
 import "./ProjectLanding.css";
+import ProjectSectionNav from "./ProjectSectionNav.jsx";
 
 const FACTS = [
   ["Developer", (project) => project.developer],
@@ -13,10 +14,21 @@ function SectionLabel({ children }) {
 
 export default function ProjectLanding({ project, onOverview, onDetail }) {
   const landing = project.landing;
+  const sectionNav = [
+    { id: "project-introduction", label: "Introduction" },
+    { id: "project-location", label: "Location", visible: Boolean(landing.location) },
+    { id: "project-masterplan", label: "Masterplan" },
+    { id: "project-products", label: "Products", visible: Boolean(landing.products?.length) },
+    { id: "project-lifestyle", label: "Lifestyle", visible: Boolean(landing.lifestyle?.length) },
+    { id: "project-resources", label: "Resources", visible: Boolean(landing.resources?.length) },
+    { id: "project-contact", label: "Contact" },
+  ];
 
   return (
     <main className="pf-project-landing" data-tone={project.tone}>
-      <section className="pf-project-landing-hero">
+      <ProjectSectionNav items={sectionNav} />
+
+      <section id="project-introduction" data-project-section className="pf-project-landing-hero">
         <div className="pf-project-landing-hero-copy">
           <SectionLabel>PROJECT INTRODUCTION</SectionLabel>
           <h1>{project.name}</h1>
@@ -50,7 +62,7 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
         </div>
       </section>
 
-      <section className="pf-project-landing-split pf-project-landing-section">
+      <section id="project-location" data-project-section className="pf-project-landing-split pf-project-landing-section">
         <div className="pf-project-landing-map-placeholder">
           <span>LOCATION / CONNECTIVITY MAP</span>
           <strong>{project.location}</strong>
@@ -66,7 +78,7 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
         </div>
       </section>
 
-      <section className="pf-project-landing-masterplan pf-project-landing-section">
+      <section id="project-masterplan" data-project-section className="pf-project-landing-masterplan pf-project-landing-section">
         <div className="pf-project-landing-section-head compact">
           <SectionLabel>MASTERPLAN</SectionLabel>
           <h2>See the project as a system.</h2>
@@ -77,32 +89,36 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
         </button>
       </section>
 
-      <section className="pf-project-landing-products pf-project-landing-section">
-        <div className="pf-project-landing-section-head">
-          <SectionLabel>PRODUCT COLLECTION</SectionLabel>
-          <h2>Make the offer easy to understand.</h2>
-        </div>
-        <div className="pf-project-landing-product-grid">
-          {landing.products.map((item, index) => (
-            <article key={`${item.name}-${index}`}>
-              <div className="pf-project-landing-product-media"><span>PRODUCT VISUAL</span></div>
-              <span>0{index + 1}</span><h3>{item.name}</h3><p>{item.meta}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      {landing.products?.length > 0 && (
+        <section id="project-products" data-project-section className="pf-project-landing-products pf-project-landing-section">
+          <div className="pf-project-landing-section-head">
+            <SectionLabel>PRODUCT COLLECTION</SectionLabel>
+            <h2>Make the offer easy to understand.</h2>
+          </div>
+          <div className="pf-project-landing-product-grid">
+            {landing.products.map((item, index) => (
+              <article key={`${item.name}-${index}`}>
+                <div className="pf-project-landing-product-media"><span>PRODUCT VISUAL</span></div>
+                <span>0{index + 1}</span><h3>{item.name}</h3><p>{item.meta}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <section className="pf-project-landing-lifestyle pf-project-landing-section">
-        <div className="pf-project-landing-section-head compact">
-          <SectionLabel>LIFESTYLE & AMENITIES</SectionLabel>
-          <h2>Sell the experience, not a checklist.</h2>
-        </div>
-        <div className="pf-project-landing-lifestyle-grid">
-          {landing.lifestyle.map((item, index) => (
-            <article key={`${item.title}-${index}`}><span>0{index + 1}</span><h3>{item.title}</h3><p>{item.copy}</p></article>
-          ))}
-        </div>
-      </section>
+      {landing.lifestyle?.length > 0 && (
+        <section id="project-lifestyle" data-project-section className="pf-project-landing-lifestyle pf-project-landing-section">
+          <div className="pf-project-landing-section-head compact">
+            <SectionLabel>LIFESTYLE & AMENITIES</SectionLabel>
+            <h2>Sell the experience, not a checklist.</h2>
+          </div>
+          <div className="pf-project-landing-lifestyle-grid">
+            {landing.lifestyle.map((item, index) => (
+              <article key={`${item.title}-${index}`}><span>0{index + 1}</span><h3>{item.title}</h3><p>{item.copy}</p></article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="pf-project-landing-trust pf-project-landing-section">
         <div>
@@ -117,20 +133,22 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
         </div>
       </section>
 
-      <section className="pf-project-landing-resources pf-project-landing-section">
-        <div className="pf-project-landing-section-head compact">
-          <SectionLabel>SALES RESOURCES</SectionLabel>
-          <h2>Everything a serious buyer asks for.</h2>
-          <p>Public resources can open directly. High-intent resources such as price lists or policy documents can later become lead-gated conversion points.</p>
-        </div>
-        <div className="pf-project-landing-resource-list">
-          {landing.resources.map((item, index) => (
-            <button type="button" key={`${item.name}-${index}`}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.status}</small><b>→</b></button>
-          ))}
-        </div>
-      </section>
+      {landing.resources?.length > 0 && (
+        <section id="project-resources" data-project-section className="pf-project-landing-resources pf-project-landing-section">
+          <div className="pf-project-landing-section-head compact">
+            <SectionLabel>SALES RESOURCES</SectionLabel>
+            <h2>Everything a serious buyer asks for.</h2>
+            <p>Public resources can open directly. High-intent resources such as price lists or policy documents can later become lead-gated conversion points.</p>
+          </div>
+          <div className="pf-project-landing-resource-list">
+            {landing.resources.map((item, index) => (
+              <button type="button" key={`${item.name}-${index}`}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.status}</small><b>→</b></button>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <section className="pf-project-landing-conversion pf-project-landing-section">
+      <section id="project-contact" data-project-section className="pf-project-landing-conversion pf-project-landing-section">
         <div className="pf-project-landing-conversion-copy">
           <SectionLabel>CONVERSION</SectionLabel>
           <h2>Ready for the<br /><em>next conversation?</em></h2>
