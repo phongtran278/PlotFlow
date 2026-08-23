@@ -11,6 +11,7 @@ const MAX_DPR = 2;
 export default function OverviewPdfRuntime() {
   useEffect(() => {
     let disposed = false;
+    let suspended = document.visibilityState === "hidden";
     let stage = null;
     let canvas = null;
     let ctx = null;
@@ -42,7 +43,7 @@ export default function OverviewPdfRuntime() {
     }
 
     function snapshotTransform(camera) {
-      if (!canvas) return;
+      if (!canvas || suspended) return;
       const base = renderedCamera;
       const ratio = camera.scale / Math.max(0.0001, base.scale);
       const dx = camera.tx - ratio * base.tx;
@@ -52,7 +53,7 @@ export default function OverviewPdfRuntime() {
     }
 
     async function renderCamera(camera) {
-      if (!stage || !canvas || !ctx || !bufferCanvas || !bufferCtx || !page || disposed) return;
+      if (!stage || !canvas || !ctx || !bufferCanvas || !bufferCtx || !page || disposed || suspended) return;
       const rect = stage.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return;
 
@@ -89,7 +90,7 @@ export default function OverviewPdfRuntime() {
 
       try {
         await renderTask.promise;
-        if (disposed || generation !== renderGeneration) return;
+        if (disposed || suspended || generation !== renderGeneration) return;
 
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -108,6 +109,7 @@ export default function OverviewPdfRuntime() {
     function scheduleRender(camera, delay = 90) {
       pendingCamera = { ...camera };
       window.clearTimeout(renderTimer);
+      if (suspended) return;
       renderTimer = window.setTimeout(() => renderCamera(pendingCamera), delay);
     }
 
@@ -115,15 +117,38 @@ export default function OverviewPdfRuntime() {
       const camera = event.detail || {};
       if (!Number.isFinite(camera.scale)) return;
       pendingCamera = { scale: camera.scale, tx: camera.tx || 0, ty: camera.ty || 0 };
+      if (suspended) return;
       snapshotTransform(pendingCamera);
-
-      // While the camera is moving, keep the last crisp frame and only transform it.
-      // Render the expensive PDF frame once the motion settles.
       if (camera.dragging) {
         window.clearTimeout(renderTimer);
         return;
       }
       scheduleRender(pendingCamera, 45);
+    }
+
+    function releaseBuffers() {
+      renderGeneration += 1;
+      window.clearTimeout(renderTimer);
+      try { renderTask?.cancel?.(); } catch { /* noop */ }
+      try { page?.cleanup?.(); } catch { /* noop */ }
+      try { pdf?.cleanup?.(); } catch { /* noop */ }
+      if (canvas) {
+        try { canvas.width = 1; canvas.height = 1; } catch { /* noop */ }
+        canvas.style.transform = "none";
+      }
+      if (bufferCanvas) {
+        try { bufferCanvas.width = 1; bufferCanvas.height = 1; } catch { /* noop */ }
+      }
+      stage?.classList.remove("pf-pdf-crisp-ready");
+    }
+
+    function onMemoryVisibility(event) {
+      suspended = Boolean(event.detail?.hidden);
+      if (suspended) {
+        releaseBuffers();
+        return;
+      }
+      scheduleRender(pendingCamera, 0);
     }
 
     async function attach(nextStage) {
@@ -147,7 +172,7 @@ export default function OverviewPdfRuntime() {
         if (disposed) return;
         page = await pdf.getPage(1);
         if (disposed) return;
-        await renderCamera(pendingCamera);
+        if (!suspended) await renderCamera(pendingCamera);
       } catch (error) {
         console.warn("Overview PDF.js unavailable; keeping browser PDF fallback", error);
         canvas?.remove();
@@ -170,6 +195,7 @@ export default function OverviewPdfRuntime() {
     sync();
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("pf-memory-visibility", onMemoryVisibility);
 
     return () => {
       disposed = true;
@@ -177,8 +203,10 @@ export default function OverviewPdfRuntime() {
       observer.disconnect();
       resizeObserver?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
+      window.removeEventListener("pf-memory-visibility", onMemoryVisibility);
       window.clearTimeout(renderTimer);
       try { renderTask?.cancel?.(); } catch { /* noop */ }
+      try { page?.cleanup?.(); } catch { /* noop */ }
       try { pdf?.destroy?.(); } catch { /* noop */ }
       canvas?.remove();
       bufferCanvas = null;
