@@ -9,11 +9,11 @@ function softenImage(img) {
   } catch {}
 }
 
-function cleanDetachedEditorMemory() {
+function cleanDetachedEditorMemory({ aggressive = false } = {}) {
   document.querySelectorAll("canvas").forEach((canvas) => {
-    if (canvas.closest(".poster-canvas")) return;
-    if (canvas.closest(".lot-editor-shell")) return;
-    if (canvas.width > 2200 || canvas.height > 2200) {
+    if (!aggressive && canvas.closest(".poster-canvas")) return;
+    if (!aggressive && canvas.closest(".lot-editor-shell")) return;
+    if (aggressive || canvas.width > 2200 || canvas.height > 2200) {
       try { canvas.width = 1; canvas.height = 1; } catch {}
     }
   });
@@ -41,14 +41,24 @@ export default function MemoryGovernor() {
       const editorOpen = Boolean(document.querySelector(".lot-editor-shell"));
       if (editorWasOpen && !editorOpen) {
         if (cleanupTimer) clearTimeout(cleanupTimer);
-        cleanupTimer = setTimeout(cleanDetachedEditorMemory, profile.lowMemory ? 0 : 120);
+        cleanupTimer = setTimeout(() => cleanDetachedEditorMemory(), profile.lowMemory ? 0 : 120);
       }
       editorWasOpen = editorOpen;
     });
 
+    function onVisibilityChange() {
+      const hidden = document.visibilityState === "hidden";
+      window.dispatchEvent(new CustomEvent("pf-memory-visibility", { detail: { hidden } }));
+      if (!hidden) return;
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      cleanupTimer = setTimeout(() => cleanDetachedEditorMemory({ aggressive: true }), profile.lowMemory ? 0 : 180);
+    }
+
     observer.observe(root, { childList: true, subtree: true });
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (cleanupTimer) clearTimeout(cleanupTimer);
     };
   }, []);
