@@ -1,0 +1,32 @@
+/* PlotFlow button tone refinement: no black-glass primary actions. */
+
+/* Home: primary actions use PlotFlow green; glass stays light for secondary actions. */
+.pf-home .pf-home-hero-actions .pf-button--primary,
+.pf-home .pf-home-feedback-box .pf-button--primary,
+.pf-home .pf-button--primary{
+  border-color:rgba(15,122,100,.22)!important;
+  background:linear-gradient(145deg,#15856d,#0f705d)!important;
+  color:#fff!important;
+  box-shadow:0 12px 28px rgba(15,122,100,.18),inset 0 1px 0 rgba(255,255,255,.24)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.pf-home .pf-button--primary::after{background:linear-gradient(180deg,rgba(255,255,255,.18),transparent)!important;opacity:.7!important}
+.pf-home .pf-button--primary:hover:not(:disabled){background:linear-gradient(145deg,#179077,#106b59)!important;box-shadow:0 16px 34px rgba(15,122,100,.23),inset 0 1px 0 rgba(255,255,255,.28)!important}
+.pf-home .pf-home-hero-actions>button,
+.pf-home .pf-home-feedback-box footer>button{border-color:rgba(15,122,100,.22)!important;background:linear-gradient(145deg,#15856d,#0f705d)!important;color:#fff!important;box-shadow:0 12px 28px rgba(15,122,100,.18)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+
+/* Detail: primary actions use the same green language instead of black/ink fills. */
+body.pf-product-detail .sheet-connect button:first-of-type,
+body.pf-product-detail .export-current-button,
+body.pf-product-detail .edit-layout-button.active{
+  background:linear-gradient(145deg,#15856d,#0f705d)!important;
+  color:#fff!important;
+  border-color:rgba(15,122,100,.24)!important;
+  box-shadow:0 10px 24px rgba(15,122,100,.16),inset 0 1px 0 rgba(255,255,255,.22)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+body.pf-product-detail .sheet-connect button:first-of-type:hover,
+body.pf-product-detail .export-current-button:hover,
+body.pf-product-detail .edit-layout-button.active:hover{background:linear-gradient(145deg,#179077,#106b59)!important;box-shadow:0 14px 30px rgba(15,122,100,.21),inset 0 1px 0 rgba(255,255,255,.25)!important}
