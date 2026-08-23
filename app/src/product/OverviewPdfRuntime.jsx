@@ -5,7 +5,7 @@ import "./OverviewPdfRuntime.css";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-const PDF_URL = "/overview-masterplan/masterplan.pdf";
+const FALLBACK_PDF_URL = "/overview-masterplan/hoan-thien.pdf";
 const MAX_DPR = 2;
 
 export default function OverviewPdfRuntime() {
@@ -19,6 +19,7 @@ export default function OverviewPdfRuntime() {
     let bufferCtx = null;
     let pdf = null;
     let page = null;
+    let currentPdfUrl = "";
     let resizeObserver = null;
     let renderTask = null;
     let renderTimer = 0;
@@ -27,6 +28,10 @@ export default function OverviewPdfRuntime() {
     let baseBounds = null;
     let renderedCamera = { scale: 1, tx: 0, ty: 0 };
     let pendingCamera = { scale: 1, tx: 0, ty: 0 };
+
+    function overviewPdfUrl() {
+      return stage?.dataset?.overviewPdfUrl || FALLBACK_PDF_URL;
+    }
 
     function ensureCanvasSize(rect, dpr) {
       if (!canvas || !bufferCanvas) return;
@@ -183,13 +188,51 @@ export default function OverviewPdfRuntime() {
       stage?.classList.remove("pf-pdf-crisp-ready");
     }
 
+    async function loadPdf(url) {
+      if (!url || url === currentPdfUrl || disposed) return;
+      const loadUrl = url;
+      currentPdfUrl = loadUrl;
+      renderGeneration += 1;
+      window.clearTimeout(renderTimer);
+      try { renderTask?.cancel?.(); } catch { /* noop */ }
+      try { page?.cleanup?.(); } catch { /* noop */ }
+      try { await pdf?.destroy?.(); } catch { /* noop */ }
+      page = null;
+      pdf = null;
+      stage?.classList.remove("pf-pdf-crisp-ready");
+
+      try {
+        const nextPdf = await pdfjsLib.getDocument({ url: loadUrl, isEvalSupported: false }).promise;
+        if (disposed || currentPdfUrl !== loadUrl) {
+          try { await nextPdf.destroy?.(); } catch { /* noop */ }
+          return;
+        }
+        pdf = nextPdf;
+        page = await pdf.getPage(1);
+        if (disposed || currentPdfUrl !== loadUrl) return;
+        if (!suspended) await renderCamera(pendingCamera);
+      } catch (error) {
+        if (currentPdfUrl === loadUrl) currentPdfUrl = "";
+        console.warn(`Overview PDF.js unavailable for ${loadUrl}; keeping browser PDF fallback`, error);
+      }
+    }
+
     function onMemoryVisibility(event) {
       suspended = Boolean(event.detail?.hidden);
       if (suspended) {
         releaseBuffers();
         return;
       }
-      scheduleRender(pendingCamera, 0);
+      if (!page) loadPdf(overviewPdfUrl());
+      else scheduleRender(pendingCamera, 0);
+    }
+
+    function onGroupChanged() {
+      requestAnimationFrame(() => {
+        if (!stage) return;
+        const nextUrl = overviewPdfUrl();
+        if (nextUrl !== currentPdfUrl) loadPdf(nextUrl);
+      });
     }
 
     async function attach(nextStage) {
@@ -208,24 +251,11 @@ export default function OverviewPdfRuntime() {
       bufferCanvas = document.createElement("canvas");
       bufferCtx = bufferCanvas.getContext("2d", { alpha: false });
 
-      try {
-        pdf = await pdfjsLib.getDocument({ url: PDF_URL, isEvalSupported: false }).promise;
-        if (disposed) return;
-        page = await pdf.getPage(1);
-        if (disposed) return;
-        if (!suspended) await renderCamera(pendingCamera);
-      } catch (error) {
-        console.warn("Overview PDF.js unavailable; keeping browser PDF fallback", error);
-        canvas?.remove();
-        canvas = null;
-        bufferCanvas = null;
-        if (iframe) iframe.classList.remove("pf-pdf-fallback");
-        return;
-      }
-
       window.addEventListener("pf-overview-camera", onCamera);
+      window.addEventListener("pf-overview-group-changed", onGroupChanged);
       resizeObserver = new ResizeObserver(() => scheduleRender(pendingCamera, 80));
       resizeObserver.observe(stage);
+      await loadPdf(overviewPdfUrl());
     }
 
     function sync() {
@@ -244,6 +274,7 @@ export default function OverviewPdfRuntime() {
       observer.disconnect();
       resizeObserver?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
+      window.removeEventListener("pf-overview-group-changed", onGroupChanged);
       window.removeEventListener("pf-memory-visibility", onMemoryVisibility);
       window.clearTimeout(renderTimer);
       try { renderTask?.cancel?.(); } catch { /* noop */ }
