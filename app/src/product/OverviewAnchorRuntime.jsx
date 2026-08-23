@@ -3,6 +3,8 @@ import "./OverviewAnchorRuntime.css";
 
 const STORAGE_KEY = "phongflow-overview-anchor-layout-v2";
 const FOCUS_SCALE = 70;
+const NUDGE_STEP = 0.35;
+const NUDGE_STEP_LARGE = 1.5;
 
 function readAnchors() {
   try {
@@ -28,7 +30,6 @@ export default function OverviewAnchorRuntime() {
     let navigator = null;
     let navSelect = null;
     let navStatus = null;
-    let nudgeStep = 0.5;
 
     function cards() {
       return stage ? Array.from(stage.querySelectorAll(".pf-sales-callout")) : [];
@@ -67,6 +68,7 @@ export default function OverviewAnchorRuntime() {
       anchor.dataset.saved = "1";
       const line = lineForCode(code);
       if (line) {
+        line.classList.remove("pf-connector-needs-placement");
         line.style.opacity = "";
         line.setAttribute("x2", String(saved.x));
         line.setAttribute("y2", String(saved.y));
@@ -80,8 +82,8 @@ export default function OverviewAnchorRuntime() {
         applySavedAnchor(code);
         const active = code === activeCode;
         anchor.classList.toggle("pf-anchor-dot-active", active);
-        anchor.setAttribute("aria-label", active ? `Connector end ${code}. Drag to refine lot position.` : `Connector end ${code}`);
-        anchor.title = active ? `${code} · kéo chấm hoặc dùng nudge trên toolbar` : code;
+        anchor.setAttribute("aria-label", active ? `Connector point ${code}. Drag to refine.` : `Connector point ${code}`);
+        anchor.title = active ? `${code} · drag or use arrow nudges` : code;
         if (active) anchor.style.transform = `translate(-50%,-50%) scale(${1 / Math.max(camera.scale, 0.0001)})`;
         else anchor.style.transform = "translate(-50%,-50%)";
       });
@@ -107,17 +109,13 @@ export default function OverviewAnchorRuntime() {
       applySavedAnchor(code);
       const anchor = anchorForCode(code);
       if (!anchor) return;
-      const verified = anchor.dataset?.located === "1" || anchor.dataset?.saved === "1";
-      if (!verified) {
-        setActive(code);
-        setStatus("Chưa tìm thấy mã này trong text PDF");
-        return;
-      }
       const x = Number.parseFloat(anchor.style.left || "50");
       const y = Number.parseFloat(anchor.style.top || "50");
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      setStatus("");
+
       setActive(code);
+      const verified = anchor.dataset?.located === "1" || anchor.dataset?.saved === "1";
+      setStatus(verified ? "" : `${code} · needs placement`);
       window.dispatchEvent(new CustomEvent("pf-overview-focus-request", {
         detail: { code, x, y, scale: FOCUS_SCALE, located: anchor.dataset?.located === "1" },
       }));
@@ -128,12 +126,12 @@ export default function OverviewAnchorRuntime() {
       applySavedAnchor(code);
       const anchor = anchorForCode(code);
       if (!anchor) {
-        setStatus("Chưa có connector end cho mã này");
+        setStatus("No connector point for this unit");
         return;
       }
       setActive(code);
       navigator?.classList.add("is-adjusting");
-      setStatus("Connector end: kéo chấm đỏ hoặc dùng các phím nudge");
+      setStatus("Adjust connector · drag red point or use arrows · Shift = larger step");
     }
 
     function moveAnchor(code, dx, dy) {
@@ -146,6 +144,7 @@ export default function OverviewAnchorRuntime() {
       anchor.dataset.saved = "1";
       const line = lineForCode(code);
       if (line) {
+        line.classList.remove("pf-connector-needs-placement");
         line.style.opacity = "";
         line.setAttribute("x2", String(x));
         line.setAttribute("y2", String(y));
@@ -153,12 +152,8 @@ export default function OverviewAnchorRuntime() {
       anchors[code] = { x: Number(x.toFixed(5)), y: Number(y.toFixed(5)) };
       saveAnchors(anchors);
       setActive(code);
-      setStatus(`Connector end · ${x.toFixed(1)}%, ${y.toFixed(1)}%`);
+      setStatus(`Connector · ${x.toFixed(1)}%, ${y.toFixed(1)}%`);
       window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code, x, y } }));
-    }
-
-    function focusCard(card) {
-      focusCode(codeForCard(card));
     }
 
     function onDoubleClick(event) {
@@ -167,7 +162,7 @@ export default function OverviewAnchorRuntime() {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
-      focusCard(card);
+      focusCode(codeForCard(card));
     }
 
     function onCardClick(event) {
@@ -175,6 +170,7 @@ export default function OverviewAnchorRuntime() {
       if (!card || !stage?.contains(card)) return;
       const code = codeForCard(card);
       if (code && navSelect) navSelect.value = code;
+      if (code) setActive(code);
     }
 
     function stepNavigator(delta) {
@@ -202,13 +198,12 @@ export default function OverviewAnchorRuntime() {
         <select aria-label="Chọn mã căn"></select>
         <button type="button" data-nav="next" title="Next unit">›</button>
         <button type="button" class="pf-unit-focus-button" data-nav="focus">Focus</button>
-        <button type="button" class="pf-unit-adjust-button" data-nav="adjust">Connector end</button>
-        <div class="pf-anchor-nudge" aria-label="Connector end fine tune">
-          <button type="button" data-nav="nudge-left" title="Nudge left">←</button>
-          <button type="button" data-nav="nudge-up" title="Nudge up">↑</button>
-          <button type="button" data-nav="nudge-down" title="Nudge down">↓</button>
-          <button type="button" data-nav="nudge-right" title="Nudge right">→</button>
-          <select data-nav-step aria-label="Nudge step"><option value="0.2">Fine</option><option value="0.5" selected>Normal</option><option value="1">Large</option></select>
+        <button type="button" class="pf-unit-adjust-button" data-nav="adjust">Adjust connector</button>
+        <div class="pf-anchor-nudge" aria-label="Connector fine tune">
+          <button type="button" data-nav="nudge-left" title="Left · Shift-click for larger step">←</button>
+          <button type="button" data-nav="nudge-up" title="Up · Shift-click for larger step">↑</button>
+          <button type="button" data-nav="nudge-down" title="Down · Shift-click for larger step">↓</button>
+          <button type="button" data-nav="nudge-right" title="Right · Shift-click for larger step">→</button>
         </div>
         <small>${list.length} căn</small>
         <em class="pf-unit-focus-status" hidden></em>`;
@@ -227,25 +222,22 @@ export default function OverviewAnchorRuntime() {
         event.preventDefault();
         event.stopPropagation();
         const code = navSelect?.value || list[0];
+        const step = event.shiftKey ? NUDGE_STEP_LARGE : NUDGE_STEP;
         if (button.dataset.nav === "prev") stepNavigator(-1);
         if (button.dataset.nav === "next") stepNavigator(1);
         if (button.dataset.nav === "focus") focusCode(code);
         if (button.dataset.nav === "adjust") adjustCode(code);
-        if (button.dataset.nav === "nudge-left") moveAnchor(code, -nudgeStep, 0);
-        if (button.dataset.nav === "nudge-right") moveAnchor(code, nudgeStep, 0);
-        if (button.dataset.nav === "nudge-up") moveAnchor(code, 0, -nudgeStep);
-        if (button.dataset.nav === "nudge-down") moveAnchor(code, 0, nudgeStep);
-      });
-      navigator.querySelector("[data-nav-step]")?.addEventListener("change", (event) => {
-        nudgeStep = Number(event.target.value) || 0.5;
+        if (button.dataset.nav === "nudge-left") moveAnchor(code, -step, 0);
+        if (button.dataset.nav === "nudge-right") moveAnchor(code, step, 0);
+        if (button.dataset.nav === "nudge-up") moveAnchor(code, 0, -step);
+        if (button.dataset.nav === "nudge-down") moveAnchor(code, 0, step);
       });
       navSelect.addEventListener("change", () => {
         navigator?.classList.remove("is-adjusting");
         setStatus("");
         setActive(navSelect.value);
       });
-      const rail = document.querySelector(".pf-overview-control-rail");
-      (rail || stage).appendChild(navigator);
+      document.querySelector(".pf-overview-control-rail")?.appendChild(navigator);
     }
 
     function onCamera(event) {
@@ -283,6 +275,7 @@ export default function OverviewAnchorRuntime() {
       drag.anchor.dataset.saved = "1";
       const line = lineForCode(drag.code);
       if (line) {
+        line.classList.remove("pf-connector-needs-placement");
         line.style.opacity = "";
         line.setAttribute("x2", String(x));
         line.setAttribute("y2", String(y));
@@ -295,7 +288,7 @@ export default function OverviewAnchorRuntime() {
       drag.anchor.classList.remove("is-dragging");
       drag.anchor.releasePointerCapture?.(event.pointerId);
       saveAnchors(anchors);
-      setStatus("Đã lưu connector end");
+      setStatus("Connector position saved");
       window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code: drag.code, ...anchors[drag.code] } }));
       drag = null;
     }
