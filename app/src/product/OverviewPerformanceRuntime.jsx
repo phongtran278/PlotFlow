@@ -7,15 +7,25 @@ function heapSnapshot() {
   return {
     used: memory.usedJSHeapSize / 1024 / 1024,
     total: memory.totalJSHeapSize / 1024 / 1024,
-    limit: memory.jsHeapSizeLimit / 1024 / 1024,
   };
 }
 
 function pressureFor(mb) {
   if (!Number.isFinite(mb)) return { level: "Unknown", tone: "unknown" };
-  if (mb < 250) return { level: "Low", tone: "low" };
-  if (mb < 600) return { level: "Medium", tone: "medium" };
+  if (mb < 350) return { level: "Low", tone: "low" };
+  if (mb < 800) return { level: "Medium", tone: "medium" };
   return { level: "High", tone: "high" };
+}
+
+async function pageMemorySnapshot() {
+  if (typeof performance?.measureUserAgentSpecificMemory !== "function") return null;
+  try {
+    const result = await performance.measureUserAgentSpecificMemory();
+    if (!Number.isFinite(result?.bytes)) return null;
+    return result.bytes / 1024 / 1024;
+  } catch {
+    return null;
+  }
 }
 
 export default function OverviewPerformanceRuntime() {
@@ -23,23 +33,58 @@ export default function OverviewPerformanceRuntime() {
     let meter = null;
     let timer = 0;
     let disposed = false;
+    let measuredPageMb = null;
+    let lastReleaseAt = 0;
+    let measuring = false;
+
+    async function refreshPageMemory() {
+      if (measuring || document.hidden) return;
+      measuring = true;
+      const value = await pageMemorySnapshot();
+      measuring = false;
+      if (disposed) return;
+      measuredPageMb = value;
+      render();
+    }
 
     function render() {
       if (!meter) return;
       const heap = heapSnapshot();
-      const nodes = document.querySelector(".pf-overview")?.querySelectorAll("*").length || 0;
       const hidden = document.hidden;
-      const pressure = pressureFor(heap?.used);
-      const used = heap ? `${Math.round(heap.used)} MB` : "RAM n/a";
-      const state = hidden ? "Releasing background cache" : `${pressure.level} memory load`;
-      meter.dataset.pressure = hidden ? "suspended" : pressure.tone;
+      const recentlyReleased = !hidden && lastReleaseAt && Date.now() - lastReleaseAt < 8000;
+      const hasPageMeasurement = Number.isFinite(measuredPageMb);
+      const metricMb = hasPageMeasurement ? measuredPageMb : heap?.used;
+      const pressure = hasPageMeasurement ? pressureFor(metricMb) : { level: "Partial", tone: "partial" };
+      const main = hasPageMeasurement
+        ? `${Math.round(metricMb)} MB page`
+        : heap
+          ? `${Math.round(heap.used)} MB JS`
+          : "Memory unavailable";
+      const state = hidden
+        ? "Releasing PDF cache"
+        : recentlyReleased
+          ? "Background cache released"
+          : hasPageMeasurement
+            ? `${pressure.level} page load`
+            : "Partial metric only";
+      const detail = hidden
+        ? "Rebuildable PDF canvases are suspended while inactive."
+        : recentlyReleased
+          ? "PDF buffers were released while this tab was inactive; Chromium decides when OS RAM drops."
+          : hasPageMeasurement
+            ? "Browser-provided page memory estimate."
+            : "This browser does not expose total page RAM; shown value is JavaScript heap only.";
+
+      meter.dataset.pressure = hidden ? "suspended" : recentlyReleased ? "released" : pressure.tone;
       meter.innerHTML = `
         <span class="pf-performance-dot"></span>
-        <div><strong>${used}</strong><b>${state}</b></div>
-        <small>${hidden ? "Overview suspends rebuildable PDF buffers while inactive." : `${nodes} UI nodes · cache releases when this tab goes inactive.`}</small>`;
-      meter.title = heap
-        ? `PlotFlow can read JavaScript heap (${Math.round(heap.used)} MB used, ${Math.round(heap.total)} MB allocated), but browsers do not expose total tab/process RAM reliably. PDF/GPU/browser memory may be higher. When the tab is inactive, PlotFlow releases rebuildable PDF buffers; Chromium decides when that memory is returned to the operating system.`
-        : "This browser does not expose JavaScript heap usage. PlotFlow still suspends rebuildable PDF buffers when the tab is inactive; the browser decides when memory is returned to the operating system.";
+        <div><strong>${main}</strong><b>${state}</b></div>
+        <small>${detail}</small>`;
+      meter.title = hasPageMeasurement
+        ? `Browser page-memory estimate: ${Math.round(metricMb)} MB. PlotFlow releases rebuildable PDF buffers when inactive. The operating system and Chromium decide when released memory is physically returned to RAM.`
+        : heap
+          ? `JavaScript heap only: ${Math.round(heap.used)} MB used / ${Math.round(heap.total)} MB allocated. This is NOT total tab RAM. PDF, GPU and browser-process memory are not exposed here. PlotFlow still releases rebuildable PDF buffers in the background.`
+          : "This browser does not expose a reliable total page-memory metric. PlotFlow still releases rebuildable PDF buffers while inactive.";
     }
 
     function install() {
@@ -58,14 +103,19 @@ export default function OverviewPerformanceRuntime() {
       if (disposed) return;
       install();
       render();
+      refreshPageMemory();
       window.clearTimeout(timer);
-      timer = window.setTimeout(tick, document.hidden ? 5000 : 1800);
+      timer = window.setTimeout(tick, document.hidden ? 5000 : 5000);
     }
 
     function onVisibility() {
+      if (document.hidden) {
+        lastReleaseAt = Date.now();
+        measuredPageMb = null;
+      }
       render();
       window.clearTimeout(timer);
-      timer = window.setTimeout(tick, document.hidden ? 5000 : 250);
+      timer = window.setTimeout(tick, document.hidden ? 5000 : 400);
     }
 
     tick();
