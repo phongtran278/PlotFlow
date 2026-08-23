@@ -53,38 +53,32 @@ export default function OverviewPerformanceRuntime() {
       const hidden = document.hidden;
       const recentlyReleased = !hidden && lastReleaseAt && Date.now() - lastReleaseAt < 8000;
       const hasPageMeasurement = Number.isFinite(measuredPageMb);
-      const metricMb = hasPageMeasurement ? measuredPageMb : heap?.used;
-      const pressure = hasPageMeasurement ? pressureFor(metricMb) : { level: "Partial", tone: "partial" };
-      const main = hasPageMeasurement
-        ? `${Math.round(metricMb)} MB page`
-        : heap
-          ? `${Math.round(heap.used)} MB JS`
-          : "Memory unavailable";
+      const pressure = hasPageMeasurement ? pressureFor(measuredPageMb) : { level: "Unknown", tone: "partial" };
+      const main = hasPageMeasurement ? `Estimated page ${Math.round(measuredPageMb)} MB` : "Total RAM unavailable";
       const state = hidden
         ? "Releasing PDF cache"
         : recentlyReleased
           ? "Background cache released"
           : hasPageMeasurement
             ? `${pressure.level} page load`
-            : "Partial metric only";
+            : heap
+              ? `JS heap ${Math.round(heap.used)} MB`
+              : "Browser metric unavailable";
       const detail = hidden
-        ? "Rebuildable PDF canvases are suspended while inactive."
+        ? "PlotFlow suspends rebuildable PDF buffers while inactive."
         : recentlyReleased
-          ? "PDF buffers were released while this tab was inactive; Chromium decides when OS RAM drops."
+          ? "PlotFlow released rebuildable PDF buffers; Chromium decides when OS RAM visibly drops."
           : hasPageMeasurement
-            ? "Browser-provided page memory estimate."
-            : "This browser does not expose total page RAM; shown value is JavaScript heap only.";
+            ? "Browser-provided page estimate; Task Manager may still include GPU/browser-process memory."
+            : "Browsers do not expose reliable total tab/process RAM here. Check Task Manager/Activity Monitor for the real process total.";
 
       meter.dataset.pressure = hidden ? "suspended" : recentlyReleased ? "released" : pressure.tone;
-      meter.innerHTML = `
-        <span class="pf-performance-dot"></span>
-        <div><strong>${main}</strong><b>${state}</b></div>
-        <small>${detail}</small>`;
+      meter.innerHTML = `<span class="pf-performance-dot"></span><div><strong>${main}</strong><b>${state}</b></div><small>${detail}</small>`;
       meter.title = hasPageMeasurement
-        ? `Browser page-memory estimate: ${Math.round(metricMb)} MB. PlotFlow releases rebuildable PDF buffers when inactive. The operating system and Chromium decide when released memory is physically returned to RAM.`
+        ? `Estimated page memory: ${Math.round(measuredPageMb)} MB. This is the browser's page-level estimate, not a guarantee of the operating-system process total.`
         : heap
-          ? `JavaScript heap only: ${Math.round(heap.used)} MB used / ${Math.round(heap.total)} MB allocated. This is NOT total tab RAM. PDF, GPU and browser-process memory are not exposed here. PlotFlow still releases rebuildable PDF buffers in the background.`
-          : "This browser does not expose a reliable total page-memory metric. PlotFlow still releases rebuildable PDF buffers while inactive.";
+          ? `Total tab/process RAM is not exposed by this browser. JavaScript heap is ${Math.round(heap.used)} MB used / ${Math.round(heap.total)} MB allocated. PDF, GPU and browser-process memory can make Task Manager much higher.`
+          : "Total tab/process RAM is not exposed by this browser. Use Task Manager or Activity Monitor for the real process total.";
     }
 
     function install() {
@@ -105,7 +99,7 @@ export default function OverviewPerformanceRuntime() {
       render();
       refreshPageMemory();
       window.clearTimeout(timer);
-      timer = window.setTimeout(tick, document.hidden ? 5000 : 5000);
+      timer = window.setTimeout(tick, 5000);
     }
 
     function onVisibility() {
