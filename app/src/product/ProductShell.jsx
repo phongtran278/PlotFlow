@@ -35,28 +35,57 @@ function readSellUnits() {
   }
 }
 
-function ProjectCard({ project, onOpen }) {
+function HubProjectCard({ project, index, onOpen }) {
   return (
-    <button type="button" className="pf-project-card" onClick={() => onOpen(project)}>
-      <div className={`pf-project-thumb tone-${project.tone}`}>
-        <span>{project.code}</span>
-        <small>{project.developer}</small>
+    <button type="button" className="pf-hub-project-card" onClick={() => onOpen(project)}>
+      <div className={`pf-hub-project-media tone-${project.tone}`} aria-label={`${project.name} project thumbnail placeholder`}>
+        <div className="pf-hub-project-grid" aria-hidden="true" />
       </div>
-      <div className="pf-project-card-copy">
-        <span>{project.status}</span>
+      <div className="pf-hub-project-body">
+        <div className="pf-hub-project-meta">
+          <span>{String(index + 1).padStart(2, "0")}</span>
+          <em>{project.status}</em>
+        </div>
         <strong>{project.name}</strong>
-        <small>{project.location}</small>
+        <div className="pf-hub-project-foot">
+          <small>{project.developer} · {project.location}</small>
+          <b>Open →</b>
+        </div>
       </div>
-      <em>Open →</em>
     </button>
   );
 }
 
-export default function ProductShell({ children }) {
+function WorkspaceNav({ screen, mode, project, onExitWorkspace, onProjects, onMode }) {
+  const inProject = screen === "project";
+  return (
+    <header className="pf-workspace-nav">
+      <button type="button" className="pf-workspace-brand" onClick={onExitWorkspace} aria-label="Back to PlotFlow home">PlotFlow</button>
+      <nav aria-label="Workspace navigation">
+        <button type="button" className={screen === "home" ? "active" : ""} onClick={onProjects}>Projects</button>
+        {inProject && <button type="button" className={mode === "overview" ? "active" : ""} onClick={() => onMode("overview")}>Overview</button>}
+        {inProject && <button type="button" className={mode === "detail" ? "active" : ""} onClick={() => onMode("detail")}>Detail</button>}
+      </nav>
+      <div className="pf-workspace-context" aria-live="polite">
+        {inProject ? (
+          <>
+            <span>{project.code}</span>
+            <div><strong>{project.name}</strong><small>{project.developer} · {project.location}</small></div>
+          </>
+        ) : (
+          <div className="pf-workspace-context-idle"><i /><strong>Project workspace</strong></div>
+        )}
+      </div>
+    </header>
+  );
+}
+
+export default function ProductShell({ children, onExitWorkspace }) {
   const [screen, setScreen] = useState("home");
   const [project, setProject] = useState(PROJECTS[0]);
   const [mode, setMode] = useState("overview");
   const [developer, setDeveloper] = useState("All developers");
+  const [query, setQuery] = useState("");
   const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
   const [units, setUnits] = useState(readAvailableUnits);
   const [sellUnits, setSellUnits] = useState(readSellUnits);
@@ -80,7 +109,15 @@ export default function ProductShell({ children }) {
   }, [screen, mode]);
 
   const developers = useMemo(() => ["All developers", ...Array.from(new Set(PROJECTS.map((item) => item.developer)))], []);
-  const filteredProjects = useMemo(() => developer === "All developers" ? PROJECTS : PROJECTS.filter((item) => item.developer === developer), [developer]);
+  const filteredProjects = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return PROJECTS.filter((item) => {
+      const matchesDeveloper = developer === "All developers" || item.developer === developer;
+      if (!matchesDeveloper) return false;
+      if (!normalizedQuery) return true;
+      return [item.code, item.name, item.developer, item.location, item.status].some((value) => String(value).toLowerCase().includes(normalizedQuery));
+    });
+  }, [developer, query]);
   const overviewGroups = useMemo(() => {
     const fromSheet = Array.from(new Set(sellUnits.map((item) => String(item.handover || "").trim()).filter(Boolean)));
     return fromSheet.length ? fromSheet : DEFAULT_OVERVIEW_GROUPS;
@@ -105,51 +142,59 @@ export default function ProductShell({ children }) {
 
   return (
     <div className="pf-product-root">
+      <WorkspaceNav
+        screen={screen}
+        mode={mode}
+        project={project}
+        onExitWorkspace={onExitWorkspace}
+        onProjects={() => setScreen("home")}
+        onMode={setMode}
+      />
+
       <div className={`pf-product-workspace ${detailVisible ? "is-visible" : "is-hidden"}`}>{children}</div>
 
       {screen === "home" && (
-        <main className="pf-home">
-          <header className="pf-home-bar">
-            <div className="pf-home-brand"><span>PF</span><div><strong>PhongFlow</strong><small>Real Estate Visual Studio</small></div></div>
-            <div className="pf-home-status"><i /> Private workspace</div>
-          </header>
-
-          <section className="pf-home-hero">
+        <main className="pf-project-hub">
+          <section className="pf-hub-intro">
             <div>
-              <span>PROJECT HUB</span>
-              <h1>All projects.<br />One flow.</h1>
-              <p>Move from the masterplan to every sales visual without losing project context.</p>
+              <span>PROJECT WORKSPACE</span>
+              <h1>All projects.<br /><em>One visual system.</em></h1>
+              <p>Move from project data and masterplan to Overview and Detail without losing context — while keeping every workspace inside the same design language.</p>
             </div>
-            <div className="pf-home-hero-note">
+            <div className="pf-hub-stat">
               <strong>{PROJECTS.length}</strong>
               <span>projects in workspace</span>
               <small>Overview ↔ Detail</small>
             </div>
           </section>
 
-          <section className="pf-home-projects">
-            <div className="pf-section-head">
-              <div><span>WORKSPACES</span><h2>Your projects</h2></div>
+          <section className="pf-hub-library">
+            <div className="pf-hub-section-head">
+              <div><span>PROJECT LIBRARY</span><h2>Your projects</h2></div>
               <small>{filteredProjects.length} shown</small>
             </div>
-            <div className="pf-filter-row" role="group" aria-label="Filter projects by developer">
-              {developers.map((name) => (
-                <button key={name} type="button" className={developer === name ? "active" : ""} onClick={() => setDeveloper(name)}>{name}</button>
-              ))}
+
+            <div className="pf-hub-tools">
+              <label className="pf-hub-search">
+                <span aria-hidden="true">⌕</span>
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects" aria-label="Search projects" />
+              </label>
+              <div className="pf-hub-filters" role="group" aria-label="Filter projects by developer">
+                {developers.map((name) => (
+                  <button key={name} type="button" className={developer === name ? "active" : ""} onClick={() => setDeveloper(name)}>{name}</button>
+                ))}
+              </div>
             </div>
-            <div className="pf-project-grid">{filteredProjects.map((item) => <ProjectCard key={item.id} project={item} onOpen={openProject} />)}</div>
+
+            <div className="pf-hub-project-grid">
+              {filteredProjects.map((item, index) => <HubProjectCard key={item.id} project={item} index={index} onOpen={openProject} />)}
+            </div>
           </section>
         </main>
       )}
 
       {screen === "project" && mode === "overview" && (
         <main className="pf-overview">
-          <header className="pf-project-bar">
-            <button type="button" className="pf-back" onClick={() => setScreen("home")}>← Projects</button>
-            <div><span>{project.code}</span><strong>{project.name}</strong><small>{project.developer} · {project.location}</small></div>
-            <nav><button className="active" type="button">Overview</button><button type="button" onClick={() => setMode("detail")}>Detail</button></nav>
-          </header>
-
           {project.masterplan && <div className="pf-overview-control-rail" aria-label="Overview editor controls" />}
 
           <div className="pf-overview-layout pf-overview-layout-wide">
@@ -181,14 +226,6 @@ export default function ProductShell({ children }) {
             </aside>
           </div>
         </main>
-      )}
-
-      {detailVisible && (
-        <div className="pf-detail-nav">
-          <button type="button" onClick={() => setScreen("home")}>⌂</button>
-          <div><span>{project.code}</span><strong>{project.name}</strong></div>
-          <nav><button type="button" onClick={() => setMode("overview")}>Overview</button><button type="button" className="active">Detail</button></nav>
-        </div>
       )}
     </div>
   );
