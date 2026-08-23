@@ -9,13 +9,12 @@ function readUi() {
     const value = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
     const legacySpacing = Number(value.spacing);
     return {
-      size: Number(value.size) || 88,
       gap: Number.isFinite(Number(value.gap)) ? Number(value.gap) : Number.isFinite(legacySpacing) ? Math.round(legacySpacing / 5) : 20,
       map: value.map && typeof value.map === "object" ? value.map : {},
       columns: value.columns && typeof value.columns === "object" ? value.columns : {},
     };
   } catch {
-    return { size: 88, gap: 20, map: {}, columns: {} };
+    return { gap: 20, map: {}, columns: {} };
   }
 }
 
@@ -60,32 +59,8 @@ export default function OverviewLayoutPresetRuntime() {
       return stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
     }
 
-    function px(base, factor, min = 0) {
-      return `${Math.max(min, base * factor).toFixed(2)}px`;
-    }
-
     function saveUi() {
       localStorage.setItem(UI_KEY, JSON.stringify(ui));
-    }
-
-    function applySize() {
-      if (!stage) return;
-      const factor = Math.max(0.45, Math.min(1.15, Number(ui.size || 88) / 100));
-      stage.style.setProperty("--pf-sell-card-width", px(218, factor, 98));
-      stage.style.setProperty("--pf-sell-card-pad-y", px(10, factor, 4.5));
-      stage.style.setProperty("--pf-sell-card-pad-x", px(11, factor, 5));
-      stage.style.setProperty("--pf-sell-card-radius", px(17, factor, 8));
-      stage.style.setProperty("--pf-sell-code-size", px(34, factor, 15));
-      stage.style.setProperty("--pf-sell-code-gap", px(8, factor, 3));
-      stage.style.setProperty("--pf-sell-spec-size", px(10.2, factor, 5));
-      stage.style.setProperty("--pf-sell-spec-gap", px(2.4, factor, 1));
-      stage.style.setProperty("--pf-sell-spec-bottom", px(8, factor, 3));
-      stage.style.setProperty("--pf-sell-price-pad-y", px(8.5, factor, 4));
-      stage.style.setProperty("--pf-sell-price-pad-x", px(8, factor, 4));
-      stage.style.setProperty("--pf-sell-price-radius", px(12, factor, 6));
-      stage.style.setProperty("--pf-sell-price-label-size", px(9.3, factor, 4.8));
-      stage.style.setProperty("--pf-sell-price-size", px(27.5, factor, 13));
-      stage.style.setProperty("--pf-sell-price-gap", px(4, factor, 1.5));
     }
 
     function persistLayout() {
@@ -284,14 +259,13 @@ export default function OverviewLayoutPresetRuntime() {
 
     function arrangeExactGap() {
       if (!stage) return;
-      applySize();
       captureMapFromCanvas(false);
       const all = cards();
       if (!all.length) return;
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
       const insetY = Math.max(12, Math.round(h * 0.02));
-      const gap = clamp(ui.gap, 0, 96);
+      const gap = clamp(ui.gap, 0, 120);
       const left = [];
       const right = [];
 
@@ -305,7 +279,7 @@ export default function OverviewLayoutPresetRuntime() {
 
       function place(list, side) {
         if (!list.length) return;
-        const heights = list.map(({ card }) => card.offsetHeight || 180);
+        const heights = list.map(({ card }) => card.offsetHeight || 100);
         const total = heights.reduce((sum, value) => sum + value, 0);
         const usedHeight = total + Math.max(0, list.length - 1) * gap;
         let top = Math.max(insetY, (h - usedHeight) / 2);
@@ -330,7 +304,7 @@ export default function OverviewLayoutPresetRuntime() {
       persistLayout();
       updateConnectors();
       renderLayoutMap();
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length, mode: "exact-gap", gap } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length, mode: "preserve-size", gap } }));
     }
 
     function installExportMenu() {
@@ -362,7 +336,6 @@ export default function OverviewLayoutPresetRuntime() {
       if (!nextStage || !nextRail) return false;
       stage = nextStage;
       rail = nextRail;
-      applySize();
       installExportMenu();
       document.querySelector(".pf-v2-arrange")?.classList.add("pf-v2-arrange-superseded");
 
@@ -370,40 +343,16 @@ export default function OverviewLayoutPresetRuntime() {
         control = document.createElement("div");
         control.className = "pf-card-layout-control";
         control.innerHTML = `
-          <label class="pf-layout-quick-control"><span>Card</span><input data-layout-ui="size" type="range" min="45" max="115" step="1"><output></output></label>
-          <label class="pf-layout-quick-control"><span>Gap</span><input data-layout-ui="gap" type="range" min="0" max="64" step="1"><output></output></label>
           <details class="pf-layout-map-menu">
             <summary>Arrange</summary>
             <div class="pf-layout-map-popover">
-              <header><strong>Manual layout</strong><small>Card → connector → lot anchor are linked. Gap is an exact pixel distance, the same on both columns.</small></header>
+              <header><strong>Arrange cards</strong><small>Quick Arrange preserves every card's current size. Transform controls size; Arrange controls position.</small></header>
               <div class="pf-layout-map-legend"><span><i class="card"></i>Info card</span><span><i class="line"></i>Connector</span><span><i class="anchor"></i>Lot anchor</span></div>
               <div class="pf-layout-map-canvas"></div>
               <footer><button type="button" data-layout-ui="capture">Use current layout</button><button type="button" class="primary" data-layout-ui="tidy">Quick arrange</button></footer>
             </div>
           </details>`;
-        const sizeInput = control.querySelector('[data-layout-ui="size"]');
-        const sizeOutput = sizeInput.closest("label").querySelector("output");
-        const gapInput = control.querySelector('[data-layout-ui="gap"]');
-        const gapOutput = gapInput.closest("label").querySelector("output");
         mapCanvas = control.querySelector(".pf-layout-map-canvas");
-        sizeInput.value = String(Math.max(45, Math.min(115, ui.size)));
-        sizeOutput.textContent = `${sizeInput.value}%`;
-        gapInput.value = String(Math.max(0, Math.min(64, ui.gap)));
-        gapOutput.textContent = `${gapInput.value}px`;
-        sizeInput.addEventListener("input", () => {
-          ui.size = Number(sizeInput.value) || 88;
-          sizeOutput.textContent = `${ui.size}%`;
-          applySize();
-          updateConnectors();
-          saveUi();
-        });
-        sizeInput.addEventListener("change", persistLayout);
-        gapInput.addEventListener("input", () => {
-          ui.gap = Number(gapInput.value) || 0;
-          gapOutput.textContent = `${ui.gap}px`;
-          saveUi();
-          arrangeExactGap();
-        });
         control.querySelector('[data-layout-ui="tidy"]').addEventListener("click", arrangeExactGap);
         control.querySelector('[data-layout-ui="capture"]').addEventListener("click", () => {
           captureMapFromCanvas(true);
@@ -435,9 +384,17 @@ export default function OverviewLayoutPresetRuntime() {
       attempt();
     }
 
+    function onPrecisionGap(event) {
+      const next = Number(event.detail?.gap);
+      if (!Number.isFinite(next)) return;
+      ui.gap = clamp(next, 0, 120);
+      saveUi();
+    }
+
     installWithRetry();
     window.addEventListener("pf-overview-live-units-ready", installWithRetry);
     window.addEventListener("pf-overview-auto-arranged", updateConnectors);
+    window.addEventListener("pf-overview-precision-gap", onPrecisionGap);
     window.addEventListener("resize", updateConnectors);
 
     return () => {
@@ -445,6 +402,7 @@ export default function OverviewLayoutPresetRuntime() {
       cancelAnimationFrame(retryRaf);
       window.removeEventListener("pf-overview-live-units-ready", installWithRetry);
       window.removeEventListener("pf-overview-auto-arranged", updateConnectors);
+      window.removeEventListener("pf-overview-precision-gap", onPrecisionGap);
       window.removeEventListener("resize", updateConnectors);
       control?.remove();
     };
