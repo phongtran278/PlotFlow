@@ -23,6 +23,8 @@ export default function OverviewPdfRuntime() {
     let renderTask = null;
     let renderTimer = 0;
     let renderGeneration = 0;
+    let trimFrame = null;
+    let baseBounds = null;
     let renderedCamera = { scale: 1, tx: 0, ty: 0 };
     let pendingCamera = { scale: 1, tx: 0, ty: 0 };
 
@@ -40,6 +42,43 @@ export default function OverviewPdfRuntime() {
         bufferCanvas.width = pixelW;
         bufferCanvas.height = pixelH;
       }
+    }
+
+    function publishPdfBounds(rect, baseViewport, fit) {
+      if (!stage) return;
+      const bounds = {
+        x: (rect.width - baseViewport.width * fit) / 2,
+        y: (rect.height - baseViewport.height * fit) / 2,
+        width: baseViewport.width * fit,
+        height: baseViewport.height * fit,
+      };
+      baseBounds = bounds;
+      stage.dataset.pfPdfX = String(bounds.x);
+      stage.dataset.pfPdfY = String(bounds.y);
+      stage.dataset.pfPdfWidth = String(bounds.width);
+      stage.dataset.pfPdfHeight = String(bounds.height);
+      stage.style.setProperty("--pf-pdf-x", `${bounds.x}px`);
+      stage.style.setProperty("--pf-pdf-y", `${bounds.y}px`);
+      stage.style.setProperty("--pf-pdf-width", `${bounds.width}px`);
+      stage.style.setProperty("--pf-pdf-height", `${bounds.height}px`);
+      if (!trimFrame?.isConnected) {
+        trimFrame = document.createElement("div");
+        trimFrame.className = "pf-overview-pdf-trim-frame";
+        trimFrame.setAttribute("aria-hidden", "true");
+        stage.appendChild(trimFrame);
+      }
+      trimFrame.style.left = `${bounds.x}px`;
+      trimFrame.style.top = `${bounds.y}px`;
+      trimFrame.style.width = `${bounds.width}px`;
+      trimFrame.style.height = `${bounds.height}px`;
+      applyTrimCamera(pendingCamera);
+      window.dispatchEvent(new CustomEvent("pf-overview-pdf-bounds", { detail: bounds }));
+    }
+
+    function applyTrimCamera(camera) {
+      if (!trimFrame) return;
+      trimFrame.style.transformOrigin = "0 0";
+      trimFrame.style.transform = `translate3d(${camera.tx || 0}px,${camera.ty || 0}px,0) scale(${camera.scale || 1})`;
     }
 
     function snapshotTransform(camera) {
@@ -67,6 +106,7 @@ export default function OverviewPdfRuntime() {
       const fit = Math.min(rect.width / baseViewport.width, rect.height / baseViewport.height);
       const baseX = (rect.width - baseViewport.width * fit) / 2;
       const baseY = (rect.height - baseViewport.height * fit) / 2;
+      publishPdfBounds(rect, baseViewport, fit);
       const viewport = page.getViewport({ scale: fit * camera.scale * dpr });
       const translateX = (camera.tx + camera.scale * baseX) * dpr;
       const translateY = (camera.ty + camera.scale * baseY) * dpr;
@@ -117,6 +157,7 @@ export default function OverviewPdfRuntime() {
       const camera = event.detail || {};
       if (!Number.isFinite(camera.scale)) return;
       pendingCamera = { scale: camera.scale, tx: camera.tx || 0, ty: camera.ty || 0 };
+      applyTrimCamera(pendingCamera);
       if (suspended) return;
       snapshotTransform(pendingCamera);
       if (camera.dragging) {
@@ -209,9 +250,17 @@ export default function OverviewPdfRuntime() {
       try { page?.cleanup?.(); } catch { /* noop */ }
       try { pdf?.destroy?.(); } catch { /* noop */ }
       canvas?.remove();
+      trimFrame?.remove();
       bufferCanvas = null;
       bufferCtx = null;
-      if (stage) delete stage.dataset.pfPdfViewportReady;
+      baseBounds = null;
+      if (stage) {
+        delete stage.dataset.pfPdfViewportReady;
+        delete stage.dataset.pfPdfX;
+        delete stage.dataset.pfPdfY;
+        delete stage.dataset.pfPdfWidth;
+        delete stage.dataset.pfPdfHeight;
+      }
     };
   }, []);
 
