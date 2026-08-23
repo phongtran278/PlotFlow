@@ -57,19 +57,14 @@ export default function ProductShell({ children }) {
   const [mode, setMode] = useState("overview");
   const [developer, setDeveloper] = useState("All developers");
   const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
-  const [units, setUnits] = useState([]);
+  const [units, setUnits] = useState(readAvailableUnits);
   const [sellUnits, setSellUnits] = useState(readSellUnits);
 
   useEffect(() => {
-    const sync = () => setUnits(readAvailableUnits());
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const onSellUnits = (event) => setSellUnits(Array.isArray(event.detail?.units) ? event.detail.units : readSellUnits());
+    const onSellUnits = (event) => {
+      setSellUnits(Array.isArray(event.detail?.units) ? event.detail.units : readSellUnits());
+      setUnits(readAvailableUnits());
+    };
     window.addEventListener("plotflow-overview-sell-units", onSellUnits);
     return () => window.removeEventListener("plotflow-overview-sell-units", onSellUnits);
   }, []);
