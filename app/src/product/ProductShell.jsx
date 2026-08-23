@@ -141,7 +141,7 @@ export default function ProductShell({ children, onExitWorkspace }) {
         onMode={setMode}
       />
 
-      <div className={`pf-product-workspace ${detailVisible ? "is-visible" : "is-hidden"}`}>{children}</div>
+      <div hidden={!detailVisible} className={`pf-product-workspace ${detailVisible ? "is-visible" : "is-hidden"}`}>{children}</div>
 
       {screen === "home" && (
         <main className="pf-project-hub">
