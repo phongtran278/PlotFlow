@@ -7,7 +7,6 @@ import {
   renderPdfPageBase,
 } from "../floorplan/pdfLocator";
 
-const PDF_URL = "/masterplan/masterplan.pdf";
 const FLOORPLAN_OVERRIDE_KEY = "plotflow-floorplan-overrides-v6";
 
 function readJson(key, fallback = {}) {
@@ -17,6 +16,10 @@ function readJson(key, fallback = {}) {
   } catch {
     return fallback;
   }
+}
+
+function overviewPdfUrl(stage) {
+  return stage?.dataset?.overviewPdfUrl || "/overview-masterplan/hoan-thien.pdf";
 }
 
 function codesFromStage(stage) {
@@ -73,6 +76,23 @@ export default function OverviewDetailLocatorBridge() {
     let observer = null;
     let running = false;
     let lastSignature = "";
+    const indexCache = new Map();
+
+    async function indexedPdf(url) {
+      if (indexCache.has(url)) return indexCache.get(url);
+      const promise = (async () => {
+        const pdfDoc = await openVectorPdf(url);
+        const index = await buildFloorplanIndex(pdfDoc);
+        return { pdfDoc, index };
+      })();
+      indexCache.set(url, promise);
+      try {
+        return await promise;
+      } catch (error) {
+        indexCache.delete(url);
+        throw error;
+      }
+    }
 
     async function sync(force = false) {
       if (disposed || running) return;
@@ -81,9 +101,12 @@ export default function OverviewDetailLocatorBridge() {
       const codes = codesFromStage(stage);
       if (!codes.length) return;
 
+      const pdfUrl = overviewPdfUrl(stage);
       const overrides = readJson(FLOORPLAN_OVERRIDE_KEY, {});
       const stageRect = stage.getBoundingClientRect();
       const signature = JSON.stringify({
+        pdfUrl,
+        group: stage.dataset.overviewGroup || "",
         codes: codes.map((code) => [normalizeUnitCode(code), overrides[normalizeUnitCode(code)]?.selectedMatchIndex ?? 0]),
         size: [Math.round(stageRect.width), Math.round(stageRect.height)],
       });
@@ -91,9 +114,7 @@ export default function OverviewDetailLocatorBridge() {
 
       running = true;
       try {
-        const pdfDoc = await openVectorPdf(PDF_URL);
-        if (disposed) return;
-        const index = await buildFloorplanIndex(pdfDoc);
+        const { pdfDoc, index } = await indexedPdf(pdfUrl);
         if (disposed) return;
 
         const pageBases = new Map();
@@ -132,12 +153,13 @@ export default function OverviewDetailLocatorBridge() {
           anchor.style.left = `${point.x}%`;
           anchor.style.top = `${point.y}%`;
           anchor.dataset.located = "1";
-          anchor.dataset.anchorMode = "text-center";
+          anchor.dataset.anchorMode = "overview-pdf-text-center";
           anchor.dataset.selectedMatchIndex = String(selectedIndex);
           anchor.dataset.matchCount = String(matches.length);
           anchor.dataset.pageNumber = String(match.pageNumber);
+          anchor.dataset.pdfUrl = pdfUrl;
           delete anchor.dataset.saved;
-          anchor.title = `${rawCode} · Auto connected · candidate ${selectedIndex + 1}/${matches.length}`;
+          anchor.title = `${rawCode} · ${stage.dataset.overviewGroup || "Overview"} · candidate ${selectedIndex + 1}/${matches.length}`;
 
           if (line) {
             line.classList.remove("pf-connector-needs-placement");
@@ -150,12 +172,13 @@ export default function OverviewDetailLocatorBridge() {
         }
 
         stage.dataset.pfDetailLocatorBridge = "1";
+        stage.dataset.pfLocatorPdfUrl = pdfUrl;
         lastSignature = signature;
         window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", {
-          detail: { count: codes.length, located, ambiguous, unresolved, source: "detail-locator", anchorMode: "text-center" },
+          detail: { count: codes.length, located, ambiguous, unresolved, source: "overview-pdf-locator", anchorMode: "overview-pdf-text-center", pdfUrl },
         }));
       } catch (error) {
-        console.warn("Overview Detail locator bridge unavailable", error);
+        console.warn(`Overview locator unavailable for ${pdfUrl}`, error);
       } finally {
         running = false;
       }
@@ -163,8 +186,18 @@ export default function OverviewDetailLocatorBridge() {
 
     const schedule = (force = false) => {
       window.clearTimeout(schedule.timer);
-      schedule.timer = window.setTimeout(() => sync(force), 140);
+      schedule.timer = window.setTimeout(() => sync(force), 120);
     };
+
+    function onGroupChanged() {
+      const stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
+      if (stage) {
+        delete stage.dataset.pfDetailLocatorBridge;
+        delete stage.dataset.pfLocatorPdfUrl;
+      }
+      lastSignature = "";
+      requestAnimationFrame(() => schedule(true));
+    }
 
     schedule(true);
     observer = new MutationObserver((records) => {
@@ -184,6 +217,7 @@ export default function OverviewDetailLocatorBridge() {
     const locatorUpdateHandler = () => schedule(true);
     window.addEventListener("storage", onStorage);
     window.addEventListener("plotflow-floorplan-locator-updated", locatorUpdateHandler);
+    window.addEventListener("pf-overview-group-changed", onGroupChanged);
     window.addEventListener("resize", locatorUpdateHandler);
 
     return () => {
@@ -191,6 +225,7 @@ export default function OverviewDetailLocatorBridge() {
       observer?.disconnect();
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("plotflow-floorplan-locator-updated", locatorUpdateHandler);
+      window.removeEventListener("pf-overview-group-changed", onGroupChanged);
       window.removeEventListener("resize", locatorUpdateHandler);
       window.clearTimeout(schedule.timer);
     };
