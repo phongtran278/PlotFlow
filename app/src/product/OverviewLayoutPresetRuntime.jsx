@@ -155,6 +155,40 @@ export default function OverviewLayoutPresetRuntime() {
       };
     }
 
+    function cardForCode(code) {
+      return cards().find((card) => codeFor(card) === code) || null;
+    }
+
+    function applyMapPoint(code, x, y) {
+      if (!stage) return;
+      const card = cardForCode(code);
+      if (!card) return;
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+      const left = clamp(x * w - card.offsetWidth / 2, 8, Math.max(8, w - card.offsetWidth - 8));
+      const top = clamp(y * h - card.offsetHeight / 2, 8, Math.max(8, h - card.offsetHeight - 8));
+      card.style.left = `${left}px`;
+      card.style.right = "auto";
+      card.style.top = `${top}px`;
+      ui.map[code] = {
+        x: clamp((left + card.offsetWidth / 2) / w, 0.04, 0.96),
+        y: clamp((top + card.offsetHeight / 2) / h, 0.04, 0.96),
+      };
+    }
+
+    function applyColumn(side, centerX) {
+      if (!stage) return;
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+      cards().forEach((card) => {
+        if (cardSide(card, w) !== side) return;
+        const code = codeFor(card);
+        const y = clamp((card.offsetTop + card.offsetHeight / 2) / h, 0.04, 0.96);
+        applyMapPoint(code, centerX, y);
+      });
+      updateConnectors();
+    }
+
     function renderLayoutMap() {
       if (!mapCanvas || !stage) return;
       captureMapFromCanvas(false);
@@ -230,12 +264,15 @@ export default function OverviewLayoutPresetRuntime() {
         const value = mapDrag.side === "left" ? clamp(x, 0.06, 0.44) : clamp(x, 0.56, 0.94);
         ui.columns[mapDrag.side] = value;
         mapDrag.node.style.left = `${value * 100}%`;
+        applyColumn(mapDrag.side, value);
       } else {
-        ui.map[mapDrag.code] = { x, y };
-        mapDrag.node.style.left = `${x * 100}%`;
-        mapDrag.node.style.top = `${y * 100}%`;
-        mapDrag.line?.setAttribute("x1", String(x * 100));
-        mapDrag.line?.setAttribute("y1", String(y * 100));
+        applyMapPoint(mapDrag.code, x, y);
+        const point = ui.map[mapDrag.code];
+        mapDrag.node.style.left = `${point.x * 100}%`;
+        mapDrag.node.style.top = `${point.y * 100}%`;
+        mapDrag.line?.setAttribute("x1", String(point.x * 100));
+        mapDrag.line?.setAttribute("y1", String(point.y * 100));
+        updateConnectors();
       }
     }
 
@@ -244,6 +281,7 @@ export default function OverviewLayoutPresetRuntime() {
       try { mapDrag.node.releasePointerCapture?.(event.pointerId); } catch {}
       mapDrag = null;
       saveUi();
+      persistLayout();
     }
 
     function tidy() {
@@ -369,6 +407,7 @@ export default function OverviewLayoutPresetRuntime() {
           ui.spacing = Number(spacingInput.value) || 100;
           spacingOutput.textContent = `${ui.spacing}%`;
           saveUi();
+          tidy();
         });
         control.querySelector('[data-layout-ui="tidy"]').addEventListener("click", tidy);
         control.querySelector('[data-layout-ui="capture"]').addEventListener("click", () => {
@@ -401,9 +440,15 @@ export default function OverviewLayoutPresetRuntime() {
       attempt();
     }
 
+    function onAnchorChanged() {
+      updateConnectors();
+      if (document.querySelector(".pf-layout-map-menu[open]")) renderLayoutMap();
+    }
+
     installWithRetry();
     window.addEventListener("pf-overview-live-units-ready", installWithRetry);
     window.addEventListener("pf-overview-auto-arranged", updateConnectors);
+    window.addEventListener("pf-overview-anchor-changed", onAnchorChanged);
     window.addEventListener("resize", updateConnectors);
 
     return () => {
@@ -411,6 +456,7 @@ export default function OverviewLayoutPresetRuntime() {
       cancelAnimationFrame(retryRaf);
       window.removeEventListener("pf-overview-live-units-ready", installWithRetry);
       window.removeEventListener("pf-overview-auto-arranged", updateConnectors);
+      window.removeEventListener("pf-overview-anchor-changed", onAnchorChanged);
       window.removeEventListener("resize", updateConnectors);
       control?.remove();
     };
