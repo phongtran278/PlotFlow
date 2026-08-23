@@ -57,8 +57,8 @@
 .pf-project-card__content{
   min-width:0;
   display:grid;
-  gap:22px;
-  padding:2px 8px 0;
+  gap:18px;
+  padding:2px 8px 4px;
 }
 .pf-project-card__meta{
   display:flex;
@@ -118,63 +118,68 @@
   overflow-wrap:break-word;
   text-wrap:balance;
 }
-.pf-project-card__copy>small{
-  display:block;
-  width:100%;
-  margin:12px 0 0;
+
+/* Supporting project info and the next action share one calm utility row. */
+.pf-project-card__utility{
+  min-width:0;
+  padding-top:16px;
+  border-top:1px solid rgba(24,31,35,.065);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+.pf-project-card__utility>small{
+  min-width:0;
   color:rgba(29,35,40,.56);
   font-size:9px;
   line-height:1.5;
   font-weight:550;
   letter-spacing:.015em;
-  text-align:left;
-}
-
-.pf-project-card__footer{
-  display:flex;
-  align-items:center;
-  justify-content:flex-start;
-  padding:0 8px 4px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 .pf-project-card__action{
   position:relative;
-  height:40px;
-  padding:0 16px;
+  flex:0 0 auto;
+  min-height:36px;
+  padding:0 4px;
   display:inline-flex;
   align-items:center;
-  gap:11px;
-  overflow:hidden;
-  border:1px solid rgba(255,255,255,.88);
-  border-radius:12px;
-  background:linear-gradient(140deg,rgba(255,255,255,.74),rgba(255,255,255,.40));
-  box-shadow:0 10px 24px rgba(25,31,36,.06),inset 0 1px 0 rgba(255,255,255,.98),inset 0 -1px 0 rgba(25,31,36,.03);
-  backdrop-filter:blur(20px) saturate(150%);
-  -webkit-backdrop-filter:blur(20px) saturate(150%);
-  color:#32383d;
-  font-size:8px;
-  font-weight:600;
+  gap:9px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  color:#2e363b;
+  font-size:8.5px;
+  font-weight:650;
   cursor:pointer;
-  transition:transform .28s cubic-bezier(.22,1,.36,1),box-shadow .28s ease,background .28s ease;
+  transition:transform .24s cubic-bezier(.22,1,.36,1),color .24s ease;
 }
-.pf-project-card__action::before{content:"";position:absolute;inset:1px 8px auto;height:45%;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.38),transparent);pointer-events:none}
-.pf-project-card__action>*{position:relative;z-index:1}
-.pf-project-card__action b{font-size:10px;font-weight:600;line-height:1}
-.pf-project-card__action:hover{transform:translateY(-1px);background:linear-gradient(140deg,rgba(255,255,255,.86),rgba(255,255,255,.48));box-shadow:0 14px 30px rgba(25,31,36,.08),inset 0 1px 0 rgba(255,255,255,1)}
-.pf-project-card__action:active{transform:translateY(0) scale(.975);transition-duration:.12s}
+.pf-project-card__action::before{display:none}
+.pf-project-card__action b{font-size:12px;font-weight:500;line-height:1;transition:transform .24s cubic-bezier(.22,1,.36,1)}
+.pf-project-card__action:hover{transform:none;background:transparent;box-shadow:none;color:#0f7a64}
+.pf-project-card__action:hover b{transform:translateX(3px)}
+.pf-project-card__action:active{transform:translateY(1px);transition-duration:.1s}
 
 @media(max-width:1180px){
   .pf-project-card-grid{grid-template-columns:repeat(12,minmax(0,1fr));gap:26px}
   .pf-project-card-grid>.pf-project-card:nth-child(n){grid-column:span 6}
   .pf-project-card-grid>.pf-project-card:nth-child(5){grid-column:1/-1}
   .pf-project-card{padding:20px;gap:20px}
-  .pf-project-card__content{gap:20px}
+  .pf-project-card__content{gap:18px}
 }
 @media(max-width:760px){
   .pf-project-card-grid{grid-template-columns:1fr;gap:22px;margin-top:44px}
   .pf-project-card-grid>.pf-project-card:nth-child(n){grid-column:1/-1}
   .pf-project-card{padding:16px;gap:18px;border-radius:22px}
   .pf-project-card__visual{min-height:210px;border-radius:18px}
-  .pf-project-card__content{gap:18px;padding:0 6px}
-  .pf-project-card__footer{padding:0 6px 2px}
+  .pf-project-card__content{gap:16px;padding:0 6px 2px}
   .pf-project-card__copy>strong{font-size:26px}
+  .pf-project-card__utility{align-items:flex-end;gap:14px;padding-top:14px}
+  .pf-project-card__utility>small{white-space:normal}
 }
