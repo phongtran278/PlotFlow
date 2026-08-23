@@ -76,15 +76,6 @@ export default function OverviewWorkspace({
             <small>{liveUnitCount ? `${groupUnitCount} / ${liveUnitCount} connected units` : "Waiting for connected inventory"}</small>
           </section>
 
-          <section className="pf-overview-context-card">
-            <span>WORKFLOW</span>
-            <ol className="pf-overview-workflow-list">
-              <li><b>01</b><div><strong>Focus</strong><small>Choose the unit or cluster you want to inspect.</small></div></li>
-              <li><b>02</b><div><strong>Arrange</strong><small>Let PlotFlow place callouts, then adjust the visual rhythm.</small></div></li>
-              <li><b>03</b><div><strong>Style</strong><small>Refine hierarchy and highlight before export.</small></div></li>
-            </ol>
-          </section>
-
           <section className="pf-overview-context-card pf-overview-context-note">
             <span>DATA SOURCE</span>
             <strong>{liveUnitCount ? "Connected" : "Not connected"}</strong>
