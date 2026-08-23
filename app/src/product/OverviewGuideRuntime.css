@@ -1,6 +1,10 @@
-.pf-overview-guide-control{display:flex;align-items:center}
-.pf-overview-guide-control button{height:30px;padding:0 10px;border:1px solid rgba(17,24,39,.12);border-radius:8px;background:#fff;color:#25313c;font:600 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif;cursor:pointer}
+.pf-overview-guide-control{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pf-overview-guide-control button{height:30px;padding:0 10px;border:1px solid rgba(17,24,39,.12);border-radius:8px;background:#fff;color:#25313c;font:600 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif;cursor:pointer;white-space:nowrap}
 .pf-overview-guide-control button.active{background:#eef6ff;border-color:#9cc8ff;color:#145ea8}
+.pf-overview-guide-control label{display:flex;align-items:center;gap:5px;height:30px;padding:0 8px;border:1px solid rgba(17,24,39,.10);border-radius:8px;background:#fff;color:#53606c;font:600 10px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif}
+.pf-overview-guide-control label input{width:42px;border:0;outline:0;background:transparent;color:#25313c;text-align:right;font:700 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif}
+.pf-overview-guide-control label b{font-weight:600;color:#8a949d}
+.pf-overview-grid{position:absolute;z-index:4;pointer-events:none;background-image:linear-gradient(to right,rgba(20,115,230,.10) 1px,transparent 1px),linear-gradient(to bottom,rgba(20,115,230,.10) 1px,transparent 1px);background-size:var(--pf-grid-size,16px) var(--pf-grid-size,16px);box-shadow:inset 0 0 0 1px rgba(20,115,230,.08)}
 .pf-overview-guide-line{position:absolute;z-index:28;pointer-events:auto;box-sizing:border-box}
 .pf-overview-guide-line::before{content:"";position:absolute;inset:0;pointer-events:none}
 .pf-overview-guide-line>span{position:absolute;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:#1473e6;color:#fff;font:700 11px/1 system-ui;box-shadow:0 4px 12px rgba(20,115,230,.24);cursor:grab;user-select:none}
@@ -10,4 +14,4 @@
 .pf-overview-guide-line.is-horizontal{height:9px;transform:translateY(-4px);cursor:ns-resize}
 .pf-overview-guide-line.is-horizontal::before{top:4px;height:1px;border-top:1px dashed rgba(20,115,230,.78)}
 .pf-overview-guide-line.is-horizontal>span{top:-7px;left:8px}
-.pf-masterplan-stage.is-exporting-overview .pf-overview-guide-line{display:none!important}
+.pf-masterplan-stage.is-exporting-overview .pf-overview-guide-line,.pf-masterplan-stage.is-exporting-overview .pf-overview-grid{display:none!important}
