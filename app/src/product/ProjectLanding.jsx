@@ -128,7 +128,10 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
         </div>
         <div className="pf-project-landing-trust-proof">
           {landing.trust.proof.map((item, index) => (
-            <div key={`${item}-${index}`}><span>{["TRACK RECORD", "LEGAL / DELIVERY", "MARKET TRUST"][index] || `PROOF 0${index + 1}`}</span><strong>{item}</strong></div>
+            <div className="pf-project-landing-trust-item" key={`${item}-${index}`}>
+              <span>{["TRACK RECORD", "PROJECT FACT", "CURRENT STATUS"][index] || `PROOF 0${index + 1}`}</span>
+              <strong>{item}</strong>
+            </div>
           ))}
         </div>
       </section>
@@ -138,11 +141,19 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           <div className="pf-project-landing-section-head compact">
             <SectionLabel>SALES RESOURCES</SectionLabel>
             <h2>Everything a serious buyer asks for.</h2>
-            <p>Public resources can open directly. High-intent resources such as price lists or policy documents can later become lead-gated conversion points.</p>
+            <p>This block is a resource center: each row represents a document or sales asset. Public files can open directly; sensitive or frequently updated files can later be lead-gated or permission-controlled.</p>
           </div>
           <div className="pf-project-landing-resource-list">
             {landing.resources.map((item, index) => (
-              <button type="button" key={`${item.name}-${index}`}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.status}</small><b>→</b></button>
+              <button type="button" key={`${item.name}-${index}`}>
+                <span>0{index + 1}</span>
+                <span className="pf-project-landing-resource-copy">
+                  <strong>{item.name}</strong>
+                  <small>{item.description}</small>
+                </span>
+                <em>{item.status}</em>
+                <b>→</b>
+              </button>
             ))}
           </div>
         </section>
@@ -170,7 +181,16 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           <h2>Answer the questions that block action.</h2>
         </div>
         <div className="pf-project-landing-faq-list">
-          {landing.faq.map((item, index) => <article key={`${item}-${index}`}><span>0{index + 1}</span><strong>{item}</strong><b>+</b></article>)}
+          {landing.faq.map((item, index) => (
+            <details key={`${item.question}-${index}`}>
+              <summary>
+                <span>0{index + 1}</span>
+                <strong>{item.question}</strong>
+                <b aria-hidden="true">+</b>
+              </summary>
+              <p>{item.answer}</p>
+            </details>
+          ))}
         </div>
       </section>
 
