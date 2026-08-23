@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 
-function linePoint(stage, code, type) {
+function connectorPoint(stage, code, type) {
   const line = Array.from(stage?.querySelectorAll(".pf-live-callout-lines line") || []).find((node) => node.dataset.unitCode === code);
   if (!line) return null;
-  if (type === "connector-start") return { x: Number(line.getAttribute("x1")), y: Number(line.getAttribute("y1")) };
-  if (type === "connector-end") return { x: Number(line.getAttribute("x2")), y: Number(line.getAttribute("y2")) };
-  return null;
+  return type === "connector-start"
+    ? { x: Number(line.getAttribute("x1")), y: Number(line.getAttribute("y1")) }
+    : { x: Number(line.getAttribute("x2")), y: Number(line.getAttribute("y2")) };
 }
 
 export default function OverviewLayerDisclosureRuntime() {
@@ -13,20 +13,30 @@ export default function OverviewLayerDisclosureRuntime() {
     let panel = null;
     let observer = null;
     let openCode = "";
+    let raf = 0;
+
+    function setGroupOpen(group, open) {
+      group.classList.toggle("is-open", open);
+      group.toggleAttribute("open", open);
+      const summary = group.querySelector(":scope > summary");
+      const body = group.querySelector(":scope > div");
+      summary?.setAttribute("aria-expanded", String(open));
+      if (body) {
+        body.hidden = !open;
+        body.setAttribute("aria-hidden", String(!open));
+      }
+    }
 
     function applyOpenState() {
       if (!panel) return;
       panel.querySelectorAll(".pf-layer-unit[data-unit-code]").forEach((group) => {
-        const open = Boolean(openCode && group.dataset.unitCode === openCode);
-        group.classList.toggle("is-open", open);
-        group.open = open;
-        const body = group.querySelector(":scope > div");
-        if (body) {
-          body.hidden = !open;
-          body.style.display = open ? "grid" : "none";
-        }
-        group.querySelector(":scope > summary")?.setAttribute("aria-expanded", String(open));
+        setGroupOpen(group, Boolean(openCode && group.dataset.unitCode === openCode));
       });
+    }
+
+    function scheduleApply() {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(applyOpenState);
     }
 
     function attachPanel() {
@@ -35,24 +45,37 @@ export default function OverviewLayerDisclosureRuntime() {
       if (next !== panel) {
         observer?.disconnect();
         panel = next;
-        observer = new MutationObserver(() => requestAnimationFrame(applyOpenState));
+        observer = new MutationObserver(scheduleApply);
         observer.observe(panel, { childList: true, subtree: true });
       }
       applyOpenState();
       return true;
     }
 
-    function onClick(event) {
+    function toggleFromEvent(event) {
       const summary = event.target.closest?.(".pf-overview-layer-panel .pf-layer-unit[data-unit-code] > summary");
-      if (!summary) return;
+      if (!summary) return false;
       const group = summary.parentElement;
       const code = group?.dataset?.unitCode || "";
-      if (!code) return;
+      if (!code) return false;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
       openCode = openCode === code ? "" : code;
       applyOpenState();
+      return true;
+    }
+
+    function onPointerDown(event) {
+      toggleFromEvent(event);
+    }
+
+    function onClick(event) {
+      const summary = event.target.closest?.(".pf-overview-layer-panel .pf-layer-unit[data-unit-code] > summary");
+      if (!summary) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
     }
 
     function onDoubleClick(event) {
@@ -61,12 +84,14 @@ export default function OverviewLayerDisclosureRuntime() {
       const group = endpoint.closest(".pf-layer-unit[data-unit-code]");
       const code = group?.dataset.unitCode || "";
       const stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      const point = linePoint(stage, code, endpoint.dataset.layerFocus);
+      const point = connectorPoint(stage, code, endpoint.dataset.layerFocus);
       if (!code || !point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
-      window.dispatchEvent(new CustomEvent("pf-overview-focus-request", { detail: { code, x: point.x, y: point.y, scale: 58 } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-focus-request", {
+        detail: { code, x: point.x, y: point.y, scale: 58, animate: true, target: endpoint.dataset.layerFocus },
+      }));
     }
 
     function onOverviewRefresh() {
@@ -76,19 +101,23 @@ export default function OverviewLayerDisclosureRuntime() {
       });
     }
 
+    document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("click", onClick, true);
     document.addEventListener("dblclick", onDoubleClick, true);
     window.addEventListener("pf-overview-live-units-ready", onOverviewRefresh);
     window.addEventListener("pf-overview-highlights-changed", onOverviewRefresh);
     window.addEventListener("pf-overview-annotations-changed", onOverviewRefresh);
     window.addEventListener("plotflow-product-view-changed", onOverviewRefresh);
+
     const retry = window.setInterval(() => {
       if (attachPanel()) window.clearInterval(retry);
-    }, 250);
+    }, 200);
 
     return () => {
+      cancelAnimationFrame(raf);
       window.clearInterval(retry);
       observer?.disconnect();
+      document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("dblclick", onDoubleClick, true);
       window.removeEventListener("pf-overview-live-units-ready", onOverviewRefresh);
