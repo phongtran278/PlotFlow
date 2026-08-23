@@ -23,13 +23,11 @@ export default function OverviewPrecisionArrangeRuntime() {
     let stage = null;
     let rail = null;
     let frame = 0;
+    let railObserver = null;
     const ui = readUi();
 
     const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
-    const selected = () => {
-      const list = cards().filter((card) => card.classList.contains("pf-card-selected"));
-      return list.length ? list : cards();
-    };
+    const selected = () => cards().filter((card) => card.classList.contains("pf-card-selected"));
     const keyCard = (list) => list.find((card) => card.classList.contains("pf-card-key")) || list[0] || null;
 
     function persist() {
@@ -73,11 +71,17 @@ export default function OverviewPrecisionArrangeRuntime() {
       requestAnimationFrame(() => { persist(); updateConnectors(); });
     }
 
+    function hideLegacySizing() {
+      if (!rail) return;
+      const legacySize = rail.querySelector('.pf-card-layout-control [data-layout-ui="size"]')?.closest("label");
+      if (legacySize) legacySize.style.display = "none";
+      const legacyGap = rail.querySelector('.pf-card-layout-control [data-layout-ui="gap"]')?.closest("label");
+      if (legacyGap) legacyGap.style.display = "none";
+    }
+
     function syncLegacyGap(value) {
       if (!rail) return;
       const oldGap = rail.querySelector('.pf-card-layout-control [data-layout-ui="gap"]');
-      const oldLabel = oldGap?.closest("label");
-      if (oldLabel) oldLabel.hidden = true;
       if (!oldGap) return;
       const next = String(clamp(value, 0, 96));
       if (oldGap.value === next) return;
@@ -121,20 +125,23 @@ export default function OverviewPrecisionArrangeRuntime() {
       rail = document.querySelector(".pf-overview-control-rail");
       if (!stage || !rail) return false;
       applyCardWidth();
-      const oldSize = rail.querySelector('.pf-card-layout-control [data-layout-ui="size"]')?.closest("label");
-      if (oldSize) oldSize.hidden = true;
+      hideLegacySizing();
       syncLegacyGap(ui.gap);
+      if (!railObserver) {
+        railObserver = new MutationObserver(hideLegacySizing);
+        railObserver.observe(rail, { childList: true, subtree: true });
+      }
       if (!panel?.isConnected) {
         panel = document.createElement("details");
         panel.className = "pf-precision-arrange";
         panel.innerHTML = `
           <summary>Precision</summary>
           <div class="pf-precision-popover">
-            <header><strong>Pixel-perfect layout</strong><small>Select cards. Click a selected card again to make it the key object.</small></header>
+            <header><strong>Pixel-perfect layout</strong><small>Select at least two cards. Only selected cards are changed.</small></header>
             <label><span>Card width</span><input data-precision-width type="number" min="72" max="320" step="1"><b>px</b></label>
             <label><span>Equal gap</span><input data-precision-gap type="number" min="0" max="120" step="1"><b>px</b></label>
             <div class="pf-precision-group"><span>Align to key</span><div><button data-align="left">L</button><button data-align="center">C</button><button data-align="right">R</button><button data-align="top">T</button><button data-align="middle">M</button><button data-align="bottom">B</button></div></div>
-            <button class="pf-precision-distribute" data-distribute>Distribute with exact gap</button>
+            <button class="pf-precision-distribute" data-distribute>Distribute selected with exact gap</button>
           </div>`;
         const width = panel.querySelector("[data-precision-width]");
         const gap = panel.querySelector("[data-precision-gap]");
@@ -161,6 +168,7 @@ export default function OverviewPrecisionArrangeRuntime() {
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
+      railObserver?.disconnect();
       window.removeEventListener("pf-overview-live-units-ready", install);
       panel?.remove();
     };
