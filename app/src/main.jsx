@@ -5,6 +5,7 @@ import "./styles/plotflow-tokens.css";
 import "./components/CommercialShell.css";
 import "./components/WorkspaceReturn.css";
 import "./product/overviewV2Migration.js";
+import "./product/DetailHomeLanguage.css";
 import App from "./App.jsx";
 import HomeLanding from "./components/HomeLanding.jsx";
 import UnitReviewBar from "./components/UnitReviewBar.jsx";
@@ -36,7 +37,6 @@ import OverviewGuideRuntime from "./product/OverviewGuideRuntime.jsx";
 import OverviewLayoutGuardRuntime from "./product/OverviewLayoutGuardRuntime.jsx";
 import OverviewArrangeModesRuntime from "./product/OverviewArrangeModesRuntime.jsx";
 import OverviewInteractionRuntime from "./product/OverviewInteractionRuntime.jsx";
-import OverviewLayerRevealRuntime from "./product/OverviewLayerRevealRuntime.jsx";
 import OverviewUnitBadgeRuntime from "./product/OverviewUnitBadgeRuntime.jsx";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
@@ -93,7 +93,6 @@ function PlotFlowExperience() {
       <OverviewLayoutGuardRuntime />
       <OverviewArrangeModesRuntime />
       <OverviewInteractionRuntime />
-      <OverviewLayerRevealRuntime />
       <OverviewUnitBadgeRuntime />
     </ProductShell>
   );
