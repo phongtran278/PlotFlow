@@ -7,34 +7,20 @@ const FACTS = [
   ["Project code", (project) => project.code],
 ];
 
-const VALUE_PILLARS = [
-  ["01", "Positioning", "Define the single reason this project deserves attention."],
-  ["02", "Location value", "Translate location and connectivity into a clear buyer benefit."],
-  ["03", "Product value", "Frame the product mix, lifestyle and ownership proposition."],
-];
-
-const PRODUCTS = ["Collection A", "Collection B", "Collection C"];
-const LIFESTYLE = ["Everyday living", "Landscape & wellness", "Commerce & community"];
-const RESOURCES = ["Project brochure", "Masterplan", "Floorplans", "Sales policy", "Price list", "Payment schedule"];
-const FAQS = [
-  "What is the project positioning?",
-  "What product types are available?",
-  "What is the current sales status?",
-  "Which sales resources can a buyer request?",
-];
-
 function SectionLabel({ children }) {
   return <span className="pf-project-landing-label">{children}</span>;
 }
 
 export default function ProjectLanding({ project, onOverview, onDetail }) {
+  const landing = project.landing;
+
   return (
     <main className="pf-project-landing">
       <section className="pf-project-landing-hero">
         <div className="pf-project-landing-hero-copy">
           <SectionLabel>PROJECT INTRODUCTION</SectionLabel>
           <h1>{project.name}</h1>
-          <p className="pf-project-landing-positioning">Project positioning statement goes here — one clear promise designed to make the right buyer want to keep exploring.</p>
+          <p className="pf-project-landing-positioning">{landing.positioning}</p>
           <div className="pf-project-landing-actions">
             <button type="button" className="primary" onClick={onOverview}>Explore project <span>→</span></button>
             <button type="button" className="quiet" onClick={onDetail}>Open design workspace</button>
@@ -48,10 +34,7 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
 
       <section className="pf-project-landing-facts" aria-label="Project facts">
         {FACTS.map(([label, getValue]) => (
-          <article key={label}>
-            <span>{label}</span>
-            <strong>{getValue(project)}</strong>
-          </article>
+          <article key={label}><span>{label}</span><strong>{getValue(project)}</strong></article>
         ))}
       </section>
 
@@ -61,12 +44,8 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           <h2>A reason to care,<br /><em>before the details.</em></h2>
         </div>
         <div className="pf-project-landing-value-grid">
-          {VALUE_PILLARS.map(([index, title, copy]) => (
-            <article key={index}>
-              <span>{index}</span>
-              <h3>{title}</h3>
-              <p>{copy}</p>
-            </article>
+          {landing.valuePillars.map((item) => (
+            <article key={item.index}><span>{item.index}</span><h3>{item.title}</h3><p>{item.copy}</p></article>
           ))}
         </div>
       </section>
@@ -80,11 +59,9 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
         <div className="pf-project-landing-split-copy">
           <SectionLabel>LOCATION & CONNECTIVITY</SectionLabel>
           <h2>Turn geography into a buyer benefit.</h2>
-          <p>Use this section to explain where the project sits, what it connects to, and why that matters in daily life or long-term value.</p>
+          <p>{landing.location.description}</p>
           <div className="pf-project-landing-mini-facts">
-            <span><b>01</b> Key destination</span>
-            <span><b>02</b> Key destination</span>
-            <span><b>03</b> Key destination</span>
+            {landing.location.destinations.map((item, index) => <span key={`${item}-${index}`}><b>0{index + 1}</b> {item}</span>)}
           </div>
         </div>
       </section>
@@ -96,9 +73,7 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           <p>The landing page introduces the story. PlotFlow Overview takes the buyer or sales team deeper into the actual masterplan and availability context.</p>
         </div>
         <button type="button" className="pf-project-landing-masterplan-stage" onClick={onOverview}>
-          <span>MASTERPLAN / OVERVIEW PREVIEW</span>
-          <strong>Explore Overview</strong>
-          <b>↗</b>
+          <span>MASTERPLAN / OVERVIEW PREVIEW</span><strong>Explore Overview</strong><b>↗</b>
         </button>
       </section>
 
@@ -108,12 +83,10 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           <h2>Make the offer easy to understand.</h2>
         </div>
         <div className="pf-project-landing-product-grid">
-          {PRODUCTS.map((item, index) => (
-            <article key={item}>
+          {landing.products.map((item, index) => (
+            <article key={`${item.name}-${index}`}>
               <div className="pf-project-landing-product-media"><span>PRODUCT VISUAL</span></div>
-              <span>0{index + 1}</span>
-              <h3>{item}</h3>
-              <p>Typology · Area range · Bedroom / frontage · Pricing cue</p>
+              <span>0{index + 1}</span><h3>{item.name}</h3><p>{item.meta}</p>
             </article>
           ))}
         </div>
@@ -125,12 +98,8 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           <h2>Sell the experience, not a checklist.</h2>
         </div>
         <div className="pf-project-landing-lifestyle-grid">
-          {LIFESTYLE.map((item, index) => (
-            <article key={item}>
-              <span>0{index + 1}</span>
-              <h3>{item}</h3>
-              <p>A short narrative about how this part of the project improves everyday life.</p>
-            </article>
+          {landing.lifestyle.map((item, index) => (
+            <article key={`${item.title}-${index}`}><span>0{index + 1}</span><h3>{item.title}</h3><p>{item.copy}</p></article>
           ))}
         </div>
       </section>
@@ -139,12 +108,12 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
         <div>
           <SectionLabel>DEVELOPER & TRUST</SectionLabel>
           <h2>{project.developer}</h2>
-          <p>Developer story, track record, legal confidence, awards or delivery proof can be introduced here without turning the page into a corporate profile.</p>
+          <p>{landing.trust.copy}</p>
         </div>
         <div className="pf-project-landing-trust-proof">
-          <span>TRACK RECORD</span><strong>Proof point</strong>
-          <span>LEGAL / DELIVERY</span><strong>Proof point</strong>
-          <span>MARKET TRUST</span><strong>Proof point</strong>
+          {landing.trust.proof.map((item, index) => (
+            <div key={`${item}-${index}`}><span>{["TRACK RECORD", "LEGAL / DELIVERY", "MARKET TRUST"][index] || `PROOF 0${index + 1}`}</span><strong>{item}</strong></div>
+          ))}
         </div>
       </section>
 
@@ -155,13 +124,8 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           <p>Public resources can open directly. High-intent resources such as price lists or policy documents can later become lead-gated conversion points.</p>
         </div>
         <div className="pf-project-landing-resource-list">
-          {RESOURCES.map((item, index) => (
-            <button type="button" key={item}>
-              <span>0{index + 1}</span>
-              <strong>{item}</strong>
-              <small>Placeholder</small>
-              <b>→</b>
-            </button>
+          {landing.resources.map((item, index) => (
+            <button type="button" key={`${item.name}-${index}`}><span>0{index + 1}</span><strong>{item.name}</strong><small>{item.status}</small><b>→</b></button>
           ))}
         </div>
       </section>
@@ -188,9 +152,7 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           <h2>Answer the questions that block action.</h2>
         </div>
         <div className="pf-project-landing-faq-list">
-          {FAQS.map((item, index) => (
-            <article key={item}><span>0{index + 1}</span><strong>{item}</strong><b>+</b></article>
-          ))}
+          {landing.faq.map((item, index) => <article key={`${item}-${index}`}><span>0{index + 1}</span><strong>{item}</strong><b>+</b></article>)}
         </div>
       </section>
 
