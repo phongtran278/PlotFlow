@@ -11,6 +11,10 @@ body.pf-product-detail .component-stage{min-width:0!important;min-height:0!impor
 body.pf-product-detail .component-canvas{min-width:0!important;min-height:0!important;overflow:hidden!important}
 body.pf-product-detail .studio-canvas-scroll,body.pf-product-detail .lot-canvas-wrap{overscroll-behavior:contain!important;scroll-behavior:auto!important;scrollbar-gutter:stable both-edges!important}
 
+/* The Detail command bar is a true sticky owner and never scrolls away with artwork. */
+body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .stage-header{position:sticky!important;top:8px!important;z-index:6500!important;flex:0 0 auto!important;overflow:visible!important;isolation:isolate!important}
+body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .stage-actions,body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .workspace-controls-host,body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .workspace-controls{overflow:visible!important}
+
 /* Settings belongs to the sidebar, not as a floating object over the artwork. */
 body.pf-product-detail .project-settings-anchor{position:sticky!important;left:auto!important;right:auto!important;top:auto!important;bottom:-1px!important;z-index:80!important;width:100%!important;margin:18px 0 -2px!important;padding:14px 0 2px!important;background:linear-gradient(180deg,rgba(250,250,248,0),rgba(250,250,248,.96) 34%)!important}
 body.pf-product-detail .project-settings-trigger{width:100%!important;min-width:0!important;height:38px!important;min-height:38px!important;padding:0 11px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;border:1px solid rgba(19,22,26,.08)!important;border-radius:10px!important;background:#fff!important;color:#5f666b!important;box-shadow:none!important;font:600 9px/1 "IBM Plex Sans",sans-serif!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
@@ -41,18 +45,18 @@ body.pf-product-detail .locator-progress i,body.pf-product-detail .export-progre
 body.pf-product-detail .connection-status.excel .status-dot{background:#0f7a64!important;box-shadow:0 0 0 5px rgba(15,122,100,.08)!important}
 body.pf-product-detail .connection-status.loading .status-dot{background:#b98a36!important;box-shadow:0 0 0 5px rgba(185,138,54,.08)!important}
 
-/* Preview toolbar: remove the no-op Select tool. Hand/Space remains for panning. */
+/* Preview toolbar: keep one compact pan control and remove redundant collapse UI. */
 body.pf-product-detail .workspace-tool-toggle button:first-child{display:none!important}
 body.pf-product-detail .workspace-tool-toggle{padding:0!important;border:0!important;background:transparent!important}
 body.pf-product-detail .workspace-tool-toggle button:last-child{border:1px solid rgba(19,22,26,.08)!important;border-radius:8px!important;background:#fff!important;color:#5e666b!important}
 body.pf-product-detail .workspace-tool-toggle button:last-child.active{background:#eaf3ef!important;color:#0f7a64!important}
+body.pf-product-detail .workspace-panel-toggle{display:none!important}
 
-/* Assignment dock. */
-body.pf-product-detail .design-assignment-dock{border:1px solid rgba(19,22,26,.08)!important;border-radius:16px!important;background:rgba(255,255,255,.96)!important;box-shadow:0 14px 32px rgba(25,31,38,.07)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-body.pf-product-detail .dock-badges{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important}
-body.pf-product-detail .dock-badges>span{grid-column:1/-1;color:#969ba0!important;font-size:7.5px!important;font-weight:600!important;letter-spacing:.12em!important}
-body.pf-product-detail .dock-badges button{min-height:32px!important;border:1px solid rgba(19,22,26,.08)!important;border-radius:9px!important;background:#f7f7f4!important;color:#656b70!important;font-size:8px!important;font-weight:600!important}
-body.pf-product-detail .dock-badges button.active{border-color:rgba(185,138,54,.20)!important;background:#f6edd6!important;color:#7c5a19!important;box-shadow:none!important}
+/* Assignment dock: CampaignBadgeStrip is the single badge control owner. */
+body.pf-product-detail .design-assignment-dock{border:1px solid rgba(19,22,26,.08)!important;border-radius:16px!important;background:rgba(255,255,255,.96)!important;box-shadow:0 14px 32px rgba(25,31,38,.07)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;overflow:auto!important;overscroll-behavior:contain!important;max-height:calc(100dvh - 166px)!important}
+body.pf-product-detail .design-assignment-dock>.dock-badges{display:none!important;visibility:hidden!important;pointer-events:none!important}
+body.pf-product-detail .campaign-control-card{position:relative!important;z-index:3!important;pointer-events:auto!important}
+body.pf-product-detail .campaign-control-card button,body.pf-product-detail .campaign-control-card input,body.pf-product-detail .campaign-control-card select{pointer-events:auto!important}
 
 /* Lot Highlight: Cancel/Save and zoom remain visible. */
 body.pf-product-detail .lot-editor-shell{position:relative;background:#f3f2ee!important}
