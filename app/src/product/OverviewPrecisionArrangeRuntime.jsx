@@ -1,14 +1,15 @@
 import { useEffect } from "react";
 import "./OverviewPrecisionArrangeRuntime.css";
 
-const UI_KEY = "plotflow-overview-precision-arrange-v1";
+const UI_KEY = "plotflow-overview-precision-arrange-v2";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
+const LEGACY_LAYOUT_UI_KEY = "phongflow-overview-layout-ui-v1";
 
 function readUi() {
   try {
-    return { cardWidth: 180, gap: 12, ...(JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}) };
+    return { cardWidth: 180, cardHeight: 0, scale: 100, gap: 12, ...(JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}) };
   } catch {
-    return { cardWidth: 180, gap: 12 };
+    return { cardWidth: 180, cardHeight: 0, scale: 100, gap: 12 };
   }
 }
 
@@ -58,35 +59,42 @@ export default function OverviewPrecisionArrangeRuntime() {
       });
     }
 
-    function applyCardWidth() {
-      if (!stage) return;
-      const width = clamp(ui.cardWidth, 72, 320);
-      const factor = width / 208;
-      stage.style.setProperty("--pf-sell-card-scale", String(factor));
-      stage.style.setProperty("--pf-sell-card-width", `${width}px`);
-      stage.style.setProperty("--pf-sell-card-pad-y", `${Math.max(4, 9 * factor)}px`);
-      stage.style.setProperty("--pf-sell-card-pad-x", `${Math.max(5, 9 * factor)}px`);
-      stage.style.setProperty("--pf-sell-code-size", `${Math.max(14, 32 * factor)}px`);
-      stage.style.setProperty("--pf-sell-price-size", `${Math.max(13, 26 * factor)}px`);
-      requestAnimationFrame(() => { persist(); updateConnectors(); });
+    function targetCards() {
+      return selected();
+    }
+
+    function applyDimensions({ width = null, height = null, ratio = null } = {}) {
+      const list = targetCards();
+      if (!list.length) return;
+      list.forEach((card) => {
+        const currentWidth = card.offsetWidth || 180;
+        const currentHeight = card.offsetHeight || 100;
+        const nextWidth = ratio == null ? (width ?? currentWidth) : currentWidth * ratio;
+        const nextHeight = ratio == null ? (height ?? currentHeight) : currentHeight * ratio;
+        card.style.width = `${clamp(nextWidth, 64, 420)}px`;
+        card.style.height = `${clamp(nextHeight, 56, 420)}px`;
+        card.style.minHeight = `${clamp(nextHeight, 56, 420)}px`;
+        card.style.right = "auto";
+      });
+      persist();
+      requestAnimationFrame(updateConnectors);
     }
 
     function hideLegacySizing() {
       if (!rail) return;
-      const legacySize = rail.querySelector('.pf-card-layout-control [data-layout-ui="size"]')?.closest("label");
-      if (legacySize) legacySize.style.display = "none";
-      const legacyGap = rail.querySelector('.pf-card-layout-control [data-layout-ui="gap"]')?.closest("label");
-      if (legacyGap) legacyGap.style.display = "none";
+      rail.querySelectorAll('.pf-card-layout-control [data-layout-ui="size"],.pf-card-layout-control [data-layout-ui="gap"]').forEach((input) => {
+        const label = input.closest("label");
+        if (label) label.style.display = "none";
+      });
     }
 
-    function syncLegacyGap(value) {
-      if (!rail) return;
-      const oldGap = rail.querySelector('.pf-card-layout-control [data-layout-ui="gap"]');
-      if (!oldGap) return;
-      const next = String(clamp(value, 0, 96));
-      if (oldGap.value === next) return;
-      oldGap.value = next;
-      oldGap.dispatchEvent(new Event("input", { bubbles: true }));
+    function syncQuickArrangeGap(value) {
+      try {
+        const legacy = JSON.parse(localStorage.getItem(LEGACY_LAYOUT_UI_KEY) || "{}") || {};
+        legacy.gap = clamp(value, 0, 120);
+        localStorage.setItem(LEGACY_LAYOUT_UI_KEY, JSON.stringify(legacy));
+      } catch { /* noop */ }
+      window.dispatchEvent(new CustomEvent("pf-overview-precision-gap", { detail: { gap: clamp(value, 0, 120) } }));
     }
 
     function align(kind) {
@@ -108,25 +116,46 @@ export default function OverviewPrecisionArrangeRuntime() {
       persist(); updateConnectors();
     }
 
-    function equalGap() {
-      const list = [...selected()].sort((a, b) => a.offsetTop - b.offsetTop);
+    function equalGap(axis = "vertical") {
+      const list = [...selected()];
       if (list.length < 2) return;
-      let top = list[0].offsetTop;
       const gap = clamp(ui.gap, 0, 120);
-      list.forEach((card) => {
-        card.style.top = `${top}px`;
-        top += card.offsetHeight + gap;
-      });
+      if (axis === "horizontal") {
+        list.sort((a, b) => a.offsetLeft - b.offsetLeft);
+        let left = list[0].offsetLeft;
+        list.forEach((card) => {
+          card.style.left = `${left}px`;
+          card.style.right = "auto";
+          left += card.offsetWidth + gap;
+        });
+      } else {
+        list.sort((a, b) => a.offsetTop - b.offsetTop);
+        let top = list[0].offsetTop;
+        list.forEach((card) => {
+          card.style.top = `${top}px`;
+          top += card.offsetHeight + gap;
+        });
+      }
       persist(); updateConnectors();
+    }
+
+    function syncPanelFromSelection() {
+      if (!panel?.isConnected) return;
+      const list = selected();
+      const key = keyCard(list);
+      if (!key) return;
+      const width = panel.querySelector("[data-precision-width]");
+      const height = panel.querySelector("[data-precision-height]");
+      if (width && document.activeElement !== width) width.value = String(Math.round(key.offsetWidth));
+      if (height && document.activeElement !== height) height.value = String(Math.round(key.offsetHeight));
     }
 
     function install() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       rail = document.querySelector(".pf-overview-control-rail");
       if (!stage || !rail) return false;
-      applyCardWidth();
       hideLegacySizing();
-      syncLegacyGap(ui.gap);
+      syncQuickArrangeGap(ui.gap);
       if (!railObserver) {
         railObserver = new MutationObserver(hideLegacySizing);
         railObserver.observe(rail, { childList: true, subtree: true });
@@ -135,27 +164,43 @@ export default function OverviewPrecisionArrangeRuntime() {
         panel = document.createElement("details");
         panel.className = "pf-precision-arrange";
         panel.innerHTML = `
-          <summary>Precision</summary>
+          <summary>Transform</summary>
           <div class="pf-precision-popover">
-            <header><strong>Pixel-perfect layout</strong><small>Select at least two cards. Only selected cards are changed.</small></header>
-            <label><span>Card width</span><input data-precision-width type="number" min="72" max="320" step="1"><b>px</b></label>
-            <label><span>Equal gap</span><input data-precision-gap type="number" min="0" max="120" step="1"><b>px</b></label>
-            <div class="pf-precision-group"><span>Align to key</span><div><button data-align="left">L</button><button data-align="center">C</button><button data-align="right">R</button><button data-align="top">T</button><button data-align="middle">M</button><button data-align="bottom">B</button></div></div>
-            <button class="pf-precision-distribute" data-distribute>Distribute selected with exact gap</button>
+            <header><strong>Card transform</strong><small>Select one or more cards. Size and spacing never reset during align/distribute.</small></header>
+            <label><span>Width</span><input data-precision-width type="number" min="64" max="420" step="1"><b>px</b></label>
+            <label><span>Height</span><input data-precision-height type="number" min="56" max="420" step="1"><b>px</b></label>
+            <label><span>Scale</span><input data-precision-scale type="number" min="25" max="300" step="1"><b>%</b></label>
+            <label><span>Gap</span><input data-precision-gap type="number" min="0" max="120" step="1"><b>px</b></label>
+            <div class="pf-precision-group"><span>Align to key object</span><div><button data-align="left">L</button><button data-align="center">C</button><button data-align="right">R</button><button data-align="top">T</button><button data-align="middle">M</button><button data-align="bottom">B</button></div></div>
+            <div class="pf-precision-distribute-row"><button data-distribute="vertical">Distribute V</button><button data-distribute="horizontal">Distribute H</button></div>
           </div>`;
         const width = panel.querySelector("[data-precision-width]");
+        const height = panel.querySelector("[data-precision-height]");
+        const scale = panel.querySelector("[data-precision-scale]");
         const gap = panel.querySelector("[data-precision-gap]");
-        width.value = String(clamp(ui.cardWidth, 72, 320));
+        width.value = String(clamp(ui.cardWidth, 64, 420));
+        height.value = String(clamp(ui.cardHeight || 100, 56, 420));
+        scale.value = "100";
         gap.value = String(clamp(ui.gap, 0, 120));
-        width.addEventListener("input", () => { ui.cardWidth = Number(width.value) || 180; saveUi(ui); applyCardWidth(); });
-        gap.addEventListener("input", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); syncLegacyGap(ui.gap); });
+        width.addEventListener("change", () => { ui.cardWidth = Number(width.value) || 180; saveUi(ui); applyDimensions({ width: ui.cardWidth }); });
+        height.addEventListener("change", () => { ui.cardHeight = Number(height.value) || 100; saveUi(ui); applyDimensions({ height: ui.cardHeight }); });
+        scale.addEventListener("change", () => {
+          const next = clamp(scale.value, 25, 300);
+          const previous = clamp(ui.scale || 100, 25, 300);
+          ui.scale = next;
+          saveUi(ui);
+          applyDimensions({ ratio: next / previous });
+        });
+        gap.addEventListener("change", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); syncQuickArrangeGap(ui.gap); });
         panel.querySelectorAll("[data-align]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); align(button.dataset.align); }));
-        panel.querySelector("[data-distribute]").addEventListener("click", (event) => { event.preventDefault(); equalGap(); });
+        panel.querySelectorAll("[data-distribute]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); equalGap(button.dataset.distribute); }));
         rail.appendChild(panel);
       }
+      syncPanelFromSelection();
       return true;
     }
 
+    function onSelectionChange() { requestAnimationFrame(syncPanelFromSelection); }
     function tick() {
       if (disposed || install()) return;
       frame = requestAnimationFrame(tick);
@@ -164,12 +209,14 @@ export default function OverviewPrecisionArrangeRuntime() {
     tick();
     window.addEventListener("pf-overview-live-units-ready", install);
     window.addEventListener("pf-overview-auto-arranged", () => requestAnimationFrame(updateConnectors));
+    document.addEventListener("pointerup", onSelectionChange, true);
 
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
       railObserver?.disconnect();
       window.removeEventListener("pf-overview-live-units-ready", install);
+      document.removeEventListener("pointerup", onSelectionChange, true);
       panel?.remove();
     };
   }, []);
