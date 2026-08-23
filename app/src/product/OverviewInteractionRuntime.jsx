@@ -33,6 +33,7 @@ export default function OverviewInteractionRuntime() {
     let attempts = 0;
     let panel = null;
     let stage = null;
+    let openUnit = "";
     const hidden = readJson(HIDDEN_KEY, {});
     const highlightOwners = readJson(HIGHLIGHT_OWNER_KEY, {});
     let badges = readJson(BADGE_KEY, {});
@@ -119,14 +120,25 @@ export default function OverviewInteractionRuntime() {
     function pointForNode(code, type) {
       if (!stage) return null;
       const nodes = unitNodes(code);
-      if (type === "connector-start" && nodes.connector) return { x: Number(nodes.connector.getAttribute("x1")), y: Number(nodes.connector.getAttribute("y1")) };
-      if ((type === "connector-end" || type === "anchor") && nodes.connector) return { x: Number(nodes.connector.getAttribute("x2")), y: Number(nodes.connector.getAttribute("y2")) };
-      if (nodes.anchor) return { x: Number.parseFloat(nodes.anchor.style.left || "50"), y: Number.parseFloat(nodes.anchor.style.top || "50") };
-      const card = nodes.card;
-      if (card) {
-        const w = stage.clientWidth || 1; const h = stage.clientHeight || 1;
-        return { x: ((card.offsetLeft + card.offsetWidth / 2) / w) * 100, y: ((card.offsetTop + card.offsetHeight / 2) / h) * 100 };
+      if (type === "connector" && nodes.connector) {
+        const x1 = Number(nodes.connector.getAttribute("x1"));
+        const y1 = Number(nodes.connector.getAttribute("y1"));
+        const x2 = Number(nodes.connector.getAttribute("x2"));
+        const y2 = Number(nodes.connector.getAttribute("y2"));
+        return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
       }
+      if (type === "card" && nodes.card) {
+        const w = stage.clientWidth || 1;
+        const h = stage.clientHeight || 1;
+        return {
+          x: ((nodes.card.offsetLeft + nodes.card.offsetWidth / 2) / w) * 100,
+          y: ((nodes.card.offsetTop + nodes.card.offsetHeight / 2) / h) * 100,
+        };
+      }
+      if (nodes.anchor) return {
+        x: Number.parseFloat(nodes.anchor.style.left || "50"),
+        y: Number.parseFloat(nodes.anchor.style.top || "50"),
+      };
       return null;
     }
 
@@ -147,7 +159,7 @@ export default function OverviewInteractionRuntime() {
 
     function inspectUnit(code, type) {
       const nodes = unitNodes(code);
-      const node = type === "connector-start" || type === "connector-end" ? nodes.connector : nodes[type] || nodes.card || nodes.anchor;
+      const node = nodes[type] || nodes.card || nodes.anchor;
       if (!node) return;
       stage.querySelectorAll(".pf-layer-inspect-active").forEach((item) => item.classList.remove("pf-layer-inspect-active"));
       node.classList.add("pf-layer-inspect-active");
@@ -155,19 +167,18 @@ export default function OverviewInteractionRuntime() {
     }
 
     function setLayerVisible(code, type, visible) {
-      const normalizedType = type === "connector-start" || type === "connector-end" ? "connector" : type;
       hidden[code] ||= {};
-      hidden[code][normalizedType] = !visible;
+      hidden[code][type] = !visible;
       saveJson(HIDDEN_KEY, hidden);
       applyHidden();
       renderPanel();
     }
 
-    function row(label, type, visible = true, removable = true) {
+    function row(label, type, visible = true) {
       return `<div class="pf-layer-row" data-layer-row="${type}">
         <button type="button" class="pf-layer-eye ${visible ? "is-visible" : ""}" data-layer-eye="${type}" title="${visible ? "Hide" : "Show"} ${label}">${visible ? "◉" : "○"}</button>
-        <button type="button" class="pf-layer-name" data-layer-focus="${type}">${label}</button>
-        ${removable ? `<button type="button" class="pf-layer-remove" data-layer-remove="${type}" title="Remove ${label} from Overview">×</button>` : `<span></span>`}
+        <button type="button" class="pf-layer-name" data-layer-focus="${type}" title="Double-click to zoom">${label}</button>
+        <button type="button" class="pf-layer-remove" data-layer-remove="${type}" title="Hide ${label}">×</button>
       </div>`;
     }
 
@@ -196,20 +207,22 @@ export default function OverviewInteractionRuntime() {
       const list = panel.querySelector(".pf-layer-panel-list");
 
       unitCodes.forEach((code) => {
+        const nodes = unitNodes(code);
         const unitShapes = shapes.filter((shape) => highlightOwners[shape.dataset.penShapeId || ""] === code);
+        const needsPlacement = nodes.anchor && nodes.anchor.dataset.located !== "1" && nodes.anchor.dataset.saved !== "1";
         const group = document.createElement("details");
-        group.className = "pf-layer-unit";
+        group.className = `pf-layer-unit${needsPlacement ? " is-unresolved" : ""}`;
         group.dataset.unitCode = code;
-        group.innerHTML = `<summary title="Double-click to zoom ${code}"><span>${code}</span><small>${unitShapes.length ? `${unitShapes.length} highlight` : "card · connector"}</small></summary><div></div>`;
+        group.open = openUnit === code;
+        group.innerHTML = `<summary data-layer-toggle title="Click to expand · double-click to zoom ${code}"><span>${code}</span><small>${needsPlacement ? "Needs placement" : unitShapes.length ? `${unitShapes.length} highlight` : "card · connector"}</small></summary><div></div>`;
         const body = group.querySelector("div");
         body.insertAdjacentHTML("beforeend", row("Info card", "card", !hidden[code]?.card));
-        body.insertAdjacentHTML("beforeend", row("Connector start", "connector-start", !hidden[code]?.connector));
-        body.insertAdjacentHTML("beforeend", row("Connector end", "connector-end", !hidden[code]?.connector));
+        body.insertAdjacentHTML("beforeend", row("Connector", "connector", !hidden[code]?.connector));
         unitShapes.forEach((shape, index) => {
           const id = shape.dataset.penShapeId || "";
-          body.insertAdjacentHTML("beforeend", `<div class="pf-layer-row pf-layer-highlight-row"><span class="pf-layer-shape-dot"></span><button type="button" class="pf-layer-name" data-highlight-focus="${id}">Highlight ${String(index + 1).padStart(2, "0")}</button><button type="button" class="pf-layer-remove" data-highlight-remove="${id}" title="Delete highlight">×</button></div>`);
+          body.insertAdjacentHTML("beforeend", `<div class="pf-layer-row pf-layer-highlight-row"><span class="pf-layer-shape-dot"></span><button type="button" class="pf-layer-name" data-highlight-focus="${id}" title="Double-click to zoom">Highlight ${String(index + 1).padStart(2, "0")}</button><button type="button" class="pf-layer-remove" data-highlight-remove="${id}" title="Delete highlight">×</button></div>`);
         });
-        body.insertAdjacentHTML("beforeend", `<label class="pf-layer-badge-row"><span>Badge / tab</span><input type="text" data-unit-badge="${code}" value="${String(badges[code] || "").replaceAll('"', '&quot;')}" placeholder="VOS / Về ở sớm"></label>`);
+        body.insertAdjacentHTML("beforeend", `<label class="pf-layer-badge-row"><span>Badge</span><input type="text" data-unit-badge="${code}" value="${String(badges[code] || "").replaceAll('"', '&quot;')}" placeholder="VOS / Về ở sớm"></label>`);
         list.appendChild(group);
       });
 
@@ -294,6 +307,7 @@ export default function OverviewInteractionRuntime() {
       if (!panel?.contains(event.target)) return;
       const group = event.target.closest(".pf-layer-unit[data-unit-code]");
       const code = group?.dataset.unitCode || "";
+      const toggle = event.target.closest("[data-layer-toggle]");
       const eye = event.target.closest("[data-layer-eye]");
       const focus = event.target.closest("[data-layer-focus]");
       const remove = event.target.closest("[data-layer-remove]");
@@ -302,21 +316,21 @@ export default function OverviewInteractionRuntime() {
       const exceptionRemove = event.target.closest("[data-exception-remove-line]");
       const action = event.target.closest("[data-layer-action]");
 
-      if (eye && code) {
-        const normalized = eye.dataset.layerEye.startsWith("connector-") ? "connector" : eye.dataset.layerEye;
-        setLayerVisible(code, normalized, Boolean(hidden[code]?.[normalized]));
+      if (toggle && group && code) {
+        event.preventDefault();
+        const nextOpen = openUnit !== code;
+        openUnit = nextOpen ? code : "";
+        panel.querySelectorAll(".pf-layer-unit[data-unit-code]").forEach((node) => { node.open = nextOpen && node.dataset.unitCode === code; });
+        return;
       }
+      if (eye && code) setLayerVisible(code, eye.dataset.layerEye, Boolean(hidden[code]?.[eye.dataset.layerEye]));
       if (focus && code) inspectUnit(code, focus.dataset.layerFocus);
-      if (remove && code) {
-        const normalized = remove.dataset.layerRemove.startsWith("connector-") ? "connector" : remove.dataset.layerRemove;
-        setLayerVisible(code, normalized, false);
-      }
+      if (remove && code) setLayerVisible(code, remove.dataset.layerRemove, false);
       if (highlightFocus) window.dispatchEvent(new CustomEvent("pf-overview-select-highlight", { detail: { id: highlightFocus.dataset.highlightFocus } }));
       if (highlightRemove) window.dispatchEvent(new CustomEvent("pf-overview-delete-highlight", { detail: { id: highlightRemove.dataset.highlightRemove } }));
       if (exceptionRemove) {
         const lines = Array.from(stage.querySelectorAll(".pf-live-callout-lines line"));
-        const line = lines[Number(exceptionRemove.dataset.exceptionRemoveLine)];
-        line?.remove();
+        lines[Number(exceptionRemove.dataset.exceptionRemoveLine)]?.remove();
         renderPanel();
       }
       if (action?.dataset.layerAction === "show-all") {
@@ -334,8 +348,15 @@ export default function OverviewInteractionRuntime() {
       const code = group?.dataset.unitCode || "";
       const focus = event.target.closest("[data-layer-focus]");
       const highlight = event.target.closest("[data-highlight-focus]");
-      if (highlight) { zoomToHighlight(highlight.dataset.highlightFocus); return; }
-      if (code) zoomToUnit(code, focus?.dataset.layerFocus || "anchor");
+      if (highlight) {
+        event.preventDefault();
+        zoomToHighlight(highlight.dataset.highlightFocus);
+        return;
+      }
+      if (code) {
+        event.preventDefault();
+        zoomToUnit(code, focus?.dataset.layerFocus || "anchor");
+      }
     }
 
     function onPanelChange(event) {
