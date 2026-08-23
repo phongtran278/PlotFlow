@@ -5,7 +5,6 @@
   gap:32px;
   align-items:start;
 }
-/* Dynamic, but not extreme: 9 / 8 / 7 and 13 / 11. */
 .pf-project-card-grid>.pf-project-card:nth-child(1){grid-column:span 9}
 .pf-project-card-grid>.pf-project-card:nth-child(2){grid-column:span 8}
 .pf-project-card-grid>.pf-project-card:nth-child(3){grid-column:span 7}
@@ -15,10 +14,9 @@
 .pf-project-card{
   width:100%;
   min-width:0;
-  padding:36px;
+  padding:22px;
   display:grid;
-  grid-template-rows:36px 290px 46px;
-  gap:26px;
+  gap:22px;
   border:1px solid rgba(22,27,31,.065);
   border-radius:26px;
   background:rgba(255,255,255,.86);
@@ -27,18 +25,57 @@
 }
 .pf-project-card--active{background:linear-gradient(180deg,rgba(249,252,250,.97),rgba(241,247,243,.93))}
 
-/* One master gutter. No per-card spacing exceptions. */
-.pf-project-card__header{
-  display:grid;
-  grid-template-columns:auto minmax(0,1fr);
-  align-items:center;
-  gap:24px;
-  padding:0 8px;
+/* Thumbnail is a clean media field. Project copy never overlays it. */
+.pf-project-card__visual{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/10;
+  min-height:220px;
+  overflow:hidden;
+  border:1px solid rgba(25,31,36,.05);
+  border-radius:20px;
 }
-.pf-project-card__index{color:#a3a8ac;font-size:8px;font-weight:600;line-height:1.4;letter-spacing:.09em}
+.pf-project-card__visual::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(128deg,transparent 0 61%,rgba(255,255,255,.22) 61.2% 70%,transparent 70.2%),linear-gradient(154deg,transparent 0 76%,rgba(24,31,35,.018) 76.2% 81%,transparent 81.2%);
+}
+.pf-project-card__grid{
+  position:absolute;
+  inset:0;
+  opacity:.34;
+  background-image:linear-gradient(rgba(35,42,48,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.026) 1px,transparent 1px);
+  background-size:32px 32px;
+}
+.pf-project-card__visual--forest{background:linear-gradient(145deg,#edf5f0,#dceae2)}
+.pf-project-card__visual--stone{background:linear-gradient(145deg,#f3f2ef,#e6e3de)}
+.pf-project-card__visual--sand{background:linear-gradient(145deg,#f8f2e9,#ebdfcf)}
+.pf-project-card__visual--mist{background:linear-gradient(145deg,#f4f6f7,#e4eaed)}
+.pf-project-card__visual--graphite{background:linear-gradient(145deg,#eef2f3,#dbe3e6)}
+
+.pf-project-card__content{
+  min-width:0;
+  display:grid;
+  gap:22px;
+  padding:2px 8px 0;
+}
+.pf-project-card__meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+.pf-project-card__index{
+  flex:0 0 auto;
+  color:#a3a8ac;
+  font-size:9px;
+  font-weight:650;
+  line-height:1.4;
+  letter-spacing:.11em;
+}
 .pf-project-card__status{
   position:relative;
-  justify-self:end;
   width:max-content;
   max-width:100%;
   padding:9px 14px 9px 27px;
@@ -64,16 +101,16 @@
 .pf-project-card__status--hot{color:#8b4f31;background:linear-gradient(140deg,rgba(252,243,237,.80),rgba(255,255,255,.42))}.pf-project-card__status--hot::before{background:#c56d35;box-shadow:0 0 0 3px rgba(197,109,53,.11)}
 .pf-project-card__status--launching{color:#65539b;background:linear-gradient(140deg,rgba(245,241,253,.80),rgba(255,255,255,.42))}.pf-project-card__status--launching::before{background:#8a75c8;box-shadow:0 0 0 3px rgba(138,117,200,.11)}
 
-.pf-project-card__visual{position:relative;width:100%;height:290px;overflow:hidden;border:1px solid rgba(25,31,36,.05);border-radius:21px}
-.pf-project-card__visual::before{content:"";position:absolute;inset:0;background:linear-gradient(128deg,transparent 0 61%,rgba(255,255,255,.24) 61.2% 70%,transparent 70.2%),linear-gradient(154deg,transparent 0 76%,rgba(24,31,35,.022) 76.2% 81%,transparent 81.2%)}
-.pf-project-card__grid{position:absolute;inset:0;opacity:.42;background-image:linear-gradient(rgba(35,42,48,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(35,42,48,.03) 1px,transparent 1px);background-size:32px 32px}
-.pf-project-card__copy{position:absolute;left:40px;right:40px;top:40px;display:block;text-align:left}
+.pf-project-card__copy{
+  min-width:0;
+  text-align:left;
+}
 .pf-project-card__copy>strong{
   display:block;
   width:100%;
   margin:0;
   color:#15191d;
-  font-size:clamp(23px,1.6vw,31px);
+  font-size:clamp(24px,1.55vw,31px);
   line-height:1.12;
   font-weight:600;
   letter-spacing:-.022em;
@@ -81,14 +118,24 @@
   overflow-wrap:break-word;
   text-wrap:balance;
 }
-.pf-project-card__copy>small{display:block;width:100%;margin:12px 0 0;color:rgba(29,35,40,.56);font-size:9px;line-height:1.5;font-weight:550;letter-spacing:.015em;text-align:left}
-.pf-project-card__visual--forest{background:linear-gradient(145deg,#edf5f0,#dceae2)}
-.pf-project-card__visual--stone{background:linear-gradient(145deg,#f3f2ef,#e6e3de)}
-.pf-project-card__visual--sand{background:linear-gradient(145deg,#f8f2e9,#ebdfcf)}
-.pf-project-card__visual--mist{background:linear-gradient(145deg,#f4f6f7,#e4eaed)}
-.pf-project-card__visual--graphite{background:linear-gradient(145deg,#eef2f3,#dbe3e6)}
+.pf-project-card__copy>small{
+  display:block;
+  width:100%;
+  margin:12px 0 0;
+  color:rgba(29,35,40,.56);
+  font-size:9px;
+  line-height:1.5;
+  font-weight:550;
+  letter-spacing:.015em;
+  text-align:left;
+}
 
-.pf-project-card__footer{display:flex;align-items:center;justify-content:flex-end;padding:4px 8px 0}
+.pf-project-card__footer{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  padding:0 8px 4px;
+}
 .pf-project-card__action{
   position:relative;
   height:40px;
@@ -119,15 +166,15 @@
   .pf-project-card-grid{grid-template-columns:repeat(12,minmax(0,1fr));gap:26px}
   .pf-project-card-grid>.pf-project-card:nth-child(n){grid-column:span 6}
   .pf-project-card-grid>.pf-project-card:nth-child(5){grid-column:1/-1}
-  .pf-project-card{padding:30px;grid-template-rows:34px 260px 44px;gap:22px}
-  .pf-project-card__visual{height:260px}
-  .pf-project-card__copy{left:34px;right:34px;top:34px}
+  .pf-project-card{padding:20px;gap:20px}
+  .pf-project-card__content{gap:20px}
 }
 @media(max-width:760px){
   .pf-project-card-grid{grid-template-columns:1fr;gap:22px;margin-top:44px}
   .pf-project-card-grid>.pf-project-card:nth-child(n){grid-column:1/-1}
-  .pf-project-card{padding:22px;grid-template-rows:30px 230px 40px;gap:16px;border-radius:22px}
-  .pf-project-card__visual{height:230px;border-radius:18px}
-  .pf-project-card__copy{left:28px;right:28px;top:28px}
+  .pf-project-card{padding:16px;gap:18px;border-radius:22px}
+  .pf-project-card__visual{min-height:210px;border-radius:18px}
+  .pf-project-card__content{gap:18px;padding:0 6px}
+  .pf-project-card__footer{padding:0 6px 2px}
   .pf-project-card__copy>strong{font-size:26px}
 }
