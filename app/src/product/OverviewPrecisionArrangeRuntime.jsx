@@ -7,9 +7,9 @@ const LEGACY_LAYOUT_UI_KEY = "phongflow-overview-layout-ui-v1";
 
 function readUi() {
   try {
-    return { cardWidth: 180, cardHeight: 0, scale: 100, gap: 12, ...(JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}) };
+    return { cardWidth: 180, cardHeight: 100, scale: 100, gap: 12, constrain: true, ...(JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}) };
   } catch {
-    return { cardWidth: 180, cardHeight: 0, scale: 100, gap: 12 };
+    return { cardWidth: 180, cardHeight: 100, scale: 100, gap: 12, constrain: true };
   }
 }
 
@@ -59,6 +59,17 @@ export default function OverviewPrecisionArrangeRuntime() {
       });
     }
 
+    function setCardSize(card, width, height) {
+      const nextWidth = clamp(width, 64, 420);
+      const nextHeight = clamp(height, 56, 420);
+      card.style.setProperty("--pf-card-width", `${nextWidth}px`);
+      card.style.setProperty("--pf-card-height", `${nextHeight}px`);
+      card.style.width = `${nextWidth}px`;
+      card.style.height = `${nextHeight}px`;
+      card.style.minHeight = `${nextHeight}px`;
+      card.style.right = "auto";
+    }
+
     function applyDimensionsTo(list, { width = null, height = null, ratio = null } = {}) {
       if (!list.length) return;
       list.forEach((card) => {
@@ -66,26 +77,18 @@ export default function OverviewPrecisionArrangeRuntime() {
         const currentHeight = card.offsetHeight || 100;
         const nextWidth = ratio == null ? (width ?? currentWidth) : currentWidth * ratio;
         const nextHeight = ratio == null ? (height ?? currentHeight) : currentHeight * ratio;
-        card.style.width = `${clamp(nextWidth, 64, 420)}px`;
-        card.style.height = `${clamp(nextHeight, 56, 420)}px`;
-        card.style.minHeight = `${clamp(nextHeight, 56, 420)}px`;
-        card.style.right = "auto";
+        setCardSize(card, nextWidth, nextHeight);
       });
       persist();
       requestAnimationFrame(updateConnectors);
     }
 
-    function applyDimensions(options = {}) {
-      applyDimensionsTo(selected(), options);
-    }
+    function applyDimensions(options = {}) { applyDimensionsTo(selected(), options); }
 
     function applySizeToAll(width, height) {
       const list = cards();
       if (!list.length) return;
-      applyDimensionsTo(list, {
-        width: clamp(width, 64, 420),
-        height: clamp(height, 56, 420),
-      });
+      applyDimensionsTo(list, { width, height });
       window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", { detail: { count: list.length, width, height } }));
     }
 
@@ -132,18 +135,11 @@ export default function OverviewPrecisionArrangeRuntime() {
       if (axis === "horizontal") {
         list.sort((a, b) => a.offsetLeft - b.offsetLeft);
         let left = list[0].offsetLeft;
-        list.forEach((card) => {
-          card.style.left = `${left}px`;
-          card.style.right = "auto";
-          left += card.offsetWidth + gap;
-        });
+        list.forEach((card) => { card.style.left = `${left}px`; card.style.right = "auto"; left += card.offsetWidth + gap; });
       } else {
         list.sort((a, b) => a.offsetTop - b.offsetTop);
         let top = list[0].offsetTop;
-        list.forEach((card) => {
-          card.style.top = `${top}px`;
-          top += card.offsetHeight + gap;
-        });
+        list.forEach((card) => { card.style.top = `${top}px`; top += card.offsetHeight + gap; });
       }
       persist(); updateConnectors();
     }
@@ -175,9 +171,10 @@ export default function OverviewPrecisionArrangeRuntime() {
         panel.innerHTML = `
           <summary>Transform</summary>
           <div class="pf-precision-popover">
-            <header><strong>Card transform</strong><small>Select one or more cards for local edits, or apply one exact size to every card.</small></header>
+            <header><strong>Card transform</strong><small>Resize selected cards, lock proportions, or apply one size to every card.</small></header>
             <label><span>Width</span><input data-precision-width type="number" min="64" max="420" step="1"><b>px</b></label>
             <label><span>Height</span><input data-precision-height type="number" min="56" max="420" step="1"><b>px</b></label>
+            <label class="pf-precision-ratio"><span>Constrain</span><input data-precision-constrain type="checkbox"><b>W:H</b></label>
             <div class="pf-precision-distribute-row"><button data-precision-all-size>Apply size to all cards</button></div>
             <label><span>Scale</span><input data-precision-scale type="number" min="25" max="300" step="1"><b>%</b></label>
             <label><span>Gap</span><input data-precision-gap type="number" min="0" max="120" step="1"><b>px</b></label>
@@ -186,15 +183,42 @@ export default function OverviewPrecisionArrangeRuntime() {
           </div>`;
         const width = panel.querySelector("[data-precision-width]");
         const height = panel.querySelector("[data-precision-height]");
+        const constrain = panel.querySelector("[data-precision-constrain]");
         const scale = panel.querySelector("[data-precision-scale]");
         const gap = panel.querySelector("[data-precision-gap]");
         const applyAll = panel.querySelector("[data-precision-all-size]");
         width.value = String(clamp(ui.cardWidth, 64, 420));
         height.value = String(clamp(ui.cardHeight || 100, 56, 420));
+        constrain.checked = ui.constrain !== false;
         scale.value = "100";
         gap.value = String(clamp(ui.gap, 0, 120));
-        width.addEventListener("change", () => { ui.cardWidth = Number(width.value) || 180; saveUi(ui); applyDimensions({ width: ui.cardWidth }); });
-        height.addEventListener("change", () => { ui.cardHeight = Number(height.value) || 100; saveUi(ui); applyDimensions({ height: ui.cardHeight }); });
+
+        function currentRatio() {
+          const w = Math.max(1, Number(width.value) || ui.cardWidth || 180);
+          const h = Math.max(1, Number(height.value) || ui.cardHeight || 100);
+          return w / h;
+        }
+        let ratio = currentRatio();
+
+        constrain.addEventListener("change", () => {
+          ui.constrain = constrain.checked;
+          if (ui.constrain) ratio = currentRatio();
+          saveUi(ui);
+        });
+        width.addEventListener("change", () => {
+          const nextWidth = clamp(width.value, 64, 420);
+          let nextHeight = clamp(height.value, 56, 420);
+          if (constrain.checked) { nextHeight = clamp(nextWidth / Math.max(0.01, ratio), 56, 420); height.value = String(Math.round(nextHeight)); }
+          ui.cardWidth = nextWidth; ui.cardHeight = nextHeight; saveUi(ui);
+          applyDimensions({ width: nextWidth, height: constrain.checked ? nextHeight : null });
+        });
+        height.addEventListener("change", () => {
+          const nextHeight = clamp(height.value, 56, 420);
+          let nextWidth = clamp(width.value, 64, 420);
+          if (constrain.checked) { nextWidth = clamp(nextHeight * ratio, 64, 420); width.value = String(Math.round(nextWidth)); }
+          ui.cardWidth = nextWidth; ui.cardHeight = nextHeight; saveUi(ui);
+          applyDimensions({ width: constrain.checked ? nextWidth : null, height: nextHeight });
+        });
         applyAll.addEventListener("click", (event) => {
           event.preventDefault();
           ui.cardWidth = clamp(width.value, 64, 420);
@@ -208,6 +232,9 @@ export default function OverviewPrecisionArrangeRuntime() {
           ui.scale = next;
           saveUi(ui);
           applyDimensions({ ratio: next / previous });
+          scale.value = "100";
+          ui.scale = 100;
+          saveUi(ui);
         });
         gap.addEventListener("change", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); syncQuickArrangeGap(ui.gap); });
         panel.querySelectorAll("[data-align]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); align(button.dataset.align); }));
@@ -219,10 +246,7 @@ export default function OverviewPrecisionArrangeRuntime() {
     }
 
     function onSelectionChange() { requestAnimationFrame(syncPanelFromSelection); }
-    function tick() {
-      if (disposed || install()) return;
-      frame = requestAnimationFrame(tick);
-    }
+    function tick() { if (disposed || install()) return; frame = requestAnimationFrame(tick); }
 
     tick();
     window.addEventListener("pf-overview-live-units-ready", install);
