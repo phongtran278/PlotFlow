@@ -8,6 +8,8 @@ const DEFAULT_PLAQUE = {
   logo: "VINHOMES",
   title: "MẶT BẰNG PHÂN KHU A",
   subtitle: "Loại hình nhà ở xây sẵn",
+  colorA: "#0f7a64",
+  colorB: "#073f39",
 };
 
 function readJson(key, fallback) {
@@ -23,8 +25,10 @@ function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-function codeFor(card) {
-  return card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code")?.textContent?.trim() || "";
+function anchorFor(stage, code) {
+  return Array.from(stage?.querySelectorAll(".pf-live-map-anchor") || []).find((node) =>
+    (node.dataset.unitCode || node.textContent?.trim()) === code
+  ) || null;
 }
 
 export default function OverviewAnnotationsRuntime() {
@@ -40,25 +44,35 @@ export default function OverviewAnnotationsRuntime() {
 
     function renderPlaque() {
       if (!plaque) return;
-      plaque.innerHTML = `<span>${plaqueData.logo || "PROJECT"}</span><strong>${plaqueData.title || "MAP TITLE"}</strong><small>${plaqueData.subtitle || "Project information"}</small>`;
+      plaque.style.setProperty("--pf-plaque-a", plaqueData.colorA || DEFAULT_PLAQUE.colorA);
+      plaque.style.setProperty("--pf-plaque-b", plaqueData.colorB || DEFAULT_PLAQUE.colorB);
+      plaque.innerHTML = `<span>${plaqueData.logo || "PROJECT"}</span><div><strong>${plaqueData.title || "MAP TITLE"}</strong><small>${plaqueData.subtitle || "Project information"}</small></div>`;
+    }
+
+    function badgeLayer() {
+      return stage?.querySelector(".pf-live-overview-callouts") || null;
     }
 
     function applyBadges() {
       if (!stage) return;
-      stage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
-        const code = codeFor(card);
-        let badge = card.querySelector(".pf-unit-badge-tab");
-        const label = String(badges[code] || "").trim();
-        if (!label) {
-          badge?.remove();
-          return;
-        }
-        if (!badge) {
-          badge = document.createElement("span");
-          badge.className = "pf-unit-badge-tab";
-          card.appendChild(badge);
-        }
+      const layer = badgeLayer();
+      if (!layer) return;
+      layer.querySelectorAll(".pf-unit-map-badge").forEach((node) => node.remove());
+      Object.entries(badges).forEach(([code, rawLabel]) => {
+        const label = String(rawLabel || "").trim();
+        if (!label) return;
+        const anchor = anchorFor(stage, code);
+        if (!anchor) return;
+        const x = Number.parseFloat(anchor.style.left || "50");
+        const y = Number.parseFloat(anchor.style.top || "50");
+        const badge = document.createElement("span");
+        badge.className = "pf-unit-map-badge";
+        badge.dataset.unitCode = code;
         badge.textContent = label;
+        badge.title = `${code} · ${label}`;
+        badge.style.left = `${x}%`;
+        badge.style.top = `${y}%`;
+        layer.appendChild(badge);
       });
     }
 
@@ -74,13 +88,14 @@ export default function OverviewAnnotationsRuntime() {
       editor = document.createElement("div");
       editor.className = "pf-map-plaque-editor";
       editor.innerHTML = `
-        <label><span>Logo text</span><input data-plaque="logo" type="text"></label>
+        <label><span>Logo</span><input data-plaque="logo" type="text"></label>
         <label><span>Title</span><input data-plaque="title" type="text"></label>
         <label><span>Subtitle</span><input data-plaque="subtitle" type="text"></label>
+        <div class="pf-map-plaque-colors"><label><span>Gradient A</span><input data-plaque="colorA" type="color"></label><label><span>Gradient B</span><input data-plaque="colorB" type="color"></label></div>
         <button type="button" data-plaque-close>Done</button>`;
-      ["logo", "title", "subtitle"].forEach((key) => {
+      ["logo", "title", "subtitle", "colorA", "colorB"].forEach((key) => {
         const input = editor.querySelector(`[data-plaque="${key}"]`);
-        input.value = plaqueData[key] || "";
+        input.value = plaqueData[key] || DEFAULT_PLAQUE[key] || "";
         input.addEventListener("input", () => {
           plaqueData = { ...plaqueData, [key]: input.value };
           saveJson(PLAQUE_KEY, plaqueData);
@@ -154,6 +169,7 @@ export default function OverviewAnnotationsRuntime() {
     window.addEventListener("pf-overview-live-units-ready", scheduleInstall);
     window.addEventListener("pf-overview-unit-badge-set", onBadgeSet);
     window.addEventListener("pf-overview-edit-map-label", onEditPlaque);
+    window.addEventListener("pf-overview-anchor-changed", applyBadges);
     document.addEventListener("pointerdown", onOutside, true);
     document.addEventListener("keydown", onKey, true);
     scheduleInstall();
@@ -164,10 +180,12 @@ export default function OverviewAnnotationsRuntime() {
       window.removeEventListener("pf-overview-live-units-ready", scheduleInstall);
       window.removeEventListener("pf-overview-unit-badge-set", onBadgeSet);
       window.removeEventListener("pf-overview-edit-map-label", onEditPlaque);
+      window.removeEventListener("pf-overview-anchor-changed", applyBadges);
       document.removeEventListener("pointerdown", onOutside, true);
       document.removeEventListener("keydown", onKey, true);
       closeEditor();
       plaque?.remove();
+      stage?.querySelectorAll(".pf-unit-map-badge").forEach((node) => node.remove());
     };
   }, []);
 
