@@ -9,12 +9,7 @@ function canonicalOverviewGroup(value = "") {
   const normalized = raw.toLowerCase();
   if (normalized.includes("hoàn thiện") || normalized.includes("hoan thien")) return "Hoàn thiện";
   if (normalized.includes("giãn xây") || normalized.includes("gian xay")) return "Giãn xây";
-  if (
-    normalized.includes("xây thô") ||
-    normalized.includes("xay tho") ||
-    normalized.includes("bàn giao thô") ||
-    normalized.includes("ban giao tho")
-  ) return "Xây thô";
+  if (normalized.includes("xây thô") || normalized.includes("xay tho") || normalized.includes("bàn giao thô") || normalized.includes("ban giao tho")) return "Xây thô";
   return raw;
 }
 
@@ -23,18 +18,18 @@ function readSellUnits() {
   try {
     const value = JSON.parse(localStorage.getItem(SELL_STORAGE_KEY) || "[]");
     return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 function readSavedCardLayout() {
   try {
     const value = JSON.parse(localStorage.getItem(CARD_LAYOUT_KEY) || "{}");
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  } catch {
-    return {};
-  }
+  } catch { return {}; }
+}
+
+function saveCardLayout(value) {
+  try { localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(value)); } catch { /* noop */ }
 }
 
 function readFallbackUnits() {
@@ -50,12 +45,7 @@ function readFallbackUnits() {
 }
 
 function escapeHtml(value = "") {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
 function formatArea(value) {
@@ -72,19 +62,9 @@ function formatPrice(value) {
   return `${raw} tỷ`;
 }
 
-function signature(units, group) {
-  return JSON.stringify({ group, units });
-}
-
-function makeNode(tag, className = "") {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  return node;
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
+function signature(units, group) { return JSON.stringify({ group, units }); }
+function makeNode(tag, className = "") { const node = document.createElement(tag); if (className) node.className = className; return node; }
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 
 export default function OverviewLiveUnitsRuntime() {
   useEffect(() => {
@@ -92,6 +72,7 @@ export default function OverviewLiveUnitsRuntime() {
     let layer = null;
     let observer = null;
     let timer = 0;
+    let clampTimer = 0;
     let lastSignature = "";
     let disposed = false;
 
@@ -129,46 +110,74 @@ export default function OverviewLiveUnitsRuntime() {
       });
     }
 
-    function placeDefaultCardsInsidePdf() {
-      if (!stage || !layer) return;
+    function clampCardsInsidePdf({ arrangeUnsaved = true } = {}) {
+      if (!stage || !layer) return false;
       const pdfX = Number(stage.dataset.pfPdfX);
       const pdfY = Number(stage.dataset.pfPdfY);
       const pdfWidth = Number(stage.dataset.pfPdfWidth);
       const pdfHeight = Number(stage.dataset.pfPdfHeight);
-      if (![pdfX, pdfY, pdfWidth, pdfHeight].every(Number.isFinite) || pdfWidth < 2 || pdfHeight < 2) return;
+      if (![pdfX, pdfY, pdfWidth, pdfHeight].every(Number.isFinite) || pdfWidth < 2 || pdfHeight < 2) return false;
 
       const savedLayout = readSavedCardLayout();
       const inset = 14;
-      const allCards = Array.from(layer.querySelectorAll(".pf-live-sales-callout"));
-      const left = allCards.filter((card) => card.classList.contains("side-left"));
-      const right = allCards.filter((card) => card.classList.contains("side-right"));
+      const cards = Array.from(layer.querySelectorAll(".pf-live-sales-callout"));
+      const leftCards = cards.filter((card) => card.classList.contains("side-left"));
+      const rightCards = cards.filter((card) => card.classList.contains("side-right"));
+      let changed = false;
 
-      function placeSide(list, side) {
-        const count = list.length;
-        if (!count) return;
+      function targetTop(index, count, cardHeight) {
+        const minTop = pdfY + inset;
+        const maxTop = Math.max(minTop, pdfY + pdfHeight - inset - cardHeight);
+        const centerY = count <= 1 ? pdfY + pdfHeight / 2 : pdfY + inset + ((pdfHeight - inset * 2) * index) / Math.max(1, count - 1);
+        return clamp(centerY - cardHeight / 2, minTop, maxTop);
+      }
+
+      function place(list, side) {
         list.forEach((card, index) => {
           const code = card.dataset.unitCode || "";
-          if (code && savedLayout[code]) return;
+          const saved = code ? savedLayout[code] : null;
+          if (saved?.width) card.style.setProperty("--pf-card-width", `${clamp(Number(saved.width), 64, 420)}px`);
+          if (saved?.height) card.style.setProperty("--pf-card-height", `${clamp(Number(saved.height), 56, 420)}px`);
+
           const cardWidth = card.offsetWidth || 192;
           const cardHeight = card.offsetHeight || 140;
+          const minLeft = pdfX + inset;
+          const maxLeft = Math.max(minLeft, pdfX + pdfWidth - inset - cardWidth);
           const minTop = pdfY + inset;
           const maxTop = Math.max(minTop, pdfY + pdfHeight - inset - cardHeight);
-          const centerY = count === 1
-            ? pdfY + pdfHeight / 2
-            : pdfY + inset + ((pdfHeight - inset * 2) * index) / Math.max(1, count - 1);
-          const top = clamp(centerY - cardHeight / 2, minTop, maxTop);
-          const leftPx = side === "left"
-            ? pdfX + inset
-            : pdfX + pdfWidth - inset - cardWidth;
-          card.style.left = `${clamp(leftPx, pdfX + inset, Math.max(pdfX + inset, pdfX + pdfWidth - inset - cardWidth))}px`;
+
+          let nextLeft;
+          let nextTop;
+          if (saved) {
+            nextLeft = clamp(Number(saved.left) || card.offsetLeft, minLeft, maxLeft);
+            nextTop = clamp(Number(saved.top) || card.offsetTop, minTop, maxTop);
+          } else if (arrangeUnsaved) {
+            nextLeft = side === "left" ? minLeft : maxLeft;
+            nextTop = targetTop(index, list.length, cardHeight);
+          } else {
+            nextLeft = clamp(card.offsetLeft, minLeft, maxLeft);
+            nextTop = clamp(card.offsetTop, minTop, maxTop);
+          }
+
+          if (Math.abs(card.offsetLeft - nextLeft) > 0.5 || Math.abs(card.offsetTop - nextTop) > 0.5) changed = true;
+          card.style.left = `${nextLeft}px`;
           card.style.right = "auto";
-          card.style.top = `${top}px`;
+          card.style.top = `${nextTop}px`;
+          if (code) savedLayout[code] = { left: nextLeft, top: nextTop, width: cardWidth, height: cardHeight };
         });
       }
 
-      placeSide(left, "left");
-      placeSide(right, "right");
+      place(leftCards, "left");
+      place(rightCards, "right");
+      if (changed) saveCardLayout(savedLayout);
       syncConnectorStarts();
+      return true;
+    }
+
+    function enforcePdfBoundsSoon() {
+      window.clearTimeout(clampTimer);
+      requestAnimationFrame(() => clampCardsInsidePdf({ arrangeUnsaved: true }));
+      clampTimer = window.setTimeout(() => clampCardsInsidePdf({ arrangeUnsaved: false }), 220);
     }
 
     function render(force = false) {
@@ -180,9 +189,7 @@ export default function OverviewLiveUnitsRuntime() {
       lastSignature = nextSignature;
 
       if (!units.length) {
-        layer?.remove();
-        layer = null;
-        stage.classList.remove("pf-live-overview-ready");
+        layer?.remove(); layer = null; stage.classList.remove("pf-live-overview-ready");
         window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: 0, located: 0, group } }));
         return;
       }
@@ -206,27 +213,18 @@ export default function OverviewLiveUnitsRuntime() {
         line.dataset.unitCode = unit.code;
         line.setAttribute("x1", side === "left" ? "16" : "84");
         line.setAttribute("y1", String(topPct + 5));
-        line.setAttribute("x2", "50");
-        line.setAttribute("y2", "50");
-        line.style.opacity = "0";
+        line.setAttribute("x2", "50"); line.setAttribute("y2", "50"); line.style.opacity = "0";
         svg.appendChild(line);
 
         const anchor = makeNode("button", "pf-map-anchor pf-live-map-anchor");
-        anchor.type = "button";
-        anchor.dataset.unitCode = unit.code;
-        anchor.dataset.located = "0";
-        anchor.dataset.anchorMode = "detail-pending";
-        anchor.textContent = unit.code;
-        anchor.style.left = "50%";
-        anchor.style.top = "50%";
+        anchor.type = "button"; anchor.dataset.unitCode = unit.code; anchor.dataset.located = "0"; anchor.dataset.anchorMode = "detail-pending"; anchor.textContent = unit.code; anchor.style.left = "50%"; anchor.style.top = "50%";
         nextLayer.appendChild(anchor);
 
         const card = makeNode("article", `pf-sales-callout pf-live-sales-callout pf-sell-reference-card side-${side}`);
         card.dataset.unitCode = unit.code;
         card.dataset.handover = canonicalOverviewGroup(unit.handover || "");
         card.style.top = `${topPct}%`;
-        if (side === "left") card.style.left = "5.5%";
-        else card.style.right = "5.5%";
+        if (side === "left") card.style.left = "5.5%"; else card.style.right = "5.5%";
         card.innerHTML = `
           <button type="button" class="pf-sales-callout-hit" aria-label="Chọn ${escapeHtml(unit.code)}"></button>
           <div class="pf-sell-card-code">${escapeHtml(unit.code)}</div>
@@ -237,10 +235,8 @@ export default function OverviewLiveUnitsRuntime() {
             <span>TCBG:</span><b>${escapeHtml(canonicalOverviewGroup(unit.handover || "—"))}</b>
           </div>
           <div class="pf-sell-card-pricebox">
-            <small>GIÁ ĐẤT &amp; GT TM (ĐÃ VAT)</small>
-            <strong>${escapeHtml(formatPrice(unit.priceLandVat))}</strong>
-            <small>GIÁ ALL-IN</small>
-            <strong>${escapeHtml(formatPrice(unit.priceAllIn))}</strong>
+            <small>GIÁ ĐẤT &amp; GT TM (ĐÃ VAT)</small><strong>${escapeHtml(formatPrice(unit.priceLandVat))}</strong>
+            <small>GIÁ ALL-IN</small><strong>${escapeHtml(formatPrice(unit.priceAllIn))}</strong>
           </div>`;
         nextLayer.appendChild(card);
       });
@@ -249,35 +245,30 @@ export default function OverviewLiveUnitsRuntime() {
       if (!nextLayer.isConnected) stage.appendChild(nextLayer);
       layer = nextLayer;
       stage.classList.add("pf-live-overview-ready");
-      requestAnimationFrame(placeDefaultCardsInsidePdf);
+      enforcePdfBoundsSoon();
       window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: units.length, located: 0, group, source: "sell-sheet" } }));
     }
 
     function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
-      layer?.remove();
-      stage = nextStage;
-      lastSignature = "";
-      render(true);
+      layer?.remove(); stage = nextStage; lastSignature = ""; render(true);
     }
 
     function sync(force = false) {
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      if (nextStage && nextStage !== stage) attach(nextStage);
-      else if (stage) render(force);
+      if (nextStage && nextStage !== stage) attach(nextStage); else if (stage) render(force);
     }
 
-    function schedule(force = false) {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => sync(force), 80);
-    }
+    function schedule(force = false) { window.clearTimeout(timer); timer = window.setTimeout(() => sync(force), 80); }
 
     const onSell = () => schedule(true);
-    const onGroup = () => schedule(true);
-    const onPdfBounds = () => requestAnimationFrame(placeDefaultCardsInsidePdf);
+    const onGroup = () => { schedule(true); window.setTimeout(enforcePdfBoundsSoon, 120); };
+    const onPdfBounds = () => enforcePdfBoundsSoon();
+    const onAllSize = () => window.setTimeout(() => clampCardsInsidePdf({ arrangeUnsaved: false }), 0);
     window.addEventListener("plotflow-overview-sell-units", onSell);
     window.addEventListener("pf-overview-group-changed", onGroup);
     window.addEventListener("pf-overview-pdf-bounds", onPdfBounds);
+    window.addEventListener("pf-overview-all-card-size", onAllSize);
 
     observer = new MutationObserver((records) => {
       const relevant = records.some((record) => {
@@ -296,9 +287,9 @@ export default function OverviewLiveUnitsRuntime() {
       window.removeEventListener("plotflow-overview-sell-units", onSell);
       window.removeEventListener("pf-overview-group-changed", onGroup);
       window.removeEventListener("pf-overview-pdf-bounds", onPdfBounds);
-      window.clearTimeout(timer);
-      layer?.remove();
-      stage?.classList.remove("pf-live-overview-ready");
+      window.removeEventListener("pf-overview-all-card-size", onAllSize);
+      window.clearTimeout(timer); window.clearTimeout(clampTimer);
+      layer?.remove(); stage?.classList.remove("pf-live-overview-ready");
     };
   }, []);
 
