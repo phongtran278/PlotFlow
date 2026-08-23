@@ -32,6 +32,7 @@ import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
 import OverviewLayoutPresetRuntime from "./product/OverviewLayoutPresetRuntime.jsx";
 import OverviewInteractionRuntime from "./product/OverviewInteractionRuntime.jsx";
+import OverviewAnnotationsRuntime from "./product/OverviewAnnotationsRuntime.jsx";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
@@ -83,6 +84,7 @@ function PlotFlowExperience() {
       <OverviewSimplifiedRuntime />
       <OverviewLayoutPresetRuntime />
       <OverviewInteractionRuntime />
+      <OverviewAnnotationsRuntime />
     </ProductShell>
   );
 }
