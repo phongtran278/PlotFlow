@@ -26,17 +26,16 @@ export default function EmptyWorkspaceEnhancer() {
   return createPortal(
     <div className="pf-empty-detail">
       <div className="pf-empty-index" aria-hidden="true">
-        <span>DETAIL / 00</span>
+        <span>DETAIL / READY</span>
         <div className="pf-empty-gridline"><i /><i /><i /></div>
-        <strong>Waiting<br />for project data.</strong>
-        <small>1080 × 1920 · composition surface</small>
+        <strong>Your composition<br />starts here.</strong>
       </div>
       <div className="pf-empty-copy">
         <span>DETAIL WORKSPACE</span>
-        <h2>Start with <em>the source.</em></h2>
-        <p>Connect project data or choose a unit from Overview. PlotFlow will bring the structure in; you decide what the final composition needs.</p>
-        <div className="pf-empty-steps"><b>01</b><span>Connect data</span><b>02</b><span>Select a unit</span><b>03</b><span>Review the composition</span></div>
-        <div className="pf-empty-note"><strong>Note</strong><span>No placeholder content is exported. This state disappears as soon as live unit data arrives.</span></div>
+        <h2>Connect data.<br /><em>Shape the story.</em></h2>
+        <p>Bring in a Google Sheet or Excel file, choose a unit, then refine the artwork with PlotFlow’s layout, floorplan and highlight tools.</p>
+        <div className="pf-empty-steps"><b>01</b><span>Connect project data</span><b>02</b><span>Select a unit</span><b>03</b><span>Refine & export</span></div>
+        <div className="pf-empty-note"><strong>Ready</strong><span>This preview disappears automatically as soon as live unit data is connected.</span></div>
       </div>
     </div>,
     target
