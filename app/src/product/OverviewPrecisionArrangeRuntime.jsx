@@ -59,12 +59,7 @@ export default function OverviewPrecisionArrangeRuntime() {
       });
     }
 
-    function targetCards() {
-      return selected();
-    }
-
-    function applyDimensions({ width = null, height = null, ratio = null } = {}) {
-      const list = targetCards();
+    function applyDimensionsTo(list, { width = null, height = null, ratio = null } = {}) {
       if (!list.length) return;
       list.forEach((card) => {
         const currentWidth = card.offsetWidth || 180;
@@ -78,6 +73,20 @@ export default function OverviewPrecisionArrangeRuntime() {
       });
       persist();
       requestAnimationFrame(updateConnectors);
+    }
+
+    function applyDimensions(options = {}) {
+      applyDimensionsTo(selected(), options);
+    }
+
+    function applySizeToAll(width, height) {
+      const list = cards();
+      if (!list.length) return;
+      applyDimensionsTo(list, {
+        width: clamp(width, 64, 420),
+        height: clamp(height, 56, 420),
+      });
+      window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", { detail: { count: list.length, width, height } }));
     }
 
     function hideLegacySizing() {
@@ -166,9 +175,10 @@ export default function OverviewPrecisionArrangeRuntime() {
         panel.innerHTML = `
           <summary>Transform</summary>
           <div class="pf-precision-popover">
-            <header><strong>Card transform</strong><small>Select one or more cards. Size and spacing never reset during align/distribute.</small></header>
+            <header><strong>Card transform</strong><small>Select one or more cards for local edits, or apply one exact size to every card.</small></header>
             <label><span>Width</span><input data-precision-width type="number" min="64" max="420" step="1"><b>px</b></label>
             <label><span>Height</span><input data-precision-height type="number" min="56" max="420" step="1"><b>px</b></label>
+            <div class="pf-precision-distribute-row"><button data-precision-all-size>Apply size to all cards</button></div>
             <label><span>Scale</span><input data-precision-scale type="number" min="25" max="300" step="1"><b>%</b></label>
             <label><span>Gap</span><input data-precision-gap type="number" min="0" max="120" step="1"><b>px</b></label>
             <div class="pf-precision-group"><span>Align to key object</span><div><button data-align="left">L</button><button data-align="center">C</button><button data-align="right">R</button><button data-align="top">T</button><button data-align="middle">M</button><button data-align="bottom">B</button></div></div>
@@ -178,12 +188,20 @@ export default function OverviewPrecisionArrangeRuntime() {
         const height = panel.querySelector("[data-precision-height]");
         const scale = panel.querySelector("[data-precision-scale]");
         const gap = panel.querySelector("[data-precision-gap]");
+        const applyAll = panel.querySelector("[data-precision-all-size]");
         width.value = String(clamp(ui.cardWidth, 64, 420));
         height.value = String(clamp(ui.cardHeight || 100, 56, 420));
         scale.value = "100";
         gap.value = String(clamp(ui.gap, 0, 120));
         width.addEventListener("change", () => { ui.cardWidth = Number(width.value) || 180; saveUi(ui); applyDimensions({ width: ui.cardWidth }); });
         height.addEventListener("change", () => { ui.cardHeight = Number(height.value) || 100; saveUi(ui); applyDimensions({ height: ui.cardHeight }); });
+        applyAll.addEventListener("click", (event) => {
+          event.preventDefault();
+          ui.cardWidth = clamp(width.value, 64, 420);
+          ui.cardHeight = clamp(height.value, 56, 420);
+          saveUi(ui);
+          applySizeToAll(ui.cardWidth, ui.cardHeight);
+        });
         scale.addEventListener("change", () => {
           const next = clamp(scale.value, 25, 300);
           const previous = clamp(ui.scale || 100, 25, 300);
