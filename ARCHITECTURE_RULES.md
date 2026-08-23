@@ -47,6 +47,30 @@ Home may temporarily retain local variables while legacy styles are consolidated
 
 If a Home visual bug belongs to one of these components, fix the canonical owner. Do not patch it from another stylesheet.
 
+## Project scaling contract
+
+Project growth must be **data-driven, not copy-driven**.
+
+Canonical owners:
+
+- Project catalog and project-specific landing content: `app/src/product/projectCatalog.js`
+- Project landing renderer: `app/src/product/ProjectLanding.jsx`
+- Project landing styles: `app/src/product/ProjectLanding.css`
+- Workspace flow/navigation coordination: `app/src/product/ProductShell.jsx`
+
+Rules:
+
+1. A new project should normally require a new or updated record in `projectCatalog.js`, not a new JSX page.
+2. Do not copy `ProjectLanding.jsx` or create `ProjectLanding<ProjectName>.jsx` variants for normal project differences.
+3. Do not create per-project CSS files for color, imagery, copy length, products, resources, FAQ, or sales content.
+4. Project-specific visual tone must be passed through scoped project data/variables on the Project Landing root. Do not introduce global `.tone-*` selectors from Project Landing.
+5. If a project needs a genuinely new reusable section, add that capability to the master landing architecture and make it configurable. Do not hide project-specific conditionals throughout the renderer.
+6. If adding a project requires editing Project Landing layout code in several places, stop and review the data schema before continuing.
+7. Project assets should be referenced by project data/config. Component code must not know project-specific file names unless the behavior itself is unique.
+8. The intended flow is `Projects -> Project -> Overview -> Detail`. Project is for story/context/resources; Overview and Detail remain work surfaces.
+
+The scaling test is simple: **project new = data new, not code new**. Exceptions require an explicit product/architecture reason.
+
 ## Code ownership rules
 
 - One component = one style owner.
