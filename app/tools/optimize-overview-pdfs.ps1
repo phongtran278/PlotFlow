@@ -10,6 +10,27 @@ if (-not (Get-Command qpdf -ErrorAction SilentlyContinue)) {
   exit 1
 }
 
+function Test-QpdfExit([string]$step, [string]$name) {
+  $code = $LASTEXITCODE
+  if ($code -eq 0) { return }
+  if ($code -eq 3) {
+    Write-Warning "$step completed with qpdf warnings for $name; validating output before replacement."
+    return
+  }
+  throw "$step failed for $name (qpdf exit $code)"
+}
+
+function Test-QpdfFile([string]$path, [string]$name) {
+  & qpdf --check $path
+  $code = $LASTEXITCODE
+  if ($code -eq 0) { return }
+  if ($code -eq 3) {
+    Write-Warning "qpdf --check reports warnings for $name, but no fatal error. Keeping output eligible for use."
+    return
+  }
+  throw "Validation failed for $name (qpdf exit $code)"
+}
+
 foreach ($name in $files) {
   $source = Join-Path $pdfDir $name
   if (-not (Test-Path $source)) {
@@ -24,26 +45,33 @@ foreach ($name in $files) {
 
   if (Test-Path $pageOne) { Remove-Item $pageOne -Force }
   if (Test-Path $optimized) { Remove-Item $optimized -Force }
-  if (Test-Path $backup) { Remove-Item $backup -Force }
 
   Write-Host "Processing $name" -ForegroundColor Green
 
   # Keep page 1 only. qpdf copies PDF objects; it does not rasterize vector/text content.
   & qpdf --empty --pages $source 1 -- $pageOne
-  if ($LASTEXITCODE -ne 0) { throw "Failed to extract page 1 from $name" }
+  Test-QpdfExit "Page 1 extraction" $name
+  if (-not (Test-Path $pageOne)) { throw "Page 1 output was not created for $name" }
+  Test-QpdfFile $pageOne "$name page 1"
 
   # Lossless PDF structure/stream optimization. Vector paths and searchable text stay vector/text.
   & qpdf --object-streams=generate --stream-data=compress --recompress-flate --compression-level=9 $pageOne $optimized
-  if ($LASTEXITCODE -ne 0) { throw "Failed to optimize $name" }
+  Test-QpdfExit "Lossless optimization" $name
+  if (-not (Test-Path $optimized)) { throw "Optimized output was not created for $name" }
+  Test-QpdfFile $optimized "$name optimized"
 
-  Move-Item $source $backup
-  Move-Item $optimized $source
+  # Preserve the first/original source backup. Re-running the tool must never destroy it.
+  if (-not (Test-Path $backup)) {
+    Copy-Item $source $backup
+  }
+
+  $before = [math]::Round((Get-Item $source).Length / 1MB, 2)
+  Move-Item $optimized $source -Force
   Remove-Item $pageOne -Force
-
-  $before = [math]::Round((Get-Item $backup).Length / 1MB, 2)
   $after = [math]::Round((Get-Item $source).Length / 1MB, 2)
-  Write-Host "  $before MB -> $after MB | page 1 only | vector preserved" -ForegroundColor Cyan
+
+  Write-Host "  $before MB -> $after MB | page 1 only | vector/text preserved" -ForegroundColor Cyan
 }
 
 Write-Host "Done. Inspect the three PDFs before git add." -ForegroundColor Green
-Write-Host "Backups are kept as *.source-backup.pdf and should NOT be committed." -ForegroundColor DarkGray
+Write-Host "Original backups are kept as *.source-backup.pdf and should NOT be committed." -ForegroundColor DarkGray
