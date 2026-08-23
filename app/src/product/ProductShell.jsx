@@ -56,7 +56,7 @@ function HubProjectCard({ project, index, onOpen }) {
   );
 }
 
-function WorkspaceNav({ screen, mode, project, onExitWorkspace, onProjects, onMode }) {
+function WorkspaceNav({ screen, mode, onExitWorkspace, onProjects, onMode }) {
   const inProject = screen === "project";
   return (
     <header className="pf-workspace-nav">
@@ -66,16 +66,7 @@ function WorkspaceNav({ screen, mode, project, onExitWorkspace, onProjects, onMo
         {inProject && <button type="button" className={mode === "overview" ? "active" : ""} onClick={() => onMode("overview")}>Overview</button>}
         {inProject && <button type="button" className={mode === "detail" ? "active" : ""} onClick={() => onMode("detail")}>Detail</button>}
       </nav>
-      <div className="pf-workspace-context" aria-live="polite">
-        {inProject ? (
-          <>
-            <span>{project.code}</span>
-            <div><strong>{project.name}</strong><small>{project.developer} · {project.location}</small></div>
-          </>
-        ) : (
-          <div className="pf-workspace-context-idle"><i /><strong>Project workspace</strong></div>
-        )}
-      </div>
+      <div className="pf-workspace-nav-spacer" aria-hidden="true" />
     </header>
   );
 }
@@ -145,7 +136,6 @@ export default function ProductShell({ children, onExitWorkspace }) {
       <WorkspaceNav
         screen={screen}
         mode={mode}
-        project={project}
         onExitWorkspace={onExitWorkspace}
         onProjects={() => setScreen("home")}
         onMode={setMode}
