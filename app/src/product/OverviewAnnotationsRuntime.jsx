@@ -1,15 +1,22 @@
 import { useEffect } from "react";
 import "./OverviewAnnotationsRuntime.css";
 
-const PLAQUE_KEY = "plotflow-overview-map-plaque-v1";
+const PLAQUE_KEY = "plotflow-overview-map-plaque-v2";
 const BADGE_KEY = "plotflow-overview-unit-badges-v1";
 
 const DEFAULT_PLAQUE = {
   logo: "VINHOMES",
   title: "MẶT BẰNG PHÂN KHU A",
-  subtitle: "Loại hình nhà ở xây sẵn",
+  subtitle: "Dòng sản phẩm xây sẵn",
   colorA: "#0f7a64",
   colorB: "#073f39",
+  left: 8,
+  top: 3,
+  width: 84,
+  height: 13,
+  titleSize: 18,
+  subtitleSize: 10,
+  font: "sans",
 };
 
 function readJson(key, fallback) {
@@ -25,10 +32,8 @@ function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-function anchorFor(stage, code) {
-  return Array.from(stage?.querySelectorAll(".pf-live-map-anchor") || []).find((node) =>
-    (node.dataset.unitCode || node.textContent?.trim()) === code
-  ) || null;
+function codeFor(card) {
+  return card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code")?.textContent?.trim() || "";
 }
 
 export default function OverviewAnnotationsRuntime() {
@@ -46,33 +51,33 @@ export default function OverviewAnnotationsRuntime() {
       if (!plaque) return;
       plaque.style.setProperty("--pf-plaque-a", plaqueData.colorA || DEFAULT_PLAQUE.colorA);
       plaque.style.setProperty("--pf-plaque-b", plaqueData.colorB || DEFAULT_PLAQUE.colorB);
-      plaque.innerHTML = `<span>${plaqueData.logo || "PROJECT"}</span><div><strong>${plaqueData.title || "MAP TITLE"}</strong><small>${plaqueData.subtitle || "Project information"}</small></div>`;
-    }
-
-    function badgeLayer() {
-      return stage?.querySelector(".pf-live-overview-callouts") || null;
+      plaque.style.setProperty("--pf-plaque-title-size", `${Number(plaqueData.titleSize) || DEFAULT_PLAQUE.titleSize}px`);
+      plaque.style.setProperty("--pf-plaque-subtitle-size", `${Number(plaqueData.subtitleSize) || DEFAULT_PLAQUE.subtitleSize}px`);
+      plaque.style.left = `${Number(plaqueData.left) || 0}%`;
+      plaque.style.top = `${Number(plaqueData.top) || 0}%`;
+      plaque.style.width = `${Math.max(20, Math.min(100, Number(plaqueData.width) || DEFAULT_PLAQUE.width))}%`;
+      plaque.style.height = `${Math.max(7, Math.min(36, Number(plaqueData.height) || DEFAULT_PLAQUE.height))}%`;
+      plaque.dataset.font = plaqueData.font || "sans";
+      plaque.innerHTML = `<span class="pf-map-plaque-logo">${plaqueData.logo || "PROJECT"}</span><div class="pf-map-plaque-copy"><strong>${plaqueData.title || "MAP TITLE"}</strong><small>${plaqueData.subtitle || "Project information"}</small></div>`;
     }
 
     function applyBadges() {
       if (!stage) return;
-      const layer = badgeLayer();
-      if (!layer) return;
-      layer.querySelectorAll(".pf-unit-map-badge").forEach((node) => node.remove());
-      Object.entries(badges).forEach(([code, rawLabel]) => {
-        const label = String(rawLabel || "").trim();
-        if (!label) return;
-        const anchor = anchorFor(stage, code);
-        if (!anchor) return;
-        const x = Number.parseFloat(anchor.style.left || "50");
-        const y = Number.parseFloat(anchor.style.top || "50");
-        const badge = document.createElement("span");
-        badge.className = "pf-unit-map-badge";
-        badge.dataset.unitCode = code;
+      stage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
+        const code = codeFor(card);
+        let badge = card.querySelector(".pf-unit-card-badge");
+        const label = String(badges[code] || "").trim();
+        if (!label) {
+          badge?.remove();
+          return;
+        }
+        if (!badge) {
+          badge = document.createElement("span");
+          badge.className = "pf-unit-card-badge";
+          card.appendChild(badge);
+        }
         badge.textContent = label;
         badge.title = `${code} · ${label}`;
-        badge.style.left = `${x}%`;
-        badge.style.top = `${y}%`;
-        layer.appendChild(badge);
       });
     }
 
@@ -88,19 +93,45 @@ export default function OverviewAnnotationsRuntime() {
       editor = document.createElement("div");
       editor.className = "pf-map-plaque-editor";
       editor.innerHTML = `
+        <header><strong>Map banner</strong><small>Auto-layout overlay inside PDF area</small></header>
         <label><span>Logo</span><input data-plaque="logo" type="text"></label>
         <label><span>Title</span><input data-plaque="title" type="text"></label>
         <label><span>Subtitle</span><input data-plaque="subtitle" type="text"></label>
+        <label><span>Font</span><select data-plaque="font"><option value="sans">IBM Plex Sans</option><option value="serif">IBM Plex Serif</option></select></label>
+        <div class="pf-map-plaque-grid">
+          <label><span>X</span><input data-plaque="left" type="number" min="0" max="95" step="1"></label>
+          <label><span>Y</span><input data-plaque="top" type="number" min="0" max="90" step="1"></label>
+          <label><span>W</span><input data-plaque="width" type="number" min="20" max="100" step="1"></label>
+          <label><span>H</span><input data-plaque="height" type="number" min="7" max="36" step="1"></label>
+          <label><span>Title px</span><input data-plaque="titleSize" type="number" min="10" max="48" step="1"></label>
+          <label><span>Sub px</span><input data-plaque="subtitleSize" type="number" min="7" max="26" step="1"></label>
+        </div>
         <div class="pf-map-plaque-colors"><label><span>Gradient A</span><input data-plaque="colorA" type="color"></label><label><span>Gradient B</span><input data-plaque="colorB" type="color"></label></div>
-        <button type="button" data-plaque-close>Done</button>`;
-      ["logo", "title", "subtitle", "colorA", "colorB"].forEach((key) => {
+        <footer><button type="button" data-plaque-reset>Reset</button><button type="button" data-plaque-close>Done</button></footer>`;
+
+      const keys = ["logo", "title", "subtitle", "font", "left", "top", "width", "height", "titleSize", "subtitleSize", "colorA", "colorB"];
+      keys.forEach((key) => {
         const input = editor.querySelector(`[data-plaque="${key}"]`);
-        input.value = plaqueData[key] || DEFAULT_PLAQUE[key] || "";
+        input.value = plaqueData[key] ?? DEFAULT_PLAQUE[key] ?? "";
         input.addEventListener("input", () => {
-          plaqueData = { ...plaqueData, [key]: input.value };
+          const numeric = ["left", "top", "width", "height", "titleSize", "subtitleSize"].includes(key);
+          plaqueData = { ...plaqueData, [key]: numeric ? Number(input.value) : input.value };
           saveJson(PLAQUE_KEY, plaqueData);
           renderPlaque();
         });
+        input.addEventListener("change", () => {
+          const numeric = ["left", "top", "width", "height", "titleSize", "subtitleSize"].includes(key);
+          plaqueData = { ...plaqueData, [key]: numeric ? Number(input.value) : input.value };
+          saveJson(PLAQUE_KEY, plaqueData);
+          renderPlaque();
+        });
+      });
+      editor.querySelector("[data-plaque-reset]").addEventListener("click", () => {
+        plaqueData = { ...DEFAULT_PLAQUE };
+        saveJson(PLAQUE_KEY, plaqueData);
+        renderPlaque();
+        closeEditor();
+        openEditor();
       });
       editor.querySelector("[data-plaque-close]").addEventListener("click", closeEditor);
       stage.appendChild(editor);
@@ -116,7 +147,7 @@ export default function OverviewAnnotationsRuntime() {
         plaque = document.createElement("button");
         plaque.type = "button";
         plaque.className = "pf-overview-map-plaque";
-        plaque.title = "Double-click to edit map label";
+        plaque.title = "Double-click to edit map banner";
         plaque.addEventListener("dblclick", (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -169,7 +200,6 @@ export default function OverviewAnnotationsRuntime() {
     window.addEventListener("pf-overview-live-units-ready", scheduleInstall);
     window.addEventListener("pf-overview-unit-badge-set", onBadgeSet);
     window.addEventListener("pf-overview-edit-map-label", onEditPlaque);
-    window.addEventListener("pf-overview-anchor-changed", applyBadges);
     document.addEventListener("pointerdown", onOutside, true);
     document.addEventListener("keydown", onKey, true);
     scheduleInstall();
@@ -180,12 +210,11 @@ export default function OverviewAnnotationsRuntime() {
       window.removeEventListener("pf-overview-live-units-ready", scheduleInstall);
       window.removeEventListener("pf-overview-unit-badge-set", onBadgeSet);
       window.removeEventListener("pf-overview-edit-map-label", onEditPlaque);
-      window.removeEventListener("pf-overview-anchor-changed", applyBadges);
       document.removeEventListener("pointerdown", onOutside, true);
       document.removeEventListener("keydown", onKey, true);
       closeEditor();
       plaque?.remove();
-      stage?.querySelectorAll(".pf-unit-map-badge").forEach((node) => node.remove());
+      stage?.querySelectorAll(".pf-unit-card-badge").forEach((node) => node.remove());
     };
   }, []);
 
