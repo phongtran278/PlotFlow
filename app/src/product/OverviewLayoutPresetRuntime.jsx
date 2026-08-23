@@ -7,14 +7,15 @@ const UI_KEY = "phongflow-overview-layout-ui-v1";
 function readUi() {
   try {
     const value = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
+    const legacySpacing = Number(value.spacing);
     return {
       size: Number(value.size) || 88,
-      spacing: Number(value.spacing) || 100,
+      gap: Number.isFinite(Number(value.gap)) ? Number(value.gap) : Number.isFinite(legacySpacing) ? Math.round(legacySpacing / 5) : 20,
       map: value.map && typeof value.map === "object" ? value.map : {},
       columns: value.columns && typeof value.columns === "object" ? value.columns : {},
     };
   } catch {
-    return { size: 88, spacing: 100, map: {}, columns: {} };
+    return { size: 88, gap: 20, map: {}, columns: {} };
   }
 }
 
@@ -155,40 +156,6 @@ export default function OverviewLayoutPresetRuntime() {
       };
     }
 
-    function cardForCode(code) {
-      return cards().find((card) => codeFor(card) === code) || null;
-    }
-
-    function applyMapPoint(code, x, y) {
-      if (!stage) return;
-      const card = cardForCode(code);
-      if (!card) return;
-      const w = stage.clientWidth || 1;
-      const h = stage.clientHeight || 1;
-      const left = clamp(x * w - card.offsetWidth / 2, 8, Math.max(8, w - card.offsetWidth - 8));
-      const top = clamp(y * h - card.offsetHeight / 2, 8, Math.max(8, h - card.offsetHeight - 8));
-      card.style.left = `${left}px`;
-      card.style.right = "auto";
-      card.style.top = `${top}px`;
-      ui.map[code] = {
-        x: clamp((left + card.offsetWidth / 2) / w, 0.04, 0.96),
-        y: clamp((top + card.offsetHeight / 2) / h, 0.04, 0.96),
-      };
-    }
-
-    function applyColumn(side, centerX) {
-      if (!stage) return;
-      const w = stage.clientWidth || 1;
-      const h = stage.clientHeight || 1;
-      cards().forEach((card) => {
-        if (cardSide(card, w) !== side) return;
-        const code = codeFor(card);
-        const y = clamp((card.offsetTop + card.offsetHeight / 2) / h, 0.04, 0.96);
-        applyMapPoint(code, centerX, y);
-      });
-      updateConnectors();
-    }
-
     function renderLayoutMap() {
       if (!mapCanvas || !stage) return;
       captureMapFromCanvas(false);
@@ -254,6 +221,36 @@ export default function OverviewLayoutPresetRuntime() {
       });
     }
 
+    function moveCardFromMap(code, x, y) {
+      if (!stage) return;
+      const card = cards().find((item) => codeFor(item) === code);
+      if (!card) return;
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+      const left = clamp(x * w - card.offsetWidth / 2, 8, Math.max(8, w - card.offsetWidth - 8));
+      const top = clamp(y * h - card.offsetHeight / 2, 8, Math.max(8, h - card.offsetHeight - 8));
+      card.style.left = `${left}px`;
+      card.style.right = "auto";
+      card.style.top = `${top}px`;
+    }
+
+    function moveColumnCards(side) {
+      if (!stage) return;
+      const w = stage.clientWidth || 1;
+      cards().forEach((card) => {
+        const code = codeFor(card);
+        const point = ui.map[code];
+        if (!point || (point.x <= 0.5 ? "left" : "right") !== side) return;
+        const centerX = ui.columns[side] * w;
+        const left = clamp(centerX - card.offsetWidth / 2, 8, Math.max(8, w - card.offsetWidth - 8));
+        card.style.left = `${left}px`;
+        card.style.right = "auto";
+        ui.map[code] = { ...point, x: clamp((left + card.offsetWidth / 2) / w, 0.04, 0.96) };
+      });
+      persistLayout();
+      updateConnectors();
+    }
+
     function moveMapDrag(event) {
       if (!mapDrag || event.pointerId !== mapDrag.pointerId || !mapCanvas) return;
       event.preventDefault();
@@ -264,14 +261,14 @@ export default function OverviewLayoutPresetRuntime() {
         const value = mapDrag.side === "left" ? clamp(x, 0.06, 0.44) : clamp(x, 0.56, 0.94);
         ui.columns[mapDrag.side] = value;
         mapDrag.node.style.left = `${value * 100}%`;
-        applyColumn(mapDrag.side, value);
+        moveColumnCards(mapDrag.side);
       } else {
-        applyMapPoint(mapDrag.code, x, y);
-        const point = ui.map[mapDrag.code];
-        mapDrag.node.style.left = `${point.x * 100}%`;
-        mapDrag.node.style.top = `${point.y * 100}%`;
-        mapDrag.line?.setAttribute("x1", String(point.x * 100));
-        mapDrag.line?.setAttribute("y1", String(point.y * 100));
+        ui.map[mapDrag.code] = { x, y };
+        mapDrag.node.style.left = `${x * 100}%`;
+        mapDrag.node.style.top = `${y * 100}%`;
+        mapDrag.line?.setAttribute("x1", String(x * 100));
+        mapDrag.line?.setAttribute("y1", String(y * 100));
+        moveCardFromMap(mapDrag.code, x, y);
         updateConnectors();
       }
     }
@@ -282,9 +279,10 @@ export default function OverviewLayoutPresetRuntime() {
       mapDrag = null;
       saveUi();
       persistLayout();
+      updateConnectors();
     }
 
-    function tidy() {
+    function arrangeExactGap() {
       if (!stage) return;
       applySize();
       captureMapFromCanvas(false);
@@ -292,10 +290,10 @@ export default function OverviewLayoutPresetRuntime() {
       if (!all.length) return;
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
-      const insetY = Math.max(20, Math.round(h * 0.035));
+      const insetY = Math.max(12, Math.round(h * 0.02));
+      const gap = clamp(ui.gap, 0, 96);
       const left = [];
       const right = [];
-      const spacingFactor = clamp(ui.spacing / 100, 0.45, 1.8);
 
       all.forEach((card) => {
         const code = codeFor(card);
@@ -309,9 +307,6 @@ export default function OverviewLayoutPresetRuntime() {
         if (!list.length) return;
         const heights = list.map(({ card }) => card.offsetHeight || 180);
         const total = heights.reduce((sum, value) => sum + value, 0);
-        const available = Math.max(0, h - insetY * 2 - total);
-        const naturalGap = list.length > 1 ? Math.max(8, available / (list.length - 1)) : 0;
-        const gap = naturalGap * spacingFactor;
         const usedHeight = total + Math.max(0, list.length - 1) * gap;
         let top = Math.max(insetY, (h - usedHeight) / 2);
         const centerX = (side === "left" ? ui.columns.left : ui.columns.right) * w;
@@ -335,7 +330,7 @@ export default function OverviewLayoutPresetRuntime() {
       persistLayout();
       updateConnectors();
       renderLayoutMap();
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length, mode: "manual-layout" } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length, mode: "exact-gap", gap } }));
     }
 
     function installExportMenu() {
@@ -376,11 +371,11 @@ export default function OverviewLayoutPresetRuntime() {
         control.className = "pf-card-layout-control";
         control.innerHTML = `
           <label class="pf-layout-quick-control"><span>Card</span><input data-layout-ui="size" type="range" min="45" max="115" step="1"><output></output></label>
-          <label class="pf-layout-quick-control"><span>Spacing</span><input data-layout-ui="spacing" type="range" min="45" max="180" step="5"><output></output></label>
+          <label class="pf-layout-quick-control"><span>Gap</span><input data-layout-ui="gap" type="range" min="0" max="64" step="1"><output></output></label>
           <details class="pf-layout-map-menu">
             <summary>Arrange</summary>
             <div class="pf-layout-map-popover">
-              <header><strong>Manual layout</strong><small>Card → connector → lot anchor are linked. Drag cards freely, move L/R columns, then quick-arrange only when you want a clean starting rhythm.</small></header>
+              <header><strong>Manual layout</strong><small>Card → connector → lot anchor are linked. Gap is an exact pixel distance, the same on both columns.</small></header>
               <div class="pf-layout-map-legend"><span><i class="card"></i>Info card</span><span><i class="line"></i>Connector</span><span><i class="anchor"></i>Lot anchor</span></div>
               <div class="pf-layout-map-canvas"></div>
               <footer><button type="button" data-layout-ui="capture">Use current layout</button><button type="button" class="primary" data-layout-ui="tidy">Quick arrange</button></footer>
@@ -388,13 +383,13 @@ export default function OverviewLayoutPresetRuntime() {
           </details>`;
         const sizeInput = control.querySelector('[data-layout-ui="size"]');
         const sizeOutput = sizeInput.closest("label").querySelector("output");
-        const spacingInput = control.querySelector('[data-layout-ui="spacing"]');
-        const spacingOutput = spacingInput.closest("label").querySelector("output");
+        const gapInput = control.querySelector('[data-layout-ui="gap"]');
+        const gapOutput = gapInput.closest("label").querySelector("output");
         mapCanvas = control.querySelector(".pf-layout-map-canvas");
         sizeInput.value = String(Math.max(45, Math.min(115, ui.size)));
         sizeOutput.textContent = `${sizeInput.value}%`;
-        spacingInput.value = String(Math.max(45, Math.min(180, ui.spacing)));
-        spacingOutput.textContent = `${spacingInput.value}%`;
+        gapInput.value = String(Math.max(0, Math.min(64, ui.gap)));
+        gapOutput.textContent = `${gapInput.value}px`;
         sizeInput.addEventListener("input", () => {
           ui.size = Number(sizeInput.value) || 88;
           sizeOutput.textContent = `${ui.size}%`;
@@ -403,13 +398,13 @@ export default function OverviewLayoutPresetRuntime() {
           saveUi();
         });
         sizeInput.addEventListener("change", persistLayout);
-        spacingInput.addEventListener("input", () => {
-          ui.spacing = Number(spacingInput.value) || 100;
-          spacingOutput.textContent = `${ui.spacing}%`;
+        gapInput.addEventListener("input", () => {
+          ui.gap = Number(gapInput.value) || 0;
+          gapOutput.textContent = `${ui.gap}px`;
           saveUi();
-          tidy();
+          arrangeExactGap();
         });
-        control.querySelector('[data-layout-ui="tidy"]').addEventListener("click", tidy);
+        control.querySelector('[data-layout-ui="tidy"]').addEventListener("click", arrangeExactGap);
         control.querySelector('[data-layout-ui="capture"]').addEventListener("click", () => {
           captureMapFromCanvas(true);
           renderLayoutMap();
@@ -440,15 +435,9 @@ export default function OverviewLayoutPresetRuntime() {
       attempt();
     }
 
-    function onAnchorChanged() {
-      updateConnectors();
-      if (document.querySelector(".pf-layout-map-menu[open]")) renderLayoutMap();
-    }
-
     installWithRetry();
     window.addEventListener("pf-overview-live-units-ready", installWithRetry);
     window.addEventListener("pf-overview-auto-arranged", updateConnectors);
-    window.addEventListener("pf-overview-anchor-changed", onAnchorChanged);
     window.addEventListener("resize", updateConnectors);
 
     return () => {
@@ -456,7 +445,6 @@ export default function OverviewLayoutPresetRuntime() {
       cancelAnimationFrame(retryRaf);
       window.removeEventListener("pf-overview-live-units-ready", installWithRetry);
       window.removeEventListener("pf-overview-auto-arranged", updateConnectors);
-      window.removeEventListener("pf-overview-anchor-changed", onAnchorChanged);
       window.removeEventListener("resize", updateConnectors);
       control?.remove();
     };
