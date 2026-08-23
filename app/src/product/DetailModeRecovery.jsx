@@ -9,6 +9,8 @@ export default function DetailModeRecovery() {
   useEffect(() => {
     let backButton = null;
     let activeExit = null;
+    let lastPreviewUnit = "";
+    let fitTimer = null;
 
     function removeBack() {
       backButton?.remove();
@@ -30,23 +32,36 @@ export default function DetailModeRecovery() {
       backButton.textContent = `← ${label}`;
     }
 
+    function schedulePreviewFit() {
+      const unit = String(document.querySelector(".unit-select.active strong")?.textContent || "").trim();
+      if (!unit || unit === lastPreviewUnit) return;
+      lastPreviewUnit = unit;
+      window.clearTimeout(fitTimer);
+      fitTimer = window.setTimeout(() => {
+        if (!document.body.classList.contains("pf-product-detail")) return;
+        if (document.querySelector(".lot-editor-shell,.component-stage.finetune-mode,.component-stage.layout-studio-mode")) return;
+        document.querySelector(".workspace-fit")?.click();
+      }, 140);
+    }
+
     function sync() {
       if (!document.body.classList.contains("pf-product-detail")) {
         removeBack();
+        lastPreviewUnit = "";
         return;
       }
 
       const lot = document.querySelector(".lot-editor-shell");
       if (lot) {
         const cancel = findButton(lot, /^(cancel|back|close)$/i);
-        installBack("Back to Detail", () => cancel?.click(), "pf-detail-lot-mode");
+        installBack("Cancel · Don’t save", () => cancel?.click(), "pf-detail-lot-mode");
         return;
       }
 
       const fine = document.querySelector(".component-stage.finetune-mode");
       if (fine) {
         const cancel = findButton(fine, /cancel|back|close/i);
-        installBack("Back to Detail", () => cancel?.click(), "pf-detail-finetune-mode");
+        installBack("Cancel · Don’t save", () => cancel?.click(), "pf-detail-finetune-mode");
         return;
       }
 
@@ -58,6 +73,7 @@ export default function DetailModeRecovery() {
       }
 
       removeBack();
+      schedulePreviewFit();
     }
 
     function onKeyDown(event) {
@@ -76,6 +92,7 @@ export default function DetailModeRecovery() {
     return () => {
       observer.disconnect();
       window.removeEventListener("keydown", onKeyDown, true);
+      window.clearTimeout(fitTimer);
       removeBack();
     };
   }, []);
