@@ -5,7 +5,7 @@ import "./OverviewPdfRuntime.css";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-const PDF_URL = "/masterplan/masterplan.pdf";
+const PDF_URL = "/overview-masterplan/masterplan.pdf";
 const MAX_DPR = 2;
 
 export default function OverviewPdfRuntime() {
