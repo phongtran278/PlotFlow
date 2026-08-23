@@ -11,9 +11,10 @@ function softenImage(img) {
 
 function cleanDetachedEditorMemory({ aggressive = false } = {}) {
   document.querySelectorAll("canvas").forEach((canvas) => {
-    if (!aggressive && canvas.closest(".poster-canvas")) return;
-    if (!aggressive && canvas.closest(".lot-editor-shell")) return;
-    if (aggressive || canvas.width > 2200 || canvas.height > 2200) {
+    const persistent = canvas.closest(".poster-canvas,.lot-editor-shell");
+    if (persistent) return;
+    const overviewBuffer = canvas.classList.contains("pf-overview-pdf-canvas");
+    if (overviewBuffer || canvas.width > 2200 || canvas.height > 2200 || (aggressive && !canvas.isConnected)) {
       try { canvas.width = 1; canvas.height = 1; } catch {}
     }
   });
