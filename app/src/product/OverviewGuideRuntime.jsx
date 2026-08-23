@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import "./OverviewGuideRuntime.css";
 
-const GUIDE_KEY = "plotflow-overview-guides-v1";
+const GUIDE_KEY = "plotflow-overview-guides-v2";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const PRECISION_KEY = "plotflow-overview-precision-arrange-v2";
+const BASELINE_KEY = "plotflow-overview-layout-baseline-v3";
 const SNAP_PX = 18;
 
 function clamp(value, min, max) {
@@ -31,9 +32,25 @@ export default function OverviewGuideRuntime() {
     let panel = null;
     let vertical = null;
     let horizontal = null;
+    let grid = null;
     let observer = null;
     let drag = null;
-    let state = { visible: true, x: 0.08, y: 0.14, ...readJson(GUIDE_KEY, {}) };
+    let state = {
+      guidesVisible: true,
+      gridVisible: true,
+      snapGuides: true,
+      snapGrid: true,
+      gridSize: 16,
+      x: 0.08,
+      y: 0.14,
+      ...readJson(GUIDE_KEY, {}),
+    };
+
+    if (!localStorage.getItem(BASELINE_KEY)) {
+      localStorage.removeItem(CARD_LAYOUT_KEY);
+      localStorage.removeItem("plotflow-overview-guides-v1");
+      localStorage.setItem(BASELINE_KEY, "1");
+    }
 
     const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
 
@@ -79,6 +96,19 @@ export default function OverviewGuideRuntime() {
       if (!stage) return;
       const bounds = pdfBounds();
       if (!bounds) return;
+
+      if (!grid?.isConnected) {
+        grid = document.createElement("div");
+        grid.className = "pf-overview-grid";
+        stage.appendChild(grid);
+      }
+      grid.hidden = !state.gridVisible;
+      grid.style.left = `${bounds.x}px`;
+      grid.style.top = `${bounds.y}px`;
+      grid.style.width = `${bounds.width}px`;
+      grid.style.height = `${bounds.height}px`;
+      grid.style.setProperty("--pf-grid-size", `${clamp(state.gridSize, 8, 64)}px`);
+
       if (!vertical?.isConnected) {
         vertical = document.createElement("div");
         vertical.className = "pf-overview-guide-line is-vertical";
@@ -93,16 +123,23 @@ export default function OverviewGuideRuntime() {
         horizontal.innerHTML = '<span title="Drag horizontal guide">↕</span>';
         stage.appendChild(horizontal);
       }
+
       const point = guideWorldPosition();
-      vertical.hidden = !state.visible;
-      horizontal.hidden = !state.visible;
+      vertical.hidden = !state.guidesVisible;
+      horizontal.hidden = !state.guidesVisible;
       vertical.style.left = `${point.x}px`;
       vertical.style.top = `${bounds.y}px`;
       vertical.style.height = `${bounds.height}px`;
       horizontal.style.left = `${bounds.x}px`;
       horizontal.style.top = `${point.y}px`;
       horizontal.style.width = `${bounds.width}px`;
-      panel?.querySelector("[data-guide-toggle]")?.classList.toggle("active", state.visible);
+
+      panel?.querySelector("[data-guide-toggle]")?.classList.toggle("active", state.guidesVisible);
+      panel?.querySelector("[data-grid-toggle]")?.classList.toggle("active", state.gridVisible);
+      panel?.querySelector("[data-grid-snap]")?.classList.toggle("active", state.snapGrid);
+      panel?.querySelector("[data-guide-snap]")?.classList.toggle("active", state.snapGuides);
+      const sizeInput = panel?.querySelector("[data-grid-size]");
+      if (sizeInput && document.activeElement !== sizeInput) sizeInput.value = String(clamp(state.gridSize, 8, 64));
     }
 
     function arrangeSingleLeftColumn() {
@@ -110,8 +147,8 @@ export default function OverviewGuideRuntime() {
       const list = cards();
       if (!bounds || !list.length) return;
       const precision = readJson(PRECISION_KEY, {});
-      const requestedGap = clamp(precision.gap ?? 12, 0, 120);
-      const inset = 14;
+      const requestedGap = clamp(precision.gap ?? 14, 0, 120);
+      const inset = 18;
       const ordered = [...list].sort((a, b) => a.offsetTop - b.offsetTop || codeFor(a).localeCompare(codeFor(b)));
       const totalHeight = ordered.reduce((sum, card) => sum + card.offsetHeight, 0);
       const maxGap = ordered.length > 1
@@ -119,7 +156,8 @@ export default function OverviewGuideRuntime() {
         : 0;
       const gap = Math.min(requestedGap, maxGap);
       const point = guideWorldPosition();
-      const left = clamp(point.x, bounds.x + inset, bounds.x + bounds.width - inset - Math.max(...ordered.map((card) => card.offsetWidth)));
+      const maxCardWidth = Math.max(...ordered.map((card) => card.offsetWidth));
+      const left = clamp(point.x, bounds.x + inset, bounds.x + bounds.width - inset - maxCardWidth);
       let top = bounds.y + inset;
 
       ordered.forEach((card) => {
@@ -177,30 +215,50 @@ export default function OverviewGuideRuntime() {
       saveState();
     }
 
+    function gridDelta(card, bounds) {
+      if (!state.snapGrid) return { dx: 0, dy: 0 };
+      const size = clamp(state.gridSize, 8, 64);
+      const localLeft = card.offsetLeft - bounds.x;
+      const localTop = card.offsetTop - bounds.y;
+      const snappedLeft = Math.round(localLeft / size) * size;
+      const snappedTop = Math.round(localTop / size) * size;
+      return { dx: snappedLeft - localLeft, dy: snappedTop - localTop };
+    }
+
+    function guideDelta(card, point) {
+      if (!state.snapGuides || !state.guidesVisible) return { dx: 0, dy: 0 };
+      const xCandidates = [
+        point.x - card.offsetLeft,
+        point.x - (card.offsetLeft + card.offsetWidth / 2),
+        point.x - (card.offsetLeft + card.offsetWidth),
+      ];
+      const yCandidates = [
+        point.y - card.offsetTop,
+        point.y - (card.offsetTop + card.offsetHeight / 2),
+        point.y - (card.offsetTop + card.offsetHeight),
+      ];
+      const nearestX = xCandidates.sort((a, b) => Math.abs(a) - Math.abs(b))[0];
+      const nearestY = yCandidates.sort((a, b) => Math.abs(a) - Math.abs(b))[0];
+      return {
+        dx: Math.abs(nearestX) <= SNAP_PX ? nearestX : 0,
+        dy: Math.abs(nearestY) <= SNAP_PX ? nearestY : 0,
+      };
+    }
+
     function snapCardsAfterDrag(event) {
-      if (!state.visible || !stage) return;
+      if (!stage) return;
       const targetCard = event.target.closest?.(".pf-live-sales-callout");
       if (!targetCard || !stage.contains(targetCard)) return;
-      const point = guideWorldPosition();
       const bounds = pdfBounds();
-      if (!point || !bounds) return;
+      const point = guideWorldPosition();
+      if (!bounds || !point) return;
 
       const selected = cards().filter((card) => card.classList.contains("pf-card-selected"));
       const list = selected.length ? selected : [targetCard];
-      const xCandidates = [
-        { value: targetCard.offsetLeft, delta: point.x - targetCard.offsetLeft },
-        { value: targetCard.offsetLeft + targetCard.offsetWidth / 2, delta: point.x - (targetCard.offsetLeft + targetCard.offsetWidth / 2) },
-        { value: targetCard.offsetLeft + targetCard.offsetWidth, delta: point.x - (targetCard.offsetLeft + targetCard.offsetWidth) },
-      ];
-      const yCandidates = [
-        { value: targetCard.offsetTop, delta: point.y - targetCard.offsetTop },
-        { value: targetCard.offsetTop + targetCard.offsetHeight / 2, delta: point.y - (targetCard.offsetTop + targetCard.offsetHeight / 2) },
-        { value: targetCard.offsetTop + targetCard.offsetHeight, delta: point.y - (targetCard.offsetTop + targetCard.offsetHeight) },
-      ];
-      const xSnap = xCandidates.sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta))[0];
-      const ySnap = yCandidates.sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta))[0];
-      const dx = Math.abs(xSnap.delta) <= SNAP_PX ? xSnap.delta : 0;
-      const dy = Math.abs(ySnap.delta) <= SNAP_PX ? ySnap.delta : 0;
+      const guide = guideDelta(targetCard, point);
+      const gridSnap = gridDelta(targetCard, bounds);
+      const dx = guide.dx || gridSnap.dx;
+      const dy = guide.dy || gridSnap.dy;
       if (!dx && !dy) return;
 
       list.forEach((card) => {
@@ -211,7 +269,23 @@ export default function OverviewGuideRuntime() {
         card.style.top = `${nextTop}px`;
       });
       persistCards(list);
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: "guide-snap" } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: state.snapGuides && (guide.dx || guide.dy) ? "guide-snap" : "grid-snap" } }));
+    }
+
+    function resetCanonicalLayout() {
+      localStorage.removeItem(CARD_LAYOUT_KEY);
+      state = {
+        guidesVisible: true,
+        gridVisible: true,
+        snapGuides: true,
+        snapGrid: true,
+        gridSize: 16,
+        x: 0.08,
+        y: 0.14,
+      };
+      saveState();
+      renderGuides();
+      requestAnimationFrame(arrangeSingleLeftColumn);
     }
 
     function installPanel() {
@@ -220,22 +294,60 @@ export default function OverviewGuideRuntime() {
       if (!panel?.isConnected) {
         panel = document.createElement("div");
         panel.className = "pf-overview-guide-control";
-        panel.innerHTML = '<button type="button" data-guide-toggle class="active" title="Show or hide alignment guides">Guides</button>';
+        panel.innerHTML = `
+          <button type="button" data-guide-toggle title="Show or hide alignment guides">Guides</button>
+          <button type="button" data-guide-snap title="Snap cards to guides">Snap guide</button>
+          <button type="button" data-grid-toggle title="Show or hide layout grid">Grid</button>
+          <button type="button" data-grid-snap title="Snap cards to grid">Snap grid</button>
+          <label title="Grid spacing"><span>Grid</span><input data-grid-size type="number" min="8" max="64" step="2"><b>px</b></label>
+          <button type="button" data-layout-reset title="Reset local card layout to the canonical baseline">Reset layout</button>`;
+
         panel.querySelector("[data-guide-toggle]").addEventListener("click", () => {
-          state.visible = !state.visible;
+          state.guidesVisible = !state.guidesVisible;
           saveState();
           renderGuides();
         });
+        panel.querySelector("[data-guide-snap]").addEventListener("click", () => {
+          state.snapGuides = !state.snapGuides;
+          saveState();
+          renderGuides();
+        });
+        panel.querySelector("[data-grid-toggle]").addEventListener("click", () => {
+          state.gridVisible = !state.gridVisible;
+          saveState();
+          renderGuides();
+        });
+        panel.querySelector("[data-grid-snap]").addEventListener("click", () => {
+          state.snapGrid = !state.snapGrid;
+          saveState();
+          renderGuides();
+        });
+        panel.querySelector("[data-grid-size]").addEventListener("change", (event) => {
+          state.gridSize = clamp(event.target.value, 8, 64);
+          saveState();
+          renderGuides();
+        });
+        panel.querySelector("[data-layout-reset]").addEventListener("click", resetCanonicalLayout);
         rail.appendChild(panel);
       }
+      renderGuides();
     }
 
     function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
+      if (stage) {
+        stage.removeEventListener("pointerdown", onGuidePointerDown, true);
+        stage.removeEventListener("pointermove", onGuidePointerMove, true);
+        stage.removeEventListener("pointerup", finishGuideDrag, true);
+        stage.removeEventListener("pointercancel", finishGuideDrag, true);
+        stage.removeEventListener("pointerup", snapCardsAfterDrag, true);
+      }
       vertical?.remove();
       horizontal?.remove();
+      grid?.remove();
       vertical = null;
       horizontal = null;
+      grid = null;
       stage = nextStage;
       stage.addEventListener("pointerdown", onGuidePointerDown, true);
       stage.addEventListener("pointermove", onGuidePointerMove, true);
@@ -276,6 +388,7 @@ export default function OverviewGuideRuntime() {
       panel?.remove();
       vertical?.remove();
       horizontal?.remove();
+      grid?.remove();
     };
   }, []);
 
