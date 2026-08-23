@@ -192,7 +192,7 @@ export default function OverviewPrecisionArrangeRuntime() {
             <label><span>Height</span><input data-precision-height type="number" min="56" max="420" step="1"><b>px</b></label>
             <label class="pf-precision-ratio"><span>Constrain</span><input data-precision-constrain type="checkbox"><b>W:H</b></label>
             <div class="pf-precision-distribute-row"><button data-precision-all-size>Apply size to all cards</button></div>
-            <label><span>Scale</span><input data-precision-scale type="number" min="25" max="300" step="1"><b>%</b></label>
+            <label><span>Scale</span><input data-precision-scale type="number" min="10" max="300" step="1"><b>%</b></label>
             <label><span>Gap</span><input data-precision-gap type="number" min="0" max="120" step="1"><b>px</b></label>
             <div class="pf-precision-group"><span>Align to key object</span><div><button data-align="left">L</button><button data-align="center">C</button><button data-align="right">R</button><button data-align="top">T</button><button data-align="middle">M</button><button data-align="bottom">B</button></div></div>
             <div class="pf-precision-distribute-row"><button data-distribute="vertical">Distribute V</button><button data-distribute="horizontal">Distribute H</button></div>
@@ -206,7 +206,8 @@ export default function OverviewPrecisionArrangeRuntime() {
         width.value = String(clamp(ui.cardWidth, 64, 420));
         height.value = String(clamp(ui.cardHeight || 100, 56, 420));
         constrain.checked = ui.constrain !== false;
-        scale.value = "100";
+        ui.scale = clamp(ui.scale || 100, 10, 300);
+        scale.value = String(ui.scale);
         gap.value = String(clamp(ui.gap, 0, 120));
 
         function currentRatio() {
@@ -243,14 +244,12 @@ export default function OverviewPrecisionArrangeRuntime() {
           applySizeToAll(ui.cardWidth, ui.cardHeight);
         });
         scale.addEventListener("change", () => {
-          const next = clamp(scale.value, 25, 300);
-          const previous = clamp(ui.scale || 100, 25, 300);
+          const next = clamp(scale.value, 10, 300);
+          const previous = clamp(ui.scale || 100, 10, 300);
           ui.scale = next;
           saveUi(ui);
-          applyDimensions({ ratio: next / previous });
-          scale.value = "100";
-          ui.scale = 100;
-          saveUi(ui);
+          scale.value = String(next);
+          applyDimensions({ ratio: next / Math.max(10, previous) });
         });
         gap.addEventListener("change", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); syncQuickArrangeGap(ui.gap); });
         panel.querySelectorAll("[data-align]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); align(button.dataset.align); }));
