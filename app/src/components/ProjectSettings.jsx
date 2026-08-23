@@ -132,12 +132,13 @@ export default function ProjectSettings() {
           </label>
 
           <section className="project-settings-section">
-            <div className="project-settings-section-title"><span>PROJECT DATA</span><small>Backup & transfer</small></div>
+            <div className="project-settings-section-title"><span>PROJECT DATA</span><small>Backup & move your setup</small></div>
+            <p className="project-settings-helper">Export creates a backup of your PlotFlow edits and settings. Import restores that backup on this browser. To move or “migrate” work to another computer, export here first, then import the file on the other device.</p>
             <button type="button" className="project-settings-row" onClick={() => { downloadProject(projectName); setMessage("Đã xuất file project."); }}>
-              <span className="project-settings-symbol"><Icon name="download" /></span><span><strong>Export Project</strong><small>Create a portable .plotflow file</small></span><Icon name="chevron" size={14} />
+              <span className="project-settings-symbol"><Icon name="download" /></span><span><strong>Export Project</strong><small>Save a portable .plotflow backup</small></span><Icon name="chevron" size={14} />
             </button>
             <button type="button" className="project-settings-row" onClick={() => inputRef.current?.click()}>
-              <span className="project-settings-symbol"><Icon name="upload" /></span><span><strong>Import Project</strong><small>Restore a shared project file</small></span><Icon name="chevron" size={14} />
+              <span className="project-settings-symbol"><Icon name="upload" /></span><span><strong>Import Project</strong><small>Restore a .plotflow backup in this browser</small></span><Icon name="chevron" size={14} />
             </button>
             <input ref={inputRef} type="file" accept=".plotflow,application/json" hidden onChange={importProject} />
           </section>
@@ -165,7 +166,7 @@ export default function ProjectSettings() {
     {createPortal(
       <div className="project-settings-anchor">
         <button type="button" className={`project-settings-trigger ${open ? "is-open" : ""}`} onClick={() => { setOpen((value) => !value); setMessage(""); }}>
-          <Icon name="settings" size={17} /><span>Settings</span>
+          <Icon name="settings" size={16} /><span>Project settings</span>
         </button>
       </div>,
       target
