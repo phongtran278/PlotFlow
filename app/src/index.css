@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;750;800&display=swap");
+
 @font-face {
   font-family: "PlotFlowBrand";
   src: url("/assets/font/SVN-Gilroy-Regular.otf") format("opentype");
@@ -29,8 +31,6 @@
   font-style: normal;
   font-display: swap;
 }
-
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;750;800&display=swap");
 
 * {
   box-sizing: border-box;
