@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { logoCatalog } from "../data/assetCatalog.js";
 import "./OverviewAnnotationsRuntime.css";
 
-const PLAQUE_KEY = "plotflow-overview-map-plaque-v4";
+const PLAQUE_KEY = "plotflow-overview-map-plaque-v5";
 const BADGE_KEY = "plotflow-overview-unit-badges-v1";
 
 const DEFAULT_PLAQUE = {
@@ -19,6 +19,8 @@ const DEFAULT_PLAQUE = {
   subtitleSize: 10,
   logoSize: 92,
   gap: 18,
+  copyGap: 4,
+  paddingX: 20,
   font: "sans",
   contentAlign: "center",
   textAlign: "left",
@@ -74,10 +76,7 @@ export default function OverviewAnnotationsRuntime() {
     function renderPlaque() {
       if (!plaque) return;
       const bounds = pdfBounds || stagePdfBounds();
-      if (!bounds) {
-        plaque.hidden = true;
-        return;
-      }
+      if (!bounds) { plaque.hidden = true; return; }
       plaque.hidden = false;
       const leftPct = clamp(plaqueData.left, 0, 95, DEFAULT_PLAQUE.left) / 100;
       const topPct = clamp(plaqueData.top, 0, 90, DEFAULT_PLAQUE.top) / 100;
@@ -85,10 +84,12 @@ export default function OverviewAnnotationsRuntime() {
       const heightPct = clamp(plaqueData.height, 7, 36, DEFAULT_PLAQUE.height) / 100;
       plaque.style.setProperty("--pf-plaque-a", plaqueData.colorA || DEFAULT_PLAQUE.colorA);
       plaque.style.setProperty("--pf-plaque-b", plaqueData.colorB || DEFAULT_PLAQUE.colorB);
-      plaque.style.setProperty("--pf-plaque-title-size", `${clamp(plaqueData.titleSize, 10, 48, DEFAULT_PLAQUE.titleSize)}px`);
-      plaque.style.setProperty("--pf-plaque-subtitle-size", `${clamp(plaqueData.subtitleSize, 7, 26, DEFAULT_PLAQUE.subtitleSize)}px`);
-      plaque.style.setProperty("--pf-plaque-logo-size", `${clamp(plaqueData.logoSize, 36, 180, DEFAULT_PLAQUE.logoSize)}px`);
-      plaque.style.setProperty("--pf-plaque-gap", `${clamp(plaqueData.gap, 0, 64, DEFAULT_PLAQUE.gap)}px`);
+      plaque.style.setProperty("--pf-plaque-title-size", `${clamp(plaqueData.titleSize, 8, 64, DEFAULT_PLAQUE.titleSize)}px`);
+      plaque.style.setProperty("--pf-plaque-subtitle-size", `${clamp(plaqueData.subtitleSize, 6, 40, DEFAULT_PLAQUE.subtitleSize)}px`);
+      plaque.style.setProperty("--pf-plaque-logo-size", `${clamp(plaqueData.logoSize, 24, 260, DEFAULT_PLAQUE.logoSize)}px`);
+      plaque.style.setProperty("--pf-plaque-gap", `${clamp(plaqueData.gap, 0, 96, DEFAULT_PLAQUE.gap)}px`);
+      plaque.style.setProperty("--pf-plaque-copy-gap", `${clamp(plaqueData.copyGap, 0, 40, DEFAULT_PLAQUE.copyGap)}px`);
+      plaque.style.setProperty("--pf-plaque-padding-x", `${clamp(plaqueData.paddingX, 0, 80, DEFAULT_PLAQUE.paddingX)}px`);
       plaque.style.left = `${bounds.x + bounds.width * leftPct}px`;
       plaque.style.top = `${bounds.y + bounds.height * topPct}px`;
       plaque.style.width = `${Math.min(bounds.width - bounds.width * leftPct, bounds.width * widthPct)}px`;
@@ -122,37 +123,28 @@ export default function OverviewAnnotationsRuntime() {
       editor.className = "pf-map-plaque-editor";
       const logoOptions = logoCatalog.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
       editor.innerHTML = `
-        <header><strong>Map banner</strong><small>Frame coordinates are relative to the PDF page</small></header>
-        <label><span>Logo</span><select data-plaque="logoId">${logoOptions}</select></label>
-        <label><span>Title</span><input data-plaque="title" type="text"></label>
-        <label><span>Subtitle</span><input data-plaque="subtitle" type="text"></label>
-        <label><span>Font</span><select data-plaque="font"><option value="sans">IBM Plex Sans</option><option value="serif">IBM Plex Serif</option></select></label>
-        <div class="pf-map-plaque-grid">
+        <header><strong>Map banner</strong><small>Design frame attached to the PDF page</small></header>
+        <section class="pf-map-plaque-section"><b>Frame</b><div class="pf-map-plaque-grid">
           <label><span>X</span><input data-plaque="left" type="number" min="0" max="95" step="1"></label>
           <label><span>Y</span><input data-plaque="top" type="number" min="0" max="90" step="1"></label>
           <label><span>W</span><input data-plaque="width" type="number" min="20" max="100" step="1"></label>
           <label><span>H</span><input data-plaque="height" type="number" min="7" max="36" step="1"></label>
-          <label><span>Logo px</span><input data-plaque="logoSize" type="number" min="36" max="180" step="1"></label>
-          <label><span>Gap px</span><input data-plaque="gap" type="number" min="0" max="64" step="1"></label>
-          <label><span>Title px</span><input data-plaque="titleSize" type="number" min="10" max="48" step="1"></label>
-          <label><span>Sub px</span><input data-plaque="subtitleSize" type="number" min="7" max="26" step="1"></label>
-        </div>
-        <div class="pf-map-plaque-align-row">
-          <span>Vertical align</span>
-          <button type="button" data-plaque-align="start">Top</button>
-          <button type="button" data-plaque-align="center">Center</button>
-          <button type="button" data-plaque-align="end">Bottom</button>
-        </div>
-        <label><span>Text align</span><select data-plaque="textAlign"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
-        <div class="pf-map-plaque-colors"><label><span>Gradient A</span><input data-plaque="colorA" type="color"></label><label><span>Gradient B</span><input data-plaque="colorB" type="color"></label></div>
+          <label><span>Padding X</span><input data-plaque="paddingX" type="number" min="0" max="80" step="1"></label>
+          <label><span>Logo gap</span><input data-plaque="gap" type="number" min="0" max="96" step="1"></label>
+        </div></section>
+        <section class="pf-map-plaque-section"><b>Logo</b><label><span>Version</span><select data-plaque="logoId">${logoOptions}</select></label><label><span>Size</span><input data-plaque="logoSize" type="number" min="24" max="260" step="1"></label></section>
+        <section class="pf-map-plaque-section"><b>Typography</b><label><span>Headline</span><input data-plaque="title" type="text"></label><label><span>Headline px</span><input data-plaque="titleSize" type="number" min="8" max="64" step="1"></label><label><span>Subtitle</span><input data-plaque="subtitle" type="text"></label><label><span>Subtitle px</span><input data-plaque="subtitleSize" type="number" min="6" max="40" step="1"></label><label><span>Text gap</span><input data-plaque="copyGap" type="number" min="0" max="40" step="1"></label><label><span>Font</span><select data-plaque="font"><option value="sans">IBM Plex Sans</option><option value="serif">IBM Plex Serif</option></select></label></section>
+        <section class="pf-map-plaque-section"><b>Layout</b><div class="pf-map-plaque-align-row"><span>Vertical</span><button type="button" data-plaque-align="start">Top</button><button type="button" data-plaque-align="center">Center</button><button type="button" data-plaque-align="end">Bottom</button></div><label><span>Text align</span><select data-plaque="textAlign"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label></section>
+        <section class="pf-map-plaque-section"><b>Fill</b><div class="pf-map-plaque-colors"><label><span>Gradient A</span><input data-plaque="colorA" type="color"></label><label><span>Gradient B</span><input data-plaque="colorB" type="color"></label></div></section>
         <footer><button type="button" data-plaque-reset>Reset</button><button type="button" data-plaque-close>Done</button></footer>`;
-      const keys = ["logoId", "title", "subtitle", "font", "left", "top", "width", "height", "logoSize", "gap", "titleSize", "subtitleSize", "textAlign", "colorA", "colorB"];
+      const numericKeys = ["left", "top", "width", "height", "logoSize", "gap", "copyGap", "paddingX", "titleSize", "subtitleSize"];
+      const keys = ["logoId", "title", "subtitle", "font", ...numericKeys, "textAlign", "colorA", "colorB"];
       keys.forEach((key) => {
         const input = editor.querySelector(`[data-plaque="${key}"]`);
+        if (!input) return;
         input.value = plaqueData[key] ?? DEFAULT_PLAQUE[key] ?? "";
         const sync = () => {
-          const numeric = ["left", "top", "width", "height", "logoSize", "gap", "titleSize", "subtitleSize"].includes(key);
-          plaqueData = { ...plaqueData, [key]: numeric ? Number(input.value) : input.value };
+          plaqueData = { ...plaqueData, [key]: numericKeys.includes(key) ? Number(input.value) : input.value };
           saveJson(PLAQUE_KEY, plaqueData);
           renderPlaque();
         };
