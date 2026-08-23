@@ -9,6 +9,20 @@ import { PROJECTS } from "./projectCatalog.js";
 const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Xây thô"];
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 
+function canonicalOverviewGroup(value = "") {
+  const raw = String(value).trim();
+  const normalized = raw.toLowerCase();
+  if (normalized.includes("hoàn thiện") || normalized.includes("hoan thien")) return "Hoàn thiện";
+  if (normalized.includes("giãn xây") || normalized.includes("gian xay")) return "Giãn xây";
+  if (
+    normalized.includes("xây thô") ||
+    normalized.includes("xay tho") ||
+    normalized.includes("bàn giao thô") ||
+    normalized.includes("ban giao tho")
+  ) return "Xây thô";
+  return raw;
+}
+
 function readAvailableUnits() {
   return Array.from(document.querySelectorAll(".unit-select .unit-main strong"))
     .map((node) => node.textContent?.trim())
@@ -85,10 +99,17 @@ export default function ProductShell({ children, onExitWorkspace }) {
     });
   }, [developer, query]);
   const overviewGroups = useMemo(() => {
-    const fromSheet = Array.from(new Set(sellUnits.map((item) => String(item.handover || "").trim()).filter(Boolean)));
-    return fromSheet.length ? fromSheet : DEFAULT_OVERVIEW_GROUPS;
+    const fromSheet = Array.from(new Set(
+      sellUnits
+        .map((item) => canonicalOverviewGroup(item.handover))
+        .filter(Boolean)
+    ));
+    return fromSheet.length ? DEFAULT_OVERVIEW_GROUPS.filter((group) => fromSheet.includes(group)).concat(fromSheet.filter((group) => !DEFAULT_OVERVIEW_GROUPS.includes(group))) : DEFAULT_OVERVIEW_GROUPS;
   }, [sellUnits]);
-  const visibleSellUnits = useMemo(() => sellUnits.filter((item) => String(item.handover || "").trim() === overviewGroup), [sellUnits, overviewGroup]);
+  const visibleSellUnits = useMemo(
+    () => sellUnits.filter((item) => canonicalOverviewGroup(item.handover) === overviewGroup),
+    [sellUnits, overviewGroup]
+  );
 
   useEffect(() => {
     if (!overviewGroups.includes(overviewGroup)) setOverviewGroup(overviewGroups[0] || "");
