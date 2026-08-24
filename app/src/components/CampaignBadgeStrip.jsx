@@ -9,11 +9,11 @@ const ALPHA_THRESHOLD = 8;
 const BADGES = [
   { id: "hotdeal", name: "Hot Deal", src: "/assets/badges/hotdeal.png" },
   { id: "veosom", name: "Về ở sớm", src: "/assets/badges/veosom.png" },
-  { id: "gold1", name: "Tặng 1 chỉ vàng", shortName: "1 chỉ vàng", src: "/assets/badges/1%20ch%E1%BB%89.png" },
-  { id: "gold3", name: "Tặng 3 chỉ vàng", shortName: "3 chỉ vàng", src: "/assets/badges/3%20ch%E1%BB%89.png" },
-  { id: "gold5", name: "Tặng 5 chỉ vàng", shortName: "5 chỉ vàng", src: "/assets/badges/5%20ch%E1%BB%89.png" },
-  { id: "gold6", name: "Tặng 6 chỉ vàng", shortName: "6 chỉ vàng", src: "/assets/badges/6%20ch%E1%BB%89.png" },
-  { id: "gold9", name: "Tặng 9 chỉ vàng", shortName: "9 chỉ vàng", src: "/assets/badges/9%20ch%E1%BB%89.png" },
+  { id: "gold1", name: "Tặng 1 chỉ vàng", shortName: "1 chỉ vàng", src: "/assets/ui/gold_1.png" },
+  { id: "gold3", name: "Tặng 3 chỉ vàng", shortName: "3 chỉ vàng", src: "/assets/ui/gold_3.png" },
+  { id: "gold5", name: "Tặng 5 chỉ vàng", shortName: "5 chỉ vàng", src: "/assets/ui/gold_5.png" },
+  { id: "gold6", name: "Tặng 6 chỉ vàng", shortName: "6 chỉ vàng", src: "/assets/ui/gold_6.png" },
+  { id: "gold9", name: "Tặng 9 chỉ vàng", shortName: "9 chỉ vàng", src: "/assets/ui/gold_9.png" },
 ];
 const GOLD_IDS = BADGES.filter((item) => item.id.startsWith("gold")).map((item) => item.id);
 const boundsCache = new Map();
