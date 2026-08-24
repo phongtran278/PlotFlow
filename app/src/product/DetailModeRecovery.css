@@ -9,4 +9,19 @@ body.pf-product-detail.pf-detail-lot-mode .lot-editor-actions{display:flex!impor
 body.pf-product-detail.pf-detail-lot-mode .lot-editor-layout{min-height:0!important;height:100%!important;overflow:hidden!important}
 body.pf-product-detail.pf-detail-lot-mode .lot-canvas-wrap{min-height:0!important;height:100%!important;overflow:auto!important;padding:24px!important}
 body.pf-product-detail.pf-detail-finetune-mode .component-stage.finetune-mode{padding-top:52px!important;overflow:auto!important}
-@media(max-width:1180px){.pf-detail-mode-back{top:72px;left:14px}body.pf-product-detail.pf-detail-lot-mode .lot-editor-header{padding:56px 14px 12px!important;grid-template-columns:1fr auto!important}body.pf-product-detail.pf-detail-lot-mode .lot-view-controls{grid-column:1/-1!important;grid-row:2!important;min-width:0!important;width:100%!important;justify-content:flex-start!important;overflow-x:auto!important}body.pf-product-detail.pf-detail-lot-mode .lot-editor-actions{grid-column:2!important;grid-row:1!important}}
+
+body.pf-product-detail.pf-detail-layout-mode .component-stage.layout-studio-mode{position:fixed!important;inset:64px 0 0!important;z-index:2400!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;padding:0!important;margin:0!important;overflow:hidden!important;background:#e8ebf0!important}
+body.pf-product-detail.pf-detail-layout-mode .component-stage.layout-studio-mode>.stage-header{display:none!important}
+body.pf-product-detail.pf-detail-layout-mode .component-stage.layout-studio-mode>.component-canvas{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;padding:0!important;margin:0!important;border-radius:0!important;overflow:hidden!important}
+body.pf-product-detail.pf-detail-layout-mode .layout-studio.is-editing{width:100%!important;height:100%!important;min-height:0!important}
+body.pf-product-detail.pf-detail-layout-mode .studio-center,body.pf-product-detail.pf-detail-layout-mode .studio-canvas-scroll{min-height:0!important}
+body.pf-product-detail.pf-detail-layout-mode .layers-panel,body.pf-product-detail.pf-detail-layout-mode .inspector-panel{min-height:0!important;max-height:100%!important;overflow-y:auto!important}
+body.pf-product-detail.pf-detail-layout-mode .pf-detail-mode-back{top:78px;background:#fffaf0;color:#76561d;border-color:rgba(178,132,42,.22)}
+.pf-layout-protected-note{margin:0 0 14px;padding:10px;border:1px solid rgba(178,132,42,.18);border-radius:10px;background:#fbf6e9;display:grid;gap:4px;color:#715a2e}
+.pf-layout-protected-note strong{font:700 8px/1.2 "IBM Plex Sans",sans-serif;letter-spacing:.1em;color:#8b681f}
+.pf-layout-protected-note span{font:500 8.5px/1.45 "IBM Plex Sans",sans-serif;color:#79653e}
+.pf-layout-save-exit{min-height:30px!important;padding:0 10px!important;border-radius:8px!important;border:1px solid #0f7a64!important;background:#0f7a64!important;color:#fff!important;font-weight:700!important;cursor:pointer!important}
+body.pf-product-detail.pf-detail-layout-mode .save-layout-button{display:none!important}
+
+@media(max-width:1180px){.pf-detail-mode-back{top:72px;left:14px}body.pf-product-detail.pf-detail-lot-mode .lot-editor-header{padding:56px 14px 12px!important;grid-template-columns:1fr auto!important}body.pf-product-detail.pf-detail-lot-mode .lot-view-controls{grid-column:1/-1!important;grid-row:2!important;min-width:0!important;width:100%!important;justify-content:flex-start!important;overflow-x:auto!important}body.pf-product-detail.pf-detail-lot-mode .lot-editor-actions{grid-column:2!important;grid-row:1!important}body.pf-product-detail.pf-detail-layout-mode .layout-studio.is-editing{grid-template-columns:160px minmax(0,1fr) 230px!important}}
+@media(max-width:900px){body.pf-product-detail.pf-detail-layout-mode .layout-studio.is-editing{grid-template-columns:minmax(0,1fr)!important}body.pf-product-detail.pf-detail-layout-mode .layers-panel{display:none!important}}
