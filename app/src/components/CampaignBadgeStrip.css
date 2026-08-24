@@ -1,3 +1,7 @@
+.poster-canvas:has(> .campaign-artwork-strip) > .poster-overlay-slot.poster-badge {
+  display: none !important;
+}
+
 .design-assignment-dock {
   overflow-x: hidden !important;
   overflow-y: auto !important;
