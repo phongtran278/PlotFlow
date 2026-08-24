@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 const STORAGE_KEY = "plotflow-campaign-badges-by-unit-v2";
 const DEFAULT_GAP = 18;
 const DEFAULT_VISIBLE_HEIGHT = 156;
+const ALPHA_THRESHOLD = 8;
 
 const BADGES = [
   { id: "hotdeal", name: "Hot Deal", src: "/assets/badges/hotdeal.png" },
@@ -15,6 +16,7 @@ const BADGES = [
   { id: "gold9", name: "Tặng 9 chỉ vàng", shortName: "9 chỉ vàng", src: "/assets/badges/9%20ch%E1%BB%89.png" },
 ];
 const GOLD_IDS = BADGES.filter((item) => item.id.startsWith("gold")).map((item) => item.id);
+const boundsCache = new Map();
 
 function normalizeUnitCode(value = "") {
   return String(value || "")
@@ -105,6 +107,66 @@ function saveConfig(unitCode, config) {
   }
 }
 
+function fallbackBounds(image) {
+  if (!image?.naturalWidth || !image?.naturalHeight) return null;
+  return {
+    minX: 0,
+    minY: 0,
+    width: image.naturalWidth,
+    height: image.naturalHeight,
+    naturalWidth: image.naturalWidth,
+    naturalHeight: image.naturalHeight,
+  };
+}
+
+function measureVisibleBounds(image) {
+  if (!image?.naturalWidth || !image?.naturalHeight) return null;
+  const cached = boundsCache.get(image.src);
+  if (cached) return cached;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return fallbackBounds(image);
+  ctx.drawImage(image, 0, 0);
+
+  let pixels;
+  try {
+    pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  } catch {
+    return fallbackBounds(image);
+  }
+
+  let minX = canvas.width;
+  let minY = canvas.height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < canvas.height; y += 1) {
+    const row = y * canvas.width * 4;
+    for (let x = 0; x < canvas.width; x += 1) {
+      if (pixels[row + x * 4 + 3] <= ALPHA_THRESHOLD) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  const result = maxX >= minX && maxY >= minY
+    ? {
+        minX,
+        minY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1,
+        naturalWidth: canvas.width,
+        naturalHeight: canvas.height,
+      }
+    : fallbackBounds(image);
+  if (result) boundsCache.set(image.src, result);
+  return result;
+}
+
 export default function CampaignBadgeStrip({
   artboard,
   quickControlsTarget,
@@ -123,12 +185,14 @@ export default function CampaignBadgeStrip({
   const [config, setConfig] = useState(() => readConfig(unitCode, sourceBadges));
   const [scaleDrafts, setScaleDrafts] = useState({});
   const [failed, setFailed] = useState({});
+  const [boundsById, setBoundsById] = useState({});
 
   useEffect(() => {
     const code = normalizeUnitCode(unitCode);
     setConfig(readConfig(unitCode, sourceBadges));
     setScaleDrafts({});
     setFailed({});
+    setBoundsById({});
     const sync = (event) => {
       const eventCode = normalizeUnitCode(event?.detail?.unitCode);
       if (eventCode && eventCode !== code) return;
@@ -172,7 +236,12 @@ export default function CampaignBadgeStrip({
       ...config,
       badges: config.badges.map((item) => {
         if (!GOLD_IDS.includes(item.id)) return item;
-        return { ...item, enabled: Boolean(nextId && item.id === nextId), order: item.id === nextId ? order : item.order, scale: item.id === nextId ? scale : item.scale };
+        return {
+          ...item,
+          enabled: Boolean(nextId && item.id === nextId),
+          order: item.id === nextId ? order : item.order,
+          scale: item.id === nextId ? scale : item.scale,
+        };
       }),
     });
   }
@@ -194,13 +263,25 @@ export default function CampaignBadgeStrip({
     const activeOrder = new Map(activeItems.map((badgeId, i) => [badgeId, i]));
     const inactive = ordered.filter((item) => !item.enabled).map((item) => item.id);
     const inactiveOrder = new Map(inactive.map((badgeId, i) => [badgeId, activeItems.length + i]));
-    commit({ ...config, badges: config.badges.map((item) => ({ ...item, order: item.enabled ? activeOrder.get(item.id) : inactiveOrder.get(item.id) })) });
+    commit({
+      ...config,
+      badges: config.badges.map((item) => ({
+        ...item,
+        order: item.enabled ? activeOrder.get(item.id) : inactiveOrder.get(item.id),
+      })),
+    });
   }
 
   function setScale(id, raw) {
     const pct = Math.max(40, Math.min(220, Number(raw) || 100));
     patchBadge(id, { scale: pct / 100 });
     setScaleDrafts((prev) => ({ ...prev, [id]: String(Math.round(pct)) }));
+  }
+
+  function handleLoad(id, event) {
+    const bounds = measureVisibleBounds(event.currentTarget) || fallbackBounds(event.currentTarget);
+    setFailed((prev) => ({ ...prev, [id]: false }));
+    if (bounds) setBoundsById((prev) => ({ ...prev, [id]: bounds }));
   }
 
   const artwork = artboard ? createPortal(
@@ -216,28 +297,55 @@ export default function CampaignBadgeStrip({
         alignItems: "flex-start",
         justifyContent: "flex-end",
         gap: `${config.gap}px`,
+        overflow: "visible",
         pointerEvents: "none",
       }}
     >
-      {active.map((item) => (
-        <img
-          key={item.id}
-          src={item.asset.src}
-          alt=""
-          draggable="false"
-          onLoad={() => setFailed((prev) => ({ ...prev, [item.id]: false }))}
-          onError={() => setFailed((prev) => ({ ...prev, [item.id]: true }))}
-          style={{
-            display: failed[item.id] ? "none" : "block",
-            width: "auto",
-            height: `${Math.round(config.visibleHeight * item.scale)}px`,
-            maxWidth: "none",
-            objectFit: "contain",
-            pointerEvents: "none",
-            userSelect: "none",
-          }}
-        />
-      ))}
+      {active.map((item) => {
+        const targetHeight = Math.round(config.visibleHeight * item.scale);
+        const bounds = boundsById[item.id];
+        const renderScale = bounds ? targetHeight / Math.max(1, bounds.height) : 1;
+        const wrapperStyle = bounds
+          ? {
+              position: "relative",
+              flex: "0 0 auto",
+              width: `${bounds.width * renderScale}px`,
+              height: `${targetHeight}px`,
+              overflow: "visible",
+            }
+          : {
+              position: "relative",
+              flex: "0 0 auto",
+              height: `${targetHeight}px`,
+            };
+        const imageStyle = bounds
+          ? {
+              position: "absolute",
+              left: `${-bounds.minX * renderScale}px`,
+              top: `${-bounds.minY * renderScale}px`,
+              width: `${bounds.naturalWidth * renderScale}px`,
+              height: `${bounds.naturalHeight * renderScale}px`,
+              maxWidth: "none",
+            }
+          : {
+              display: "block",
+              width: "auto",
+              height: `${targetHeight}px`,
+              maxWidth: "none",
+            };
+        return (
+          <span key={item.id} className="campaign-artwork-item" style={{ ...wrapperStyle, display: failed[item.id] ? "none" : "block" }}>
+            <img
+              src={item.asset.src}
+              alt=""
+              draggable="false"
+              onLoad={(event) => handleLoad(item.id, event)}
+              onError={() => setFailed((prev) => ({ ...prev, [item.id]: true }))}
+              style={{ ...imageStyle, objectFit: "contain", pointerEvents: "none", userSelect: "none" }}
+            />
+          </span>
+        );
+      })}
     </div>,
     artboard
   ) : null;
