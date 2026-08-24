@@ -11,11 +11,21 @@ export default function DetailModeRecovery() {
     let activeExit = null;
     let lastPreviewUnit = "";
     let fitTimer = null;
+    let layoutNote = null;
+    let saveExitButton = null;
+
+    function removeLayoutChrome() {
+      layoutNote?.remove();
+      layoutNote = null;
+      saveExitButton?.remove();
+      saveExitButton = null;
+    }
 
     function removeBack() {
       backButton?.remove();
       backButton = null;
       activeExit = null;
+      removeLayoutChrome();
       document.body.classList.remove("pf-detail-submode-active", "pf-detail-lot-mode", "pf-detail-finetune-mode", "pf-detail-layout-mode");
     }
 
@@ -30,6 +40,38 @@ export default function DetailModeRecovery() {
         document.body.appendChild(backButton);
       }
       backButton.textContent = `← ${label}`;
+    }
+
+    function cancelLayout() {
+      const done = document.querySelector(".edit-layout-button.active");
+      done?.click();
+      window.setTimeout(() => window.location.reload(), 60);
+    }
+
+    function saveAndExitLayout() {
+      document.querySelector(".component-stage.layout-studio-mode .save-layout-button")?.click();
+      document.querySelector(".edit-layout-button.active")?.click();
+    }
+
+    function installLayoutChrome(layout) {
+      const layers = layout.querySelector(".layers-panel");
+      if (layers && !layoutNote?.isConnected) {
+        layoutNote = document.createElement("div");
+        layoutNote.className = "pf-layout-protected-note";
+        layoutNote.innerHTML = "<strong>MASTER LAYOUT · HẠN CHẾ SỬA</strong><span>Layout này đã chốt. Chỉ vào đây khi thật sự bất khả kháng; ưu tiên chỉnh nội dung ở Preview.</span>";
+        const heading = layers.querySelector(".studio-panel-heading");
+        heading?.insertAdjacentElement("afterend", layoutNote);
+      }
+
+      const history = layout.querySelector(".history-controls");
+      if (history && !saveExitButton?.isConnected) {
+        saveExitButton = document.createElement("button");
+        saveExitButton.type = "button";
+        saveExitButton.className = "pf-layout-save-exit";
+        saveExitButton.textContent = "Save & Exit";
+        saveExitButton.addEventListener("click", saveAndExitLayout);
+        history.appendChild(saveExitButton);
+      }
     }
 
     function schedulePreviewFit() {
@@ -53,6 +95,7 @@ export default function DetailModeRecovery() {
 
       const lot = document.querySelector(".lot-editor-shell");
       if (lot) {
+        removeLayoutChrome();
         const cancel = findButton(lot, /^(cancel|back|close)$/i);
         installBack("Cancel · Don’t save", () => cancel?.click(), "pf-detail-lot-mode");
         return;
@@ -60,6 +103,7 @@ export default function DetailModeRecovery() {
 
       const fine = document.querySelector(".component-stage.finetune-mode");
       if (fine) {
+        removeLayoutChrome();
         const cancel = findButton(fine, /cancel|back|close/i);
         installBack("Cancel · Don’t save", () => cancel?.click(), "pf-detail-finetune-mode");
         return;
@@ -67,8 +111,8 @@ export default function DetailModeRecovery() {
 
       const layout = document.querySelector(".component-stage.layout-studio-mode");
       if (layout) {
-        const done = document.querySelector(".edit-layout-button.active") || findButton(layout, /done|exit edit layout|back/i);
-        installBack("Back to Preview", () => done?.click(), "pf-detail-layout-mode");
+        installBack("Cancel · Don’t save", cancelLayout, "pf-detail-layout-mode");
+        installLayoutChrome(layout);
         return;
       }
 
