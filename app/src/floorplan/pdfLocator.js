@@ -5,5 +5,6 @@ export {
   renderPdfPageBase,
   attachMatchToPageRender,
   renderPdfRegion,
+  releasePreparedDetailRaster,
   releasePreparedFallbackPdf,
 } from "./pdfLocatorPrepared.js";
