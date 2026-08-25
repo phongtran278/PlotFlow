@@ -199,7 +199,7 @@ export default function UnifiedFloorplanEditorV2({
         console.error(error);
         setRenderState("error");
       }
-    }, 110);
+    }, 320);
     return () => window.clearTimeout(timer);
   }, [pageRender, view.zoom, view.offsetX, view.offsetY, drag?.type, onRenderVectorPreview]);
 
