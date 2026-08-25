@@ -141,7 +141,7 @@ export function attachMatchToPageRender(pageBase, match) {
 function preparedRasterFor(lot, options = {}) {
   const profile = getMemoryProfile();
   const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
-  const wantsDetail = Boolean(options.maxRenderScale) || requestedWidth > 900;
+  const wantsDetail = Boolean(options.maxRenderScale) || requestedWidth > 1084;
 
   if (!wantsDetail) {
     return {
