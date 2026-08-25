@@ -294,6 +294,114 @@ body.plotflow-floorplan-editing .focus-deck {
   margin-right: auto;
 }
 
+/* Detail viewport assist: Overview-style immediate camera feedback.
+   While the user is moving the camera we intentionally show the lightweight
+   page preview and hide a stale HQ crop. The HQ layer returns after idle. */
+.pf-detail-zoom-scrub {
+  width: 100%;
+  min-height: 28px;
+  margin: 6px 0 2px;
+  border: 1px solid rgba(79,124,255,.16);
+  border-radius: 8px;
+  background: #f5f8ff;
+  color: #4267c7;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .035em;
+  cursor: ew-resize;
+  user-select: none;
+  touch-action: none;
+}
+
+.pf-detail-zoom-scrub:hover {
+  border-color: rgba(79,124,255,.34);
+  background: #edf3ff;
+}
+
+.unified-floorplan-stage.pf-view-interacting .unified-hq-image,
+.unified-canvas-column:has(.unified-canvas-head em.rendering) .unified-hq-image {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.unified-floorplan-stage .unified-fast-image {
+  will-change: left, top, width, height;
+}
+
+.unified-floorplan-stage .unified-hq-image {
+  transition: opacity .14s ease;
+}
+
+.pf-detail-minimap {
+  position: absolute;
+  right: 16px;
+  top: 52px;
+  z-index: 18;
+  width: 154px;
+  padding: 7px;
+  border: 1px solid rgba(30,40,60,.12);
+  border-radius: 10px;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 10px 28px rgba(24,34,52,.12);
+  backdrop-filter: blur(10px);
+  user-select: none;
+}
+
+.unified-canvas-column {
+  position: relative;
+}
+
+.pf-detail-minimap-label {
+  display: block;
+  margin: 0 0 5px;
+  color: #7d8795;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: .08em;
+}
+
+.pf-detail-minimap-map {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.35 / 1;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #eef1f5;
+  cursor: crosshair;
+}
+
+.pf-detail-minimap-map img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.pf-detail-minimap-viewport {
+  position: absolute;
+  min-width: 5px;
+  min-height: 4px;
+  border: 1.5px solid #2f6bff;
+  background: rgba(47,107,255,.10);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.72);
+  pointer-events: none;
+}
+
+.pf-detail-minimap-anchor {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: #e1263f;
+  box-shadow: 0 0 0 1px rgba(225,38,63,.24);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 @media (max-width: 1400px) {
   .unified-floorplan-v2 .unified-floorplan-workspace {
     grid-template-columns: 210px minmax(500px,1fr) 280px;
@@ -310,6 +418,11 @@ body.plotflow-floorplan-editing .focus-deck {
 
   .unified-live-panel-v2 .unified-live-note {
     width: 250px;
+  }
+
+  .pf-detail-minimap {
+    width: 132px;
+    right: 10px;
   }
 }
 
@@ -333,5 +446,9 @@ body.plotflow-floorplan-editing .focus-deck {
     max-height: none;
     border-right: 0;
     border-bottom: 1px solid rgba(30,40,60,.08);
+  }
+
+  .pf-detail-minimap {
+    display: none;
   }
 }
