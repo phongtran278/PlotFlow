@@ -1,17 +1,15 @@
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const PREVIEW_RENDER_MAX_WIDTH = 640;
-const SCREEN_PREVIEW_CACHE_LIMIT = 3;
-const PDF_IDLE_RELEASE_MS = 30000;
 const RASTER_DB_NAME = "plotflow-raster-cache-v1";
 const RASTER_DB_VERSION = 1;
 const RASTER_STORE = "assets";
 const CACHE_SCHEMA = "raster-first-v1";
-const OBJECT_URL_LIMIT = 36;
 
 const screenPreviewCache = new Map();
 const objectUrlCache = new Map();
@@ -26,6 +24,22 @@ export const FLOORPLAN_ZOOM_MAX = 2000;
 export const FLOORPLAN_FRAME_WIDTH = 506;
 export const FLOORPLAN_FRAME_HEIGHT = 390;
 export const FLOORPLAN_FRAME_ASPECT = FLOORPLAN_FRAME_WIDTH / FLOORPLAN_FRAME_HEIGHT;
+
+function memoryProfile() {
+  return getMemoryProfile();
+}
+
+function previewCacheLimit() {
+  return Math.max(1, Number(memoryProfile().previewCacheTarget) || 2);
+}
+
+function objectUrlLimit() {
+  return Math.max(1, Number(memoryProfile().objectUrlTarget) || 2);
+}
+
+function pdfIdleReleaseMs() {
+  return Math.max(250, Number(memoryProfile().pdfIdleReleaseMs) || 4000);
+}
 
 function yieldToBrowser() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -103,6 +117,13 @@ function rasterCacheKey(pageRender, view, outputWidth, aspect, includeHighlight)
   ].join(":");
 }
 
+function releaseObjectUrls() {
+  for (const url of objectUrlCache.values()) {
+    try { URL.revokeObjectURL(url); } catch {}
+  }
+  objectUrlCache.clear();
+}
+
 function rememberObjectUrl(key, blob) {
   const existing = objectUrlCache.get(key);
   if (existing) {
@@ -112,7 +133,7 @@ function rememberObjectUrl(key, blob) {
   }
   const url = URL.createObjectURL(blob);
   objectUrlCache.set(key, url);
-  while (objectUrlCache.size > OBJECT_URL_LIMIT) {
+  while (objectUrlCache.size > objectUrlLimit()) {
     const oldestKey = objectUrlCache.keys().next().value;
     const oldestUrl = objectUrlCache.get(oldestKey);
     objectUrlCache.delete(oldestKey);
@@ -124,7 +145,7 @@ function rememberObjectUrl(key, blob) {
 function touchPreviewCache(key, value) {
   screenPreviewCache.delete(key);
   screenPreviewCache.set(key, value);
-  while (screenPreviewCache.size > SCREEN_PREVIEW_CACHE_LIMIT) {
+  while (screenPreviewCache.size > previewCacheLimit()) {
     const oldest = screenPreviewCache.keys().next().value;
     screenPreviewCache.delete(oldest);
   }
@@ -157,7 +178,7 @@ async function disposeActivePdf() {
   }
 }
 
-function schedulePdfRelease(delay = PDF_IDLE_RELEASE_MS) {
+function schedulePdfRelease(delay = pdfIdleReleaseMs()) {
   if (activeReleaseTimer) clearTimeout(activeReleaseTimer);
   activeReleaseTimer = setTimeout(() => {
     disposeActivePdf().catch(() => {});
@@ -241,6 +262,7 @@ export function resolvePdfSourceUrl(input) {
 
 export async function openVectorPdf(source) {
   screenPreviewCache.clear();
+  releaseObjectUrls();
   await disposeActivePdf();
   lastPdfSource = source;
   lastPdfSourceKey = sourceKey(source);
