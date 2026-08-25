@@ -40,6 +40,10 @@ function releaseActivePreparedDetail() {
   activePreparedDetailSource = "";
 }
 
+export function releasePreparedDetailRaster() {
+  releaseActivePreparedDetail();
+}
+
 async function exclusivePreparedDetailUrl(sourceUrl) {
   if (!sourceUrl) return null;
   if (activePreparedDetailUrl && activePreparedDetailSource === sourceUrl) return activePreparedDetailUrl;
