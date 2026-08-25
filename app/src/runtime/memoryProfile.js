@@ -1,4 +1,37 @@
 const OVERRIDE_KEY = "plotflow-memory-mode";
+const MASTERPLAN_CACHE_REVISION_KEY = "plotflow-masterplan-cache-revision";
+const MASTERPLAN_CACHE_REVISION = "hoan-thien-light-20260825-v1";
+const FLOORPLAN_OVERRIDE_KEY = "plotflow-floorplan-overrides-v6";
+
+function migrateLightweightMasterplanCache() {
+  if (typeof window === "undefined") return;
+  try {
+    if (window.localStorage?.getItem(MASTERPLAN_CACHE_REVISION_KEY) === MASTERPLAN_CACHE_REVISION) return;
+
+    // The bundled PDF changed without changing its public URL. The old raster/index DB
+    // was keyed by URL, so keeping it can point Detail at coordinates from the previous PDF.
+    try { window.indexedDB?.deleteDatabase?.("plotflow-raster-cache-v1"); } catch {}
+
+    // Preserve candidate choices but drop zoom/pan coordinates from the previous source.
+    // This mirrors Overview's source-first locator behavior on the first run after migration.
+    try {
+      const raw = JSON.parse(window.localStorage?.getItem(FLOORPLAN_OVERRIDE_KEY) || "{}");
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const next = {};
+        Object.entries(raw).forEach(([code, value]) => {
+          if (!value || typeof value !== "object") return;
+          const { view: _staleView, ...rest } = value;
+          next[code] = rest;
+        });
+        window.localStorage?.setItem(FLOORPLAN_OVERRIDE_KEY, JSON.stringify(next));
+      }
+    } catch {}
+
+    window.localStorage?.setItem(MASTERPLAN_CACHE_REVISION_KEY, MASTERPLAN_CACHE_REVISION);
+  } catch {}
+}
+
+migrateLightweightMasterplanCache();
 
 function readOverride() {
   try {
