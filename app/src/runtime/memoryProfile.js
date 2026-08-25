@@ -15,7 +15,7 @@ function numberOrNull(value) {
 
 export function getMemoryProfile() {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return { mode: "low", lowMemory: true, deviceMemory: null, cores: null };
+    return { mode: "low", lowMemory: true, deviceMemory: null, cores: null, lotEditorWidth: 1600, previewCacheTarget: 2, objectUrlTarget: 2, preloadNextUnit: false };
   }
 
   const override = readOverride();
