@@ -47,19 +47,35 @@ export default function MemoryGovernor() {
       editorWasOpen = editorOpen;
     });
 
+    function publishMemoryVisibility(hidden, reason) {
+      window.dispatchEvent(new CustomEvent("pf-memory-visibility", { detail: { hidden, reason } }));
+    }
+
     function onVisibilityChange() {
       const hidden = document.visibilityState === "hidden";
-      window.dispatchEvent(new CustomEvent("pf-memory-visibility", { detail: { hidden } }));
+      publishMemoryVisibility(hidden, "document");
       if (!hidden) return;
       if (cleanupTimer) clearTimeout(cleanupTimer);
       cleanupTimer = setTimeout(() => cleanDetachedEditorMemory({ aggressive: true }), profile.lowMemory ? 0 : 180);
     }
 
+    function onProductViewChange(event) {
+      const mode = String(event?.detail?.mode || "");
+      // OverviewPdfRuntime stays mounted across ProductShell modes. Explicitly suspend it
+      // outside Overview so detached PDF canvases/pages cannot remain retained in Detail.
+      publishMemoryVisibility(mode !== "overview", "product-mode");
+      if (mode === "overview") return;
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      cleanupTimer = setTimeout(() => cleanDetachedEditorMemory({ aggressive: true }), profile.lowMemory ? 0 : 120);
+    }
+
     observer.observe(root, { childList: true, subtree: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("plotflow-product-view-changed", onProductViewChange);
     return () => {
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("plotflow-product-view-changed", onProductViewChange);
       if (cleanupTimer) clearTimeout(cleanupTimer);
     };
   }, []);
