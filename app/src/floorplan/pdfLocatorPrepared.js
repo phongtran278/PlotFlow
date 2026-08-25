@@ -3,6 +3,8 @@ import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
 const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
 const DEFAULT_VIEW = { zoom: 100, offsetX: 0, offsetY: 0 };
+const FINE_TUNE_REQUEST_WIDTH = 1640;
+const LOW_MEMORY_FINE_TUNE_WIDTH = 1084;
 
 let preparedManifest = null;
 let preparedSource = null;
@@ -268,6 +270,29 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
 }
 
 export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, options = {}) {
+  const profile = getMemoryProfile();
+  const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
+  const isLowMemoryFineTune = Boolean(
+    pageRender?.__plotflowPrepared
+    && profile.lowMemory
+    && options.maxRenderScale
+    && requestedWidth === FINE_TUNE_REQUEST_WIDTH
+  );
+
+  if (isLowMemoryFineTune) {
+    // Fine Tune needs the real PDF paths/text, but not a large decoded background.
+    // Render the current vector crop at the poster-preview width instead of decoding
+    // the prepared 1600px raster. Zoom/pan can therefore stay vector-derived while
+    // the raster payload behind it is substantially smaller.
+    releaseActivePreparedDetail();
+    const doc = await ensureFallbackPdf();
+    return base.renderPdfRegion(doc, pageRender, view, {
+      ...options,
+      outputWidth: LOW_MEMORY_FINE_TUNE_WIDTH,
+      maxRenderScale: Math.min(Number(options.maxRenderScale) || 128, 64),
+    });
+  }
+
   if (pageRender?.__plotflowPrepared && preparedManifest) {
     const lot = preparedManifest.lots?.[pageRender.unitCode];
     if (lot) {
