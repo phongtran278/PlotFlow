@@ -15,7 +15,18 @@ function numberOrNull(value) {
 
 export function getMemoryProfile() {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return { mode: "low", lowMemory: true, deviceMemory: null, cores: null, lotEditorWidth: 1600, previewCacheTarget: 2, objectUrlTarget: 2, preloadNextUnit: false };
+    return {
+      mode: "low",
+      lowMemory: true,
+      deviceMemory: null,
+      cores: null,
+      lotEditorWidth: 1600,
+      previewCacheTarget: 2,
+      pageCacheTarget: 2,
+      objectUrlTarget: 2,
+      preloadNextUnit: false,
+      pdfIdleReleaseMs: 4000,
+    };
   }
 
   const override = readOverride();
@@ -34,8 +45,10 @@ export function getMemoryProfile() {
     cores,
     lotEditorWidth: lowMemory ? 1600 : 2168,
     previewCacheTarget: lowMemory ? 2 : 12,
+    pageCacheTarget: lowMemory ? 2 : 4,
     objectUrlTarget: lowMemory ? 2 : 36,
     preloadNextUnit: !lowMemory,
+    pdfIdleReleaseMs: lowMemory ? 4000 : 30000,
   };
 }
 
