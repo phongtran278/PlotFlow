@@ -1,0 +1,81 @@
+.plotflow-locator-simple {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.plotflow-locator-simple__status {
+  display: grid;
+  gap: 5px;
+  padding: 14px 15px;
+  border: 1px solid rgba(23, 74, 64, 0.12);
+  border-radius: 16px;
+  background: rgba(247, 250, 249, 0.92);
+}
+
+.plotflow-locator-simple__status strong {
+  color: #164d43;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.plotflow-locator-simple__status span {
+  color: rgba(25, 61, 55, 0.66);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.plotflow-locator-simple__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.plotflow-locator-simple__actions button {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 13px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.plotflow-locator-simple__edit {
+  background: #176d5d;
+  color: #fff;
+}
+
+.plotflow-locator-simple__review {
+  background: rgba(23, 109, 93, 0.09);
+  color: #176d5d;
+}
+
+.plotflow-locator-simple__actions button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.plotflow-locator-simple__selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(25, 61, 55, 0.62);
+  font-size: 11px;
+}
+
+.plotflow-locator-simple__selected strong {
+  color: #244f48;
+  font-size: 12px;
+}
+
+.locator-card.plotflow-locator-simplified > .pdf-source-tabs,
+.locator-card.plotflow-locator-simplified > .pdf-link-connect,
+.locator-card.plotflow-locator-simplified > .master-pdf-button,
+.locator-card.plotflow-locator-simplified > .locator-file,
+.locator-card.plotflow-locator-simplified > .locator-status,
+.locator-card.plotflow-locator-simplified > .locator-summary,
+.locator-card.plotflow-locator-simplified > .review-issues-button {
+  display: none !important;
+}
