@@ -19,10 +19,15 @@ export function normalizeUnitCode(value) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[ĐđÐð]/g, "D")
+    .replace(/[‐‑‒–—―−﹘﹣－]/g, "-")
     .toUpperCase()
     .replace(/\s+/g, "")
     .replace(/[^A-Z0-9-]/g, "")
     .trim();
+}
+
+function compactUnitCode(value) {
+  return normalizeUnitCode(value).replace(/-/g, "");
 }
 
 function compatibleKeys(key) {
@@ -41,6 +46,10 @@ function compatibleKeys(key) {
   return [...keys];
 }
 
+function compatibleCompactKeys(key) {
+  return new Set(compatibleKeys(key).map((candidate) => compactUnitCode(candidate)));
+}
+
 function overrideMatchesForKey(key) {
   for (const candidate of compatibleKeys(key)) {
     const direct = locatorOverrides?.[candidate];
@@ -48,10 +57,17 @@ function overrideMatchesForKey(key) {
   }
 
   const compatible = new Set(compatibleKeys(key));
+  const compactCompatible = compatibleCompactKeys(key);
   const normalized = [];
   for (const [rawKey, rawMatches] of Object.entries(locatorOverrides || {})) {
     if (rawKey.startsWith("_")) continue;
-    if (compatible.has(normalizeUnitCode(rawKey)) && Array.isArray(rawMatches)) normalized.push(...rawMatches);
+    const normalizedRawKey = normalizeUnitCode(rawKey);
+    if (
+      (compatible.has(normalizedRawKey) || compactCompatible.has(compactUnitCode(rawKey)))
+      && Array.isArray(rawMatches)
+    ) {
+      normalized.push(...rawMatches);
+    }
   }
   return uniqueMatches(normalized);
 }
@@ -66,9 +82,13 @@ function matchesForKey(index, key) {
   if (direct.length) return uniqueMatches(direct);
 
   const compatible = new Set(compatibleKeys(key));
+  const compactCompatible = compatibleCompactKeys(key);
   const normalized = [];
   for (const [rawKey, rawMatches] of Object.entries(index || {})) {
-    if (compatible.has(normalizeUnitCode(rawKey))) normalized.push(...(rawMatches || []));
+    const normalizedRawKey = normalizeUnitCode(rawKey);
+    if (compatible.has(normalizedRawKey) || compactCompatible.has(compactUnitCode(rawKey))) {
+      normalized.push(...(rawMatches || []));
+    }
   }
   return uniqueMatches(normalized);
 }
