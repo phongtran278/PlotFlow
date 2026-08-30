@@ -8,6 +8,7 @@ import "./product/overviewV2Migration.js";
 import "./product/DetailHomeLanguage.css";
 import "./product/DetailExperience.css";
 import "./styles/buttonToneRefinement.css";
+import "./styles/locatorWorkflowCleanup.css";
 import App from "./App.jsx";
 import HomeLanding from "./components/HomeLanding.jsx";
 import UnitReviewBar from "./components/UnitReviewBar.jsx";
