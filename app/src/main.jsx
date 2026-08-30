@@ -138,7 +138,7 @@ function PlotFlowExperience() {
   }
 
   return (
-    <ProductShell onExitWorkspace={() => setView("home")}>
+    <ProductShell onExitWorkspace={() => setView("home")} exclusiveEditor={floorplanEditing}>
       <PreviewInteractionsRuntime disabled={floorplanEditing} />
       <App />
       {!floorplanEditing && <WorkspaceAuxiliaryRuntimes />}
