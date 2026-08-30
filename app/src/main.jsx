@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./styles/plotflow-tokens.css";
@@ -52,8 +52,39 @@ console.info(`[PlotFlow] build ${__PLOTFLOW_BUILD_COMMIT__}`);
 
 installMemoryProfile();
 
-window.__plotflowPreviewInteractionsCleanup?.();
-window.__plotflowPreviewInteractionsCleanup = installPreviewInteractions();
+function useExclusiveFloorplanEditing() {
+  const [editing, setEditing] = useState(() => document.body.classList.contains("plotflow-floorplan-editing"));
+
+  useEffect(() => {
+    const sync = () => setEditing(document.body.classList.contains("plotflow-floorplan-editing"));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return editing;
+}
+
+function PreviewInteractionsRuntime({ disabled }) {
+  useEffect(() => {
+    window.__plotflowPreviewInteractionsCleanup?.();
+    window.__plotflowPreviewInteractionsCleanup = null;
+    if (disabled) return undefined;
+
+    const cleanup = installPreviewInteractions();
+    window.__plotflowPreviewInteractionsCleanup = cleanup;
+    return () => {
+      cleanup?.();
+      if (window.__plotflowPreviewInteractionsCleanup === cleanup) {
+        window.__plotflowPreviewInteractionsCleanup = null;
+      }
+    };
+  }, [disabled]);
+
+  return null;
+}
+
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     window.__plotflowPreviewInteractionsCleanup?.();
@@ -61,17 +92,10 @@ if (import.meta.hot) {
   });
 }
 
-function PlotFlowExperience() {
-  const [view, setView] = useState("home");
-
-  if (view === "home") {
-    return <HomeLanding onOpenProject={() => setView("workspace")} />;
-  }
-
+function WorkspaceAuxiliaryRuntimes() {
   return (
-    <ProductShell onExitWorkspace={() => setView("home")}>
+    <>
       <OverviewSellDataRuntime />
-      <App />
       <AutoFloorplanSource />
       <MemoryGovernor />
       <LotTileRuntime />
@@ -101,6 +125,23 @@ function PlotFlowExperience() {
       <OverviewInteractionRuntime />
       <OverviewLayerRevealRuntime />
       <OverviewUnitBadgeRuntime />
+    </>
+  );
+}
+
+function PlotFlowExperience() {
+  const [view, setView] = useState("home");
+  const floorplanEditing = useExclusiveFloorplanEditing();
+
+  if (view === "home") {
+    return <HomeLanding onOpenProject={() => setView("workspace")} />;
+  }
+
+  return (
+    <ProductShell onExitWorkspace={() => setView("home")}>
+      <PreviewInteractionsRuntime disabled={floorplanEditing} />
+      <App />
+      {!floorplanEditing && <WorkspaceAuxiliaryRuntimes />}
     </ProductShell>
   );
 }
