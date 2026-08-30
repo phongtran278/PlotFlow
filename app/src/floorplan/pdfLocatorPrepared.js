@@ -43,6 +43,7 @@ function releaseActivePreparedDetail() {
 }
 
 export function releasePreparedDetailRaster() {
+  base.cancelInteractivePdfRender?.();
   releaseActivePreparedDetail();
 }
 
@@ -72,7 +73,7 @@ async function ensureFallbackPdf() {
 }
 
 export async function openVectorPdf(source) {
-  releaseActivePreparedDetail();
+  releasePreparedDetailRaster();
   fallbackPdfDoc = null;
   preparedManifest = null;
   preparedSource = source;
@@ -281,13 +282,13 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, o
 
   if (isLowMemoryFineTune) {
     // Fine Tune needs the real PDF paths/text, but not a large decoded background.
-    // Render the current vector crop at the poster-preview width instead of decoding
-    // the prepared 1600px raster. Zoom/pan can therefore stay vector-derived while
-    // the raster payload behind it is substantially smaller.
+    // Render only the current viewport at a bounded width, cancel any stale interactive
+    // render, and never persist these transient camera crops to IndexedDB.
     releaseActivePreparedDetail();
     const doc = await ensureFallbackPdf();
     return base.renderPdfRegion(doc, pageRender, view, {
       ...options,
+      interactive: true,
       outputWidth: LOW_MEMORY_FINE_TUNE_WIDTH,
       maxRenderScale: Math.min(Number(options.maxRenderScale) || 128, 64),
     });
@@ -310,7 +311,7 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, o
 }
 
 export async function releasePreparedFallbackPdf() {
-  releaseActivePreparedDetail();
+  releasePreparedDetailRaster();
   for (const url of transientPreparedUrls) revokeUrl(url);
   transientPreparedUrls.clear();
 
