@@ -6,9 +6,9 @@ export {
 export {
   openVectorPdf,
   buildFloorplanIndex,
-  renderPdfPageBase,
   attachMatchToPageRender,
 } from "./pdfLocatorPrepared.js";
+export { renderPdfPageBase } from "./pdfLocatorPageBaseStrict.js";
 export {
   renderPdfRegion,
   releasePreparedDetailRaster,
