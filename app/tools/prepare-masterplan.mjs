@@ -2,6 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import {
+  findBestMasterplanTileSource,
+  renderTileRegionToBuffer,
+} from "./masterplan-tile-source.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,18 +25,19 @@ try {
   process.exit(1);
 }
 
-const pdfName = fs.existsSync(masterDir)
-  ? fs.readdirSync(masterDir).find((name) => /\.pdf$/i.test(name))
-  : null;
-if (!pdfName) {
-  console.error("✕ No PDF found in masterplan/");
+const pdfCandidates = [
+  ...(fs.existsSync(masterDir) ? fs.readdirSync(masterDir).filter((name) => /\.pdf$/i.test(name)).map((name) => path.join(masterDir, name)) : []),
+  ...(fs.existsSync(publicMasterDir) ? fs.readdirSync(publicMasterDir).filter((name) => /\.pdf$/i.test(name)).map((name) => path.join(publicMasterDir, name)) : []),
+];
+const pdfPath = pdfCandidates[0] || null;
+if (!pdfPath) {
+  console.error("✕ No PDF found in masterplan/ or app/public/masterplan/.");
   process.exit(1);
 }
-
-const pdfPath = path.join(masterDir, pdfName);
+const pdfName = path.basename(pdfPath);
 const pdfPublicPath = path.join(publicMasterDir, "masterplan.pdf");
 fs.mkdirSync(publicMasterDir, { recursive: true });
-fs.copyFileSync(pdfPath, pdfPublicPath);
+if (path.resolve(pdfPath) !== path.resolve(pdfPublicPath)) fs.copyFileSync(pdfPath, pdfPublicPath);
 
 const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const DETAIL_WIDTH = Number(process.env.PLOTFLOW_LOT_DETAIL_WIDTH || 2168);
@@ -78,34 +83,60 @@ function rasterCandidates(pageNumber, totalPages) {
         `masterplan-page-${pageNumber}.png`, `masterplan-page-${pageNumber}.jpg`, `masterplan-page-${pageNumber}.jpeg`, `masterplan-page-${pageNumber}.webp`,
         `page-${pageNumber}.png`, `page-${pageNumber}.jpg`, `page-${pageNumber}.jpeg`, `page-${pageNumber}.webp`,
       ];
-  return names.map((name) => path.join(masterDir, name));
+  return [masterDir, publicMasterDir].flatMap((dir) => names.map((name) => path.join(dir, name)));
 }
 
 function resolveRasterSource(pageNumber, totalPages) {
   const explicit = rasterCandidates(pageNumber, totalPages).find((candidate) => fs.existsSync(candidate));
   if (explicit) return explicit;
-
-  const loose = fs.existsSync(masterDir)
-    ? fs.readdirSync(masterDir)
-        .filter((name) => RASTER_EXT_RE.test(name))
-        .map((name) => path.join(masterDir, name))
-    : [];
+  const loose = [masterDir, publicMasterDir].flatMap((dir) => fs.existsSync(dir)
+    ? fs.readdirSync(dir).filter((name) => RASTER_EXT_RE.test(name)).map((name) => path.join(dir, name))
+    : []);
   if (totalPages === 1 && loose.length === 1) return loose[0];
   return null;
 }
 
-function printRasterHelp(pageNumber, totalPages) {
-  console.error(`✕ Missing raster source for PDF page ${pageNumber}.`);
-  console.error("  PlotFlow now keeps PDF only for text/tọa độ and never rasterizes it during preparation.");
-  if (totalPages === 1) {
-    console.error("  Export the masterplan once as a large PNG/JPG/WebP and place it here:");
-    console.error(`  ${path.join(masterDir, "masterplan-raster.png")}`);
-  } else {
-    console.error("  Export each PDF page once and place files like:");
-    console.error(`  ${path.join(masterDir, `masterplan-page-${pageNumber}.png`)}`);
+async function pageSourceFor(pageNumber, totalPages) {
+  const tiled = totalPages === 1
+    ? findBestMasterplanTileSource([
+        path.join(publicMasterDir, "hires-masterplan"),
+        path.join(masterDir, "hires-masterplan"),
+      ])
+    : null;
+  if (tiled) return tiled;
+
+  const rasterPath = resolveRasterSource(pageNumber, totalPages);
+  if (!rasterPath) return null;
+  const meta = await sharp(rasterPath, { limitInputPixels: false }).metadata();
+  return {
+    type: "raster",
+    path: rasterPath,
+    width: Number(meta.width || 0),
+    height: Number(meta.height || 0),
+  };
+}
+
+async function renderSourceRegion(source, region, outputWidth) {
+  if (source.type === "tiles") {
+    return renderTileRegionToBuffer(sharp, source, region, outputWidth);
   }
-  console.error("  Recommended: 7000–10000 px wide, same full-page composition, no crop/rotation.");
-  console.error("  After that, rerun: npm run prepare-masterplan");
+  return sharp(source.path, { limitInputPixels: false, sequentialRead: true })
+    .extract({
+      left: Math.max(0, Math.floor(region.left)),
+      top: Math.max(0, Math.floor(region.top)),
+      width: Math.max(2, Math.min(source.width - Math.max(0, Math.floor(region.left)), Math.ceil(region.width))),
+      height: Math.max(2, Math.min(source.height - Math.max(0, Math.floor(region.top)), Math.ceil(region.height))),
+    })
+    .resize({ width: outputWidth, withoutEnlargement: false })
+    .png()
+    .toBuffer();
+}
+
+function sourceLabel(source) {
+  if (source.type === "tiles") {
+    return `tiles ${source.width}×${source.height} · ${path.relative(appDir, source.manifestPath)}`;
+  }
+  return `${source.width}×${source.height} · ${path.basename(source.path)}`;
 }
 
 fs.rmSync(generatedDir, { recursive: true, force: true });
@@ -123,18 +154,18 @@ const pdfDoc = await pdfjsLib.getDocument({
 }).promise;
 
 const manifest = {
-  version: 6,
+  version: 7,
   source: pdfName,
   generatedAt: new Date().toISOString(),
   numPages: pdfDoc.numPages,
-  renderer: "supplied-raster+pdf-text-index+sharp",
+  renderer: "tile-or-raster-source+pdf-text-index+sharp",
   pages: {},
   index: {},
   lots: {},
 };
 
 console.log(`Preparing ${pdfName} · ${pdfDoc.numPages} page(s)`);
-console.log("Memory-safe pipeline: PDF.js reads text/tọa độ only · supplied raster provides pixels · sharp creates crops/tiles");
+console.log("Memory-safe pipeline: PDF.js reads text/tọa độ only · hires tile/raster source provides pixels");
 console.log(`Lot rasters: ${PREVIEW_WIDTH}px preview · ${MEDIUM_WIDTH}px low-memory · ${DETAIL_WIDTH}px detail`);
 
 for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
@@ -163,35 +194,30 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     }
   }
 
-  const rasterSource = resolveRasterSource(pageNumber, pdfDoc.numPages);
-  if (!rasterSource) {
-    printRasterHelp(pageNumber, pdfDoc.numPages);
+  const source = await pageSourceFor(pageNumber, pdfDoc.numPages);
+  if (!source?.width || !source?.height) {
+    console.error(`✕ Missing pixel source for PDF page ${pageNumber}.`);
+    console.error("  Put the hires tile output under app/public/masterplan/hires-masterplan/ or provide masterplan-raster.png.");
     await pdfDoc.destroy();
     process.exit(1);
   }
-
-  const sourceMeta = await sharp(rasterSource, { limitInputPixels: false }).metadata();
-  const rasterWidth = Number(sourceMeta.width || 0);
-  const rasterHeight = Number(sourceMeta.height || 0);
-  if (!rasterWidth || !rasterHeight) throw new Error(`Cannot read raster dimensions: ${rasterSource}`);
 
   const pdfAspect = viewport.width / Math.max(1, viewport.height);
-  const rasterAspect = rasterWidth / Math.max(1, rasterHeight);
-  const aspectError = Math.abs(rasterAspect / pdfAspect - 1);
+  const sourceAspect = source.width / Math.max(1, source.height);
+  const aspectError = Math.abs(sourceAspect / pdfAspect - 1);
   if (aspectError > 0.025) {
-    console.error(`✕ Raster aspect does not match PDF page ${pageNumber}.`);
-    console.error(`  PDF: ${viewport.width.toFixed(1)}×${viewport.height.toFixed(1)} · raster: ${rasterWidth}×${rasterHeight}`);
-    console.error("  Export the complete page again with no crop or rotation.");
+    console.error(`✕ Pixel source aspect does not match PDF page ${pageNumber}.`);
+    console.error(`  PDF: ${viewport.width.toFixed(1)}×${viewport.height.toFixed(1)} · source: ${source.width}×${source.height}`);
     await pdfDoc.destroy();
     process.exit(1);
   }
 
-  const scaleX = rasterWidth / Math.max(1, viewport.width);
-  const scaleY = rasterHeight / Math.max(1, viewport.height);
+  const scaleX = source.width / Math.max(1, viewport.width);
+  const scaleY = source.height / Math.max(1, viewport.height);
   const pagePreviewName = `page-${pageNumber}.webp`;
-  const pageInfo = await sharp(rasterSource, { limitInputPixels: false })
-    .resize({ width: PAGE_PREVIEW_WIDTH, withoutEnlargement: true })
-    .webp({ quality: 80, effort: 4, smartSubsample: true })
+  const pagePreviewBuffer = await renderSourceRegion(source, { left: 0, top: 0, width: source.width, height: source.height }, PAGE_PREVIEW_WIDTH);
+  const pageInfo = await sharp(pagePreviewBuffer, { limitInputPixels: false })
+    .webp({ quality: 80, effort: 3, smartSubsample: true })
     .toFile(path.join(generatedDir, "pages", pagePreviewName));
 
   manifest.pages[String(pageNumber)] = {
@@ -199,14 +225,15 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     height: viewport.height,
     rasterWidth: pageInfo.width,
     rasterHeight: pageInfo.height,
-    sourceRasterWidth: rasterWidth,
-    sourceRasterHeight: rasterHeight,
+    sourceRasterWidth: source.width,
+    sourceRasterHeight: source.height,
     preview: `/masterplan/generated/pages/${pagePreviewName}`,
-    rasterSource: path.basename(rasterSource),
+    sourceType: source.type,
+    sourceManifest: source.type === "tiles" ? path.relative(publicMasterDir, source.manifestPath) : null,
     dzi: null,
   };
 
-  console.log(`• Page ${pageNumber}: ${pageEntries.length} code hit(s) · raster ${rasterWidth}×${rasterHeight} · ${path.basename(rasterSource)}`);
+  console.log(`• Page ${pageNumber}: ${pageEntries.length} code hit(s) · ${sourceLabel(source)}`);
 
   for (const entry of pageEntries) {
     if (manifest.lots[entry.unitCode]) continue;
@@ -221,24 +248,22 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     const mediumFile = `${name}.webp`;
     const previewFile = `${name}.webp`;
 
-    const left = Math.max(0, Math.floor(crop.x * scaleX));
-    const top = Math.max(0, Math.floor(crop.y * scaleY));
-    const width = Math.max(2, Math.min(rasterWidth - left, Math.ceil(crop.w * scaleX)));
-    const height = Math.max(2, Math.min(rasterHeight - top, Math.ceil(crop.h * scaleY)));
+    const pixelRegion = {
+      left: crop.x * scaleX,
+      top: crop.y * scaleY,
+      width: crop.w * scaleX,
+      height: crop.h * scaleY,
+    };
+    const detailPng = await renderSourceRegion(source, pixelRegion, DETAIL_WIDTH);
 
-    const cropBuffer = await sharp(rasterSource, { limitInputPixels: false, sequentialRead: true })
-      .extract({ left, top, width, height })
-      .resize({ width: DETAIL_WIDTH, withoutEnlargement: false })
+    const detailInfo = await sharp(detailPng, { limitInputPixels: false })
       .webp({ quality: 90, effort: 3, smartSubsample: true })
-      .toBuffer();
-
-    const detailInfo = await sharp(cropBuffer, { limitInputPixels: false })
       .toFile(path.join(generatedDir, "lots", detailFile));
-    const mediumInfo = await sharp(cropBuffer, { limitInputPixels: false })
+    const mediumInfo = await sharp(detailPng, { limitInputPixels: false })
       .resize({ width: MEDIUM_WIDTH, withoutEnlargement: true })
       .webp({ quality: 86, effort: 3, smartSubsample: true })
       .toFile(path.join(generatedDir, "lots-medium", mediumFile));
-    const previewInfo = await sharp(cropBuffer, { limitInputPixels: false })
+    const previewInfo = await sharp(detailPng, { limitInputPixels: false })
       .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
       .webp({ quality: 80, effort: 3, smartSubsample: true })
       .toFile(path.join(generatedDir, "lots-preview", previewFile));
@@ -272,4 +297,4 @@ if (!lotCount) {
   process.exit(1);
 }
 console.log(`✓ Prepared masterplan · ${lotCount} lot raster(s)`);
-console.log("  Next step: generate-lot-tiles.mjs builds the viewport tile pyramid.");
+console.log("  Next step: generate-lot-tiles.mjs builds the bounded viewport pyramid.");
