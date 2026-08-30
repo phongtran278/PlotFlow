@@ -211,26 +211,28 @@ async function renderFromGlobalPageTiles(pageRender, view, options = {}) {
 
 export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
   const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
-  const isFineTuneViewport = Boolean(
-    pageRender?.__plotflowPrepared
-    && options.maxRenderScale
-    && requestedWidth === FINE_TUNE_REQUEST_WIDTH
-  );
+  const isPrepared = Boolean(pageRender?.__plotflowPrepared);
 
-  if (isFineTuneViewport) {
-    const tiled = await renderFromGlobalPageTiles(pageRender, view, options);
-    if (tiled) return tiled;
+  // The global page pyramid is now the single prepared-masterplan pixel source for
+  // previews, Fine Tune, Lot Highlight and save renders. This keeps every lot on the
+  // same camera/crop math instead of mixing 640/1600/2168 lot rasters with page preview.
+  let result = null;
+  if (isPrepared) {
+    try {
+      result = await renderFromGlobalPageTiles(pageRender, view, options);
+    } catch (error) {
+      console.debug("Global page tile render skipped", error);
+    }
   }
 
-  const result = await prepared.renderPdfRegion(pdfDoc, pageRender, view, options);
+  if (!result) result = await prepared.renderPdfRegion(pdfDoc, pageRender, view, options);
   if (!result?.dataUrl) return result;
 
-  // Fine Tune/HQ interaction owns an exclusive transient URL and may revoke it on
-  // every camera move. Screen/save previews must not share that lifecycle or the
-  // poster image disappears immediately after closing Fine Tune.
+  // Screen/save previews outlive the exclusive interactive tile result. Clone them into
+  // the bounded stable-preview pool so moving to another lot cannot revoke the poster.
   const isSavedScreenPreview = options.includeHighlight === false
     && !options.maxRenderScale
-    && Number(options.outputWidth || 0) <= 1084;
+    && requestedWidth <= 1084;
 
   if (!isSavedScreenPreview || !String(result.dataUrl).startsWith("blob:")) return result;
 
