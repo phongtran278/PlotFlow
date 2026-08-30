@@ -4,7 +4,9 @@ export {
   buildFloorplanIndex,
   renderPdfPageBase,
   attachMatchToPageRender,
+} from "./pdfLocatorPrepared.js";
+export {
   renderPdfRegion,
   releasePreparedDetailRaster,
   releasePreparedFallbackPdf,
-} from "./pdfLocatorPrepared.js";
+} from "./pdfLocatorRuntime.js";
