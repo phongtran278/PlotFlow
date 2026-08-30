@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditorV2.jsx";
 import "./UnifiedFloorplanEntry.css";
 import { assetLibrary } from "../data/assetLibrary";
@@ -35,8 +36,6 @@ function resolvePosterAssets(unit) {
   const code = normalizeUnitCode(unit.unitCode);
   const saved = loadJson(DESIGN_ASSIGNMENT_KEY, {})[code] || {};
 
-  // Source houseModel wins. If it is blank, use only an exact compatible auto
-  // architecture match. Never fall back to the first/random house in catalog.
   const explicitHouse = findCatalogAsset(houseCatalog, unit.houseModel);
   const autoHouse = resolveArchitectureHouseAsset(unit, houseCatalog).asset;
   const house = explicitHouse || autoHouse || null;
@@ -78,6 +77,121 @@ function persistOverlay(code, overlay) {
   window.dispatchEvent(new CustomEvent("plotflow-overlay-updated", { detail: { unitCode: code } }));
 }
 
+function installSingleRasterSurface() {
+  let disposed = false;
+  let sequence = 0;
+  let canvas = null;
+  let activeBitmap = null;
+
+  function releaseBitmap() {
+    try { activeBitmap?.close?.(); } catch {}
+    activeBitmap = null;
+  }
+
+  function ensureCanvas(stage) {
+    if (canvas?.isConnected && canvas.parentElement === stage) return canvas;
+    canvas?.remove?.();
+    canvas = document.createElement("canvas");
+    canvas.className = "unified-raster-canvas";
+    canvas.setAttribute("aria-hidden", "true");
+    Object.assign(canvas.style, {
+      position: "absolute",
+      inset: "0",
+      width: "100%",
+      height: "100%",
+      zIndex: "1",
+      pointerEvents: "none",
+      background: "#fff",
+    });
+    stage.insertBefore(canvas, stage.firstChild || null);
+    return canvas;
+  }
+
+  async function consumeImage(img) {
+    if (disposed || !img?.isConnected) return;
+    const src = img.getAttribute("src") || img.src;
+    if (!src || img.dataset.plotflowCanvasConsumed === src) return;
+    img.dataset.plotflowCanvasConsumed = src;
+
+    // Keep the React node for compatibility, but prevent Chromium from promoting
+    // every successive crop into another composited image texture.
+    img.style.display = "none";
+    img.removeAttribute("src");
+
+    const stage = img.closest(".unified-floorplan-stage");
+    if (!stage) return;
+    const target = ensureCanvas(stage);
+    const ownSequence = ++sequence;
+
+    try {
+      const response = await fetch(src, { cache: "no-store" });
+      if (!response.ok || disposed || ownSequence !== sequence) return;
+      const blob = await response.blob();
+      const bitmap = typeof createImageBitmap === "function" ? await createImageBitmap(blob) : null;
+      if (!bitmap || disposed || ownSequence !== sequence) {
+        try { bitmap?.close?.(); } catch {}
+        return;
+      }
+
+      releaseBitmap();
+      activeBitmap = bitmap;
+      const width = Math.max(2, Number(bitmap.width) || 1280);
+      const height = Math.max(2, Number(bitmap.height) || 986);
+      if (target.width !== width) target.width = width;
+      if (target.height !== height) target.height = height;
+      const ctx = target.getContext("2d", { alpha: false });
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      releaseBitmap();
+
+      if (typeof window !== "undefined") {
+        window.__plotflowRasterSurface = {
+          mode: "single-canvas",
+          width,
+          height,
+          activeBitmaps: 0,
+          renders: (window.__plotflowRasterSurface?.renders || 0) + 1,
+        };
+      }
+    } catch (error) {
+      if (!disposed) console.debug("Single raster surface skipped", error);
+    }
+  }
+
+  function scan(root = document) {
+    root.querySelectorAll?.(".unified-floorplan-stage .unified-hq-image").forEach(consumeImage);
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === "attributes" && mutation.target?.matches?.(".unified-hq-image")) {
+        consumeImage(mutation.target);
+      }
+      mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) return;
+        if (node.matches?.(".unified-hq-image")) consumeImage(node);
+        scan(node);
+      });
+    }
+  });
+
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["src"] });
+  scan();
+
+  return () => {
+    disposed = true;
+    sequence += 1;
+    observer.disconnect();
+    releaseBitmap();
+    if (canvas) {
+      canvas.width = 1;
+      canvas.height = 1;
+      canvas.remove();
+      canvas = null;
+    }
+  };
+}
+
 export default function FloorplanFineTune({
   unit,
   locatorResult,
@@ -103,6 +217,8 @@ export default function FloorplanFineTune({
     : DEFAULT_FLOORPLAN_VIEW;
 
   const posterAssets = resolvePosterAssets(unit);
+
+  useEffect(() => installSingleRasterSurface(), []);
 
   async function saveComposition(view, overlay) {
     persistOverlay(code, overlay);
