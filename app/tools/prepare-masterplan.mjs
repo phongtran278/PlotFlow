@@ -1,7 +1,5 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -40,9 +38,9 @@ const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const DETAIL_WIDTH = Number(process.env.PLOTFLOW_LOT_DETAIL_WIDTH || 2168);
 const MEDIUM_WIDTH = Number(process.env.PLOTFLOW_LOT_MEDIUM_WIDTH || 1600);
 const PREVIEW_WIDTH = Number(process.env.PLOTFLOW_LOT_PREVIEW_WIDTH || 640);
-const PAGE_RASTER_WIDTH = Number(process.env.PLOTFLOW_PAGE_RASTER_WIDTH || 7200);
 const PAGE_PREVIEW_WIDTH = Number(process.env.PLOTFLOW_PAGE_PREVIEW_WIDTH || 1800);
 const FRAME_ASPECT = 506 / 390;
+const RASTER_EXT_RE = /\.(png|jpe?g|webp|tiff?)$/i;
 
 function normalizeUnitCode(value) {
   return String(value || "")
@@ -69,67 +67,49 @@ function safeName(value) {
   return String(value).replace(/[^A-Z0-9_-]+/gi, "_");
 }
 
-function commandExists(command) {
-  const checker = process.platform === "win32" ? "where" : "which";
-  const result = spawnSync(checker, [command], { stdio: "ignore" });
-  return result.status === 0;
+function rasterCandidates(pageNumber, totalPages) {
+  const names = totalPages === 1
+    ? [
+        "masterplan-raster.png", "masterplan-raster.jpg", "masterplan-raster.jpeg", "masterplan-raster.webp", "masterplan-raster.tif", "masterplan-raster.tiff",
+        "masterplan.png", "masterplan.jpg", "masterplan.jpeg", "masterplan.webp", "masterplan.tif", "masterplan.tiff",
+        "page-1.png", "page-1.jpg", "page-1.jpeg", "page-1.webp", "page-1.tif", "page-1.tiff",
+      ]
+    : [
+        `masterplan-page-${pageNumber}.png`, `masterplan-page-${pageNumber}.jpg`, `masterplan-page-${pageNumber}.jpeg`, `masterplan-page-${pageNumber}.webp`,
+        `page-${pageNumber}.png`, `page-${pageNumber}.jpg`, `page-${pageNumber}.jpeg`, `page-${pageNumber}.webp`,
+      ];
+  return names.map((name) => path.join(masterDir, name));
 }
 
-function newestPng(dir) {
-  const files = fs.existsSync(dir)
-    ? fs.readdirSync(dir).filter((name) => /\.png$/i.test(name)).map((name) => path.join(dir, name))
+function resolveRasterSource(pageNumber, totalPages) {
+  const explicit = rasterCandidates(pageNumber, totalPages).find((candidate) => fs.existsSync(candidate));
+  if (explicit) return explicit;
+
+  const loose = fs.existsSync(masterDir)
+    ? fs.readdirSync(masterDir)
+        .filter((name) => RASTER_EXT_RE.test(name))
+        .map((name) => path.join(masterDir, name))
     : [];
-  if (!files.length) return null;
-  return files.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+  if (totalPages === 1 && loose.length === 1) return loose[0];
+  return null;
 }
 
-function renderPageExternally(pageNumber, totalPages, outputPath) {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "plotflow-masterplan-"));
-  try {
-    if (commandExists("pdftoppm")) {
-      const prefix = path.join(tempDir, `page-${pageNumber}`);
-      execFileSync("pdftoppm", [
-        "-f", String(pageNumber),
-        "-l", String(pageNumber),
-        "-singlefile",
-        "-png",
-        "-scale-to-x", String(PAGE_RASTER_WIDTH),
-        "-scale-to-y", "-1",
-        pdfPath,
-        prefix,
-      ], { stdio: "inherit" });
-      const source = `${prefix}.png`;
-      if (!fs.existsSync(source)) throw new Error(`pdftoppm did not create page ${pageNumber}.`);
-      fs.copyFileSync(source, outputPath);
-      return "pdftoppm";
-    }
-
-    if (process.platform === "darwin" && commandExists("qlmanage")) {
-      if (totalPages !== 1 || pageNumber !== 1) {
-        throw new Error("macOS Quick Look fallback supports this pipeline only for a one-page masterplan. Install Poppler for multi-page PDFs: brew install poppler");
-      }
-      execFileSync("qlmanage", ["-t", "-s", String(PAGE_RASTER_WIDTH), "-o", tempDir, pdfPath], {
-        stdio: ["ignore", "ignore", "inherit"],
-      });
-      const source = newestPng(tempDir);
-      if (!source) throw new Error("Quick Look did not create a PNG preview.");
-      fs.copyFileSync(source, outputPath);
-      return "macOS-QuickLook";
-    }
-
-    throw new Error(
-      process.platform === "darwin"
-        ? "No safe PDF rasterizer found. Install Poppler once with: brew install poppler"
-        : "No safe PDF rasterizer found. Install Poppler so pdftoppm is available."
-    );
-  } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+function printRasterHelp(pageNumber, totalPages) {
+  console.error(`✕ Missing raster source for PDF page ${pageNumber}.`);
+  console.error("  PlotFlow now keeps PDF only for text/tọa độ and never rasterizes it during preparation.");
+  if (totalPages === 1) {
+    console.error("  Export the masterplan once as a large PNG/JPG/WebP and place it here:");
+    console.error(`  ${path.join(masterDir, "masterplan-raster.png")}`);
+  } else {
+    console.error("  Export each PDF page once and place files like:");
+    console.error(`  ${path.join(masterDir, `masterplan-page-${pageNumber}.png`)}`);
   }
+  console.error("  Recommended: 7000–10000 px wide, same full-page composition, no crop/rotation.");
+  console.error("  After that, rerun: npm run prepare-masterplan");
 }
 
 fs.rmSync(generatedDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(generatedDir, "pages"), { recursive: true });
-fs.mkdirSync(path.join(generatedDir, "page-source"), { recursive: true });
 fs.mkdirSync(path.join(generatedDir, "lots"), { recursive: true });
 fs.mkdirSync(path.join(generatedDir, "lots-medium"), { recursive: true });
 fs.mkdirSync(path.join(generatedDir, "lots-preview"), { recursive: true });
@@ -143,19 +123,18 @@ const pdfDoc = await pdfjsLib.getDocument({
 }).promise;
 
 const manifest = {
-  version: 5,
+  version: 6,
   source: pdfName,
   generatedAt: new Date().toISOString(),
   numPages: pdfDoc.numPages,
-  renderer: "external-page-raster+sharp-crops",
+  renderer: "supplied-raster+pdf-text-index+sharp",
   pages: {},
   index: {},
   lots: {},
 };
 
 console.log(`Preparing ${pdfName} · ${pdfDoc.numPages} page(s)`);
-console.log("Safe pipeline: PDF.js reads text only · page raster runs in a separate process · sharp crops WebP assets");
-console.log(`Page raster: ${PAGE_RASTER_WIDTH}px max width`);
+console.log("Memory-safe pipeline: PDF.js reads text/tọa độ only · supplied raster provides pixels · sharp creates crops/tiles");
 console.log(`Lot rasters: ${PREVIEW_WIDTH}px preview · ${MEDIUM_WIDTH}px low-memory · ${DETAIL_WIDTH}px detail`);
 
 for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
@@ -184,17 +163,33 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     }
   }
 
-  console.log(`• Page ${pageNumber}: ${pageEntries.length} code hit(s) · rasterizing outside Node…`);
-  const sourcePng = path.join(generatedDir, "page-source", `page-${pageNumber}.png`);
-  const renderer = renderPageExternally(pageNumber, pdfDoc.numPages, sourcePng);
-  const sourceMeta = await sharp(sourcePng, { limitInputPixels: false }).metadata();
-  const rasterWidth = Number(sourceMeta.width || 1);
-  const rasterHeight = Number(sourceMeta.height || 1);
+  const rasterSource = resolveRasterSource(pageNumber, pdfDoc.numPages);
+  if (!rasterSource) {
+    printRasterHelp(pageNumber, pdfDoc.numPages);
+    await pdfDoc.destroy();
+    process.exit(1);
+  }
+
+  const sourceMeta = await sharp(rasterSource, { limitInputPixels: false }).metadata();
+  const rasterWidth = Number(sourceMeta.width || 0);
+  const rasterHeight = Number(sourceMeta.height || 0);
+  if (!rasterWidth || !rasterHeight) throw new Error(`Cannot read raster dimensions: ${rasterSource}`);
+
+  const pdfAspect = viewport.width / Math.max(1, viewport.height);
+  const rasterAspect = rasterWidth / Math.max(1, rasterHeight);
+  const aspectError = Math.abs(rasterAspect / pdfAspect - 1);
+  if (aspectError > 0.025) {
+    console.error(`✕ Raster aspect does not match PDF page ${pageNumber}.`);
+    console.error(`  PDF: ${viewport.width.toFixed(1)}×${viewport.height.toFixed(1)} · raster: ${rasterWidth}×${rasterHeight}`);
+    console.error("  Export the complete page again with no crop or rotation.");
+    await pdfDoc.destroy();
+    process.exit(1);
+  }
+
   const scaleX = rasterWidth / Math.max(1, viewport.width);
   const scaleY = rasterHeight / Math.max(1, viewport.height);
-
   const pagePreviewName = `page-${pageNumber}.webp`;
-  const pageInfo = await sharp(sourcePng, { limitInputPixels: false })
+  const pageInfo = await sharp(rasterSource, { limitInputPixels: false })
     .resize({ width: PAGE_PREVIEW_WIDTH, withoutEnlargement: true })
     .webp({ quality: 80, effort: 4, smartSubsample: true })
     .toFile(path.join(generatedDir, "pages", pagePreviewName));
@@ -207,8 +202,11 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     sourceRasterWidth: rasterWidth,
     sourceRasterHeight: rasterHeight,
     preview: `/masterplan/generated/pages/${pagePreviewName}`,
+    rasterSource: path.basename(rasterSource),
     dzi: null,
   };
+
+  console.log(`• Page ${pageNumber}: ${pageEntries.length} code hit(s) · raster ${rasterWidth}×${rasterHeight} · ${path.basename(rasterSource)}`);
 
   for (const entry of pageEntries) {
     if (manifest.lots[entry.unitCode]) continue;
@@ -228,23 +226,21 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     const width = Math.max(2, Math.min(rasterWidth - left, Math.ceil(crop.w * scaleX)));
     const height = Math.max(2, Math.min(rasterHeight - top, Math.ceil(crop.h * scaleY)));
 
-    const cropBuffer = await sharp(sourcePng, { limitInputPixels: false })
+    const cropBuffer = await sharp(rasterSource, { limitInputPixels: false, sequentialRead: true })
       .extract({ left, top, width, height })
       .resize({ width: DETAIL_WIDTH, withoutEnlargement: false })
-      .webp({ quality: 90, effort: 4, smartSubsample: true })
+      .webp({ quality: 90, effort: 3, smartSubsample: true })
       .toBuffer();
 
     const detailInfo = await sharp(cropBuffer, { limitInputPixels: false })
       .toFile(path.join(generatedDir, "lots", detailFile));
-
     const mediumInfo = await sharp(cropBuffer, { limitInputPixels: false })
       .resize({ width: MEDIUM_WIDTH, withoutEnlargement: true })
-      .webp({ quality: 86, effort: 4, smartSubsample: true })
+      .webp({ quality: 86, effort: 3, smartSubsample: true })
       .toFile(path.join(generatedDir, "lots-medium", mediumFile));
-
     const previewInfo = await sharp(cropBuffer, { limitInputPixels: false })
       .resize({ width: PREVIEW_WIDTH, withoutEnlargement: true })
-      .webp({ quality: 80, effort: 4, smartSubsample: true })
+      .webp({ quality: 80, effort: 3, smartSubsample: true })
       .toFile(path.join(generatedDir, "lots-preview", previewFile));
 
     manifest.lots[entry.unitCode] = {
@@ -258,20 +254,15 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
       mediumHeight: mediumInfo.height,
       detailWidth: detailInfo.width,
       detailHeight: detailInfo.height,
-      anchor: {
-        x: (anchorX - crop.x) / crop.w,
-        y: (anchorY - crop.y) / crop.h,
-      },
+      anchor: { x: (anchorX - crop.x) / crop.w, y: (anchorY - crop.y) / crop.h },
       crop,
     };
   }
 
   page.cleanup?.();
-  fs.rmSync(sourcePng, { force: true });
-  console.log(`✓ Page ${pageNumber}/${pdfDoc.numPages} · ${pageEntries.length} code hit(s) · ${renderer}`);
+  console.log(`✓ Page ${pageNumber}/${pdfDoc.numPages} · ${pageEntries.length} code hit(s)`);
 }
 
-fs.rmSync(path.join(generatedDir, "page-source"), { recursive: true, force: true });
 fs.writeFileSync(path.join(generatedDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
 await pdfDoc.destroy();
 
