@@ -1,0 +1,6 @@
+{
+  "_meta": {
+    "version": 1,
+    "description": "Durable locator coordinates recovered or confirmed outside the current PDF text layer. Runtime reads this before falling back to auto-index matches."
+  }
+}
