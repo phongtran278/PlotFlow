@@ -336,6 +336,24 @@ body.plotflow-floorplan-editing .focus-deck {
   content: "Raster load error";
 }
 
+/* The real raster zoom controls already exist in the editor, but they used to
+   sit below the tools/inspector sections and could disappear below the fold.
+   Keep VIEW at the top of the scroll column so zoom tests always exercise the
+   tile/crop renderer instead of falling back to CSS scaling. */
+.unified-floorplan-v2 .unified-tools {
+  display: flex;
+  flex-direction: column;
+}
+
+.unified-floorplan-v2 .unified-tools > .unified-section:nth-child(5) {
+  order: -1;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #fff;
+  box-shadow: 0 8px 16px rgba(24, 32, 48, .05);
+}
+
 @media (max-width: 1400px) {
   .unified-floorplan-v2 .unified-floorplan-workspace {
     grid-template-columns: 210px minmax(500px,1fr) 280px;
