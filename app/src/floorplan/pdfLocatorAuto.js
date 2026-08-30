@@ -16,6 +16,7 @@ const objectUrlCache = new Map();
 let activePdfDoc = null;
 let activePdfPromise = null;
 let activeReleaseTimer = null;
+let activeInteractiveRenderTask = null;
 let lastPdfSource = null;
 let lastPdfSourceKey = "";
 
@@ -161,7 +162,15 @@ async function canvasToRasterBlob(canvas, quality = 0.9) {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
+export function cancelInteractivePdfRender() {
+  const task = activeInteractiveRenderTask;
+  activeInteractiveRenderTask = null;
+  if (!task) return;
+  try { task.cancel?.(); } catch {}
+}
+
 async function disposeActivePdf() {
+  cancelInteractivePdfRender();
   if (activeReleaseTimer) {
     clearTimeout(activeReleaseTimer);
     activeReleaseTimer = null;
@@ -472,12 +481,29 @@ export async function renderPdfRegion(_pdfDoc, pageRender, view, options = {}) {
   const canvas = document.createElement("canvas");
   canvas.width = outputWidth;
   canvas.height = outputHeight;
-  await page.render({
+
+  if (options.interactive === true) cancelInteractivePdfRender();
+  const renderTask = page.render({
     canvas,
     viewport,
     transform: [1, 0, 0, 1, translateX, translateY],
     background: options.background || "#ffffff",
-  }).promise;
+  });
+  if (options.interactive === true) activeInteractiveRenderTask = renderTask;
+
+  try {
+    await renderTask.promise;
+  } catch (error) {
+    const cancelled = error?.name === "RenderingCancelledException" || /cancel/i.test(String(error?.message || ""));
+    if (!cancelled) throw error;
+    canvas.width = 1;
+    canvas.height = 1;
+    try { page.cleanup?.(); } catch {}
+    schedulePdfRelease(250);
+    return null;
+  } finally {
+    if (activeInteractiveRenderTask === renderTask) activeInteractiveRenderTask = null;
+  }
 
   const ctx = canvas.getContext("2d", { alpha: false });
   if (options.includeHighlight !== false && view.highlight !== false) {
@@ -502,7 +528,9 @@ export async function renderPdfRegion(_pdfDoc, pageRender, view, options = {}) {
   canvas.width = 1;
   canvas.height = 1;
   page.cleanup?.();
-  await dbPut(cacheKey, { blob, width: outputWidth, height: outputHeight, renderScale, requestedScale, crop, createdAt: Date.now() });
+  if (options.interactive !== true) {
+    await dbPut(cacheKey, { blob, width: outputWidth, height: outputHeight, renderScale, requestedScale, crop, createdAt: Date.now() });
+  }
   if (memoryKey) touchPreviewCache(memoryKey, result);
   schedulePdfRelease(300);
   return result;
