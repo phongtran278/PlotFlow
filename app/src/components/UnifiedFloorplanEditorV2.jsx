@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PosterCanvas from "./PosterCanvas";
 import { detectLotShape } from "../floorplan/autoLotShape";
+import { getMemoryProfile } from "../runtime/memoryProfile";
 import {
   calculateCropRect,
   FLOORPLAN_FRAME_ASPECT,
@@ -29,6 +30,7 @@ const PIN_SCALE_MIN = 0.25;
 const PIN_SCALE_MAX = 6;
 const CAMERA_SETTLE_MS = 260;
 const HQ_RENDER_DELAY_MS = 120;
+const LOW_MEMORY_EDITOR = getMemoryProfile().lowMemory;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -578,15 +580,9 @@ export default function UnifiedFloorplanEditorV2({
     ...(posterAssets || {}),
     floorplanImage: liveCrop?.dataUrl || pageRender.dataUrl || posterAssets?.floorplanImage || null,
   };
-  const fastImageStyle = {
-    width: `${(pageRender.width / crop.w) * 100}%`,
-    height: `${(pageRender.height / crop.h) * 100}%`,
-    left: `${(-crop.x / crop.w) * 100}%`,
-    top: `${(-crop.y / crop.h) * 100}%`,
-  };
 
   return (
-    <div className="unified-floorplan unified-floorplan-v2">
+    <div className={`unified-floorplan unified-floorplan-v2 ${LOW_MEMORY_EDITOR ? "memory-editor" : ""}`}>
       <header className="unified-floorplan-topbar">
         <button type="button" className="unified-back" onClick={onCancel}>← Back</button>
         <div>
@@ -740,7 +736,7 @@ export default function UnifiedFloorplanEditorV2({
 
           {locatorResult.matches.length > 1 && (
             <div className="unified-section">
-              <span className="unified-label">PDF CANDIDATE</span>
+              <span className="unified-label">LOCATOR CANDIDATE</span>
               <div className="unified-candidates">
                 {locatorResult.matches.map((match, index) => (
                   <button type="button" key={`${match.pageNumber}-${index}`} className={locatorResult.selectedMatchIndex === index ? "active" : ""} onClick={() => onCandidateChange?.(index)}>
@@ -755,7 +751,7 @@ export default function UnifiedFloorplanEditorV2({
         <main className="unified-canvas-column">
           <div className="unified-canvas-head">
             <div><span>MASTERPLAN CROP</span><strong>Select objects directly · drag to move · Space to pan</strong></div>
-            <em className={renderState}>{renderState === "rendering" ? "Rendering vector…" : renderState === "ready" ? "Vector HQ" : "Fast preview"}</em>
+            <em className={renderState}>{renderState === "rendering" ? "Loading raster tiles…" : renderState === "ready" ? "Raster detail" : "Viewport preview"}</em>
           </div>
 
           <div
@@ -766,8 +762,7 @@ export default function UnifiedFloorplanEditorV2({
             onMouseUp={endStage}
             onMouseLeave={endStage}
           >
-            <img src={pageRender.dataUrl} alt={`PDF page ${pageRender.pageNumber}`} className="unified-fast-image" style={fastImageStyle} draggable="false" />
-            {cameraSettled && liveCrop?.dataUrl && <img src={liveCrop.dataUrl} alt={`Vector crop ${unit?.unitCode}`} className="unified-hq-image" draggable="false" />}
+            {cameraSettled && liveCrop?.dataUrl && <img src={liveCrop.dataUrl} alt={`Raster crop ${unit?.unitCode}`} className="unified-hq-image" draggable="false" />}
 
             <svg className="unified-overlay-svg unified-overlay-svg-v2" viewBox="0 0 100 100" preserveAspectRatio="none">
               {hasShape && (
@@ -821,26 +816,28 @@ export default function UnifiedFloorplanEditorV2({
           </div>
         </main>
 
-        <aside className="unified-live-panel unified-live-panel-v2">
-          <div className="unified-live-head">
-            <span>LIVE POSTER</span>
-            <strong>Đúng layout thật · cập nhật cùng composition</strong>
-          </div>
-          <div className="unified-poster-frame">
-            <PosterCanvas
-              unit={unit}
-              assets={previewAssets}
-              isEditing={false}
-              lotOverlay={{ ...overlay, stale: false }}
-              preferLotOverlay
-              previewZoom={1}
-            />
-          </div>
-          <div className="unified-live-note">
-            <strong>{hasShape ? "Highlight synced" : "Locator only"}</strong>
-            <span>Poster này dùng đúng crop, highlight và pin đang chỉnh — không scale hai lần.</span>
-          </div>
-        </aside>
+        {!LOW_MEMORY_EDITOR && (
+          <aside className="unified-live-panel unified-live-panel-v2">
+            <div className="unified-live-head">
+              <span>LIVE POSTER</span>
+              <strong>Đúng layout thật · cập nhật cùng composition</strong>
+            </div>
+            <div className="unified-poster-frame">
+              <PosterCanvas
+                unit={unit}
+                assets={previewAssets}
+                isEditing={false}
+                lotOverlay={{ ...overlay, stale: false }}
+                preferLotOverlay
+                previewZoom={1}
+              />
+            </div>
+            <div className="unified-live-note">
+              <strong>{hasShape ? "Highlight synced" : "Locator only"}</strong>
+              <span>Poster này dùng đúng crop, highlight và pin đang chỉnh — không scale hai lần.</span>
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );
