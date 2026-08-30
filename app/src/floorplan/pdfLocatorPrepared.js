@@ -4,7 +4,6 @@ import { getMemoryProfile } from "../runtime/memoryProfile.js";
 const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
 const DEFAULT_VIEW = { zoom: 100, offsetX: 0, offsetY: 0 };
 const FINE_TUNE_REQUEST_WIDTH = 1640;
-const LOW_MEMORY_FINE_TUNE_WIDTH = 1084;
 
 let preparedManifest = null;
 let preparedSource = null;
@@ -12,6 +11,7 @@ let fallbackPdfDoc = null;
 const transientPreparedUrls = new Set();
 let activePreparedDetailUrl = null;
 let activePreparedDetailSource = "";
+let preparedRenderEpoch = 0;
 
 function isDefaultView(view = {}) {
   return Math.abs(Number(view.zoom ?? 100) - 100) < 0.001
@@ -43,19 +43,24 @@ function releaseActivePreparedDetail() {
 }
 
 export function releasePreparedDetailRaster() {
+  preparedRenderEpoch += 1;
   base.cancelInteractivePdfRender?.();
   releaseActivePreparedDetail();
+}
+
+function activatePreparedBlob(blob, sourceKey) {
+  if (!blob) return null;
+  releaseActivePreparedDetail();
+  const url = URL.createObjectURL(blob);
+  activePreparedDetailUrl = url;
+  activePreparedDetailSource = sourceKey;
+  return url;
 }
 
 async function exclusivePreparedDetailUrl(sourceUrl) {
   if (!sourceUrl) return null;
   if (activePreparedDetailUrl && activePreparedDetailSource === sourceUrl) return activePreparedDetailUrl;
-
-  // Critical for 4 GB-class machines: destroy the previous large lot raster BEFORE
-  // decoding the next one. This prevents Chrome from accumulating multiple decoded
-  // 1600/2168 px lot images across a long editing session.
   releaseActivePreparedDetail();
-
   const response = await fetch(sourceUrl, { cache: "force-cache" });
   if (!response.ok) throw new Error(`Không tải được prepared lot raster (${response.status}).`);
   const blob = await response.blob();
@@ -180,7 +185,7 @@ function loadPreparedImage(src) {
     const image = new Image();
     image.decoding = "async";
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Không đọc được prepared lot raster."));
+    image.onerror = () => reject(new Error("Không đọc được prepared raster."));
     image.src = src;
   });
 }
@@ -194,6 +199,142 @@ function cropInsidePreparedLot(target, prepared) {
     && target.y + target.h <= prepared.y + prepared.h + epsilon;
 }
 
+function boundedOutputWidth(options = {}) {
+  const profile = getMemoryProfile();
+  const requested = Math.max(480, Math.round(options.outputWidth || 1626));
+  return profile.lowMemory ? Math.min(requested, 1280) : Math.min(requested, 1640);
+}
+
+async function canvasToPreparedResult(canvas, targetCrop, sourceKey, epoch, extra = {}) {
+  const profile = getMemoryProfile();
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", profile.lowMemory ? 0.82 : 0.88));
+  canvas.width = 1;
+  canvas.height = 1;
+  if (!blob || epoch !== preparedRenderEpoch) return null;
+  const url = activatePreparedBlob(blob, sourceKey);
+  return {
+    dataUrl: url,
+    width: extra.width,
+    height: extra.height,
+    crop: targetCrop,
+    renderScale: 1,
+    requestedScale: 1,
+    preparedRaster: true,
+    exclusiveDetail: true,
+    ...extra,
+  };
+}
+
+function chooseTileLevel(lot, targetCrop, outputWidth) {
+  const levels = [...(lot?.tiles?.levels || [])].sort((a, b) => Number(a.width) - Number(b.width));
+  if (!levels.length || !lot?.crop) return null;
+  const equivalentLotWidth = outputWidth * (lot.crop.w / Math.max(1, targetCrop.w));
+  const adequate = levels.find((level) => Number(level.width) >= equivalentLotWidth * 0.82);
+  return adequate || levels[levels.length - 1];
+}
+
+async function loadTileBitmap(url) {
+  const response = await fetch(url, { cache: "force-cache" });
+  if (!response.ok) throw new Error(`Không tải được tile (${response.status}).`);
+  const blob = await response.blob();
+  if (typeof createImageBitmap === "function") return createImageBitmap(blob);
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = await loadPreparedImage(objectUrl);
+    image.__plotflowObjectUrl = objectUrl;
+    return image;
+  } catch (error) {
+    revokeUrl(objectUrl);
+    throw error;
+  }
+}
+
+function closeTileBitmap(bitmap) {
+  if (!bitmap) return;
+  try { bitmap.close?.(); } catch {}
+  if (bitmap.__plotflowObjectUrl) revokeUrl(bitmap.__plotflowObjectUrl);
+  try { bitmap.src = ""; } catch {}
+}
+
+async function renderFromPreparedTiles(lot, pageRender, view, options = {}) {
+  if (!lot?.tiles?.base || !lot?.tiles?.levels?.length || !lot?.crop) return null;
+  const aspect = options.aspect || base.FLOORPLAN_FRAME_ASPECT;
+  const targetCrop = base.calculateCropRect(pageRender, view, aspect);
+  if (!cropInsidePreparedLot(targetCrop, lot.crop)) return null;
+  if (isDefaultView(view)) return null;
+
+  const epoch = ++preparedRenderEpoch;
+  const outputWidth = boundedOutputWidth(options);
+  const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
+  const level = chooseTileLevel(lot, targetCrop, outputWidth);
+  if (!level) return null;
+
+  const tileSize = Number(level.tileSize || lot.tiles.tileSize || 256);
+  const scaleX = Number(level.width) / Math.max(1, lot.crop.w);
+  const scaleY = Number(level.height) / Math.max(1, lot.crop.h);
+  const sx = (targetCrop.x - lot.crop.x) * scaleX;
+  const sy = (targetCrop.y - lot.crop.y) * scaleY;
+  const sw = targetCrop.w * scaleX;
+  const sh = targetCrop.h * scaleY;
+  const firstCol = Math.max(0, Math.floor(sx / tileSize));
+  const firstRow = Math.max(0, Math.floor(sy / tileSize));
+  const lastCol = Math.min(Number(level.cols) - 1, Math.floor((sx + sw - 0.001) / tileSize));
+  const lastRow = Math.min(Number(level.rows) - 1, Math.floor((sy + sh - 0.001) / tileSize));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, outputWidth, outputHeight);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  for (let row = firstRow; row <= lastRow; row += 1) {
+    for (let col = firstCol; col <= lastCol; col += 1) {
+      if (epoch !== preparedRenderEpoch) {
+        canvas.width = 1;
+        canvas.height = 1;
+        return null;
+      }
+      const tileLeft = col * tileSize;
+      const tileTop = row * tileSize;
+      const tileRight = Math.min(Number(level.width), tileLeft + tileSize);
+      const tileBottom = Math.min(Number(level.height), tileTop + tileSize);
+      const ix0 = Math.max(sx, tileLeft);
+      const iy0 = Math.max(sy, tileTop);
+      const ix1 = Math.min(sx + sw, tileRight);
+      const iy1 = Math.min(sy + sh, tileBottom);
+      if (ix1 <= ix0 || iy1 <= iy0) continue;
+
+      const tileUrl = `${lot.tiles.base}/${level.width}/${col}_${row}.webp`;
+      const bitmap = await loadTileBitmap(tileUrl);
+      try {
+        if (epoch !== preparedRenderEpoch) continue;
+        const srcX = ix0 - tileLeft;
+        const srcY = iy0 - tileTop;
+        const srcW = ix1 - ix0;
+        const srcH = iy1 - iy0;
+        const dstX = (ix0 - sx) / sw * outputWidth;
+        const dstY = (iy0 - sy) / sh * outputHeight;
+        const dstW = srcW / sw * outputWidth;
+        const dstH = srcH / sh * outputHeight;
+        ctx.drawImage(bitmap, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH);
+      } finally {
+        closeTileBitmap(bitmap);
+      }
+    }
+  }
+
+  return canvasToPreparedResult(
+    canvas,
+    targetCrop,
+    `tiles:${pageRender.unitCode}:${level.width}:${Date.now()}`,
+    epoch,
+    { width: outputWidth, height: outputHeight, preparedTier: `tiles-${level.width}`, viewportTiles: true }
+  );
+}
+
 async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
   if (!lot?.crop) return null;
   const aspect = options.aspect || base.FLOORPLAN_FRAME_ASPECT;
@@ -202,9 +343,6 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
 
   const raster = preparedRasterFor(lot, options);
   if (!raster.url) return null;
-
-  // Screen previews stay as small static URLs. Editor/detail rasters get an exclusive
-  // object URL so the previous large lot can be explicitly revoked before the next one.
   const sourceUrl = raster.detail ? await exclusivePreparedDetailUrl(raster.url) : raster.url;
 
   if (isDefaultView(view)) {
@@ -221,7 +359,12 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
     };
   }
 
+  const epoch = ++preparedRenderEpoch;
   const image = await loadPreparedImage(sourceUrl);
+  if (epoch !== preparedRenderEpoch) {
+    image.src = "";
+    return null;
+  }
   const sourceWidth = image.naturalWidth || raster.width;
   const sourceHeight = image.naturalHeight || raster.height;
   const relativeX = (targetCrop.x - lot.crop.x) / lot.crop.w;
@@ -232,10 +375,7 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
   const sy = Math.max(0, relativeY * sourceHeight);
   const sw = Math.min(sourceWidth - sx, relativeW * sourceWidth);
   const sh = Math.min(sourceHeight - sy, relativeH * sourceHeight);
-
-  const profile = getMemoryProfile();
-  const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
-  const outputWidth = profile.lowMemory ? Math.min(requestedWidth, 1600) : requestedWidth;
+  const outputWidth = boundedOutputWidth(options);
   const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
   const canvas = document.createElement("canvas");
   canvas.width = outputWidth;
@@ -244,58 +384,80 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, outputWidth, outputHeight);
   ctx.drawImage(image, sx, sy, sw, sh, 0, 0, outputWidth, outputHeight);
-
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", profile.lowMemory ? 0.84 : 0.9));
-  canvas.width = 1;
-  canvas.height = 1;
   image.src = "";
-  if (!blob) return null;
 
-  // The crop itself becomes the single active detail. Drop the source detail now so
-  // only one decoded large raster remains eligible for display.
-  releaseActivePreparedDetail();
-  const url = URL.createObjectURL(blob);
-  activePreparedDetailUrl = url;
-  activePreparedDetailSource = `cropped:${pageRender.unitCode}:${Date.now()}`;
-  return {
-    dataUrl: url,
-    width: outputWidth,
-    height: outputHeight,
-    crop: targetCrop,
-    renderScale: 1,
-    requestedScale: 1,
-    preparedRaster: true,
-    preparedTier: `${raster.tier}-cropped`,
-    exclusiveDetail: true,
-  };
+  return canvasToPreparedResult(
+    canvas,
+    targetCrop,
+    `prepared:${pageRender.unitCode}:${Date.now()}`,
+    epoch,
+    { width: outputWidth, height: outputHeight, preparedTier: `${raster.tier}-cropped` }
+  );
+}
+
+async function renderFromPagePreview(pageRender, view, options = {}) {
+  if (!pageRender?.dataUrl) return null;
+  const aspect = options.aspect || base.FLOORPLAN_FRAME_ASPECT;
+  const targetCrop = base.calculateCropRect(pageRender, view, aspect);
+  const epoch = ++preparedRenderEpoch;
+  const image = await loadPreparedImage(pageRender.dataUrl);
+  if (epoch !== preparedRenderEpoch) {
+    image.src = "";
+    return null;
+  }
+  const sourceWidth = image.naturalWidth || 1;
+  const sourceHeight = image.naturalHeight || 1;
+  const pageScaleX = sourceWidth / Math.max(1, pageRender.width);
+  const pageScaleY = sourceHeight / Math.max(1, pageRender.height);
+  const sx = targetCrop.x * pageScaleX;
+  const sy = targetCrop.y * pageScaleY;
+  const sw = targetCrop.w * pageScaleX;
+  const sh = targetCrop.h * pageScaleY;
+  const outputWidth = boundedOutputWidth(options);
+  const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
+  const canvas = document.createElement("canvas");
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, outputWidth, outputHeight);
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, outputWidth, outputHeight);
+  image.src = "";
+  return canvasToPreparedResult(
+    canvas,
+    targetCrop,
+    `page-preview:${pageRender.pageNumber}:${Date.now()}`,
+    epoch,
+    { width: outputWidth, height: outputHeight, preparedTier: "page-preview-cropped" }
+  );
 }
 
 export async function renderPdfRegion(pdfDoc, pageRender, view = DEFAULT_VIEW, options = {}) {
-  const profile = getMemoryProfile();
   const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
-  const isLowMemoryFineTune = Boolean(
+  const isFineTuneViewport = Boolean(
     pageRender?.__plotflowPrepared
-    && profile.lowMemory
     && options.maxRenderScale
     && requestedWidth === FINE_TUNE_REQUEST_WIDTH
   );
 
-  if (isLowMemoryFineTune) {
-    // Fine Tune needs the real PDF paths/text, but not a large decoded background.
-    // Render only the current viewport at a bounded width, cancel any stale interactive
-    // render, and never persist these transient camera crops to IndexedDB.
-    releaseActivePreparedDetail();
-    const doc = await ensureFallbackPdf();
-    return base.renderPdfRegion(doc, pageRender, view, {
-      ...options,
-      interactive: true,
-      outputWidth: LOW_MEMORY_FINE_TUNE_WIDTH,
-      maxRenderScale: Math.min(Number(options.maxRenderScale) || 128, 64),
-    });
-  }
-
   if (pageRender?.__plotflowPrepared && preparedManifest) {
     const lot = preparedManifest.lots?.[pageRender.unitCode];
+
+    if (isFineTuneViewport) {
+      // Large-plan runtime: never reopen PDF.js for interactive Fine Tune. The camera
+      // follows the lightweight page preview immediately; after settle we refine only
+      // the visible crop using 256px tiles (or the prepared lot raster as fallback).
+      if (lot) {
+        const tiled = await renderFromPreparedTiles(lot, pageRender, view, options);
+        if (tiled) return tiled;
+        const prepared = await renderFromPreparedLot(lot, pageRender, view, options);
+        if (prepared) return prepared;
+      }
+      const preview = await renderFromPagePreview(pageRender, view, options);
+      if (preview) return preview;
+      return null;
+    }
+
     if (lot) {
       const prepared = await renderFromPreparedLot(lot, pageRender, view, options);
       if (prepared) return prepared;
