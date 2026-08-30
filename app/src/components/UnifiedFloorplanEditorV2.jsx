@@ -6,6 +6,7 @@ import {
   FLOORPLAN_FRAME_ASPECT,
   FLOORPLAN_ZOOM_MAX,
   FLOORPLAN_ZOOM_MIN,
+  releasePreparedDetailRaster,
 } from "../floorplan/pdfLocator";
 import "./UnifiedFloorplanEditor.css";
 import "./UnifiedFloorplanEditorV2.css";
@@ -26,6 +27,8 @@ const DEFAULT_STYLE = {
 
 const PIN_SCALE_MIN = 0.25;
 const PIN_SCALE_MAX = 6;
+const CAMERA_SETTLE_MS = 260;
+const HQ_RENDER_DELAY_MS = 120;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -127,6 +130,7 @@ export default function UnifiedFloorplanEditorV2({
   const stageRef = useRef(null);
   const renderSequence = useRef(0);
   const autoRanRef = useRef(false);
+  const cameraIdleTimerRef = useRef(null);
 
   const initialViewValue = useMemo(
     () => ({ ...DEFAULT_FLOORPLAN_VIEW, ...(initialView || {}) }),
@@ -158,6 +162,7 @@ export default function UnifiedFloorplanEditorV2({
   const [pathDraft, setPathDraft] = useState([]);
   const [spaceDown, setSpaceDown] = useState(false);
   const [liveCrop, setLiveCrop] = useState(null);
+  const [cameraSettled, setCameraSettled] = useState(true);
   const [renderState, setRenderState] = useState("idle");
   const [detectState, setDetectState] = useState({ state: "idle", message: "" });
 
@@ -181,11 +186,16 @@ export default function UnifiedFloorplanEditorV2({
 
   useEffect(() => {
     document.body.classList.add("plotflow-floorplan-editing");
-    return () => document.body.classList.remove("plotflow-floorplan-editing");
+    return () => {
+      document.body.classList.remove("plotflow-floorplan-editing");
+      renderSequence.current += 1;
+      if (cameraIdleTimerRef.current) window.clearTimeout(cameraIdleTimerRef.current);
+      releasePreparedDetailRaster();
+    };
   }, []);
 
   useEffect(() => {
-    if (!pageRender || !onRenderVectorPreview || drag?.type === "pan") return undefined;
+    if (!pageRender || !onRenderVectorPreview || !cameraSettled) return undefined;
     const sequence = ++renderSequence.current;
     const timer = window.setTimeout(async () => {
       try {
@@ -199,9 +209,9 @@ export default function UnifiedFloorplanEditorV2({
         console.error(error);
         setRenderState("error");
       }
-    }, 320);
+    }, HQ_RENDER_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [pageRender, view.zoom, view.offsetX, view.offsetY, drag?.type, onRenderVectorPreview]);
+  }, [pageRender, view.zoom, view.offsetX, view.offsetY, cameraSettled, onRenderVectorPreview]);
 
   useEffect(() => {
     if (!liveCrop?.dataUrl || initialOverlay?.shape?.points?.length || autoRanRef.current) return;
@@ -268,6 +278,17 @@ export default function UnifiedFloorplanEditorV2({
   }, [pathDraft, rectStart, selectedObject, crop, pageOverlay]);
 
   function patchView(patch) {
+    renderSequence.current += 1;
+    setRenderState("preview");
+    setLiveCrop(null);
+    releasePreparedDetailRaster();
+    setCameraSettled(false);
+    if (cameraIdleTimerRef.current) window.clearTimeout(cameraIdleTimerRef.current);
+    cameraIdleTimerRef.current = window.setTimeout(() => {
+      cameraIdleTimerRef.current = null;
+      setCameraSettled(true);
+    }, CAMERA_SETTLE_MS);
+
     setView((current) => {
       const next = { ...current, ...patch };
       next.zoom = clamp(next.zoom, FLOORPLAN_ZOOM_MIN, FLOORPLAN_ZOOM_MAX) || 100;
@@ -534,7 +555,9 @@ export default function UnifiedFloorplanEditorV2({
 
   function saveAndDone() {
     if (!crop) return;
-    onSave?.(view, { ...overlayToCropSpace(pageOverlay, crop), stale: false });
+    const pendingSave = onSave?.(view, { ...overlayToCropSpace(pageOverlay, crop), stale: false });
+    onCancel?.();
+    pendingSave?.catch?.((error) => console.error(error));
   }
 
   if (!locatorResult || !pageRender || !crop) {
@@ -553,7 +576,7 @@ export default function UnifiedFloorplanEditorV2({
   const style = { ...DEFAULT_STYLE, ...(overlay.style || {}) };
   const previewAssets = {
     ...(posterAssets || {}),
-    floorplanImage: liveCrop?.dataUrl || posterAssets?.floorplanImage || null,
+    floorplanImage: liveCrop?.dataUrl || pageRender.dataUrl || posterAssets?.floorplanImage || null,
   };
   const fastImageStyle = {
     width: `${(pageRender.width / crop.w) * 100}%`,
@@ -712,7 +735,7 @@ export default function UnifiedFloorplanEditorV2({
               <label><span>X</span><input type="number" value={Math.round(view.offsetX)} onChange={(event) => patchView({ offsetX: event.target.value })} /></label>
               <label><span>Y</span><input type="number" value={Math.round(view.offsetY)} onChange={(event) => patchView({ offsetY: event.target.value })} /></label>
             </div>
-            <button type="button" className="unified-reset-view" onClick={() => setView(DEFAULT_FLOORPLAN_VIEW)}>Reset View</button>
+            <button type="button" className="unified-reset-view" onClick={() => patchView(DEFAULT_FLOORPLAN_VIEW)}>Reset View</button>
           </div>
 
           {locatorResult.matches.length > 1 && (
@@ -744,7 +767,7 @@ export default function UnifiedFloorplanEditorV2({
             onMouseLeave={endStage}
           >
             <img src={pageRender.dataUrl} alt={`PDF page ${pageRender.pageNumber}`} className="unified-fast-image" style={fastImageStyle} draggable="false" />
-            {liveCrop?.dataUrl && <img src={liveCrop.dataUrl} alt={`Vector crop ${unit?.unitCode}`} className="unified-hq-image" draggable="false" />}
+            {cameraSettled && liveCrop?.dataUrl && <img src={liveCrop.dataUrl} alt={`Vector crop ${unit?.unitCode}`} className="unified-hq-image" draggable="false" />}
 
             <svg className="unified-overlay-svg unified-overlay-svg-v2" viewBox="0 0 100 100" preserveAspectRatio="none">
               {hasShape && (
