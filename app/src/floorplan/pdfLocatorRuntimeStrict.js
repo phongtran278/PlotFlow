@@ -1,5 +1,4 @@
-import * as legacyRuntime from "./pdfLocatorRuntime.js";
-import { calculateCropRect, FLOORPLAN_FRAME_ASPECT } from "./pdfLocatorAuto.js";
+import { calculateCropRect, FLOORPLAN_FRAME_ASPECT } from "./floorplanGeometry.js";
 import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
 const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
@@ -10,6 +9,33 @@ const stablePreviewUrls = new Map();
 let manifestPromise = null;
 let activeViewportUrl = null;
 let renderEpoch = 0;
+let legacyRuntimePromise = null;
+let tileBitmapsActive = 0;
+let tileBitmapsPeak = 0;
+let rasterRenderCount = 0;
+
+function publishRuntimeStats(extra = {}) {
+  if (typeof window === "undefined") return;
+  window.__plotflowRasterRuntime = {
+    mode: legacyRuntimePromise ? "custom-pdf" : "bundled-raster-only",
+    pdfRuntimeLoaded: Boolean(legacyRuntimePromise),
+    bundledPdfOpened: false,
+    tileBitmapsActive,
+    tileBitmapsPeak,
+    rasterRenderCount,
+    activeViewportUrls: activeViewportUrl ? 1 : 0,
+    stablePreviewUrls: stablePreviewUrls.size,
+    ...extra,
+  };
+}
+
+async function getLegacyRuntime() {
+  if (!legacyRuntimePromise) {
+    legacyRuntimePromise = import("./pdfLocatorRuntime.js");
+    publishRuntimeStats({ pdfRuntimeLoaded: true, mode: "custom-pdf" });
+  }
+  return legacyRuntimePromise;
+}
 
 function revoke(url) {
   if (!url || !String(url).startsWith("blob:")) return;
@@ -20,6 +46,7 @@ function releaseViewportResult() {
   renderEpoch += 1;
   revoke(activeViewportUrl);
   activeViewportUrl = null;
+  publishRuntimeStats();
 }
 
 function stablePreviewLimit() {
@@ -38,6 +65,7 @@ function rememberStablePreview(key, url) {
     stablePreviewUrls.delete(oldestKey);
     revoke(oldestUrl);
   }
+  publishRuntimeStats();
 }
 
 async function cloneBlobUrl(url) {
@@ -115,12 +143,16 @@ function chooseLevel(pageInfo, tiles, crop, outputWidth) {
 }
 
 async function loadBitmap(url) {
-  // Deliberately bypass the HTTP memory cache. Visible tiles are decoded one at a time,
-  // drawn immediately, then closed. The browser must not accumulate a 42k pyramid in RAM.
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`Không tải được page tile (${response.status}).`);
   const blob = await response.blob();
-  if (typeof createImageBitmap === "function") return createImageBitmap(blob);
+  if (typeof createImageBitmap === "function") {
+    const bitmap = await createImageBitmap(blob);
+    tileBitmapsActive += 1;
+    tileBitmapsPeak = Math.max(tileBitmapsPeak, tileBitmapsActive);
+    publishRuntimeStats();
+    return bitmap;
+  }
 
   const objectUrl = URL.createObjectURL(blob);
   try {
@@ -132,6 +164,10 @@ async function loadBitmap(url) {
       item.src = objectUrl;
     });
     image.__plotflowObjectUrl = objectUrl;
+    image.__plotflowTrackedBitmap = true;
+    tileBitmapsActive += 1;
+    tileBitmapsPeak = Math.max(tileBitmapsPeak, tileBitmapsActive);
+    publishRuntimeStats();
     return image;
   } catch (error) {
     revoke(objectUrl);
@@ -144,16 +180,19 @@ function closeBitmap(bitmap) {
   try { bitmap.close?.(); } catch {}
   if (bitmap.__plotflowObjectUrl) revoke(bitmap.__plotflowObjectUrl);
   try { bitmap.src = ""; } catch {}
+  tileBitmapsActive = Math.max(0, tileBitmapsActive - 1);
+  publishRuntimeStats();
 }
 
 async function canvasToResult(canvas, crop, epoch, extra = {}) {
   const profile = getMemoryProfile();
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", profile.lowMemory ? 0.8 : 0.86));
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", profile.lowMemory ? 0.78 : 0.84));
   canvas.width = 1;
   canvas.height = 1;
   if (!blob || epoch !== renderEpoch) return null;
   revoke(activeViewportUrl);
   activeViewportUrl = URL.createObjectURL(blob);
+  publishRuntimeStats();
   return {
     dataUrl: activeViewportUrl,
     width: extra.width,
@@ -182,6 +221,9 @@ async function renderGlobalTiles(pageRender, view, options = {}) {
   const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
   const level = chooseLevel(pageInfo, tiles, crop, outputWidth);
   if (!level) return null;
+
+  rasterRenderCount += 1;
+  publishRuntimeStats({ activeLevel: Number(level.width), outputWidth, outputHeight });
 
   const epoch = ++renderEpoch;
   const tileSize = Number(level.tileSize || tiles.tileSize || TILE_SIZE);
@@ -248,73 +290,14 @@ async function renderGlobalTiles(pageRender, view, options = {}) {
   });
 }
 
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.decoding = "async";
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = src;
-  });
-}
-
-async function renderPagePreviewOnly(pageRender, view, options = {}) {
-  if (!pageRender?.dataUrl) return null;
-  const aspect = options.aspect || FLOORPLAN_FRAME_ASPECT;
-  const crop = calculateCropRect(pageRender, view, aspect);
-  const epoch = ++renderEpoch;
-  const image = await loadImage(pageRender.dataUrl);
-  if (epoch !== renderEpoch) {
-    image.src = "";
-    return null;
-  }
-
-  const sourceWidth = image.naturalWidth || 1;
-  const sourceHeight = image.naturalHeight || 1;
-  const scaleX = sourceWidth / Math.max(1, pageRender.width);
-  const scaleY = sourceHeight / Math.max(1, pageRender.height);
-  const outputWidth = boundedOutputWidth(options);
-  const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
-  const canvas = document.createElement("canvas");
-  canvas.width = outputWidth;
-  canvas.height = outputHeight;
-  const ctx = canvas.getContext("2d", { alpha: false });
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, outputWidth, outputHeight);
-  ctx.drawImage(
-    image,
-    crop.x * scaleX,
-    crop.y * scaleY,
-    crop.w * scaleX,
-    crop.h * scaleY,
-    0,
-    0,
-    outputWidth,
-    outputHeight
-  );
-  image.src = "";
-
-  return canvasToResult(canvas, crop, epoch, {
-    width: outputWidth,
-    height: outputHeight,
-    preparedTier: "page-preview-pdf-free-fallback",
-    viewportTiles: false,
-  });
-}
-
 export async function renderPdfRegion(pdfDoc, pageRender, view = {}, options = {}) {
   const isPrepared = Boolean(pageRender?.__plotflowPrepared);
-  if (!isPrepared) return legacyRuntime.renderPdfRegion(pdfDoc, pageRender, view, options);
-
-  // Strict rule for the bundled masterplan: no PDF.js fallback at runtime.
-  // Coordinates already live in manifest.json; pixels come only from raster tiles.
-  let result = null;
-  try {
-    result = await renderGlobalTiles(pageRender, view, options);
-  } catch (error) {
-    console.debug("PDF-free global tile render skipped", error);
+  if (!isPrepared) {
+    const legacyRuntime = await getLegacyRuntime();
+    return legacyRuntime.renderPdfRegion(pdfDoc, pageRender, view, options);
   }
-  if (!result) result = await renderPagePreviewOnly(pageRender, view, options);
+
+  const result = await renderGlobalTiles(pageRender, view, options);
   if (!result?.dataUrl) return result;
 
   const isSavedScreenPreview = options.includeHighlight === false
@@ -331,11 +314,13 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = {}, options = {
 
 export function releasePreparedDetailRaster() {
   releaseViewportResult();
-  legacyRuntime.releasePreparedDetailRaster();
 }
 
 export async function releasePreparedFallbackPdf() {
   releaseViewportResult();
-  // Kept only for custom uploaded/linked PDFs. Bundled prepared pages never open PDF.js.
+  if (!legacyRuntimePromise) return;
+  const legacyRuntime = await legacyRuntimePromise;
   await legacyRuntime.releasePreparedFallbackPdf();
 }
+
+publishRuntimeStats();
