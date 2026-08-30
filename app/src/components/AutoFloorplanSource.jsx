@@ -2,6 +2,18 @@ import { useEffect, useRef } from "react";
 import { releasePreparedFallbackPdf } from "../floorplan/pdfLocator";
 import "./AutoFloorplanSource.css";
 
+function setText(node, value) {
+  if (!node) return;
+  const next = String(value ?? "");
+  if (node.textContent !== next) node.textContent = next;
+}
+
+function setBooleanProperty(node, property, value) {
+  if (!node) return;
+  const next = Boolean(value);
+  if (Boolean(node[property]) !== next) node[property] = next;
+}
+
 export default function AutoFloorplanSource() {
   const pendingLotHighlightRef = useRef(false);
   const bridgeButtonRef = useRef(null);
@@ -122,7 +134,7 @@ export default function AutoFloorplanSource() {
     function ensureSimpleLocatorCard() {
       const card = document.querySelector(".locator-card");
       if (!card) return;
-      card.classList.add("plotflow-locator-simplified");
+      if (!card.classList.contains("plotflow-locator-simplified")) card.classList.add("plotflow-locator-simplified");
 
       let panel = card.querySelector(".plotflow-locator-simple");
       if (!panel) {
@@ -165,35 +177,35 @@ export default function AutoFloorplanSource() {
       const edit = panel.querySelector(".plotflow-locator-simple__edit");
       const review = panel.querySelector(".plotflow-locator-simple__review");
 
-      panel.querySelector(".plotflow-locator-simple__selected strong").textContent = selected || "—";
+      setText(panel.querySelector(".plotflow-locator-simple__selected strong"), selected || "—");
 
       if (!counts.total) {
-        statusStrong.textContent = "Waiting for unit data";
-        statusText.textContent = "Connect Google Sheets or import Excel first.";
+        setText(statusStrong, "Waiting for unit data");
+        setText(statusText, "Connect Google Sheets or import Excel first.");
       } else if (state === "indexing") {
-        statusStrong.textContent = `Matching ${counts.total} lots…`;
-        statusText.textContent = "Using the prepared masterplan in the background.";
+        setText(statusStrong, `Matching ${counts.total} lots…`);
+        setText(statusText, "Using the prepared masterplan in the background.");
       } else if (state === "ready") {
-        statusStrong.textContent = `${found} / ${counts.total} lots found`;
+        setText(statusStrong, `${found} / ${counts.total} lots found`);
         const notes = [];
         if (counts.notFound) notes.push(`${counts.notFound} not found`);
         if (counts.review) notes.push(`${counts.review} need review`);
-        statusText.textContent = notes.length ? notes.join(" · ") : "All lots are connected and ready.";
+        setText(statusText, notes.length ? notes.join(" · ") : "All lots are connected and ready.");
       } else if (state === "error") {
-        statusStrong.textContent = "Masterplan needs attention";
-        statusText.textContent = "The prepared locator could not be loaded.";
+        setText(statusStrong, "Masterplan needs attention");
+        setText(statusText, "The prepared locator could not be loaded.");
       } else {
-        statusStrong.textContent = `Preparing ${counts.total} lots…`;
-        statusText.textContent = "PlotFlow will match the masterplan automatically.";
+        setText(statusStrong, `Preparing ${counts.total} lots…`);
+        setText(statusText, "PlotFlow will match the masterplan automatically.");
       }
 
       const editable = state === "ready" && (badgeState === "ready" || badgeState === "review");
-      edit.disabled = !editable;
-      edit.textContent = editable && selected ? `✦ Edit Highlight · ${selected}` : "✦ Edit Lot Highlight";
+      setBooleanProperty(edit, "disabled", !editable);
+      setText(edit, editable && selected ? `✦ Edit Highlight · ${selected}` : "✦ Edit Lot Highlight");
 
       const issueCount = counts.review + counts.notFound;
-      review.hidden = state !== "ready" || issueCount === 0;
-      review.textContent = issueCount ? `Review ${issueCount} issue${issueCount === 1 ? "" : "s"}` : "Review Issues";
+      setBooleanProperty(review, "hidden", state !== "ready" || issueCount === 0);
+      setText(review, issueCount ? `Review ${issueCount} issue${issueCount === 1 ? "" : "s"}` : "Review Issues");
     }
 
     function handOffIfReady() {
@@ -264,7 +276,15 @@ export default function AutoFloorplanSource() {
       lotEditorWasOpen = editorIsOpen;
       schedule();
     });
-    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["class", "disabled"] });
+
+    // Observe structural and relevant attribute changes only. Character data used to
+    // create a self-sustaining loop because reconcile() rewrote the text it observed.
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "disabled"],
+    });
 
     return () => {
       observer?.disconnect();
