@@ -1,16 +1,18 @@
-export * from "./pdfLocatorAuto.js";
 export {
-  normalizeUnitCode,
-  resolveUnitsAgainstIndex,
-} from "./unitCodeCompat.js";
-export {
-  openVectorPdf,
-  buildFloorplanIndex,
   attachMatchToPageRender,
-} from "./pdfLocatorPrepared.js";
-export { renderPdfPageBase } from "./pdfLocatorPageBaseStrict.js";
-export {
-  renderPdfRegion,
+  buildFloorplanIndex,
+  calculateCropRect,
+  FLOORPLAN_FRAME_ASPECT,
+  FLOORPLAN_FRAME_HEIGHT,
+  FLOORPLAN_FRAME_WIDTH,
+  FLOORPLAN_ZOOM_MAX,
+  FLOORPLAN_ZOOM_MIN,
+  normalizeUnitCode,
+  openVectorPdf,
   releasePreparedDetailRaster,
   releasePreparedFallbackPdf,
-} from "./pdfLocatorRuntimeStrict.js";
+  renderPdfPageBase,
+  renderPdfRegion,
+  resolvePdfSourceUrl,
+  resolveUnitsAgainstIndex,
+} from "./pdfLocatorFacade.js";
