@@ -58,6 +58,27 @@ function normalizeUnitCode(value) {
     .trim();
 }
 
+function cliValue(flag) {
+  const index = process.argv.indexOf(flag);
+  if (index < 0) return null;
+  return process.argv[index + 1] || null;
+}
+
+function requestedLotSelection() {
+  const rawCodes = cliValue("--codes") || process.env.PLOTFLOW_LOT_CODES || "";
+  const codes = new Set(
+    rawCodes
+      .split(/[\s,;]+/)
+      .map(normalizeUnitCode)
+      .filter(Boolean)
+  );
+  const sampleRaw = cliValue("--sample") || process.env.PLOTFLOW_LOT_SAMPLE || "";
+  const sample = sampleRaw ? Math.max(1, Math.round(Number(sampleRaw) || 0)) : 0;
+  return { codes, sample };
+}
+
+const LOT_SELECTION = requestedLotSelection();
+
 function defaultCrop(pageWidth, pageHeight, anchorX, anchorY) {
   const baseWidth = Math.min(pageWidth * 0.38, 980 / 1.7);
   let w = baseWidth;
@@ -166,7 +187,7 @@ const pdfDoc = await pdfjsLib.getDocument({
 }).promise;
 
 const manifest = {
-  version: 7,
+  version: 8,
   source: pdfName,
   generatedAt: new Date().toISOString(),
   numPages: pdfDoc.numPages,
@@ -174,11 +195,19 @@ const manifest = {
   pages: {},
   index: {},
   lots: {},
+  preparation: {
+    mode: LOT_SELECTION.codes.size ? "codes" : LOT_SELECTION.sample ? "sample" : "all",
+    requestedCodes: [...LOT_SELECTION.codes],
+    requestedSample: LOT_SELECTION.sample || null,
+  },
 };
 
 console.log(`Preparing ${pdfName} · ${pdfDoc.numPages} page(s)`);
 console.log("Memory-safe pipeline: PDF.js reads text/tọa độ only · hires tile/raster source provides pixels");
 console.log(`Lot rasters: ${PREVIEW_WIDTH}px preview · ${MEDIUM_WIDTH}px low-memory · ${DETAIL_WIDTH}px detail`);
+if (LOT_SELECTION.codes.size) console.log(`Bounded preparation: ${LOT_SELECTION.codes.size} requested code(s)`);
+else if (LOT_SELECTION.sample) console.log(`Bounded preparation: sample ${LOT_SELECTION.sample} lot(s)`);
+else console.log("Full preparation: all indexed lots");
 
 for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
   const page = await pdfDoc.getPage(pageNumber);
@@ -245,15 +274,31 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     dzi: null,
   };
 
-  const uniqueLotTotal = new Set(pageEntries.map((entry) => entry.unitCode)).size;
+  const uniqueEntries = [];
+  const seenCodes = new Set();
+  for (const entry of pageEntries) {
+    if (seenCodes.has(entry.unitCode)) continue;
+    seenCodes.add(entry.unitCode);
+    uniqueEntries.push(entry);
+  }
+
+  let selectedEntries = uniqueEntries;
+  if (LOT_SELECTION.codes.size) {
+    selectedEntries = uniqueEntries.filter((entry) => LOT_SELECTION.codes.has(entry.unitCode));
+  } else if (LOT_SELECTION.sample) {
+    selectedEntries = uniqueEntries.slice(0, LOT_SELECTION.sample);
+  }
+
+  const selectedCodes = new Set(selectedEntries.map((entry) => entry.unitCode));
+  const uniqueLotTotal = selectedEntries.length;
   let processedLots = 0;
   const progressStartedAt = Date.now();
 
-  console.log(`• Page ${pageNumber}: ${pageEntries.length} code hit(s) · ${uniqueLotTotal} unique lot(s) · ${sourceLabel(source)}`);
+  console.log(`• Page ${pageNumber}: ${pageEntries.length} code hit(s) · ${uniqueEntries.length} indexed unique lot(s) · ${sourceLabel(source)}`);
   console.log(`  Preparing lot assets: 0/${uniqueLotTotal} · 0.0%`);
 
   for (const entry of pageEntries) {
-    if (manifest.lots[entry.unitCode]) continue;
+    if (!selectedCodes.has(entry.unitCode) || manifest.lots[entry.unitCode]) continue;
     const [rawX, rawY] = viewport.convertToViewportPoint(entry.x, entry.y);
     const anchorW = Math.max(14, entry.width);
     const anchorH = Math.max(14, entry.height);
@@ -317,13 +362,19 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
   console.log(`✓ Page ${pageNumber}/${pdfDoc.numPages} · ${pageEntries.length} code hit(s) · ${processedLots} lot(s) prepared`);
 }
 
+if (LOT_SELECTION.codes.size) {
+  const missing = [...LOT_SELECTION.codes].filter((code) => !manifest.index[code]);
+  if (missing.length) console.warn(`△ Requested code(s) not found in PDF index: ${missing.join(", ")}`);
+}
+
 fs.writeFileSync(path.join(generatedDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
 await pdfDoc.destroy();
 
 const lotCount = Object.keys(manifest.lots).length;
 if (!lotCount) {
-  console.error("✕ Prepared masterplan contains 0 lot rasters. The PDF text index did not match PlotFlow unit-code format.");
+  console.error("✕ Prepared masterplan contains 0 lot rasters for the selected preparation set.");
+  console.error("  Try: npm run prepare-masterplan -- --sample 14");
   process.exit(1);
 }
-console.log(`✓ Prepared masterplan · ${lotCount} lot raster(s)`);
+console.log(`✓ Prepared masterplan · ${lotCount} lot raster(s) · ${Object.keys(manifest.index).length} indexed code(s)`);
 console.log("  Next step: generate-page-tiles.mjs builds the global viewport pyramid.");
