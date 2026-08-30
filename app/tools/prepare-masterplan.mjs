@@ -46,6 +46,7 @@ const PREVIEW_WIDTH = Number(process.env.PLOTFLOW_LOT_PREVIEW_WIDTH || 640);
 const PAGE_PREVIEW_WIDTH = Number(process.env.PLOTFLOW_PAGE_PREVIEW_WIDTH || 1800);
 const FRAME_ASPECT = 506 / 390;
 const RASTER_EXT_RE = /\.(png|jpe?g|webp|tiff?)$/i;
+const PROGRESS_EVERY = Math.max(1, Number(process.env.PLOTFLOW_PROGRESS_EVERY || 25));
 
 function normalizeUnitCode(value) {
   return String(value || "")
@@ -70,6 +71,17 @@ function defaultCrop(pageWidth, pageHeight, anchorX, anchorY) {
 
 function safeName(value) {
   return String(value).replace(/[^A-Z0-9_-]+/gi, "_");
+}
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "--";
+  const totalSeconds = Math.round(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours) return `${hours}h ${minutes}m`;
+  if (minutes) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
 }
 
 function rasterCandidates(pageNumber, totalPages) {
@@ -233,7 +245,12 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     dzi: null,
   };
 
-  console.log(`• Page ${pageNumber}: ${pageEntries.length} code hit(s) · ${sourceLabel(source)}`);
+  const uniqueLotTotal = new Set(pageEntries.map((entry) => entry.unitCode)).size;
+  let processedLots = 0;
+  const progressStartedAt = Date.now();
+
+  console.log(`• Page ${pageNumber}: ${pageEntries.length} code hit(s) · ${uniqueLotTotal} unique lot(s) · ${sourceLabel(source)}`);
+  console.log(`  Preparing lot assets: 0/${uniqueLotTotal} · 0.0%`);
 
   for (const entry of pageEntries) {
     if (manifest.lots[entry.unitCode]) continue;
@@ -282,10 +299,22 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
       anchor: { x: (anchorX - crop.x) / crop.w, y: (anchorY - crop.y) / crop.h },
       crop,
     };
+
+    processedLots += 1;
+    if (processedLots === uniqueLotTotal || processedLots % PROGRESS_EVERY === 0) {
+      const elapsed = Date.now() - progressStartedAt;
+      const percent = uniqueLotTotal ? processedLots / uniqueLotTotal * 100 : 100;
+      const averageMs = processedLots ? elapsed / processedLots : 0;
+      const remaining = Math.max(0, uniqueLotTotal - processedLots);
+      const etaMs = averageMs * remaining;
+      console.log(
+        `  Progress: ${processedLots}/${uniqueLotTotal} · ${percent.toFixed(1)}% · elapsed ${formatDuration(elapsed)} · ETA ~${formatDuration(etaMs)}`
+      );
+    }
   }
 
   page.cleanup?.();
-  console.log(`✓ Page ${pageNumber}/${pdfDoc.numPages} · ${pageEntries.length} code hit(s)`);
+  console.log(`✓ Page ${pageNumber}/${pdfDoc.numPages} · ${pageEntries.length} code hit(s) · ${processedLots} lot(s) prepared`);
 }
 
 fs.writeFileSync(path.join(generatedDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
@@ -297,4 +326,4 @@ if (!lotCount) {
   process.exit(1);
 }
 console.log(`✓ Prepared masterplan · ${lotCount} lot raster(s)`);
-console.log("  Next step: generate-lot-tiles.mjs builds the bounded viewport pyramid.");
+console.log("  Next step: generate-page-tiles.mjs builds the global viewport pyramid.");
