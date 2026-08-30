@@ -83,19 +83,6 @@ function ensureHistoricPdf(oid) {
   return objectPath;
 }
 
-function currentPageDimensions() {
-  const manifest = readJson(manifestPath, null);
-  const pages = manifest?.pages || {};
-  const result = {};
-  for (const [pageNumber, page] of Object.entries(pages)) {
-    result[pageNumber] = {
-      width: Number(page?.width || 0),
-      height: Number(page?.height || 0),
-    };
-  }
-  return result;
-}
-
 function dedupe(entries) {
   const seen = new Set();
   return entries.filter((entry) => {
@@ -106,10 +93,93 @@ function dedupe(entries) {
   });
 }
 
+function solve3(matrix, vector) {
+  const a = matrix.map((row, index) => [...row, vector[index]]);
+  for (let col = 0; col < 3; col += 1) {
+    let pivot = col;
+    for (let row = col + 1; row < 3; row += 1) {
+      if (Math.abs(a[row][col]) > Math.abs(a[pivot][col])) pivot = row;
+    }
+    if (Math.abs(a[pivot][col]) < 1e-9) return null;
+    [a[col], a[pivot]] = [a[pivot], a[col]];
+    const divisor = a[col][col];
+    for (let j = col; j < 4; j += 1) a[col][j] /= divisor;
+    for (let row = 0; row < 3; row += 1) {
+      if (row === col) continue;
+      const factor = a[row][col];
+      for (let j = col; j < 4; j += 1) a[row][j] -= factor * a[col][j];
+    }
+  }
+  return [a[0][3], a[1][3], a[2][3]];
+}
+
+function fitAffine(pairs) {
+  if (pairs.length < 3) return null;
+  const normal = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  const bx = [0, 0, 0];
+  const by = [0, 0, 0];
+  for (const pair of pairs) {
+    const row = [pair.old.x, pair.old.y, 1];
+    for (let i = 0; i < 3; i += 1) {
+      bx[i] += row[i] * pair.current.x;
+      by[i] += row[i] * pair.current.y;
+      for (let j = 0; j < 3; j += 1) normal[i][j] += row[i] * row[j];
+    }
+  }
+  const x = solve3(normal, bx);
+  const y = solve3(normal, by);
+  if (!x || !y) return null;
+  return { a: x[0], b: x[1], c: x[2], d: y[0], e: y[1], f: y[2] };
+}
+
+function applyAffine(model, point) {
+  return {
+    x: model.a * point.x + model.b * point.y + model.c,
+    y: model.d * point.x + model.e * point.y + model.f,
+  };
+}
+
+function median(values) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function residual(model, pair) {
+  const mapped = applyAffine(model, pair.old);
+  return Math.hypot(mapped.x - pair.current.x, mapped.y - pair.current.y);
+}
+
+function robustAffine(pairs) {
+  let active = pairs;
+  let model = fitAffine(active);
+  if (!model) return null;
+  for (let pass = 0; pass < 3; pass += 1) {
+    const errors = active.map((pair) => residual(model, pair));
+    const med = median(errors);
+    const threshold = Math.max(2, med * 4);
+    const filtered = active.filter((pair) => residual(model, pair) <= threshold);
+    if (filtered.length < 12 || filtered.length === active.length) break;
+    active = filtered;
+    model = fitAffine(active) || model;
+  }
+  const errors = active.map((pair) => residual(model, pair));
+  return {
+    model,
+    landmarks: active.length,
+    medianError: median(errors),
+    maxError: errors.length ? Math.max(...errors) : 0,
+  };
+}
+
 const { oid, size } = historicalPointer();
 console.log(`Historic source: ${HISTORIC_COMMIT.slice(0, 8)} · ${HISTORIC_PDF_PATH}`);
 console.log(`LFS oid: ${oid} · ${(size / 1024 / 1024).toFixed(2)} MB`);
 console.log(`Recovering prefix: ${requestedPrefix}`);
+
+const manifest = readJson(manifestPath, null);
+if (!manifest?.index) throw new Error("Không tìm thấy generated/manifest.json hiện tại để calibrate tọa độ.");
 
 const historicPdfPath = ensureHistoricPdf(oid);
 const data = new Uint8Array(fs.readFileSync(historicPdfPath));
@@ -120,62 +190,98 @@ const doc = await pdfjsLib.getDocument({
   disableFontFace: true,
 }).promise;
 
-const currentDims = currentPageDimensions();
-const recovered = {};
-
+const historicIndex = {};
 for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
   const page = await doc.getPage(pageNumber);
-  const viewport = page.getViewport({ scale: 1 });
-  const current = currentDims[String(pageNumber)];
-  const scaleX = current?.width ? current.width / viewport.width : 1;
-  const scaleY = current?.height ? current.height / viewport.height : 1;
   const content = await page.getTextContent();
-
   for (const item of content.items) {
     if (!item?.str) continue;
     const normalizedText = normalizeUnitCode(item.str);
     const matches = normalizedText.match(UNIT_CODE_RE) || [];
     for (const rawCode of matches) {
       const code = normalizeUnitCode(rawCode);
-      if (!code.startsWith(requestedPrefix)) continue;
       const entry = {
         unitCode: code,
         pageNumber,
-        x: Number(item.transform?.[4] || 0) * scaleX,
-        y: Number(item.transform?.[5] || 0) * scaleY,
-        width: Number(item.width || 0) * scaleX,
-        height: Number(item.height || Math.abs(item.transform?.[3] || 0) || 0) * scaleY,
+        x: Number(item.transform?.[4] || 0),
+        y: Number(item.transform?.[5] || 0),
+        width: Number(item.width || 0),
+        height: Number(item.height || Math.abs(item.transform?.[3] || 0) || 0),
         sourceText: item.str,
-        locatorSource: "historic-pdf",
       };
-      if (!recovered[code]) recovered[code] = [];
-      recovered[code].push(entry);
+      if (!historicIndex[code]) historicIndex[code] = [];
+      historicIndex[code].push(entry);
     }
   }
   page.cleanup?.();
 }
-
 try { doc.cleanup?.(); } catch {}
 try { await doc.destroy?.(); } catch {}
+for (const code of Object.keys(historicIndex)) historicIndex[code] = dedupe(historicIndex[code]);
 
-for (const code of Object.keys(recovered)) recovered[code] = dedupe(recovered[code]);
+const calibrationPairs = [];
+for (const [code, historicEntries] of Object.entries(historicIndex)) {
+  const currentEntries = manifest.index?.[code] || [];
+  if (historicEntries.length !== 1 || currentEntries.length !== 1) continue;
+  const old = historicEntries[0];
+  const current = currentEntries[0];
+  if (Number(old.pageNumber) !== Number(current.pageNumber)) continue;
+  calibrationPairs.push({ code, old, current });
+}
+
+const alignment = robustAffine(calibrationPairs);
+if (!alignment || alignment.landmarks < 12) {
+  throw new Error(`Không đủ landmark chung để align PDF cũ → masterplan hiện tại (${alignment?.landmarks || 0}).`);
+}
+console.log(`Alignment: ${alignment.landmarks} shared landmarks · median error ${alignment.medianError.toFixed(2)} PDF units · max ${alignment.maxError.toFixed(2)}`);
+if (alignment.medianError > 8) {
+  console.warn("⚠ Alignment residual khá cao. Hãy gửi output này trước khi dùng locator override trong production.");
+}
+
+const recovered = {};
+for (const [code, historicEntries] of Object.entries(historicIndex)) {
+  if (!code.startsWith(requestedPrefix)) continue;
+  recovered[code] = historicEntries.map((entry) => {
+    const mapped = applyAffine(alignment.model, entry);
+    const widthVector = {
+      x: alignment.model.a * entry.width,
+      y: alignment.model.d * entry.width,
+    };
+    const heightVector = {
+      x: alignment.model.b * entry.height,
+      y: alignment.model.e * entry.height,
+    };
+    return {
+      ...entry,
+      x: mapped.x,
+      y: mapped.y,
+      width: Math.hypot(widthVector.x, widthVector.y),
+      height: Math.hypot(heightVector.x, heightVector.y),
+      locatorSource: "historic-pdf-affine-aligned",
+    };
+  });
+}
 
 const overrides = readJson(overridesPath, {});
 overrides._meta = {
   ...(overrides._meta || {}),
-  version: 1,
+  version: 2,
   lastRecoveredAt: new Date().toISOString(),
   historicCommit: HISTORIC_COMMIT,
   historicLfsOid: oid,
   recoveredPrefix: requestedPrefix,
-  note: "Coordinates are extracted from the historical masterplan that previously supported Vietnamese DLCV labels. The historical PDF is preprocessing-only and is never loaded by runtime.",
+  alignmentLandmarks: alignment.landmarks,
+  alignmentMedianError: alignment.medianError,
+  alignmentMaxError: alignment.maxError,
+  alignmentModel: alignment.model,
+  note: "Historic coordinates are aligned to the current masterplan using shared unit-code landmarks. The historical PDF is preprocessing-only and is never loaded by runtime.",
 };
 
 let recoveredCodes = 0;
 let recoveredMatches = 0;
 for (const [code, entries] of Object.entries(recovered)) {
   if (!entries.length) continue;
-  overrides[code] = entries;
+  overrides[code] = dedupe(entries);
   recoveredCodes += 1;
   recoveredMatches += entries.length;
 }
@@ -185,7 +291,7 @@ fs.writeFileSync(overridesPath, `${JSON.stringify(overrides, null, 2)}\n`, "utf8
 console.log(`Recovered ${recoveredCodes} code(s) · ${recoveredMatches} coordinate match(es).`);
 if (overrides["DLCV2-14"]?.length) {
   const entry = overrides["DLCV2-14"][0];
-  console.log(`✓ DLCV2-14 recovered at page ${entry.pageNumber} · x=${entry.x.toFixed(2)} · y=${entry.y.toFixed(2)}`);
+  console.log(`✓ DLCV2-14 aligned at page ${entry.pageNumber} · x=${entry.x.toFixed(2)} · y=${entry.y.toFixed(2)}`);
 } else if (requestedPrefix === "DLCV") {
   console.warn("⚠ DLCV2-14 was not recovered from the historical PDF. Share this output before doing any manual locating.");
 }
