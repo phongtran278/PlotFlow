@@ -52,7 +52,7 @@ function normalizeUnitCode(value) {
   return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[Đđ]/g, "D")
+    .replace(/[ĐđÐð]/g, "D")
     .toUpperCase()
     .replace(/\s+/g, "")
     .trim();
@@ -172,11 +172,11 @@ function sourceLabel(source) {
   return `${source.width}×${source.height} · ${path.basename(source.path)}`;
 }
 
-fs.rmSync(generatedDir, { recursive: true, force: true });
-fs.mkdirSync(path.join(generatedDir, "pages"), { recursive: true });
-fs.mkdirSync(path.join(generatedDir, "lots"), { recursive: true });
-fs.mkdirSync(path.join(generatedDir, "lots-medium"), { recursive: true });
-fs.mkdirSync(path.join(generatedDir, "lots-preview"), { recursive: true });
+fs.mkdirSync(generatedDir, { recursive: true });
+for (const name of ["pages", "lots", "lots-medium", "lots-preview"]) {
+  fs.rmSync(path.join(generatedDir, name), { recursive: true, force: true });
+  fs.mkdirSync(path.join(generatedDir, name), { recursive: true });
+}
 
 const data = new Uint8Array(fs.readFileSync(pdfPath));
 const pdfDoc = await pdfjsLib.getDocument({
@@ -239,7 +239,7 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
   if (!source?.width || !source?.height) {
     console.error(`✕ Missing pixel source for PDF page ${pageNumber}.`);
     console.error("  Put the hires tile output under app/public/masterplan/hires-masterplan/ or provide masterplan-raster.png.");
-    await pdfDoc.destroy();
+    try { await pdfDoc.destroy?.(); } catch {}
     process.exit(1);
   }
 
@@ -249,7 +249,7 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
   if (aspectError > 0.025) {
     console.error(`✕ Pixel source aspect does not match PDF page ${pageNumber}.`);
     console.error(`  PDF: ${viewport.width.toFixed(1)}×${viewport.height.toFixed(1)} · source: ${source.width}×${source.height}`);
-    await pdfDoc.destroy();
+    try { await pdfDoc.destroy?.(); } catch {}
     process.exit(1);
   }
 
@@ -260,6 +260,15 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
   const pageInfo = await sharp(pagePreviewBuffer, { limitInputPixels: false })
     .webp({ quality: 80, effort: 3, smartSubsample: true })
     .toFile(path.join(generatedDir, "pages", pagePreviewName));
+
+  const previousManifestPath = path.join(generatedDir, "manifest.json");
+  let previousTiles = null;
+  if (fs.existsSync(previousManifestPath)) {
+    try {
+      const previousManifest = JSON.parse(fs.readFileSync(previousManifestPath, "utf8"));
+      previousTiles = previousManifest.pages?.[String(pageNumber)]?.tiles || previousManifest.pages?.[pageNumber]?.tiles || null;
+    } catch {}
+  }
 
   manifest.pages[String(pageNumber)] = {
     width: viewport.width,
@@ -272,6 +281,7 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
     sourceType: source.type,
     sourceManifest: source.type === "tiles" ? path.relative(publicMasterDir, source.manifestPath) : null,
     dzi: null,
+    ...(previousTiles ? { tiles: previousTiles } : {}),
   };
 
   const uniqueEntries = [];
@@ -368,7 +378,7 @@ if (LOT_SELECTION.codes.size) {
 }
 
 fs.writeFileSync(path.join(generatedDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
-await pdfDoc.destroy();
+try { await pdfDoc.destroy?.(); } catch {}
 
 const lotCount = Object.keys(manifest.lots).length;
 if (!lotCount) {
@@ -377,4 +387,4 @@ if (!lotCount) {
   process.exit(1);
 }
 console.log(`✓ Prepared masterplan · ${lotCount} lot raster(s) · ${Object.keys(manifest.index).length} indexed code(s)`);
-console.log("  Next step: generate-page-tiles.mjs builds the global viewport pyramid.");
+console.log("  Global page tiles are preserved when already generated.");
