@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditorV2.jsx";
 import "./UnifiedFloorplanEntry.css";
 import { assetLibrary } from "../data/assetLibrary";
@@ -109,7 +109,7 @@ function installSingleRasterSurface() {
 
   async function consumeImage(img) {
     if (disposed || !img?.isConnected) return;
-    const src = img.getAttribute("src") || img.src;
+    const src = img.getAttribute("src");
     if (!src || img.dataset.plotflowCanvasConsumed === src) return;
     img.dataset.plotflowCanvasConsumed = src;
 
@@ -206,6 +206,14 @@ export default function FloorplanFineTune({
   const currentIndex = locatorResult?.selectedMatchIndex ?? 0;
   const savedOverride = loadJson(FLOORPLAN_OVERRIDE_KEY, {})[code] || null;
   const persistedOverlay = loadJson(LOT_OVERLAY_KEY, {})[code] || null;
+  const renderPreviewRef = useRef(onRenderVectorPreview);
+
+  renderPreviewRef.current = onRenderVectorPreview;
+
+  // Important: the editor render effect must not depend on a callback identity that
+  // changes whenever App re-renders. Keep one stable function for the whole Fine Tune
+  // session; only the actual page/camera values are allowed to trigger raster work.
+  const stableRenderPreview = useCallback((view) => renderPreviewRef.current?.(view), []);
 
   const sameSavedSource = savedOverride
     ? (savedOverride.selectedMatchIndex ?? 0) === currentIndex
@@ -238,7 +246,7 @@ export default function FloorplanFineTune({
       onCancel={onCancel}
       onSave={saveComposition}
       onCandidateChange={onCandidateChange}
-      onRenderVectorPreview={onRenderVectorPreview}
+      onRenderVectorPreview={stableRenderPreview}
     />
   );
 }
