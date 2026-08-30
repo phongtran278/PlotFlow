@@ -1,3 +1,5 @@
+import locatorOverrides from "./locatorOverrides.json";
+
 function uniqueMatches(matches = []) {
   const seen = new Set();
   return matches.filter((match) => {
@@ -27,8 +29,8 @@ function compatibleKeys(key) {
   const keys = new Set([key]);
 
   // Vietnamese embedded fonts can expose Đ as a missing glyph or split the prefix
-  // into separate PDF text fragments. For the DLCV family only, tolerate the two
-  // observed fragments: DLCV2-14 -> LCV2-14 -> CV2-14.
+  // into separate PDF text fragments. Keep these aliases for old/current indexes,
+  // while durable recovered coordinates live in locatorOverrides.json.
   if (key.startsWith("DLCV")) {
     keys.add(key.slice(1));
     keys.add(key.slice(2));
@@ -39,7 +41,27 @@ function compatibleKeys(key) {
   return [...keys];
 }
 
+function overrideMatchesForKey(key) {
+  for (const candidate of compatibleKeys(key)) {
+    const direct = locatorOverrides?.[candidate];
+    if (Array.isArray(direct) && direct.length) return uniqueMatches(direct);
+  }
+
+  const compatible = new Set(compatibleKeys(key));
+  const normalized = [];
+  for (const [rawKey, rawMatches] of Object.entries(locatorOverrides || {})) {
+    if (rawKey.startsWith("_")) continue;
+    if (compatible.has(normalizeUnitCode(rawKey)) && Array.isArray(rawMatches)) normalized.push(...rawMatches);
+  }
+  return uniqueMatches(normalized);
+}
+
 function matchesForKey(index, key) {
+  // Durable overrides win. They are recovered/confirmed coordinates and must survive
+  // future masterplan optimization or manifest regeneration.
+  const overrideMatches = overrideMatchesForKey(key);
+  if (overrideMatches.length) return overrideMatches;
+
   const direct = compatibleKeys(key).flatMap((candidate) => index?.[candidate] || []);
   if (direct.length) return uniqueMatches(direct);
 
