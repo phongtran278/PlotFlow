@@ -8,7 +8,12 @@ app/dist/
 
 # Generated runtime copies
 app/public/assets/
-app/public/masterplan/
+app/public/masterplan/*
+!app/public/masterplan/generated/
+app/public/masterplan/generated/*
+!app/public/masterplan/generated/manifest.json
+!app/public/masterplan/generated/page-tiles/
+!app/public/masterplan/generated/page-tiles/**
 
 # Overview PDF optimizer scratch/backups
 app/public/overview-masterplan/*.source-backup.pdf
