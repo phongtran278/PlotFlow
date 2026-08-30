@@ -26,11 +26,15 @@ export function normalizeUnitCode(value) {
 function compatibleKeys(key) {
   const keys = new Set([key]);
 
-  // Some embedded Vietnamese PDF fonts expose Đ as a glyph with no Unicode mapping.
-  // In that case PDF.js can return LCV... instead of ĐLCV/DLCV.... Keep this targeted
-  // alias so unrelated leading-D unit families are never merged accidentally.
-  if (key.startsWith("DLCV")) keys.add(key.slice(1));
+  // Vietnamese embedded fonts can expose Đ as a missing glyph or split the prefix
+  // into separate PDF text fragments. For the DLCV family only, tolerate the two
+  // observed fragments: DLCV2-14 -> LCV2-14 -> CV2-14.
+  if (key.startsWith("DLCV")) {
+    keys.add(key.slice(1));
+    keys.add(key.slice(2));
+  }
   if (key.startsWith("LCV")) keys.add(`D${key}`);
+  if (key.startsWith("CV")) keys.add(`DL${key}`);
 
   return [...keys];
 }
@@ -39,8 +43,6 @@ function matchesForKey(index, key) {
   const direct = compatibleKeys(key).flatMap((candidate) => index?.[candidate] || []);
   if (direct.length) return uniqueMatches(direct);
 
-  // Older/generated indexes may still contain the raw PDF glyph. Normalize keys lazily
-  // here rather than forcing a full masterplan rebuild just to repair a character map.
   const compatible = new Set(compatibleKeys(key));
   const normalized = [];
   for (const [rawKey, rawMatches] of Object.entries(index || {})) {
@@ -53,7 +55,10 @@ export function resolveUnitsAgainstIndex(units, index) {
   const result = {};
   for (const unit of units || []) {
     const key = normalizeUnitCode(unit?.unitCode);
-    const matches = matchesForKey(index, key);
+    const matches = matchesForKey(index, key).map((match) => ({
+      ...match,
+      unitCode: key,
+    }));
     result[key] = {
       unitCode: key,
       status: matches.length === 0 ? "not_found" : matches.length === 1 ? "ready" : "review",
