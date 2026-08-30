@@ -4,6 +4,8 @@ import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
 const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
 const FINE_TUNE_REQUEST_WIDTH = 1640;
+const PAGE_TILE_SIZE = 512;
+const PAGE_TILE_MIN_WIDTH = 1800;
 const stablePreviewUrls = new Map();
 
 let pageTileManifestPromise = null;
@@ -65,14 +67,50 @@ async function loadPreparedManifest() {
   return pageTileManifestPromise;
 }
 
+function inferExistingPageTiles(pageInfo, pageNumber = 1) {
+  if (pageInfo?.tiles?.base && pageInfo?.tiles?.levels?.length) return pageInfo.tiles;
+
+  const sourceWidth = Number(pageInfo?.sourceRasterWidth || 0);
+  const sourceHeight = Number(pageInfo?.sourceRasterHeight || 0);
+  if (!sourceWidth || !sourceHeight) return null;
+
+  const widths = [];
+  let width = sourceWidth;
+  while (width > PAGE_TILE_MIN_WIDTH) {
+    widths.push(Math.round(width));
+    width /= 2;
+  }
+  widths.push(Math.max(PAGE_TILE_MIN_WIDTH, Math.round(width)));
+
+  const levels = [...new Set(widths)].sort((a, b) => a - b).map((levelWidth) => {
+    const levelHeight = Math.max(1, Math.round(sourceHeight * (levelWidth / sourceWidth)));
+    return {
+      width: levelWidth,
+      height: levelHeight,
+      cols: Math.ceil(levelWidth / PAGE_TILE_SIZE),
+      rows: Math.ceil(levelHeight / PAGE_TILE_SIZE),
+      tileSize: PAGE_TILE_SIZE,
+    };
+  });
+
+  return {
+    base: `/masterplan/generated/page-tiles/page-${pageNumber}`,
+    tileSize: PAGE_TILE_SIZE,
+    sourceWidth,
+    sourceHeight,
+    levels,
+    inferred: true,
+  };
+}
+
 function boundedOutputWidth(options = {}) {
   const profile = getMemoryProfile();
   const requested = Math.max(480, Math.round(options.outputWidth || FINE_TUNE_REQUEST_WIDTH));
   return profile.lowMemory ? Math.min(requested, 1280) : Math.min(requested, 1640);
 }
 
-function choosePageTileLevel(pageInfo, crop, outputWidth) {
-  const levels = [...(pageInfo?.tiles?.levels || [])].sort((a, b) => Number(a.width) - Number(b.width));
+function choosePageTileLevel(pageInfo, tiles, crop, outputWidth) {
+  const levels = [...(tiles?.levels || [])].sort((a, b) => Number(a.width) - Number(b.width));
   if (!levels.length) return null;
   const equivalentPageWidth = outputWidth * (Number(pageInfo.width || 1) / Math.max(1, crop.w));
   const adequate = levels.find((level) => Number(level.width) >= equivalentPageWidth * 0.82);
@@ -133,19 +171,20 @@ async function canvasToPageTileResult(canvas, crop, epoch, extra = {}) {
 
 async function renderFromGlobalPageTiles(pageRender, view, options = {}) {
   const manifest = await loadPreparedManifest();
-  const pageInfo = manifest?.pages?.[String(pageRender?.pageNumber || 1)];
-  const tiles = pageInfo?.tiles;
+  const pageNumber = Number(pageRender?.pageNumber || 1);
+  const pageInfo = manifest?.pages?.[String(pageNumber)];
+  const tiles = inferExistingPageTiles(pageInfo, pageNumber);
   if (!tiles?.base || !tiles?.levels?.length) return null;
 
   const aspect = options.aspect || FLOORPLAN_FRAME_ASPECT;
   const crop = calculateCropRect(pageRender, view, aspect);
   const outputWidth = boundedOutputWidth(options);
   const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
-  const level = choosePageTileLevel(pageInfo, crop, outputWidth);
+  const level = choosePageTileLevel(pageInfo, tiles, crop, outputWidth);
   if (!level) return null;
 
   const epoch = ++pageTileEpoch;
-  const tileSize = Number(level.tileSize || tiles.tileSize || 512);
+  const tileSize = Number(level.tileSize || tiles.tileSize || PAGE_TILE_SIZE);
   const scaleX = Number(level.width) / Math.max(1, Number(pageInfo.width || pageRender.width || 1));
   const scaleY = Number(level.height) / Math.max(1, Number(pageInfo.height || pageRender.height || 1));
   const sx = crop.x * scaleX;
@@ -206,6 +245,7 @@ async function renderFromGlobalPageTiles(pageRender, view, options = {}) {
     width: outputWidth,
     height: outputHeight,
     preparedTier: `page-tiles-${level.width}`,
+    inferredPageTileMetadata: Boolean(tiles.inferred),
   });
 }
 
@@ -213,9 +253,8 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
   const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
   const isPrepared = Boolean(pageRender?.__plotflowPrepared);
 
-  // The global page pyramid is now the single prepared-masterplan pixel source for
-  // previews, Fine Tune, Lot Highlight and save renders. This keeps every lot on the
-  // same camera/crop math instead of mixing 640/1600/2168 lot rasters with page preview.
+  // Global page tiles are the canonical prepared-masterplan pixel source. The bounded
+  // lot rasters remain only as a fallback for old projects or incomplete tile bundles.
   let result = null;
   if (isPrepared) {
     try {
@@ -228,8 +267,6 @@ export async function renderPdfRegion(pdfDoc, pageRender, view, options = {}) {
   if (!result) result = await prepared.renderPdfRegion(pdfDoc, pageRender, view, options);
   if (!result?.dataUrl) return result;
 
-  // Screen/save previews outlive the exclusive interactive tile result. Clone them into
-  // the bounded stable-preview pool so moving to another lot cannot revoke the poster.
   const isSavedScreenPreview = options.includeHighlight === false
     && !options.maxRenderScale
     && requestedWidth <= 1084;
