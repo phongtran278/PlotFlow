@@ -13,4 +13,4 @@ export {
   renderPdfRegion,
   releasePreparedDetailRaster,
   releasePreparedFallbackPdf,
-} from "./pdfLocatorRuntime.js";
+} from "./pdfLocatorRuntimeStrict.js";
