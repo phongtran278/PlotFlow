@@ -11,27 +11,21 @@ function percentToViewport(value, size, offset, scale) {
   return ((offset + worldPx * scale) / Math.max(1, size)) * 100;
 }
 
+function codeFor(card) {
+  return card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code,header strong")?.textContent?.trim() || "";
+}
+
 export default function WindowsOverviewViewportRuntime() {
   useEffect(() => {
     if (!isWindows()) return undefined;
 
     let stage = null;
     let observer = null;
-    let cardBase = new WeakMap();
     let lastCamera = { scale: 1, tx: 0, ty: 0 };
 
     function syncStage() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts") || null;
       return stage;
-    }
-
-    function baseForCard(card) {
-      let base = cardBase.get(card);
-      if (!base) {
-        base = { left: card.offsetLeft, top: card.offsetTop };
-        cardBase.set(card, base);
-      }
-      return base;
     }
 
     function clearWorldTransforms() {
@@ -47,13 +41,12 @@ export default function WindowsOverviewViewportRuntime() {
     function positionCards(scale, tx, ty) {
       if (!stage) return;
       stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").forEach((card) => {
-        const base = baseForCard(card);
-        const targetLeft = tx + base.left * scale;
-        const targetTop = ty + base.top * scale;
-        const dx = targetLeft - base.left;
-        const dy = targetTop - base.top;
+        const baseLeft = card.offsetLeft;
+        const baseTop = card.offsetTop;
+        const targetLeft = tx + baseLeft * scale;
+        const targetTop = ty + baseTop * scale;
         card.style.transformOrigin = "0 0";
-        card.style.transform = `translate(${dx}px, ${dy}px)`;
+        card.style.transform = `translate(${targetLeft - baseLeft}px, ${targetTop - baseTop}px)`;
         card.style.willChange = "auto";
       });
     }
@@ -62,16 +55,30 @@ export default function WindowsOverviewViewportRuntime() {
       if (!stage) return;
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
+      const cards = Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout"));
+      const anchors = Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor"));
+      const cardByCode = new Map(cards.map((card) => [codeFor(card), card]));
+      const anchorByCode = new Map(anchors.map((anchor) => [anchor.dataset.unitCode || anchor.textContent?.trim() || "", anchor]));
+
       stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => {
-        const x1 = Number(line.getAttribute("x1"));
-        const y1 = Number(line.getAttribute("y1"));
-        const x2 = Number(line.getAttribute("x2"));
-        const y2 = Number(line.getAttribute("y2"));
-        if (![x1, y1, x2, y2].every(Number.isFinite)) return;
-        line.setAttribute("x1", String(percentToViewport(x1, w, tx, scale)));
-        line.setAttribute("y1", String(percentToViewport(y1, h, ty, scale)));
-        line.setAttribute("x2", String(percentToViewport(x2, w, tx, scale)));
-        line.setAttribute("y2", String(percentToViewport(y2, h, ty, scale)));
+        const code = line.dataset.unitCode || "";
+        const card = cardByCode.get(code);
+        const anchor = anchorByCode.get(code);
+        if (!card || !anchor) return;
+
+        const anchorX = Number.parseFloat(anchor.style.left || "50");
+        const anchorY = Number.parseFloat(anchor.style.top || "50");
+        const anchorPx = anchorX / 100 * w;
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const startPxX = anchorPx >= cardCenter ? card.offsetLeft + card.offsetWidth : card.offsetLeft;
+        const startPxY = card.offsetTop + card.offsetHeight / 2;
+        const startX = startPxX / w * 100;
+        const startY = startPxY / h * 100;
+
+        line.setAttribute("x1", String(percentToViewport(startX, w, tx, scale)));
+        line.setAttribute("y1", String(percentToViewport(startY, h, ty, scale)));
+        line.setAttribute("x2", String(percentToViewport(anchorX, w, tx, scale)));
+        line.setAttribute("y2", String(percentToViewport(anchorY, h, ty, scale)));
       });
     }
 
@@ -104,6 +111,8 @@ export default function WindowsOverviewViewportRuntime() {
         scale,
         cards: stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").length,
         giantWorldScale: false,
+        liveCardCoordinates: true,
+        connectorCoordinatesRebuilt: true,
       };
     }
 
@@ -112,7 +121,6 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function onLayoutChanged() {
-      cardBase = new WeakMap();
       window.requestAnimationFrame(() => applyCamera(lastCamera));
     }
 
