@@ -1,17 +1,8 @@
-.pf-overview-guide-control{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.pf-overview-guide-control button{height:30px;padding:0 10px;border:1px solid rgba(17,24,39,.12);border-radius:8px;background:#fff;color:#25313c;font:600 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif;cursor:pointer;white-space:nowrap}
-.pf-overview-guide-control button.active{background:#eef6ff;border-color:#9cc8ff;color:#145ea8}
-.pf-overview-guide-control label{display:flex;align-items:center;gap:5px;height:30px;padding:0 8px;border:1px solid rgba(17,24,39,.10);border-radius:8px;background:#fff;color:#53606c;font:600 10px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif}
-.pf-overview-guide-control label input{width:42px;border:0;outline:0;background:transparent;color:#25313c;text-align:right;font:700 11px/1 PlotFlowBrand,"SVN-Gilroy",Gilroy,Inter,sans-serif}
-.pf-overview-guide-control label b{font-weight:600;color:#8a949d}
-.pf-overview-grid{position:absolute;z-index:4;pointer-events:none;background-image:linear-gradient(to right,rgba(20,115,230,.10) 1px,transparent 1px),linear-gradient(to bottom,rgba(20,115,230,.10) 1px,transparent 1px);background-size:var(--pf-grid-size,16px) var(--pf-grid-size,16px);box-shadow:inset 0 0 0 1px rgba(20,115,230,.08)}
-.pf-overview-guide-line{position:absolute;z-index:28;pointer-events:auto;box-sizing:border-box}
-.pf-overview-guide-line::before{content:"";position:absolute;inset:0;pointer-events:none}
-.pf-overview-guide-line>span{position:absolute;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:#1473e6;color:#fff;font:700 11px/1 system-ui;box-shadow:0 4px 12px rgba(20,115,230,.24);cursor:grab;user-select:none}
-.pf-overview-guide-line.is-vertical{width:9px;transform:translateX(-4px);cursor:ew-resize}
-.pf-overview-guide-line.is-vertical::before{left:4px;width:1px;border-left:1px dashed rgba(20,115,230,.78)}
-.pf-overview-guide-line.is-vertical>span{left:-7px;top:8px}
-.pf-overview-guide-line.is-horizontal{height:9px;transform:translateY(-4px);cursor:ns-resize}
-.pf-overview-guide-line.is-horizontal::before{top:4px;height:1px;border-top:1px dashed rgba(20,115,230,.78)}
-.pf-overview-guide-line.is-horizontal>span{top:-7px;left:8px}
-.pf-masterplan-stage.is-exporting-overview .pf-overview-guide-line,.pf-masterplan-stage.is-exporting-overview .pf-overview-grid{display:none!important}
+.pf-overview-guide-control{display:flex;gap:4px;align-items:center}
+.pf-overview-guide-control button{height:26px;padding:0 9px;border:1px solid var(--pf-line);border-radius:var(--pf-radius-pill);background:var(--pf-surface-raised);color:var(--pf-muted);font-size:8px;font-weight:700;cursor:pointer;white-space:nowrap}
+.pf-overview-guide-control button:hover{color:var(--pf-ink)}
+.pf-overview-guide-control button.active{background:var(--pf-ink);color:#fff;border-color:var(--pf-ink)}
+.pf-overview-guide-line{position:absolute;z-index:48;width:9px;transform:translateX(-4px);pointer-events:auto;cursor:ew-resize;box-sizing:border-box}
+.pf-overview-guide-line::before{content:"";position:absolute;left:4px;top:0;width:1px;height:100%;border-left:1px solid #00a6ff;pointer-events:none}
+.pf-overview-guide-line>span{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:grid;place-items:center;min-width:22px;height:20px;padding:0 5px;border:1px solid rgba(0,122,204,.28);border-radius:999px;background:rgba(255,255,255,.94);color:#007acc;font-size:10px;line-height:1;box-shadow:0 3px 10px rgba(20,24,30,.10);user-select:none;cursor:ew-resize}
+.pf-masterplan-stage.is-exporting-overview .pf-overview-guide-line{display:none!important}
