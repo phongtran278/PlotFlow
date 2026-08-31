@@ -1,13 +1,11 @@
 import { useEffect } from "react";
+import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
 const BASE_WIDTH = 42000;
 const BASE_HEIGHT = 29709;
 const TILE_SIZE = 512;
 const LEVEL_WIDTHS = [1800, 2625, 5250, 10500, 21000, 42000];
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
-const MAX_DPR = 1.1;
-const MAX_VISIBLE_TILES = 10;
-const MAX_PARALLEL_LOADS = 2;
 const SETTLE_MS = 90;
 
 function levelInfo(width) {
@@ -50,6 +48,11 @@ function snap(value, dpr) {
 
 export default function OverviewRasterRuntime() {
   useEffect(() => {
+    const profile = getMemoryProfile();
+    const maxDpr = Math.max(1, Number(profile.overviewMaxDpr) || 1);
+    const maxVisibleTiles = Math.max(4, Number(profile.overviewTileTarget) || 8);
+    const maxParallelLoads = Math.max(1, Number(profile.overviewParallelLoads) || 1);
+
     let disposed = false;
     let stage = null;
     let layer = null;
@@ -66,13 +69,17 @@ export default function OverviewRasterRuntime() {
       mode: "memory-first-raster",
       source: "prepared-masterplan-page-1",
       group: "",
+      platform: profile.platform,
+      windowsProfile: profile.windows,
+      deviceMemoryGb: profile.deviceMemory,
       pdfRuntimeLoaded: false,
       iframeOpened: false,
       currentLevel: 0,
       activeTiles: 0,
       pendingTiles: 0,
-      tileCeiling: MAX_VISIBLE_TILES,
-      parallelLoads: MAX_PARALLEL_LOADS,
+      tileCeiling: maxVisibleTiles,
+      parallelLoads: maxParallelLoads,
+      maxDpr,
       loadedTiles: 0,
       releasedTiles: 0,
       failedTiles: 0,
@@ -132,12 +139,10 @@ export default function OverviewRasterRuntime() {
       const worldTop = (0 - camera.ty) / scale;
       const worldRight = (bounds.rectWidth - camera.tx) / scale;
       const worldBottom = (bounds.rectHeight - camera.ty) / scale;
-
       const sourceLeft = (worldLeft - bounds.x) / bounds.fit;
       const sourceTop = (worldTop - bounds.y) / bounds.fit;
       const sourceRight = (worldRight - bounds.x) / bounds.fit;
       const sourceBottom = (worldBottom - bounds.y) / bounds.fit;
-
       const sx0 = Math.max(0, Math.min(BASE_WIDTH, sourceLeft));
       const sy0 = Math.max(0, Math.min(BASE_HEIGHT, sourceTop));
       const sx1 = Math.max(0, Math.min(BASE_WIDTH, sourceRight));
@@ -160,7 +165,7 @@ export default function OverviewRasterRuntime() {
         }
       }
       jobs.sort((a, b) => a.distance - b.distance);
-      return jobs.slice(0, MAX_VISIBLE_TILES);
+      return jobs.slice(0, maxVisibleTiles);
     }
 
     function positionTile(image, level, col, row) {
@@ -172,13 +177,11 @@ export default function OverviewRasterRuntime() {
       const tileTop = row * TILE_SIZE;
       const tileRight = Math.min(info.width, tileLeft + TILE_SIZE);
       const tileBottom = Math.min(info.height, tileTop + TILE_SIZE);
-
       const baseLeft = bounds.x + (tileLeft / levelScaleX) * bounds.fit;
       const baseTop = bounds.y + (tileTop / levelScaleY) * bounds.fit;
       const baseRight = bounds.x + (tileRight / levelScaleX) * bounds.fit;
       const baseBottom = bounds.y + (tileBottom / levelScaleY) * bounds.fit;
-
-      const dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
+      const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
       const left = snap(camera.tx + baseLeft * camera.scale, dpr);
       const top = snap(camera.ty + baseTop * camera.scale, dpr);
       const right = snap(camera.tx + baseRight * camera.scale, dpr);
@@ -225,7 +228,7 @@ export default function OverviewRasterRuntime() {
 
     async function refreshTiles() {
       if (!stage || !layer || !bounds || disposed) return;
-      const dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
+      const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
       const nextLevel = chooseLevel(bounds.width * camera.scale * dpr);
       const jobs = visibleJobs(nextLevel);
       const keep = new Set(jobs.map((job) => tileKey(nextLevel, job.col, job.row)));
@@ -239,7 +242,7 @@ export default function OverviewRasterRuntime() {
 
       const epoch = ++renderEpoch;
       const missing = jobs.filter((job) => !tiles.has(tileKey(nextLevel, job.col, job.row)));
-      stats.pendingTiles = Math.min(missing.length, MAX_VISIBLE_TILES);
+      stats.pendingTiles = Math.min(missing.length, maxVisibleTiles);
       let cursor = 0;
 
       async function worker() {
@@ -255,7 +258,7 @@ export default function OverviewRasterRuntime() {
               stats.releasedTiles += 1;
               continue;
             }
-            if (tiles.size >= MAX_VISIBLE_TILES) {
+            if (tiles.size >= maxVisibleTiles) {
               releaseImage(image);
               stats.releasedTiles += 1;
               continue;
@@ -272,7 +275,7 @@ export default function OverviewRasterRuntime() {
         }
       }
 
-      await Promise.all(Array.from({ length: Math.min(MAX_PARALLEL_LOADS, Math.max(1, missing.length)) }, () => worker()));
+      await Promise.all(Array.from({ length: Math.min(maxParallelLoads, Math.max(1, missing.length)) }, () => worker()));
       if (disposed || epoch !== renderEpoch) return;
       stats.pendingTiles = 0;
       repositionExistingTiles();
