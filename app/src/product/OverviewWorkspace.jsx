@@ -70,7 +70,12 @@ export default function OverviewWorkspace({
 
             {project.masterplan ? (
               rasterPilot ? null : (
-                <iframe className="pf-masterplan-pdf" title={`${project.name} overview masterplan`} src={`${overviewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} />
+                <iframe
+                  key={overviewPdfUrl}
+                  className="pf-masterplan-pdf"
+                  title={`${project.name} overview masterplan`}
+                  src={`${overviewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                />
               )
             ) : (
               <div className={`pf-project-overview-placeholder tone-${project.tone}`}><strong>{project.name}</strong><span>{project.developer}</span></div>
