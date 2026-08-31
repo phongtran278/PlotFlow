@@ -9,7 +9,7 @@ function softenImage(img) {
   } catch {}
 }
 
-function cleanDetachedEditorMemory({ aggressive = false } = {}) {
+function cleanDetachedEditorMemory({ aggressive = false, releaseRuntime = true } = {}) {
   document.querySelectorAll("canvas").forEach((canvas) => {
     const persistent = canvas.closest(".poster-canvas,.lot-editor-shell");
     if (persistent) return;
@@ -18,7 +18,7 @@ function cleanDetachedEditorMemory({ aggressive = false } = {}) {
       try { canvas.width = 1; canvas.height = 1; } catch {}
     }
   });
-  releasePreparedFallbackPdf?.().catch?.(() => {});
+  if (releaseRuntime) releasePreparedFallbackPdf?.().catch?.(() => {});
 }
 
 export default function MemoryGovernor() {
@@ -40,6 +40,13 @@ export default function MemoryGovernor() {
       }
 
       const editorOpen = Boolean(document.querySelector(".lot-editor-shell"));
+      if (!editorWasOpen && editorOpen) {
+        if (cleanupTimer) clearTimeout(cleanupTimer);
+        cleanupTimer = setTimeout(
+          () => cleanDetachedEditorMemory({ aggressive: true, releaseRuntime: false }),
+          profile.lowMemory ? 0 : 80,
+        );
+      }
       if (editorWasOpen && !editorOpen) {
         if (cleanupTimer) clearTimeout(cleanupTimer);
         cleanupTimer = setTimeout(() => cleanDetachedEditorMemory(), profile.lowMemory ? 0 : 120);
@@ -61,8 +68,6 @@ export default function MemoryGovernor() {
 
     function onProductViewChange(event) {
       const mode = String(event?.detail?.mode || "");
-      // OverviewPdfRuntime stays mounted across ProductShell modes. Explicitly suspend it
-      // outside Overview so detached PDF canvases/pages cannot remain retained in Detail.
       publishMemoryVisibility(mode !== "overview", "product-mode");
       if (mode === "overview") return;
       if (cleanupTimer) clearTimeout(cleanupTimer);
