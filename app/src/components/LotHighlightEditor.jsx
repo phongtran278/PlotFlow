@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import "./LotHighlightEditorFix.css";
 import LotHighlightEditorAuto from "./LotHighlightEditorAuto.jsx";
 import { getMemoryProfile } from "../runtime/memoryProfile.js";
@@ -31,6 +32,15 @@ export default function LotHighlightEditor(props) {
   const profile = getMemoryProfile();
   const initialOverlay = props.initialOverlay
     || (profile.lowMemory ? lowMemoryBaseline(props) : null);
+
+  useEffect(() => {
+    document.body.classList.add("plotflow-lot-highlight-editing");
+    window.dispatchEvent(new CustomEvent("plotflow-lot-highlight-changed", { detail: { active: true } }));
+    return () => {
+      document.body.classList.remove("plotflow-lot-highlight-editing");
+      window.dispatchEvent(new CustomEvent("plotflow-lot-highlight-changed", { detail: { active: false } }));
+    };
+  }, []);
 
   return (
     <LotHighlightEditorAuto
