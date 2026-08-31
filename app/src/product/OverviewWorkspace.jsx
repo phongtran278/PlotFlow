@@ -8,11 +8,6 @@ function overviewPdfPath(group = "") {
   return "/overview-masterplan/hoan-thien.pdf";
 }
 
-function isRasterPilotGroup(group = "") {
-  const normalized = String(group).trim().toLowerCase();
-  return normalized.includes("hoàn thiện") || normalized.includes("hoan thien");
-}
-
 export default function OverviewWorkspace({
   project,
   overviewGroups,
@@ -28,7 +23,7 @@ export default function OverviewWorkspace({
     ? `${groupUnitCount} / ${groupUnitCount} units loaded for ${overviewGroup}`
     : "Waiting for inventory in this view";
   const overviewPdfUrl = overviewPdfPath(overviewGroup);
-  const rasterPilot = isRasterPilotGroup(overviewGroup);
+  const renderMode = "pdf";
 
   return (
     <main className="pf-overview">
@@ -68,17 +63,15 @@ export default function OverviewWorkspace({
             className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}
             data-overview-group={overviewGroup}
             data-overview-pdf-url={overviewPdfUrl}
-            data-overview-render-mode={rasterPilot ? "raster" : "pdf"}
+            data-overview-render-mode={renderMode}
           >
             {project.masterplan ? (
-              rasterPilot ? null : (
-                <iframe
-                  key={overviewPdfUrl}
-                  className="pf-masterplan-pdf"
-                  title={`${project.name} overview masterplan`}
-                  src={`${overviewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                />
-              )
+              <iframe
+                key={overviewPdfUrl}
+                className="pf-masterplan-pdf"
+                title={`${project.name} overview masterplan`}
+                src={`${overviewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+              />
             ) : (
               <div className={`pf-project-overview-placeholder tone-${project.tone}`}><strong>{project.name}</strong><span>{project.developer}</span></div>
             )}
