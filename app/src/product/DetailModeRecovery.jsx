@@ -1,6 +1,13 @@
 import { useEffect } from "react";
 import "./DetailModeRecovery.css";
 
+const DETAIL_MODE_CLASSES = [
+  "pf-detail-submode-active",
+  "pf-detail-lot-mode",
+  "pf-detail-finetune-mode",
+  "pf-detail-layout-mode",
+];
+
 function findButton(root, matcher) {
   return Array.from(root?.querySelectorAll?.("button") || []).find((button) => matcher.test(String(button.textContent || "").trim()));
 }
@@ -13,6 +20,11 @@ export default function DetailModeRecovery() {
     let fitTimer = null;
     let layoutNote = null;
     let saveExitButton = null;
+    let syncRaf = null;
+
+    function hasDetailModeClass() {
+      return DETAIL_MODE_CLASSES.some((className) => document.body.classList.contains(className));
+    }
 
     function removeLayoutChrome() {
       layoutNote?.remove();
@@ -26,12 +38,19 @@ export default function DetailModeRecovery() {
       backButton = null;
       activeExit = null;
       removeLayoutChrome();
-      document.body.classList.remove("pf-detail-submode-active", "pf-detail-lot-mode", "pf-detail-finetune-mode", "pf-detail-layout-mode");
+      if (hasDetailModeClass()) {
+        document.body.classList.remove(...DETAIL_MODE_CLASSES);
+      }
     }
 
     function installBack(label, exit, modeClass) {
       activeExit = exit;
-      document.body.classList.add("pf-detail-submode-active", modeClass);
+      if (!document.body.classList.contains("pf-detail-submode-active")) {
+        document.body.classList.add("pf-detail-submode-active");
+      }
+      if (!document.body.classList.contains(modeClass)) {
+        document.body.classList.add(modeClass);
+      }
       if (!backButton) {
         backButton = document.createElement("button");
         backButton.type = "button";
@@ -88,7 +107,9 @@ export default function DetailModeRecovery() {
 
     function sync() {
       if (!document.body.classList.contains("pf-product-detail")) {
-        removeBack();
+        if (backButton || layoutNote || saveExitButton || hasDetailModeClass()) {
+          removeBack();
+        }
         lastPreviewUnit = "";
         return;
       }
@@ -120,6 +141,25 @@ export default function DetailModeRecovery() {
       schedulePreviewFit();
     }
 
+    function queueSync(records = []) {
+      const inDetail = document.body.classList.contains("pf-product-detail");
+      if (!inDetail) {
+        const bodyClassChanged = records.some((record) => (
+          record.type === "attributes"
+          && record.target === document.body
+          && record.attributeName === "class"
+        ));
+        const needsCleanup = Boolean(backButton || layoutNote || saveExitButton || hasDetailModeClass());
+        if (!bodyClassChanged && !needsCleanup) return;
+      }
+
+      if (syncRaf !== null) return;
+      syncRaf = requestAnimationFrame(() => {
+        syncRaf = null;
+        sync();
+      });
+    }
+
     function onKeyDown(event) {
       if (event.key !== "Escape" || !activeExit) return;
       const tag = document.activeElement?.tagName;
@@ -128,13 +168,14 @@ export default function DetailModeRecovery() {
       activeExit();
     }
 
-    const observer = new MutationObserver(() => requestAnimationFrame(sync));
+    const observer = new MutationObserver((records) => queueSync(records));
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
     window.addEventListener("keydown", onKeyDown, true);
     sync();
 
     return () => {
       observer.disconnect();
+      if (syncRaf !== null) cancelAnimationFrame(syncRaf);
       window.removeEventListener("keydown", onKeyDown, true);
       window.clearTimeout(fitTimer);
       removeBack();
