@@ -195,6 +195,7 @@ function WorkspaceAuxiliaryRuntimes() {
         <OverviewSellDataRuntime />
         <MemoryGovernor />
         <WorkspaceController />
+        <PerformanceFeedback />
         <OverviewRuntimes />
       </>
     );
