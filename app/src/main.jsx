@@ -26,7 +26,6 @@ import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
 import DetailModeRecovery from "./product/DetailModeRecovery.jsx";
 import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
 import OverviewRasterRuntime from "./product/OverviewRasterRuntime.jsx";
-import OverviewWindowsRasterRuntime from "./product/OverviewWindowsRasterRuntime.jsx";
 import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
 import OverviewAnchorRuntime from "./product/OverviewAnchorRuntime.jsx";
 import OverviewLiveUnitsRuntime from "./product/OverviewLiveUnitsRuntime.jsx";
@@ -144,10 +143,7 @@ function OverviewMasterplanEngine() {
   }, []);
 
   if (!sourceKey) return null;
-  const windows = document.documentElement.dataset.plotflowPlatform === "windows";
-  return windows
-    ? <OverviewWindowsRasterRuntime key={`windows:${sourceKey}`} />
-    : <OverviewRasterRuntime key={sourceKey} />;
+  return <OverviewRasterRuntime key={sourceKey} />;
 }
 
 function OverviewRuntimes() {
