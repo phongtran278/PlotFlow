@@ -39,7 +39,7 @@ import OverviewGuideRuntime from "./product/OverviewGuideRuntime.jsx";
 import OverviewInteractionRuntime from "./product/OverviewInteractionRuntime.jsx";
 import OverviewLayerRevealRuntime from "./product/OverviewLayerRevealRuntime.jsx";
 import OverviewUnitBadgeRuntime from "./product/OverviewUnitBadgeRuntime.jsx";
-import OverviewWindowsGpuGuard from "./product/OverviewWindowsGpuGuard.jsx";
+import WindowsOverviewViewportRuntime from "./product/WindowsOverviewViewportRuntime.jsx";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
@@ -150,7 +150,7 @@ function OverviewRuntimes() {
   return (
     <>
       <OverviewZoomRuntime />
-      <OverviewWindowsGpuGuard />
+      <WindowsOverviewViewportRuntime />
       <OverviewMasterplanEngine />
       <OverviewExportRuntime />
       <OverviewAnchorRuntime />
