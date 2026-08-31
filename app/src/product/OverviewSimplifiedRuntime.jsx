@@ -4,6 +4,12 @@ import "./OverviewSimplifiedRuntime.css";
 const SETTINGS_KEY = "phongflow-overview-v2-settings";
 const LEGACY_MARKUP_KEY = "phongflow-overview-markup-v2";
 const PEN_KEY = "phongflow-overview-pen-shapes-v1";
+const CARD_SIZE_KEY = "plotflow-overview-card-size-v1";
+const CARD_PRESETS = {
+  compact: { width: 168, scale: 0.88 },
+  standard: { width: 192, scale: 1 },
+  large: { width: 220, scale: 1.12 },
+};
 
 function readSettings() {
   try {
@@ -40,11 +46,62 @@ function clearLegacyFreehandLines() {
   } catch { /* noop */ }
 }
 
+function readCardSizes() {
+  try {
+    const value = JSON.parse(localStorage.getItem(CARD_SIZE_KEY) || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function groupKey(stage) {
+  return String(stage?.dataset?.overviewGroup || "default").trim() || "default";
+}
+
+function savedCardPreset(stage) {
+  const value = readCardSizes()[groupKey(stage)];
+  return CARD_PRESETS[value] ? value : "standard";
+}
+
+function saveCardPreset(stage, preset) {
+  const next = readCardSizes();
+  next[groupKey(stage)] = CARD_PRESETS[preset] ? preset : "standard";
+  localStorage.setItem(CARD_SIZE_KEY, JSON.stringify(next));
+}
+
+function applyCardPreset(stage, preset = "standard") {
+  if (!stage) return;
+  const resolved = CARD_PRESETS[preset] || CARD_PRESETS.standard;
+  stage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
+    card.style.setProperty("--pf-card-width", `${resolved.width}px`);
+    card.style.setProperty("--pf-card-height", "auto");
+    card.style.setProperty("--pf-card-content-scale", String(resolved.scale));
+    card.style.removeProperty("min-height");
+  });
+  window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", {
+    detail: { preset, width: resolved.width, scale: resolved.scale },
+  }));
+}
+
+function triggerAutoArrange() {
+  const button = document.querySelector('.pf-overview-v2-controls [data-v2-action="arrange"]');
+  button?.click();
+}
+
 export default function OverviewSimplifiedRuntime() {
   useEffect(() => {
     let observer = null;
     let stage = null;
     let control = null;
+
+    function syncCardPreset() {
+      if (!stage) return;
+      const preset = savedCardPreset(stage);
+      const select = control?.querySelector('[data-card-size="preset"]');
+      if (select) select.value = preset;
+      applyCardPreset(stage, preset);
+    }
 
     function install() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
@@ -52,12 +109,10 @@ export default function OverviewSimplifiedRuntime() {
       const toolbar = document.querySelector(".pf-overview-zoom-toolbar");
       if (!stage || !rail || !toolbar) return;
 
-      // Overview is intentionally limited to Card + Connector + Highlight.
       toolbar.querySelector('[data-tool="line"]')?.remove();
       toolbar.querySelectorAll(".pf-overview-markup-layer line").forEach((node) => node.remove());
       clearLegacyFreehandLines();
 
-      // The old drawing stroke is hidden; connector gets its own explicit control.
       const oldStroke = toolbar.querySelector(".pf-stroke-control");
       if (oldStroke) oldStroke.style.display = "none";
 
@@ -66,19 +121,34 @@ export default function OverviewSimplifiedRuntime() {
         const width = Number(settings.lineWidth) || 0.5;
         const color = settings.lineColor || "#e00000";
         const opacity = Number.isFinite(Number(settings.lineOpacity)) ? Number(settings.lineOpacity) : 1;
+        const cardPreset = savedCardPreset(stage);
 
         control = document.createElement("div");
         control.className = "pf-connector-control";
         control.innerHTML = `
-          <span>Connector</span>
-          <label title="Connector thickness"><select data-connector="width">
-            <option value="0.25">0.25</option><option value="0.5">0.5</option><option value="0.75">0.75</option>
-            <option value="1">1</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2</option><option value="3">3</option>
-          </select></label>
-          <label class="pf-connector-color" title="Connector color"><input data-connector="color" type="color"></label>
-          <label class="pf-connector-opacity" title="Connector opacity"><span>Opacity</span><input data-connector="opacity" type="range" min="0.1" max="1" step="0.05"></label>
-          <button type="button" data-connector-action="clear" title="Remove every rectangle and pen highlight">Clear highlights</button>`;
+          <div class="pf-card-layout-control">
+            <span>Cards</span>
+            <label title="Card size for this handover group">
+              <select data-card-size="preset">
+                <option value="compact">Compact</option>
+                <option value="standard">Standard</option>
+                <option value="large">Large</option>
+              </select>
+            </label>
+            <button type="button" data-card-action="arrange" title="Arrange all cards automatically without overlap">Auto arrange</button>
+          </div>
+          <div class="pf-connector-style-control">
+            <span>Connector</span>
+            <label title="Connector thickness"><select data-connector="width">
+              <option value="0.25">0.25</option><option value="0.5">0.5</option><option value="0.75">0.75</option>
+              <option value="1">1</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2</option><option value="3">3</option>
+            </select></label>
+            <label class="pf-connector-color" title="Connector color"><input data-connector="color" type="color"></label>
+            <label class="pf-connector-opacity" title="Connector opacity"><span>Opacity</span><input data-connector="opacity" type="range" min="0.1" max="1" step="0.05"></label>
+            <button type="button" data-connector-action="clear" title="Remove every rectangle and pen highlight">Clear highlights</button>
+          </div>`;
 
+        control.querySelector('[data-card-size="preset"]').value = cardPreset;
         control.querySelector('[data-connector="width"]').value = String(width);
         control.querySelector('[data-connector="color"]').value = color;
         control.querySelector('[data-connector="opacity"]').value = String(opacity);
@@ -90,9 +160,26 @@ export default function OverviewSimplifiedRuntime() {
           saveConnector({ width: nextWidth, color: nextColor, opacity: nextOpacity });
           applyConnector(stage, nextWidth, nextColor, nextOpacity);
         };
-        control.addEventListener("input", syncConnector);
-        control.addEventListener("change", syncConnector);
+
+        control.addEventListener("input", (event) => {
+          if (event.target.closest("[data-connector]")) syncConnector();
+        });
+        control.addEventListener("change", (event) => {
+          const presetSelect = event.target.closest('[data-card-size="preset"]');
+          if (presetSelect) {
+            const preset = presetSelect.value;
+            saveCardPreset(stage, preset);
+            applyCardPreset(stage, preset);
+            window.setTimeout(triggerAutoArrange, 0);
+            return;
+          }
+          if (event.target.closest("[data-connector]")) syncConnector();
+        });
         control.addEventListener("click", (event) => {
+          if (event.target.closest('[data-card-action="arrange"]')) {
+            triggerAutoArrange();
+            return;
+          }
           if (!event.target.closest('[data-connector-action="clear"]')) return;
           localStorage.setItem(LEGACY_MARKUP_KEY, "[]");
           localStorage.setItem(PEN_KEY, "[]");
@@ -101,19 +188,32 @@ export default function OverviewSimplifiedRuntime() {
         });
         rail.appendChild(control);
         syncConnector();
+        applyCardPreset(stage, cardPreset);
       } else {
         const settings = readSettings();
         applyConnector(stage, Number(settings.lineWidth) || 0.5, settings.lineColor || "#e00000", Number.isFinite(Number(settings.lineOpacity)) ? Number(settings.lineOpacity) : 1);
+        syncCardPreset();
       }
     }
+
+    const onGroupChanged = () => window.setTimeout(() => {
+      install();
+      syncCardPreset();
+    }, 0);
+    const onUnitsReady = () => {
+      install();
+      syncCardPreset();
+    };
 
     install();
     observer = new MutationObserver(install);
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("pf-overview-live-units-ready", install);
+    window.addEventListener("pf-overview-live-units-ready", onUnitsReady);
+    window.addEventListener("pf-overview-group-changed", onGroupChanged);
     return () => {
       observer?.disconnect();
-      window.removeEventListener("pf-overview-live-units-ready", install);
+      window.removeEventListener("pf-overview-live-units-ready", onUnitsReady);
+      window.removeEventListener("pf-overview-group-changed", onGroupChanged);
       control?.remove();
     };
   }, []);
