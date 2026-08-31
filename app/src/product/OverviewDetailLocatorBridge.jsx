@@ -1,30 +1,28 @@
 import { useEffect } from "react";
-import {
-  attachMatchToPageRender,
-  buildFloorplanIndex,
-  normalizeUnitCode,
-  openVectorPdf,
-  renderPdfPageBase,
-} from "../floorplan/pdfLocator";
 
+const MANIFEST_URL = "/masterplan/generated/manifest.json";
 const FLOORPLAN_OVERRIDE_KEY = "plotflow-floorplan-overrides-v6";
+
+function normalizeUnitCode(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[Đđ]/g, "D")
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .trim();
+}
 
 function readJson(key, fallback = {}) {
   try {
     const value = JSON.parse(localStorage.getItem(key) || "null");
     return value && typeof value === "object" && !Array.isArray(value) ? value : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function overviewPdfUrl(stage) {
-  return stage?.dataset?.overviewPdfUrl || "/overview-masterplan/hoan-thien.pdf";
+  } catch { return fallback; }
 }
 
 function codesFromStage(stage) {
   return Array.from(stage?.querySelectorAll(".pf-live-sales-callout") || [])
-    .map((card) => card.dataset.unitCode || card.querySelector("header strong")?.textContent?.trim() || "")
+    .map((card) => card.dataset.unitCode || card.querySelector(".pf-sell-card-code")?.textContent?.trim() || "")
     .filter(Boolean);
 }
 
@@ -35,26 +33,7 @@ function anchorFor(stage, code) {
 }
 
 function lineFor(stage, code) {
-  return Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).find((line) => line.dataset.unitCode === code) || null;
-}
-
-function viewportPointToStagePercent(stage, pageBase, viewX, viewY) {
-  const rect = stage.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2 || pageBase.width < 2 || pageBase.height < 2) return null;
-  const fit = Math.min(rect.width / pageBase.width, rect.height / pageBase.height);
-  const renderedWidth = pageBase.width * fit;
-  const renderedHeight = pageBase.height * fit;
-  const baseX = (rect.width - renderedWidth) / 2;
-  const baseY = (rect.height - renderedHeight) / 2;
-  return {
-    x: ((baseX + viewX * fit) / rect.width) * 100,
-    y: ((baseY + viewY * fit) / rect.height) * 100,
-  };
-}
-
-function pointForMatch(stage, pageBase, match) {
-  const pageRender = attachMatchToPageRender(pageBase, match);
-  return viewportPointToStagePercent(stage, pageBase, pageRender.anchorX, pageRender.anchorY);
+  return Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).find((line) => line.dataset?.unitCode === code) || null;
 }
 
 function markUnresolved(anchor, line, rawCode) {
@@ -65,8 +44,6 @@ function markUnresolved(anchor, line, rawCode) {
   if (line) {
     line.style.opacity = "";
     line.classList.add("pf-connector-needs-placement");
-    line.setAttribute("x2", String(Number.parseFloat(anchor.style.left || "50")));
-    line.setAttribute("y2", String(Number.parseFloat(anchor.style.top || "50")));
   }
 }
 
@@ -74,50 +51,48 @@ export default function OverviewDetailLocatorBridge() {
   useEffect(() => {
     let disposed = false;
     let observer = null;
-    let running = false;
+    let timer = 0;
+    let manifestPromise = null;
     let lastSignature = "";
-    const indexCache = new Map();
 
-    async function indexedPdf(url) {
-      if (indexCache.has(url)) return indexCache.get(url);
-      const promise = (async () => {
-        const pdfDoc = await openVectorPdf(url);
-        const index = await buildFloorplanIndex(pdfDoc);
-        return { pdfDoc, index };
-      })();
-      indexCache.set(url, promise);
-      try {
-        return await promise;
-      } catch (error) {
-        indexCache.delete(url);
-        throw error;
+    function loadManifest() {
+      if (!manifestPromise) {
+        manifestPromise = fetch(MANIFEST_URL, { cache: "force-cache" })
+          .then((response) => {
+            if (!response.ok) throw new Error(`Overview manifest unavailable (${response.status})`);
+            return response.json();
+          })
+          .catch((error) => {
+            manifestPromise = null;
+            throw error;
+          });
       }
+      return manifestPromise;
     }
 
     async function sync(force = false) {
-      if (disposed || running) return;
+      if (disposed) return;
       const stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!stage) return;
       const codes = codesFromStage(stage);
       if (!codes.length) return;
 
-      const pdfUrl = overviewPdfUrl(stage);
       const overrides = readJson(FLOORPLAN_OVERRIDE_KEY, {});
-      const stageRect = stage.getBoundingClientRect();
       const signature = JSON.stringify({
-        pdfUrl,
         group: stage.dataset.overviewGroup || "",
         codes: codes.map((code) => [normalizeUnitCode(code), overrides[normalizeUnitCode(code)]?.selectedMatchIndex ?? 0]),
-        size: [Math.round(stageRect.width), Math.round(stageRect.height)],
       });
       if (!force && signature === lastSignature && stage.dataset.pfDetailLocatorBridge === "1") return;
 
-      running = true;
       try {
-        const { pdfDoc, index } = await indexedPdf(pdfUrl);
+        const manifest = await loadManifest();
         if (disposed) return;
+        const page = manifest?.pages?.["1"] || manifest?.pages?.[1];
+        const pageWidth = Number(page?.width || 0);
+        const pageHeight = Number(page?.height || 0);
+        const index = manifest?.index || {};
+        if (!(pageWidth > 0 && pageHeight > 0)) throw new Error("Overview manifest page geometry missing");
 
-        const pageBases = new Map();
         let located = 0;
         let ambiguous = 0;
         let unresolved = 0;
@@ -138,33 +113,24 @@ export default function OverviewDetailLocatorBridge() {
             continue;
           }
 
-          let pageBase = pageBases.get(match.pageNumber);
-          if (!pageBase) {
-            pageBase = await renderPdfPageBase(pdfDoc, match.pageNumber, 1);
-            pageBases.set(match.pageNumber, pageBase);
-          }
-          const point = pointForMatch(stage, pageBase, match);
-          if (!point) {
-            markUnresolved(anchor, line, rawCode);
-            unresolved += 1;
-            continue;
-          }
+          const centerX = Number(match.x || 0) + Number(match.width || 0) / 2;
+          const centerYFromBottom = Number(match.y || 0) + Number(match.height || 0) / 2;
+          const x = (centerX / pageWidth) * 100;
+          const y = ((pageHeight - centerYFromBottom) / pageHeight) * 100;
 
-          anchor.style.left = `${point.x}%`;
-          anchor.style.top = `${point.y}%`;
+          anchor.style.left = `${x}%`;
+          anchor.style.top = `${y}%`;
           anchor.dataset.located = "1";
-          anchor.dataset.anchorMode = "overview-pdf-text-center";
+          anchor.dataset.anchorMode = "prepared-manifest";
           anchor.dataset.selectedMatchIndex = String(selectedIndex);
           anchor.dataset.matchCount = String(matches.length);
-          anchor.dataset.pageNumber = String(match.pageNumber);
-          anchor.dataset.pdfUrl = pdfUrl;
-          delete anchor.dataset.saved;
+          anchor.dataset.pageNumber = String(match.pageNumber || 1);
           anchor.title = `${rawCode} · ${stage.dataset.overviewGroup || "Overview"} · candidate ${selectedIndex + 1}/${matches.length}`;
 
           if (line) {
             line.classList.remove("pf-connector-needs-placement");
-            line.setAttribute("x2", String(point.x));
-            line.setAttribute("y2", String(point.y));
+            line.setAttribute("x2", String(x));
+            line.setAttribute("y2", String(y));
             line.style.opacity = "";
           }
           located += 1;
@@ -172,62 +138,57 @@ export default function OverviewDetailLocatorBridge() {
         }
 
         stage.dataset.pfDetailLocatorBridge = "1";
-        stage.dataset.pfLocatorPdfUrl = pdfUrl;
+        stage.dataset.pfLocatorSource = "prepared-manifest";
         lastSignature = signature;
+        window.__plotflowOverviewLocator = {
+          mode: "prepared-manifest-only",
+          pdfOpened: false,
+          count: codes.length,
+          located,
+          ambiguous,
+          unresolved,
+        };
         window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", {
-          detail: { count: codes.length, located, ambiguous, unresolved, source: "overview-pdf-locator", anchorMode: "overview-pdf-text-center", pdfUrl },
+          detail: { count: codes.length, located, ambiguous, unresolved, source: "prepared-manifest", anchorMode: "prepared-manifest" },
         }));
       } catch (error) {
-        console.warn(`Overview locator unavailable for ${pdfUrl}`, error);
-      } finally {
-        running = false;
+        console.warn("Overview prepared locator unavailable", error);
       }
     }
 
-    const schedule = (force = false) => {
-      window.clearTimeout(schedule.timer);
-      schedule.timer = window.setTimeout(() => sync(force), 120);
-    };
+    function schedule(force = false) {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => sync(force), 80);
+    }
 
-    function onGroupChanged() {
+    function resetAndSchedule() {
       const stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      if (stage) {
-        delete stage.dataset.pfDetailLocatorBridge;
-        delete stage.dataset.pfLocatorPdfUrl;
-      }
+      if (stage) delete stage.dataset.pfDetailLocatorBridge;
       lastSignature = "";
-      requestAnimationFrame(() => schedule(true));
+      schedule(true);
     }
 
-    schedule(true);
     observer = new MutationObserver((records) => {
-      const relevant = records.some((record) => {
-        const target = record.target instanceof Element ? record.target : record.target?.parentElement;
-        if (target?.closest?.(".pf-overview-control-rail")) return false;
-        return !document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts")?.dataset?.pfDetailLocatorBridge
-          || Array.from(record.addedNodes || []).some((node) => node instanceof Element && (node.matches?.(".pf-live-overview-callouts") || node.querySelector?.(".pf-live-overview-callouts")));
-      });
-      if (relevant) schedule(false);
+      const relevant = records.some((record) => Array.from(record.addedNodes || []).some((node) =>
+        node instanceof Element && (node.matches?.(".pf-live-overview-callouts") || node.querySelector?.(".pf-live-overview-callouts"))
+      ));
+      if (relevant) schedule(true);
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    const onStorage = (event) => {
-      if (!event || event.key === FLOORPLAN_OVERRIDE_KEY) schedule(true);
-    };
-    const locatorUpdateHandler = () => schedule(true);
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("plotflow-floorplan-locator-updated", locatorUpdateHandler);
-    window.addEventListener("pf-overview-group-changed", onGroupChanged);
-    window.addEventListener("resize", locatorUpdateHandler);
+    window.addEventListener("plotflow-floorplan-locator-updated", resetAndSchedule);
+    window.addEventListener("pf-overview-group-changed", resetAndSchedule);
+    window.addEventListener("plotflow-overview-sell-units", resetAndSchedule);
+    schedule(true);
 
     return () => {
       disposed = true;
       observer?.disconnect();
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("plotflow-floorplan-locator-updated", locatorUpdateHandler);
-      window.removeEventListener("pf-overview-group-changed", onGroupChanged);
-      window.removeEventListener("resize", locatorUpdateHandler);
-      window.clearTimeout(schedule.timer);
+      window.clearTimeout(timer);
+      window.removeEventListener("plotflow-floorplan-locator-updated", resetAndSchedule);
+      window.removeEventListener("pf-overview-group-changed", resetAndSchedule);
+      window.removeEventListener("plotflow-overview-sell-units", resetAndSchedule);
+      delete window.__plotflowOverviewLocator;
     };
   }, []);
 
