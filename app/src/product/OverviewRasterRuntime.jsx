@@ -6,7 +6,9 @@ const TILE_SIZE = 512;
 const LEVEL_WIDTHS = [1800, 2625, 5250, 10500, 21000, 42000];
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
 const MAX_DPR = 1.35;
-const CAMERA_SETTLE_MS = 96;
+const CAMERA_SETTLE_MS = 84;
+const URGENT_RENDER_RATIO = 1.75;
+const MAX_LIVE_RATIO = 3;
 
 function levelInfo(width) {
   const height = Math.round(BASE_HEIGHT * (width / BASE_WIDTH));
@@ -47,7 +49,8 @@ function makeCanvas(stage, label) {
   canvas.setAttribute("aria-label", label);
   canvas.style.pointerEvents = "none";
   canvas.style.transformOrigin = "0 0";
-  canvas.style.willChange = "transform";
+  canvas.style.backfaceVisibility = "hidden";
+  canvas.style.background = "#fff";
   stage.prepend(canvas);
   return canvas;
 }
@@ -68,7 +71,7 @@ export default function OverviewRasterRuntime() {
     let pendingCamera = { scale: 1, tx: 0, ty: 0 };
 
     const stats = {
-      mode: "raster-tile-double-buffer",
+      mode: "raster-tile-stable-double-buffer",
       source: "prepared-masterplan-page-1",
       group: "Hoàn thiện",
       currentLevel: 0,
@@ -78,6 +81,7 @@ export default function OverviewRasterRuntime() {
       renderCount: 0,
       frameSwaps: 0,
       cancelledRenders: 0,
+      urgentRenders: 0,
       pdfRuntimeLoaded: false,
     };
     window.__plotflowOverviewRuntime = stats;
@@ -112,12 +116,16 @@ export default function OverviewRasterRuntime() {
       canvas.style.height = `${rect.height}px`;
     }
 
+    function liveRatio(camera) {
+      return camera.scale / Math.max(0.0001, renderedCamera.scale);
+    }
+
     function followCamera(camera) {
       if (!activeCanvas) return;
-      const base = renderedCamera;
-      const ratio = camera.scale / Math.max(0.0001, base.scale);
-      const dx = camera.tx - ratio * base.tx;
-      const dy = camera.ty - ratio * base.ty;
+      const rawRatio = liveRatio(camera);
+      const ratio = Math.min(MAX_LIVE_RATIO, Math.max(1 / MAX_LIVE_RATIO, rawRatio));
+      const dx = camera.tx - ratio * renderedCamera.tx;
+      const dy = camera.ty - ratio * renderedCamera.ty;
       activeCanvas.style.transform = `translate3d(${dx}px,${dy}px,0) scale(${ratio})`;
     }
 
@@ -169,7 +177,9 @@ export default function OverviewRasterRuntime() {
       const firstRow = Math.max(0, Math.floor(ly0 / TILE_SIZE) - margin);
       const lastCol = Math.min(level.cols - 1, Math.floor((lx1 - 0.001) / TILE_SIZE) + margin);
       const lastRow = Math.min(level.rows - 1, Math.floor((ly1 - 0.001) / TILE_SIZE) + margin);
-      stats.activeTiles = Math.max(0, lastCol - firstCol + 1) * Math.max(0, lastRow - firstRow + 1);
+      const expectedTiles = Math.max(0, lastCol - firstCol + 1) * Math.max(0, lastRow - firstRow + 1);
+      stats.activeTiles = expectedTiles;
+      let drawnTiles = 0;
 
       for (let row = firstRow; row <= lastRow; row += 1) {
         for (let col = firstCol; col <= lastCol; col += 1) {
@@ -193,6 +203,7 @@ export default function OverviewRasterRuntime() {
             const dw = baseW * fit * camera.scale * dpr;
             const dh = baseH * fit * camera.scale * dpr;
             bufferCtx.drawImage(bitmap, 0, 0, tileWidth, tileHeight, dx, dy, dw, dh);
+            drawnTiles += 1;
           } catch (error) {
             if (!disposed && epoch === renderEpoch) console.debug("Overview raster tile skipped", error);
           } finally {
@@ -203,6 +214,8 @@ export default function OverviewRasterRuntime() {
       }
 
       if (disposed || epoch !== renderEpoch) { markCancelled(epoch); return; }
+      if (expectedTiles > 0 && drawnTiles === 0) return;
+
       renderedCamera = { ...camera };
       bufferCanvas.style.visibility = "visible";
       bufferCanvas.style.transform = "none";
@@ -232,7 +245,12 @@ export default function OverviewRasterRuntime() {
       pendingCamera = { scale: detail.scale, tx: detail.tx || 0, ty: detail.ty || 0 };
       followCamera(pendingCamera);
       clearTimeout(renderTimer);
-      if (!detail.dragging) schedule(pendingCamera);
+      if (detail.dragging) return;
+
+      const ratio = liveRatio(pendingCamera);
+      const urgent = ratio >= URGENT_RENDER_RATIO || ratio <= 1 / URGENT_RENDER_RATIO;
+      if (urgent) stats.urgentRenders += 1;
+      schedule(pendingCamera, urgent ? 0 : CAMERA_SETTLE_MS);
     }
 
     function detachStage() {
@@ -271,7 +289,7 @@ export default function OverviewRasterRuntime() {
       activeCtx = activeCanvas.getContext("2d", { alpha: false, desynchronized: true });
       bufferCtx = bufferCanvas.getContext("2d", { alpha: false, desynchronized: true });
       window.addEventListener("pf-overview-camera", onCamera);
-      resizeObserver = new ResizeObserver(() => schedule(pendingCamera, 120));
+      resizeObserver = new ResizeObserver(() => schedule(pendingCamera, 100));
       resizeObserver.observe(stage);
       schedule(pendingCamera, 0);
     }
