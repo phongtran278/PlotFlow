@@ -42,6 +42,7 @@ import OverviewInteractionRuntime from "./product/OverviewInteractionRuntime.jsx
 import OverviewLayerRevealRuntime from "./product/OverviewLayerRevealRuntime.jsx";
 import OverviewUnitBadgeRuntime from "./product/OverviewUnitBadgeRuntime.jsx";
 import WindowsOverviewViewportRuntime from "./product/WindowsOverviewViewportRuntime.jsx";
+import WindowsOomDiagnosticRuntime from "./product/WindowsOomDiagnosticRuntime.jsx";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
@@ -159,6 +160,7 @@ function OverviewMasterplanEngine() {
 function OverviewRuntimes() {
   return (
     <>
+      <WindowsOomDiagnosticRuntime />
       <OverviewZoomRuntime />
       <WindowsOverviewViewportRuntime />
       <OverviewMasterplanEngine />
