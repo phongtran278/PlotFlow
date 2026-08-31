@@ -55,8 +55,8 @@ export default function OverviewRasterRuntime() {
     const windowsInfo = levelInfo(windowsLevel);
     const windowsTileCount = windowsInfo.cols * windowsInfo.rows;
     const maxDpr = windowsFixedLevel ? 1 : Math.max(1, Number(profile.overviewMaxDpr) || 1);
-    const maxVisibleTiles = windowsFixedLevel ? windowsTileCount : Math.max(4, Number(profile.overviewTileTarget) || 8);
-    const maxParallelLoads = windowsFixedLevel ? 2 : Math.max(1, Number(profile.overviewParallelLoads) || 1);
+    const maxVisibleTiles = windowsFixedLevel ? windowsTileCount : Math.max(12, Number(profile.overviewTileTarget) || 8);
+    const maxParallelLoads = windowsFixedLevel ? 2 : Math.max(2, Number(profile.overviewParallelLoads) || 1);
 
     let disposed = false;
     let stage = null;
