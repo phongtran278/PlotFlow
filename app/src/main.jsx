@@ -119,13 +119,22 @@ if (import.meta.hot) {
 }
 
 function OverviewMasterplanEngine() {
-  const [mode, setMode] = useState(null);
+  const [engine, setEngine] = useState({ mode: null, sourceKey: "" });
 
   useEffect(() => {
     function sync() {
       const stage = document.querySelector(".pf-masterplan-stage[data-overview-render-mode]");
-      const next = stage?.dataset?.overviewRenderMode || null;
-      setMode((current) => current === next ? current : next);
+      const next = {
+        mode: stage?.dataset?.overviewRenderMode || null,
+        sourceKey: [
+          stage?.dataset?.overviewGroup || "",
+          stage?.dataset?.overviewPdfUrl || "",
+          stage?.dataset?.overviewRenderMode || "",
+        ].join("::"),
+      };
+      setEngine((current) => (
+        current.mode === next.mode && current.sourceKey === next.sourceKey ? current : next
+      ));
     }
 
     sync();
@@ -134,13 +143,13 @@ function OverviewMasterplanEngine() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-overview-render-mode"],
+      attributeFilter: ["data-overview-render-mode", "data-overview-group", "data-overview-pdf-url"],
     });
     return () => observer.disconnect();
   }, []);
 
-  if (mode === "raster") return <OverviewRasterRuntime />;
-  if (mode === "pdf") return <OverviewPdfRuntime />;
+  if (engine.mode === "raster") return <OverviewRasterRuntime key={engine.sourceKey} />;
+  if (engine.mode === "pdf") return <OverviewPdfRuntime key={engine.sourceKey} />;
   return null;
 }
 
@@ -195,6 +204,7 @@ function WorkspaceAuxiliaryRuntimes() {
 function PlotFlowExperience() {
   const [view, setView] = useState("home");
   const floorplanEditing = useExclusiveFloorplanEditing();
+  const lotHighlightEditing = useLotHighlightEditing();
 
   if (view === "home") {
     return <HomeLanding onOpenProject={() => setView("workspace")} />;
@@ -202,7 +212,7 @@ function PlotFlowExperience() {
 
   return (
     <ProductShell onExitWorkspace={() => setView("home")} exclusiveEditor={floorplanEditing}>
-      <PreviewInteractionsRuntime disabled={floorplanEditing} />
+      <PreviewInteractionsRuntime disabled={floorplanEditing || lotHighlightEditing} />
       <App />
       {!floorplanEditing && <WorkspaceAuxiliaryRuntimes />}
     </ProductShell>
