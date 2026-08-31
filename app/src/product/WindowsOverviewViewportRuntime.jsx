@@ -44,7 +44,7 @@ export default function WindowsOverviewViewportRuntime() {
 
     function clearWorldTransforms() {
       if (!stage) return;
-      stage.querySelectorAll(".pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer,.pf-overview-pen-layer").forEach((node) => {
+      stage.querySelectorAll(".pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer").forEach((node) => {
         node.style.transform = "none";
         node.style.willChange = "auto";
         node.style.filter = "none";
@@ -106,9 +106,6 @@ export default function WindowsOverviewViewportRuntime() {
       const ny = ty / h * 1000;
       stage.querySelectorAll(".pf-overview-markup-layer > *").forEach((shape) => {
         shape.setAttribute("transform", `translate(${nx} ${ny}) scale(${scale})`);
-      });
-      stage.querySelectorAll(".pf-overview-pen-layer > *").forEach((shape) => {
-        shape.setAttribute("transform", `translate(${tx / w * 100} ${ty / h * 100}) scale(${scale})`);
       });
     }
 
