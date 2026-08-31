@@ -5,10 +5,10 @@ const BASE_HEIGHT = 29709;
 const TILE_SIZE = 512;
 const LEVEL_WIDTHS = [1800, 2625, 5250, 10500, 21000, 42000];
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
-const MAX_DPR = 1.25;
-const MAX_VISIBLE_TILES = 16;
-const MAX_PARALLEL_LOADS = 4;
-const SETTLE_MS = 45;
+const MAX_DPR = 1.1;
+const MAX_VISIBLE_TILES = 10;
+const MAX_PARALLEL_LOADS = 2;
+const SETTLE_MS = 90;
 
 function levelInfo(width) {
   const height = Math.round(BASE_HEIGHT * (width / BASE_WIDTH));
@@ -16,7 +16,7 @@ function levelInfo(width) {
 }
 
 function chooseLevel(displayWidthPx) {
-  return LEVEL_WIDTHS.find((width) => width >= displayWidthPx * 0.9) || LEVEL_WIDTHS.at(-1);
+  return LEVEL_WIDTHS.find((width) => width >= displayWidthPx * 0.82) || LEVEL_WIDTHS.at(-1);
 }
 
 function tileKey(level, col, row) {
@@ -44,7 +44,7 @@ function loadImage(url) {
   });
 }
 
-function snapToDevicePixel(value, dpr) {
+function snap(value, dpr) {
   return Math.round(value * dpr) / dpr;
 }
 
@@ -57,12 +57,13 @@ export default function OverviewRasterRuntime() {
     let resizeObserver = null;
     let settleTimer = 0;
     let renderEpoch = 0;
+    let currentLevel = 0;
     let camera = { scale: 1, tx: 0, ty: 0 };
     let bounds = null;
     const tiles = new Map();
 
     const stats = {
-      mode: "viewport-raster-tiles",
+      mode: "memory-first-raster",
       source: "prepared-masterplan-page-1",
       group: "",
       pdfRuntimeLoaded: false,
@@ -71,16 +72,19 @@ export default function OverviewRasterRuntime() {
       activeTiles: 0,
       pendingTiles: 0,
       tileCeiling: MAX_VISIBLE_TILES,
+      parallelLoads: MAX_PARALLEL_LOADS,
       loadedTiles: 0,
       releasedTiles: 0,
       failedTiles: 0,
       cameraTransformOnRaster: false,
+      multiLevelOverlap: false,
     };
     window.__plotflowOverviewRuntime = stats;
 
     function updateStats() {
       stats.group = stage?.dataset?.overviewGroup || "";
       stats.activeTiles = tiles.size;
+      stats.currentLevel = currentLevel;
     }
 
     function ensureLayer() {
@@ -93,6 +97,7 @@ export default function OverviewRasterRuntime() {
         overflow: "hidden",
         pointerEvents: "none",
         zIndex: "1",
+        contain: "strict",
       });
       stage.prepend(layer);
     }
@@ -141,10 +146,10 @@ export default function OverviewRasterRuntime() {
 
       const levelScaleX = info.width / BASE_WIDTH;
       const levelScaleY = info.height / BASE_HEIGHT;
-      const firstCol = Math.max(0, Math.floor((sx0 * levelScaleX) / TILE_SIZE) - 1);
-      const firstRow = Math.max(0, Math.floor((sy0 * levelScaleY) / TILE_SIZE) - 1);
-      const lastCol = Math.min(info.cols - 1, Math.floor(((sx1 * levelScaleX) - 0.001) / TILE_SIZE) + 1);
-      const lastRow = Math.min(info.rows - 1, Math.floor(((sy1 * levelScaleY) - 0.001) / TILE_SIZE) + 1);
+      const firstCol = Math.max(0, Math.floor((sx0 * levelScaleX) / TILE_SIZE));
+      const firstRow = Math.max(0, Math.floor((sy0 * levelScaleY) / TILE_SIZE));
+      const lastCol = Math.min(info.cols - 1, Math.floor(((sx1 * levelScaleX) - 0.001) / TILE_SIZE));
+      const lastRow = Math.min(info.rows - 1, Math.floor(((sy1 * levelScaleY) - 0.001) / TILE_SIZE));
       const centerCol = ((sx0 + sx1) * 0.5 * levelScaleX) / TILE_SIZE;
       const centerRow = ((sy0 + sy1) * 0.5 * levelScaleY) / TILE_SIZE;
       const jobs = [];
@@ -174,30 +179,38 @@ export default function OverviewRasterRuntime() {
       const baseBottom = bounds.y + (tileBottom / levelScaleY) * bounds.fit;
 
       const dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
-      const left = snapToDevicePixel(camera.tx + baseLeft * camera.scale, dpr);
-      const top = snapToDevicePixel(camera.ty + baseTop * camera.scale, dpr);
-      const right = snapToDevicePixel(camera.tx + baseRight * camera.scale, dpr);
-      const bottom = snapToDevicePixel(camera.ty + baseBottom * camera.scale, dpr);
+      const left = snap(camera.tx + baseLeft * camera.scale, dpr);
+      const top = snap(camera.ty + baseTop * camera.scale, dpr);
+      const right = snap(camera.tx + baseRight * camera.scale, dpr);
+      const bottom = snap(camera.ty + baseBottom * camera.scale, dpr);
 
       image.className = "pf-overview-raster-tile";
       Object.assign(image.style, {
         position: "absolute",
         left: `${left}px`,
         top: `${top}px`,
-        width: `${Math.max(0.5, right - left)}px`,
-        height: `${Math.max(0.5, bottom - top)}px`,
+        width: `${Math.max(1, right - left)}px`,
+        height: `${Math.max(1, bottom - top)}px`,
         maxWidth: "none",
         pointerEvents: "none",
         userSelect: "none",
         display: "block",
         transform: "none",
+        willChange: "auto",
       });
     }
 
     function repositionExistingTiles() {
-      for (const entry of tiles.values()) {
-        positionTile(entry.image, entry.level, entry.col, entry.row);
-      }
+      for (const entry of tiles.values()) positionTile(entry.image, entry.level, entry.col, entry.row);
+    }
+
+    function releaseAllTiles() {
+      renderEpoch += 1;
+      for (const entry of tiles.values()) releaseImage(entry.image);
+      stats.releasedTiles += tiles.size;
+      tiles.clear();
+      stats.pendingTiles = 0;
+      updateStats();
     }
 
     function releaseExcept(keep) {
@@ -213,31 +226,45 @@ export default function OverviewRasterRuntime() {
     async function refreshTiles() {
       if (!stage || !layer || !bounds || disposed) return;
       const dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
-      const level = chooseLevel(bounds.width * camera.scale * dpr);
-      stats.currentLevel = level;
-      const jobs = visibleJobs(level);
-      const keep = new Set(jobs.map((job) => tileKey(level, job.col, job.row)));
-      const epoch = ++renderEpoch;
-      const staging = new Map();
-      const missing = jobs.filter((job) => !tiles.has(tileKey(level, job.col, job.row)));
-      stats.pendingTiles = missing.length;
+      const nextLevel = chooseLevel(bounds.width * camera.scale * dpr);
+      const jobs = visibleJobs(nextLevel);
+      const keep = new Set(jobs.map((job) => tileKey(nextLevel, job.col, job.row)));
 
+      if (nextLevel !== currentLevel) {
+        releaseAllTiles();
+        currentLevel = nextLevel;
+      } else {
+        releaseExcept(keep);
+      }
+
+      const epoch = ++renderEpoch;
+      const missing = jobs.filter((job) => !tiles.has(tileKey(nextLevel, job.col, job.row)));
+      stats.pendingTiles = Math.min(missing.length, MAX_VISIBLE_TILES);
       let cursor = 0;
+
       async function worker() {
         while (!disposed && epoch === renderEpoch) {
           const job = missing[cursor++];
           if (!job) return;
-          const key = tileKey(level, job.col, job.row);
+          const key = tileKey(nextLevel, job.col, job.row);
           let image = null;
           try {
-            image = await loadImage(`${TILE_BASE}/${level}/${job.col}_${job.row}.webp`);
+            image = await loadImage(`${TILE_BASE}/${nextLevel}/${job.col}_${job.row}.webp`);
             if (disposed || epoch !== renderEpoch || !layer?.isConnected || !keep.has(key)) {
               releaseImage(image);
               stats.releasedTiles += 1;
               continue;
             }
-            positionTile(image, level, job.col, job.row);
-            staging.set(key, { image, level, col: job.col, row: job.row });
+            if (tiles.size >= MAX_VISIBLE_TILES) {
+              releaseImage(image);
+              stats.releasedTiles += 1;
+              continue;
+            }
+            positionTile(image, nextLevel, job.col, job.row);
+            layer.appendChild(image);
+            tiles.set(key, { image, level: nextLevel, col: job.col, row: job.row });
+            stats.loadedTiles += 1;
+            updateStats();
           } catch (error) {
             stats.failedTiles += 1;
             console.debug("Overview raster tile skipped", error);
@@ -246,27 +273,9 @@ export default function OverviewRasterRuntime() {
       }
 
       await Promise.all(Array.from({ length: Math.min(MAX_PARALLEL_LOADS, Math.max(1, missing.length)) }, () => worker()));
-      if (disposed || epoch !== renderEpoch || !layer?.isConnected) {
-        for (const entry of staging.values()) releaseImage(entry.image);
-        stats.releasedTiles += staging.size;
-        stats.pendingTiles = 0;
-        return;
-      }
-
-      for (const [key, entry] of staging) {
-        if (tiles.has(key)) {
-          releaseImage(entry.image);
-          stats.releasedTiles += 1;
-          continue;
-        }
-        layer.appendChild(entry.image);
-        tiles.set(key, entry);
-        stats.loadedTiles += 1;
-      }
-
-      releaseExcept(keep);
-      repositionExistingTiles();
+      if (disposed || epoch !== renderEpoch) return;
       stats.pendingTiles = 0;
+      repositionExistingTiles();
       updateStats();
       if (tiles.size) stage.classList.add("pf-pdf-crisp-ready");
     }
@@ -286,14 +295,11 @@ export default function OverviewRasterRuntime() {
     }
 
     function releaseAll() {
-      renderEpoch += 1;
       window.clearTimeout(settleTimer);
-      for (const entry of tiles.values()) releaseImage(entry.image);
-      stats.releasedTiles += tiles.size;
-      tiles.clear();
+      releaseAllTiles();
       layer?.remove();
       layer = null;
-      stats.pendingTiles = 0;
+      currentLevel = 0;
       updateStats();
     }
 
@@ -317,7 +323,7 @@ export default function OverviewRasterRuntime() {
       if (!stage) return;
       publishBounds();
       repositionExistingTiles();
-      scheduleRefresh(70);
+      scheduleRefresh(120);
     }
 
     function attach(nextStage) {
