@@ -25,7 +25,6 @@ import ProductShell from "./product/ProductShell.jsx";
 import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
 import DetailModeRecovery from "./product/DetailModeRecovery.jsx";
 import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
-import OverviewPdfRuntime from "./product/OverviewPdfRuntime.jsx";
 import OverviewRasterRuntime from "./product/OverviewRasterRuntime.jsx";
 import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
 import OverviewAnchorRuntime from "./product/OverviewAnchorRuntime.jsx";
@@ -119,22 +118,16 @@ if (import.meta.hot) {
 }
 
 function OverviewMasterplanEngine() {
-  const [engine, setEngine] = useState({ mode: null, sourceKey: "" });
+  const [sourceKey, setSourceKey] = useState("");
 
   useEffect(() => {
     function sync() {
-      const stage = document.querySelector(".pf-masterplan-stage[data-overview-render-mode]");
-      const next = {
-        mode: stage?.dataset?.overviewRenderMode || null,
-        sourceKey: [
-          stage?.dataset?.overviewGroup || "",
-          stage?.dataset?.overviewPdfUrl || "",
-          stage?.dataset?.overviewRenderMode || "",
-        ].join("::"),
-      };
-      setEngine((current) => (
-        current.mode === next.mode && current.sourceKey === next.sourceKey ? current : next
-      ));
+      const stage = document.querySelector('.pf-masterplan-stage[data-overview-render-mode="raster"]');
+      const next = [
+        stage?.dataset?.overviewGroup || "",
+        stage?.dataset?.overviewRasterSource || "",
+      ].join("::");
+      setSourceKey((current) => current === next ? current : next);
     }
 
     sync();
@@ -143,14 +136,13 @@ function OverviewMasterplanEngine() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-overview-render-mode", "data-overview-group", "data-overview-pdf-url"],
+      attributeFilter: ["data-overview-render-mode", "data-overview-group", "data-overview-raster-source"],
     });
     return () => observer.disconnect();
   }, []);
 
-  if (engine.mode === "raster") return <OverviewRasterRuntime key={engine.sourceKey} />;
-  if (engine.mode === "pdf") return <OverviewPdfRuntime key={engine.sourceKey} />;
-  return null;
+  if (!sourceKey) return null;
+  return <OverviewRasterRuntime key={sourceKey} />;
 }
 
 function OverviewRuntimes() {
