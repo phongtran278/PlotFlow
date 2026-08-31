@@ -200,6 +200,7 @@ function WorkspaceAuxiliaryRuntimes() {
         <ProjectSettings />
         <PinScaleControl />
         <LotTileRuntime />
+        <AutoFloorplanSource />
         <OverviewRuntimes />
       </>
     );
