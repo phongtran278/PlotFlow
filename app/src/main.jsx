@@ -26,6 +26,7 @@ import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
 import DetailModeRecovery from "./product/DetailModeRecovery.jsx";
 import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
 import OverviewRasterRuntime from "./product/OverviewRasterRuntime.jsx";
+import OverviewWindowsFixedBitmapRuntime from "./product/OverviewWindowsFixedBitmapRuntime.jsx";
 import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
 import OverviewAnchorRuntime from "./product/OverviewAnchorRuntime.jsx";
 import OverviewLiveUnitsRuntime from "./product/OverviewLiveUnitsRuntime.jsx";
@@ -48,6 +49,12 @@ document.documentElement.dataset.plotflowBuild = __PLOTFLOW_BUILD_COMMIT__;
 console.info(`[PlotFlow] build ${__PLOTFLOW_BUILD_COMMIT__}`);
 
 installMemoryProfile();
+
+function isWindowsPlatform() {
+  if (typeof navigator === "undefined") return false;
+  const value = String(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || "").toLowerCase();
+  return value.includes("win");
+}
 
 function useExclusiveFloorplanEditing() {
   const [editing, setEditing] = useState(() => document.body.classList.contains("plotflow-floorplan-editing"));
@@ -143,7 +150,9 @@ function OverviewMasterplanEngine() {
   }, []);
 
   if (!sourceKey) return null;
-  return <OverviewRasterRuntime key={sourceKey} />;
+  return isWindowsPlatform()
+    ? <OverviewWindowsFixedBitmapRuntime key={`windows-fixed:${sourceKey}`} />
+    : <OverviewRasterRuntime key={sourceKey} />;
 }
 
 function OverviewRuntimes() {
