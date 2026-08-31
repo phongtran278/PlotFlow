@@ -196,6 +196,7 @@ function WorkspaceAuxiliaryRuntimes() {
         <MemoryGovernor />
         <WorkspaceController />
         <PerformanceFeedback />
+        <WorkspaceScrollSurfaceFix />
         <OverviewRuntimes />
       </>
     );
