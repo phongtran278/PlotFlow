@@ -189,6 +189,16 @@ function WorkspaceAuxiliaryRuntimes() {
     return <MemoryGovernor />;
   }
 
+  if (overviewActive) {
+    return (
+      <>
+        <OverviewSellDataRuntime />
+        <MemoryGovernor />
+        <OverviewRuntimes />
+      </>
+    );
+  }
+
   return (
     <>
       <OverviewSellDataRuntime />
@@ -203,7 +213,6 @@ function WorkspaceAuxiliaryRuntimes() {
       <PinScaleControl />
       <EmptyWorkspaceEnhancer />
       <DetailModeRecovery />
-      {overviewActive && <OverviewRuntimes />}
     </>
   );
 }
