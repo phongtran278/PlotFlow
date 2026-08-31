@@ -199,6 +199,7 @@ function WorkspaceAuxiliaryRuntimes() {
         <WorkspaceScrollSurfaceFix />
         <ProjectSettings />
         <PinScaleControl />
+        <LotTileRuntime />
         <OverviewRuntimes />
       </>
     );
