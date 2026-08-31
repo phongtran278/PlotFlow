@@ -4,9 +4,6 @@ const BASE_WIDTH = 42000;
 const BASE_HEIGHT = 29709;
 const TILE_SIZE = 512;
 const FIXED_LEVEL = 1800;
-const SHARP_LEVELS = [10500, 21000, 42000];
-const SHARP_SETTLE_MS = 260;
-const SHARP_TILE_CEILING = 6;
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
 
 function levelInfo(width) {
@@ -18,13 +15,6 @@ function isWindows() {
   if (typeof navigator === "undefined") return false;
   const value = String(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || "").toLowerCase();
   return value.includes("win");
-}
-
-function sharpLevelFor(scale) {
-  if (scale >= 20) return SHARP_LEVELS[2];
-  if (scale >= 9) return SHARP_LEVELS[1];
-  if (scale >= 4) return SHARP_LEVELS[0];
-  return 0;
 }
 
 export default function OverviewWindowsFixedBitmapRuntime() {
@@ -40,15 +30,12 @@ export default function OverviewWindowsFixedBitmapRuntime() {
     let bounds = null;
     let camera = { scale: 1, tx: 0, ty: 0 };
     let raf = 0;
-    let sharpTimer = 0;
-    let sharpEpoch = 0;
-    let lastSharpSignature = "";
     const bitmaps = new Map();
     const info = levelInfo(FIXED_LEVEL);
     const totalTiles = info.cols * info.rows;
 
     const stats = {
-      mode: "windows-bounded-sharp-canvas",
+      mode: "windows-fixed-bitmap-canvas-no-sharp",
       platform: "Windows",
       fixedLevel: FIXED_LEVEL,
       baseFixedUrlSet: true,
@@ -62,14 +49,14 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       pdfRuntimeLoaded: false,
       iframeOpened: false,
       refetchOnCamera: false,
-      sharpOnSettle: true,
+      sharpOnSettle: false,
       sharpLevel: 0,
-      sharpTileCeiling: SHARP_TILE_CEILING,
+      sharpTileCeiling: 0,
       sharpFetchCount: 0,
       sharpTilesDrawn: 0,
       sharpReleasedBitmaps: 0,
       sharpPending: 0,
-      sharpCacheMode: "no-store",
+      sharpCacheMode: "disabled",
     };
     window.__plotflowOverviewRuntime = stats;
 
@@ -122,15 +109,12 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       if (canvas.height !== height) canvas.height = height;
       ctx.imageSmoothingEnabled = true;
       publishBounds();
-      lastSharpSignature = "";
-      sharpEpoch += 1;
       scheduleDraw();
-      scheduleSharp();
     }
 
-    function drawEntry(bitmap, level, col, row) {
+    function drawEntry(bitmap, col, row) {
       if (!bitmap || !ctx || !canvas || !bounds) return false;
-      const levelMetrics = levelInfo(level);
+      const levelMetrics = levelInfo(FIXED_LEVEL);
       const levelScaleX = levelMetrics.width / BASE_WIDTH;
       const levelScaleY = levelMetrics.height / BASE_HEIGHT;
       const tileLeft = col * TILE_SIZE;
@@ -156,7 +140,7 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      for (const entry of bitmaps.values()) drawEntry(entry.bitmap, FIXED_LEVEL, entry.col, entry.row);
+      for (const entry of bitmaps.values()) drawEntry(entry.bitmap, entry.col, entry.row);
       stats.drawCount += 1;
       stats.activeBitmaps = bitmaps.size;
     }
@@ -164,100 +148,6 @@ export default function OverviewWindowsFixedBitmapRuntime() {
     function scheduleDraw() {
       if (raf) return;
       raf = window.requestAnimationFrame(drawNow);
-    }
-
-    function visibleSharpJobs(level) {
-      if (!bounds || !canvas) return [];
-      const levelMetrics = levelInfo(level);
-      const scale = Math.max(0.0001, camera.scale);
-      const worldLeft = (0 - camera.tx) / scale;
-      const worldTop = (0 - camera.ty) / scale;
-      const worldRight = (canvas.width - camera.tx) / scale;
-      const worldBottom = (canvas.height - camera.ty) / scale;
-      const sourceLeft = (worldLeft - bounds.x) / bounds.fit;
-      const sourceTop = (worldTop - bounds.y) / bounds.fit;
-      const sourceRight = (worldRight - bounds.x) / bounds.fit;
-      const sourceBottom = (worldBottom - bounds.y) / bounds.fit;
-      const sx0 = Math.max(0, Math.min(BASE_WIDTH, sourceLeft));
-      const sy0 = Math.max(0, Math.min(BASE_HEIGHT, sourceTop));
-      const sx1 = Math.max(0, Math.min(BASE_WIDTH, sourceRight));
-      const sy1 = Math.max(0, Math.min(BASE_HEIGHT, sourceBottom));
-      if (sx1 <= sx0 || sy1 <= sy0) return [];
-
-      const levelScaleX = levelMetrics.width / BASE_WIDTH;
-      const levelScaleY = levelMetrics.height / BASE_HEIGHT;
-      const firstCol = Math.max(0, Math.floor((sx0 * levelScaleX) / TILE_SIZE));
-      const firstRow = Math.max(0, Math.floor((sy0 * levelScaleY) / TILE_SIZE));
-      const lastCol = Math.min(levelMetrics.cols - 1, Math.floor(((sx1 * levelScaleX) - 0.001) / TILE_SIZE));
-      const lastRow = Math.min(levelMetrics.rows - 1, Math.floor(((sy1 * levelScaleY) - 0.001) / TILE_SIZE));
-      const centerCol = ((sx0 + sx1) * 0.5 * levelScaleX) / TILE_SIZE;
-      const centerRow = ((sy0 + sy1) * 0.5 * levelScaleY) / TILE_SIZE;
-      const jobs = [];
-      for (let row = firstRow; row <= lastRow; row += 1) {
-        for (let col = firstCol; col <= lastCol; col += 1) {
-          jobs.push({ col, row, distance: Math.hypot(col - centerCol, row - centerRow) });
-        }
-      }
-      jobs.sort((a, b) => a.distance - b.distance);
-      return jobs.slice(0, SHARP_TILE_CEILING);
-    }
-
-    async function renderSharpPatch() {
-      sharpTimer = 0;
-      if (disposed || !ctx || !canvas || !bounds || bitmaps.size < totalTiles) {
-        if (!disposed && camera.scale >= 4) scheduleSharp(140);
-        return;
-      }
-      const level = sharpLevelFor(camera.scale);
-      stats.sharpLevel = level;
-      if (!level) return;
-      const signature = [level, Math.round(camera.scale * 20), Math.round(camera.tx / 20), Math.round(camera.ty / 20)].join(":");
-      if (signature === lastSharpSignature) return;
-      const jobs = visibleSharpJobs(level);
-      if (!jobs.length) return;
-
-      const epoch = ++sharpEpoch;
-      stats.sharpPending = jobs.length;
-      let cursor = 0;
-      async function worker() {
-        while (!disposed && epoch === sharpEpoch) {
-          const job = jobs[cursor++];
-          if (!job) return;
-          let bitmap = null;
-          try {
-            stats.sharpFetchCount += 1;
-            const response = await fetch(`${TILE_BASE}/${level}/${job.col}_${job.row}.webp`, { cache: "no-store" });
-            if (!response.ok) throw new Error(`tile ${response.status}`);
-            const blob = await response.blob();
-            bitmap = await createImageBitmap(blob);
-            if (disposed || epoch !== sharpEpoch) continue;
-            if (drawEntry(bitmap, level, job.col, job.row)) stats.sharpTilesDrawn += 1;
-          } catch (error) {
-            stats.failedTiles += 1;
-            console.debug("Windows sharp tile skipped", error);
-          } finally {
-            if (bitmap) {
-              bitmap.close?.();
-              stats.sharpReleasedBitmaps += 1;
-            }
-          }
-        }
-      }
-      await Promise.all([worker(), worker()]);
-      if (disposed || epoch !== sharpEpoch) return;
-      stats.sharpPending = 0;
-      lastSharpSignature = signature;
-      stage?.classList.add("pf-pdf-crisp-ready");
-    }
-
-    function scheduleSharp(delay = SHARP_SETTLE_MS) {
-      window.clearTimeout(sharpTimer);
-      sharpTimer = 0;
-      if (camera.scale < 4 || disposed) {
-        stats.sharpLevel = 0;
-        return;
-      }
-      sharpTimer = window.setTimeout(renderSharpPatch, delay);
     }
 
     async function loadFixedBitmaps() {
@@ -285,34 +175,24 @@ export default function OverviewWindowsFixedBitmapRuntime() {
         }
       }
       stage?.classList.add("pf-pdf-crisp-ready");
-      scheduleSharp(80);
     }
 
     function onCamera(event) {
       const next = event.detail || {};
       if (!Number.isFinite(next.scale)) return;
       camera = { scale: next.scale, tx: next.tx || 0, ty: next.ty || 0 };
-      sharpEpoch += 1;
-      lastSharpSignature = "";
-      window.clearTimeout(sharpTimer);
-      sharpTimer = 0;
       scheduleDraw();
-      if (!next.dragging) scheduleSharp();
     }
 
     function detachStage() {
       resizeObserver?.disconnect();
       resizeObserver = null;
       window.removeEventListener("pf-overview-camera", onCamera);
-      window.clearTimeout(sharpTimer);
-      sharpTimer = 0;
-      sharpEpoch += 1;
       if (raf) window.cancelAnimationFrame(raf);
       raf = 0;
       for (const entry of bitmaps.values()) entry.bitmap.close?.();
       bitmaps.clear();
       stats.activeBitmaps = 0;
-      stats.sharpPending = 0;
       if (canvas) {
         canvas.width = 1;
         canvas.height = 1;
