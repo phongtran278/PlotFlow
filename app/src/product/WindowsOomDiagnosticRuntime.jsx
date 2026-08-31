@@ -15,6 +15,13 @@ function safeNumber(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
 }
 
+function targetLabel(node) {
+  if (!(node instanceof Element)) return node?.nodeName || "node";
+  const id = node.id ? `#${node.id}` : "";
+  const classes = Array.from(node.classList || []).slice(0, 2).map((name) => `.${name}`).join("");
+  return `${node.tagName.toLowerCase()}${id}${classes}`;
+}
+
 export default function WindowsOomDiagnosticRuntime() {
   useEffect(() => {
     if (!isWindows()) return undefined;
@@ -24,6 +31,7 @@ export default function WindowsOomDiagnosticRuntime() {
     let mutationBatches = 0;
     let lastDrawCount = safeNumber(window.__plotflowOverviewRuntime?.drawCount);
     let lastSharpFetchCount = safeNumber(window.__plotflowOverviewRuntime?.sharpFetchCount);
+    let mutationHotspots = new Map();
 
     const panel = document.createElement("div");
     panel.dataset.plotflowWindowsOomDiagnostic = "1";
@@ -32,7 +40,7 @@ export default function WindowsOomDiagnosticRuntime() {
       top: "10px",
       right: "10px",
       zIndex: "2147483647",
-      width: "260px",
+      width: "360px",
       padding: "10px 12px",
       borderRadius: "10px",
       background: "rgba(15, 18, 24, 0.92)",
@@ -54,7 +62,13 @@ export default function WindowsOomDiagnosticRuntime() {
 
     const observer = new MutationObserver((records) => {
       mutationBatches += 1;
-      mutationRecords += records.length;
+      for (const record of records) {
+        if (record.target === panel || panel.contains(record.target)) continue;
+        mutationRecords += 1;
+        const attr = record.type === "attributes" ? `@${record.attributeName || "attr"}` : record.type;
+        const key = `${targetLabel(record.target)} ${attr}`;
+        mutationHotspots.set(key, (mutationHotspots.get(key) || 0) + 1);
+      }
     });
     observer.observe(document.body, {
       childList: true,
@@ -80,6 +94,12 @@ export default function WindowsOomDiagnosticRuntime() {
       const lines = document.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").length;
       const camera = window.__plotflowOverviewCamera || window.__plotflowOverviewRuntime?.camera || null;
       const scale = safeNumber(camera?.scale, NaN);
+      const topHotspots = Array.from(mutationHotspots.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+      const hotspotLines = topHotspots.length
+        ? topHotspots.map(([key, count], index) => `hot ${index + 1} ${String(count).padStart(6)}  ${key}`)
+        : ["hotspots          none"];
 
       panel.textContent = [
         "WINDOWS OOM DIAGNOSTIC",
@@ -87,6 +107,7 @@ export default function WindowsOomDiagnosticRuntime() {
         `canvas redraw/s   ${drawPerSecond}`,
         `mut batches/s     ${mutationBatches}`,
         `mut records/s     ${mutationRecords}`,
+        ...hotspotLines,
         `DOM nodes         ${domNodes}`,
         `canvas / img      ${canvases} / ${images}`,
         `cards / lines     ${cards} / ${lines}`,
@@ -106,6 +127,7 @@ export default function WindowsOomDiagnosticRuntime() {
         canvasRedrawsPerSecond: drawPerSecond,
         mutationBatchesPerSecond: mutationBatches,
         mutationRecordsPerSecond: mutationRecords,
+        mutationHotspots: topHotspots,
         domNodes,
         canvases,
         images,
@@ -123,6 +145,7 @@ export default function WindowsOomDiagnosticRuntime() {
       cameraEvents = 0;
       mutationRecords = 0;
       mutationBatches = 0;
+      mutationHotspots = new Map();
     }
 
     sample();
