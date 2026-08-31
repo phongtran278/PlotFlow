@@ -15,17 +15,85 @@ function codeFor(card) {
   return card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code,header strong")?.textContent?.trim() || "";
 }
 
+function finite(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 export default function WindowsOverviewViewportRuntime() {
   useEffect(() => {
     if (!isWindows()) return undefined;
 
     let stage = null;
     let observer = null;
+    let frame = 0;
     let lastCamera = { scale: 1, tx: 0, ty: 0 };
+    const style = document.createElement("style");
+    style.dataset.plotflowWindowsLowGpu = "1";
+    style.textContent = `
+      html[data-plotflow-windows-low-gpu="1"] .pf-overview,
+      html[data-plotflow-windows-low-gpu="1"] .pf-overview * {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+      }
+      html[data-plotflow-windows-low-gpu="1"] .pf-masterplan-stage .pf-live-sales-callout,
+      html[data-plotflow-windows-low-gpu="1"] .pf-masterplan-stage .pf-sales-callout {
+        transform: none !important;
+        will-change: auto !important;
+        backface-visibility: visible !important;
+      }
+      html[data-plotflow-windows-low-gpu="1"] .pf-masterplan-stage > .pf-callout-layer,
+      html[data-plotflow-windows-low-gpu="1"] .pf-masterplan-stage > .pf-overview-coming,
+      html[data-plotflow-windows-low-gpu="1"] .pf-masterplan-stage > .pf-overview-markup-layer {
+        will-change: auto !important;
+        transform-style: flat !important;
+        backface-visibility: visible !important;
+        filter: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+    document.documentElement.dataset.plotflowWindowsLowGpu = "1";
 
     function syncStage() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts") || null;
       return stage;
+    }
+
+    function cards() {
+      return stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout")) : [];
+    }
+
+    function ensureWorldMetric(card) {
+      if (!card) return null;
+      const storedLeft = Number(card.dataset.pfWorldLeft);
+      const storedTop = Number(card.dataset.pfWorldTop);
+      if (Number.isFinite(storedLeft) && Number.isFinite(storedTop)) {
+        return { left: storedLeft, top: storedTop, width: card.offsetWidth, height: card.offsetHeight };
+      }
+      const metric = { left: card.offsetLeft, top: card.offsetTop, width: card.offsetWidth, height: card.offsetHeight };
+      card.dataset.pfWorldLeft = String(metric.left);
+      card.dataset.pfWorldTop = String(metric.top);
+      return metric;
+    }
+
+    function restoreWorldPositions() {
+      cards().forEach((card) => {
+        const metric = ensureWorldMetric(card);
+        if (!metric) return;
+        card.style.transform = "none";
+        card.style.left = `${metric.left}px`;
+        card.style.top = `${metric.top}px`;
+        card.style.right = "auto";
+        delete card.dataset.pfWindowsScreenSpace;
+      });
+    }
+
+    function captureWorldPositionsFromStyle() {
+      cards().forEach((card) => {
+        if (card.dataset.pfWindowsScreenSpace === "1") return;
+        card.dataset.pfWorldLeft = String(card.offsetLeft);
+        card.dataset.pfWorldTop = String(card.offsetTop);
+      });
     }
 
     function clearWorldTransforms() {
@@ -40,14 +108,17 @@ export default function WindowsOverviewViewportRuntime() {
 
     function positionCards(scale, tx, ty) {
       if (!stage) return;
-      stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").forEach((card) => {
-        const baseLeft = card.offsetLeft;
-        const baseTop = card.offsetTop;
-        const targetLeft = tx + baseLeft * scale;
-        const targetTop = ty + baseTop * scale;
-        card.style.transformOrigin = "0 0";
-        card.style.transform = `translate(${targetLeft - baseLeft}px, ${targetTop - baseTop}px)`;
+      cards().forEach((card) => {
+        const metric = ensureWorldMetric(card);
+        if (!metric) return;
+        const targetLeft = tx + metric.left * scale;
+        const targetTop = ty + metric.top * scale;
+        card.style.transform = "none";
+        card.style.left = `${targetLeft}px`;
+        card.style.top = `${targetTop}px`;
+        card.style.right = "auto";
         card.style.willChange = "auto";
+        card.dataset.pfWindowsScreenSpace = "1";
       });
     }
 
@@ -55,9 +126,9 @@ export default function WindowsOverviewViewportRuntime() {
       if (!stage) return;
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
-      const cards = Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout"));
+      const cardList = cards();
       const anchors = Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor"));
-      const cardByCode = new Map(cards.map((card) => [codeFor(card), card]));
+      const cardByCode = new Map(cardList.map((card) => [codeFor(card), card]));
       const anchorByCode = new Map(anchors.map((anchor) => [anchor.dataset.unitCode || anchor.textContent?.trim() || "", anchor]));
 
       stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => {
@@ -66,12 +137,14 @@ export default function WindowsOverviewViewportRuntime() {
         const anchor = anchorByCode.get(code);
         if (!card || !anchor) return;
 
-        const anchorX = Number.parseFloat(anchor.style.left || "50");
-        const anchorY = Number.parseFloat(anchor.style.top || "50");
+        const metric = ensureWorldMetric(card);
+        if (!metric) return;
+        const anchorX = finite(Number.parseFloat(anchor.style.left || "50"), 50);
+        const anchorY = finite(Number.parseFloat(anchor.style.top || "50"), 50);
         const anchorPx = anchorX / 100 * w;
-        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-        const startPxX = anchorPx >= cardCenter ? card.offsetLeft + card.offsetWidth : card.offsetLeft;
-        const startPxY = card.offsetTop + card.offsetHeight / 2;
+        const cardCenter = metric.left + metric.width / 2;
+        const startPxX = anchorPx >= cardCenter ? metric.left + metric.width : metric.left;
+        const startPxY = metric.top + metric.height / 2;
         const startX = startPxX / w * 100;
         const startY = startPxY / h * 100;
 
@@ -94,10 +167,11 @@ export default function WindowsOverviewViewportRuntime() {
 
     function applyCamera(detail = {}) {
       if (!syncStage()) return;
-      const scale = Number(detail.scale) || 1;
-      const tx = Number(detail.tx) || 0;
-      const ty = Number(detail.ty) || 0;
+      const scale = finite(detail.scale, 1) || 1;
+      const tx = finite(detail.tx, 0);
+      const ty = finite(detail.ty, 0);
       lastCamera = { scale, tx, ty };
+      captureWorldPositionsFromStyle();
       clearWorldTransforms();
       positionCards(scale, tx, ty);
       positionConnectors(scale, tx, ty);
@@ -105,12 +179,22 @@ export default function WindowsOverviewViewportRuntime() {
       window.__plotflowWindowsViewportOverlay = {
         active: true,
         scale,
-        cards: stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").length,
+        cards: cards().length,
         giantWorldScale: false,
-        liveCardCoordinates: true,
+        cardTransforms: false,
+        screenSpaceLeftTop: true,
         connectorCoordinatesRebuilt: true,
         penOwnedByPenRuntime: true,
+        backdropFilter: false,
       };
+    }
+
+    function scheduleApply() {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        applyCamera(lastCamera);
+      });
     }
 
     function onCamera(event) {
@@ -118,10 +202,32 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function onLayoutChanged() {
-      window.requestAnimationFrame(() => applyCamera(lastCamera));
+      restoreWorldPositions();
+      requestAnimationFrame(() => {
+        captureWorldPositionsFromStyle();
+        applyCamera(lastCamera);
+      });
+    }
+
+    function onPointerCapture(event) {
+      if (!stage?.contains(event.target)) return;
+      const card = event.target.closest?.(".pf-live-sales-callout,.pf-sales-callout");
+      if (!card) return;
+      restoreWorldPositions();
+    }
+
+    function onPointerReleaseCapture(event) {
+      if (!stage?.contains(event.target)) return;
+      const card = event.target.closest?.(".pf-live-sales-callout,.pf-sales-callout");
+      if (!card) return;
+      captureWorldPositionsFromStyle();
+      scheduleApply();
     }
 
     syncStage();
+    window.addEventListener("pointerdown", onPointerCapture, true);
+    window.addEventListener("pointerup", onPointerReleaseCapture, true);
+    window.addEventListener("pointercancel", onPointerReleaseCapture, true);
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-auto-arranged", onLayoutChanged);
     window.addEventListener("pf-overview-card-size-changed", onLayoutChanged);
@@ -131,13 +237,33 @@ export default function WindowsOverviewViewportRuntime() {
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    window.__plotflowWindowsViewportOverlay = { active: true, scale: 1, cards: 0, giantWorldScale: false };
+    window.__plotflowWindowsViewportOverlay = {
+      active: true,
+      scale: 1,
+      cards: 0,
+      giantWorldScale: false,
+      cardTransforms: false,
+      screenSpaceLeftTop: true,
+      backdropFilter: false,
+    };
 
     return () => {
+      if (frame) cancelAnimationFrame(frame);
       observer?.disconnect();
+      restoreWorldPositions();
+      cards().forEach((card) => {
+        delete card.dataset.pfWorldLeft;
+        delete card.dataset.pfWorldTop;
+        delete card.dataset.pfWindowsScreenSpace;
+      });
+      window.removeEventListener("pointerdown", onPointerCapture, true);
+      window.removeEventListener("pointerup", onPointerReleaseCapture, true);
+      window.removeEventListener("pointercancel", onPointerReleaseCapture, true);
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-auto-arranged", onLayoutChanged);
       window.removeEventListener("pf-overview-card-size-changed", onLayoutChanged);
+      style.remove();
+      delete document.documentElement.dataset.plotflowWindowsLowGpu;
       delete window.__plotflowWindowsViewportOverlay;
     };
   }, []);
