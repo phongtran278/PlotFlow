@@ -17,7 +17,8 @@ export default function WindowsOverviewViewportRuntime() {
 
     let stage = null;
     let observer = null;
-    const cardBase = new WeakMap();
+    let cardBase = new WeakMap();
+    let lastCamera = { scale: 1, tx: 0, ty: 0 };
 
     function syncStage() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts") || null;
@@ -93,6 +94,7 @@ export default function WindowsOverviewViewportRuntime() {
       const scale = Number(detail.scale) || 1;
       const tx = Number(detail.tx) || 0;
       const ty = Number(detail.ty) || 0;
+      lastCamera = { scale, tx, ty };
       clearWorldTransforms();
       positionCards(scale, tx, ty);
       positionConnectors(scale, tx, ty);
@@ -110,8 +112,8 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function onLayoutChanged() {
-      cardBase.clear?.();
-      window.requestAnimationFrame(() => applyCamera({ scale: Number(stage?.style.getPropertyValue("--pf-overview-zoom")) || 1, tx: 0, ty: 0 }));
+      cardBase = new WeakMap();
+      window.requestAnimationFrame(() => applyCamera(lastCamera));
     }
 
     syncStage();
