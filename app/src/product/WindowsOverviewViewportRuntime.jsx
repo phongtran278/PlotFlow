@@ -17,7 +17,6 @@ export default function WindowsOverviewViewportRuntime() {
 
     let stage = null;
     let observer = null;
-    let cardBase = new WeakMap();
     let lastCamera = { scale: 1, tx: 0, ty: 0 };
 
     function syncStage() {
@@ -26,12 +25,7 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function baseForCard(card) {
-      let base = cardBase.get(card);
-      if (!base) {
-        base = { left: card.offsetLeft, top: card.offsetTop };
-        cardBase.set(card, base);
-      }
-      return base;
+      return { left: card.offsetLeft, top: card.offsetTop };
     }
 
     function clearWorldTransforms() {
@@ -112,7 +106,6 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function onLayoutChanged() {
-      cardBase = new WeakMap();
       window.requestAnimationFrame(() => applyCamera(lastCamera));
     }
 
