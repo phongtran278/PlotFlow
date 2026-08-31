@@ -7,6 +7,7 @@ const TILE_SIZE = 512;
 const LEVEL_WIDTHS = [1800, 2625, 5250, 10500, 21000, 42000];
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
 const SETTLE_MS = 90;
+const FIT_EPSILON = 0.02;
 
 function levelInfo(width) {
   const height = Math.round(BASE_HEIGHT * (width / BASE_WIDTH));
@@ -61,6 +62,7 @@ export default function OverviewRasterRuntime() {
     let settleTimer = 0;
     let renderEpoch = 0;
     let currentLevel = 0;
+    let currentTileLimit = maxVisibleTiles;
     let camera = { scale: 1, tx: 0, ty: 0 };
     let bounds = null;
     const tiles = new Map();
@@ -85,13 +87,24 @@ export default function OverviewRasterRuntime() {
       failedTiles: 0,
       cameraTransformOnRaster: false,
       multiLevelOverlap: false,
+      fitComplete: false,
     };
     window.__plotflowOverviewRuntime = stats;
+
+    function isFitCamera() {
+      return Math.abs(camera.scale - 1) <= FIT_EPSILON
+        && Math.abs(camera.tx) <= 1
+        && Math.abs(camera.ty) <= 1;
+    }
 
     function updateStats() {
       stats.group = stage?.dataset?.overviewGroup || "";
       stats.activeTiles = tiles.size;
       stats.currentLevel = currentLevel;
+      stats.tileCeiling = currentTileLimit;
+      stats.fitComplete = isFitCamera() && currentLevel === LEVEL_WIDTHS[0]
+        ? tiles.size >= levelInfo(LEVEL_WIDTHS[0]).cols * levelInfo(LEVEL_WIDTHS[0]).rows
+        : false;
     }
 
     function ensureLayer() {
@@ -165,7 +178,11 @@ export default function OverviewRasterRuntime() {
         }
       }
       jobs.sort((a, b) => a.distance - b.distance);
-      return jobs.slice(0, maxVisibleTiles);
+
+      const fitTileCount = info.cols * info.rows;
+      const fitView = isFitCamera() && level === LEVEL_WIDTHS[0];
+      currentTileLimit = fitView ? Math.max(maxVisibleTiles, fitTileCount) : maxVisibleTiles;
+      return jobs.slice(0, currentTileLimit);
     }
 
     function positionTile(image, level, col, row) {
@@ -232,6 +249,7 @@ export default function OverviewRasterRuntime() {
       const nextLevel = chooseLevel(bounds.width * camera.scale * dpr);
       const jobs = visibleJobs(nextLevel);
       const keep = new Set(jobs.map((job) => tileKey(nextLevel, job.col, job.row)));
+      const fitView = isFitCamera() && nextLevel === LEVEL_WIDTHS[0];
 
       if (nextLevel !== currentLevel) {
         releaseAllTiles();
@@ -242,7 +260,7 @@ export default function OverviewRasterRuntime() {
 
       const epoch = ++renderEpoch;
       const missing = jobs.filter((job) => !tiles.has(tileKey(nextLevel, job.col, job.row)));
-      stats.pendingTiles = Math.min(missing.length, maxVisibleTiles);
+      stats.pendingTiles = Math.min(missing.length, currentTileLimit);
       let cursor = 0;
 
       async function worker() {
@@ -258,7 +276,7 @@ export default function OverviewRasterRuntime() {
               stats.releasedTiles += 1;
               continue;
             }
-            if (tiles.size >= maxVisibleTiles) {
+            if (tiles.size >= currentTileLimit) {
               releaseImage(image);
               stats.releasedTiles += 1;
               continue;
@@ -275,7 +293,10 @@ export default function OverviewRasterRuntime() {
         }
       }
 
-      await Promise.all(Array.from({ length: Math.min(maxParallelLoads, Math.max(1, missing.length)) }, () => worker()));
+      const parallelLoads = fitView
+        ? Math.min(4, Math.max(1, missing.length))
+        : Math.min(maxParallelLoads, Math.max(1, missing.length));
+      await Promise.all(Array.from({ length: parallelLoads }, () => worker()));
       if (disposed || epoch !== renderEpoch) return;
       stats.pendingTiles = 0;
       repositionExistingTiles();
@@ -294,7 +315,7 @@ export default function OverviewRasterRuntime() {
       camera = { scale: next.scale, tx: next.tx || 0, ty: next.ty || 0 };
       repositionExistingTiles();
       window.clearTimeout(settleTimer);
-      if (!next.dragging) scheduleRefresh();
+      if (!next.dragging) scheduleRefresh(isFitCamera() ? 0 : SETTLE_MS);
     }
 
     function releaseAll() {
@@ -303,6 +324,7 @@ export default function OverviewRasterRuntime() {
       layer?.remove();
       layer = null;
       currentLevel = 0;
+      currentTileLimit = maxVisibleTiles;
       updateStats();
     }
 
