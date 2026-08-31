@@ -30,7 +30,7 @@ export default function WindowsOverviewViewportRuntime() {
 
     function clearWorldTransforms() {
       if (!stage) return;
-      stage.querySelectorAll(".pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer,.pf-overview-pen-layer").forEach((node) => {
+      stage.querySelectorAll(".pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer").forEach((node) => {
         node.style.transform = "none";
         node.style.willChange = "auto";
         node.style.filter = "none";
@@ -85,14 +85,10 @@ export default function WindowsOverviewViewportRuntime() {
     function positionMarkup(scale, tx, ty) {
       if (!stage) return;
       const w = stage.clientWidth || 1;
-      const h = stage.clientHeight || 1;
       const nx = tx / w * 1000;
-      const ny = ty / h * 1000;
+      const ny = ty / (stage.clientHeight || 1) * 1000;
       stage.querySelectorAll(".pf-overview-markup-layer > *").forEach((shape) => {
         shape.setAttribute("transform", `translate(${nx} ${ny}) scale(${scale})`);
-      });
-      stage.querySelectorAll(".pf-overview-pen-layer > *").forEach((shape) => {
-        shape.setAttribute("transform", `translate(${tx / w * 100} ${ty / h * 100}) scale(${scale})`);
       });
     }
 
@@ -113,6 +109,7 @@ export default function WindowsOverviewViewportRuntime() {
         giantWorldScale: false,
         liveCardCoordinates: true,
         connectorCoordinatesRebuilt: true,
+        penOwnedByPenRuntime: true,
       };
     }
 
