@@ -69,6 +69,7 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       sharpTilesDrawn: 0,
       sharpReleasedBitmaps: 0,
       sharpPending: 0,
+      sharpCacheMode: "no-store",
     };
     window.__plotflowOverviewRuntime = stats;
 
@@ -225,7 +226,7 @@ export default function OverviewWindowsFixedBitmapRuntime() {
           let bitmap = null;
           try {
             stats.sharpFetchCount += 1;
-            const response = await fetch(`${TILE_BASE}/${level}/${job.col}_${job.row}.webp`, { cache: "force-cache" });
+            const response = await fetch(`${TILE_BASE}/${level}/${job.col}_${job.row}.webp`, { cache: "no-store" });
             if (!response.ok) throw new Error(`tile ${response.status}`);
             const blob = await response.blob();
             bitmap = await createImageBitmap(blob);
