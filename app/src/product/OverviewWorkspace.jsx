@@ -1,13 +1,5 @@
 import "./OverviewWorkspace.css";
 
-function overviewPdfPath(group = "") {
-  const normalized = String(group).trim().toLowerCase();
-  if (normalized.includes("hoàn thiện") || normalized.includes("hoan thien")) return "/overview-masterplan/hoan-thien.pdf";
-  if (normalized.includes("giãn xây") || normalized.includes("gian xay")) return "/overview-masterplan/gian-xay.pdf";
-  if (normalized.includes("xây thô") || normalized.includes("xay tho") || normalized.includes("bàn giao thô") || normalized.includes("ban giao tho")) return "/overview-masterplan/xay-tho.pdf";
-  return "/overview-masterplan/hoan-thien.pdf";
-}
-
 export default function OverviewWorkspace({
   project,
   overviewGroups,
@@ -22,8 +14,6 @@ export default function OverviewWorkspace({
   const scopedInventoryLabel = groupUnitCount
     ? `${groupUnitCount} / ${groupUnitCount} units loaded for ${overviewGroup}`
     : "Waiting for inventory in this view";
-  const overviewPdfUrl = overviewPdfPath(overviewGroup);
-  const renderMode = "pdf";
 
   return (
     <main className="pf-overview">
@@ -62,17 +52,10 @@ export default function OverviewWorkspace({
           <div
             className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}
             data-overview-group={overviewGroup}
-            data-overview-pdf-url={overviewPdfUrl}
-            data-overview-render-mode={renderMode}
+            data-overview-render-mode="raster"
+            data-overview-raster-source="prepared-masterplan-page-1"
           >
-            {project.masterplan ? (
-              <iframe
-                key={overviewPdfUrl}
-                className="pf-masterplan-pdf"
-                title={`${project.name} overview masterplan`}
-                src={`${overviewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-              />
-            ) : (
+            {!project.masterplan && (
               <div className={`pf-project-overview-placeholder tone-${project.tone}`}><strong>{project.name}</strong><span>{project.developer}</span></div>
             )}
 
