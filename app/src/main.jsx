@@ -66,6 +66,21 @@ function useExclusiveFloorplanEditing() {
   return editing;
 }
 
+function useOverviewActive() {
+  const [active, setActive] = useState(() => document.body.classList.contains("pf-product-overview"));
+
+  useEffect(() => {
+    function onProductViewChange(event) {
+      setActive(event?.detail?.screen === "project" && event?.detail?.mode === "overview");
+    }
+
+    window.addEventListener("plotflow-product-view-changed", onProductViewChange);
+    return () => window.removeEventListener("plotflow-product-view-changed", onProductViewChange);
+  }, []);
+
+  return active;
+}
+
 function PreviewInteractionsRuntime({ disabled }) {
   useEffect(() => {
     window.__plotflowPreviewInteractionsCleanup?.();
@@ -92,21 +107,9 @@ if (import.meta.hot) {
   });
 }
 
-function WorkspaceAuxiliaryRuntimes() {
+function OverviewRuntimes() {
   return (
     <>
-      <OverviewSellDataRuntime />
-      <AutoFloorplanSource />
-      <MemoryGovernor />
-      <LotTileRuntime />
-      <UnitReviewBar />
-      <PerformanceFeedback />
-      <WorkspaceController />
-      <WorkspaceScrollSurfaceFix />
-      <ProjectSettings />
-      <PinScaleControl />
-      <EmptyWorkspaceEnhancer />
-      <DetailModeRecovery />
       <OverviewZoomRuntime />
       <OverviewPdfRuntime />
       <OverviewExportRuntime />
@@ -125,6 +128,28 @@ function WorkspaceAuxiliaryRuntimes() {
       <OverviewInteractionRuntime />
       <OverviewLayerRevealRuntime />
       <OverviewUnitBadgeRuntime />
+    </>
+  );
+}
+
+function WorkspaceAuxiliaryRuntimes() {
+  const overviewActive = useOverviewActive();
+
+  return (
+    <>
+      <OverviewSellDataRuntime />
+      <AutoFloorplanSource />
+      <MemoryGovernor />
+      <LotTileRuntime />
+      <UnitReviewBar />
+      <PerformanceFeedback />
+      <WorkspaceController />
+      <WorkspaceScrollSurfaceFix />
+      <ProjectSettings />
+      <PinScaleControl />
+      <EmptyWorkspaceEnhancer />
+      <DetailModeRecovery />
+      {overviewActive && <OverviewRuntimes />}
     </>
   );
 }
