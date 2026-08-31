@@ -198,6 +198,7 @@ function WorkspaceAuxiliaryRuntimes() {
         <PerformanceFeedback />
         <WorkspaceScrollSurfaceFix />
         <ProjectSettings />
+        <PinScaleControl />
         <OverviewRuntimes />
       </>
     );
