@@ -201,6 +201,7 @@ function WorkspaceAuxiliaryRuntimes() {
         <PinScaleControl />
         <LotTileRuntime />
         <AutoFloorplanSource />
+        <DetailModeRecovery />
         <OverviewRuntimes />
       </>
     );
