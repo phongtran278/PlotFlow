@@ -36,11 +36,7 @@ import OverviewV2Runtime from "./product/OverviewV2Runtime.jsx";
 import OverviewSellDataRuntime from "./product/OverviewSellDataRuntime.jsx";
 import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
-import OverviewLayoutPresetRuntime from "./product/OverviewLayoutPresetRuntime.jsx";
-import OverviewPrecisionArrangeRuntime from "./product/OverviewPrecisionArrangeRuntime.jsx";
 import OverviewGuideRuntime from "./product/OverviewGuideRuntime.jsx";
-import OverviewLayoutGuardRuntime from "./product/OverviewLayoutGuardRuntime.jsx";
-import OverviewArrangeModesRuntime from "./product/OverviewArrangeModesRuntime.jsx";
 import OverviewInteractionRuntime from "./product/OverviewInteractionRuntime.jsx";
 import OverviewLayerRevealRuntime from "./product/OverviewLayerRevealRuntime.jsx";
 import OverviewUnitBadgeRuntime from "./product/OverviewUnitBadgeRuntime.jsx";
@@ -58,6 +54,20 @@ function useExclusiveFloorplanEditing() {
 
   useEffect(() => {
     const sync = () => setEditing(document.body.classList.contains("plotflow-floorplan-editing"));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return editing;
+}
+
+function useLotHighlightEditing() {
+  const [editing, setEditing] = useState(() => document.body.classList.contains("plotflow-lot-highlight-editing"));
+
+  useEffect(() => {
+    const sync = () => setEditing(document.body.classList.contains("plotflow-lot-highlight-editing"));
     sync();
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
@@ -147,11 +157,7 @@ function OverviewRuntimes() {
       <OverviewV2Runtime />
       <OverviewPenRuntime />
       <OverviewSimplifiedRuntime />
-      <OverviewLayoutPresetRuntime />
-      <OverviewPrecisionArrangeRuntime />
       <OverviewGuideRuntime />
-      <OverviewLayoutGuardRuntime />
-      <OverviewArrangeModesRuntime />
       <OverviewInteractionRuntime />
       <OverviewLayerRevealRuntime />
       <OverviewUnitBadgeRuntime />
@@ -161,6 +167,11 @@ function OverviewRuntimes() {
 
 function WorkspaceAuxiliaryRuntimes() {
   const overviewActive = useOverviewActive();
+  const lotHighlightEditing = useLotHighlightEditing();
+
+  if (lotHighlightEditing) {
+    return <MemoryGovernor />;
+  }
 
   return (
     <>
