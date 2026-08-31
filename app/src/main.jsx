@@ -26,6 +26,7 @@ import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
 import DetailModeRecovery from "./product/DetailModeRecovery.jsx";
 import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
 import OverviewPdfRuntime from "./product/OverviewPdfRuntime.jsx";
+import OverviewRasterRuntime from "./product/OverviewRasterRuntime.jsx";
 import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
 import OverviewAnchorRuntime from "./product/OverviewAnchorRuntime.jsx";
 import OverviewLiveUnitsRuntime from "./product/OverviewLiveUnitsRuntime.jsx";
@@ -107,11 +108,37 @@ if (import.meta.hot) {
   });
 }
 
+function OverviewMasterplanEngine() {
+  const [mode, setMode] = useState(null);
+
+  useEffect(() => {
+    function sync() {
+      const stage = document.querySelector(".pf-masterplan-stage[data-overview-render-mode]");
+      const next = stage?.dataset?.overviewRenderMode || null;
+      setMode((current) => current === next ? current : next);
+    }
+
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-overview-render-mode"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  if (mode === "raster") return <OverviewRasterRuntime />;
+  if (mode === "pdf") return <OverviewPdfRuntime />;
+  return null;
+}
+
 function OverviewRuntimes() {
   return (
     <>
       <OverviewZoomRuntime />
-      <OverviewPdfRuntime />
+      <OverviewMasterplanEngine />
       <OverviewExportRuntime />
       <OverviewAnchorRuntime />
       <OverviewLiveUnitsRuntime />
