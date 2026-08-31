@@ -197,6 +197,7 @@ function WorkspaceAuxiliaryRuntimes() {
         <WorkspaceController />
         <PerformanceFeedback />
         <WorkspaceScrollSurfaceFix />
+        <ProjectSettings />
         <OverviewRuntimes />
       </>
     );
