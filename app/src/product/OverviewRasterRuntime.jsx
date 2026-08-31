@@ -50,9 +50,13 @@ function snap(value, dpr) {
 export default function OverviewRasterRuntime() {
   useEffect(() => {
     const profile = getMemoryProfile();
-    const maxDpr = Math.max(1, Number(profile.overviewMaxDpr) || 1);
-    const maxVisibleTiles = Math.max(4, Number(profile.overviewTileTarget) || 8);
-    const maxParallelLoads = Math.max(1, Number(profile.overviewParallelLoads) || 1);
+    const windowsFixedLevel = profile.windows;
+    const windowsLevel = LEVEL_WIDTHS[0];
+    const windowsInfo = levelInfo(windowsLevel);
+    const windowsTileCount = windowsInfo.cols * windowsInfo.rows;
+    const maxDpr = windowsFixedLevel ? 1 : Math.max(1, Number(profile.overviewMaxDpr) || 1);
+    const maxVisibleTiles = windowsFixedLevel ? windowsTileCount : Math.max(4, Number(profile.overviewTileTarget) || 8);
+    const maxParallelLoads = windowsFixedLevel ? 2 : Math.max(1, Number(profile.overviewParallelLoads) || 1);
 
     let disposed = false;
     let stage = null;
@@ -68,7 +72,7 @@ export default function OverviewRasterRuntime() {
     const tiles = new Map();
 
     const stats = {
-      mode: "memory-first-raster",
+      mode: windowsFixedLevel ? "windows-fixed-lowres-raster" : "memory-first-raster",
       source: "prepared-masterplan-page-1",
       group: "",
       platform: profile.platform,
@@ -88,6 +92,8 @@ export default function OverviewRasterRuntime() {
       cameraTransformOnRaster: false,
       multiLevelOverlap: false,
       fitComplete: false,
+      fixedLevel: windowsFixedLevel ? windowsLevel : null,
+      fixedUrlSet: windowsFixedLevel,
     };
     window.__plotflowOverviewRuntime = stats;
 
@@ -102,7 +108,7 @@ export default function OverviewRasterRuntime() {
       stats.activeTiles = tiles.size;
       stats.currentLevel = currentLevel;
       stats.tileCeiling = currentTileLimit;
-      stats.fitComplete = isFitCamera() && currentLevel === LEVEL_WIDTHS[0]
+      stats.fitComplete = currentLevel === LEVEL_WIDTHS[0]
         ? tiles.size >= levelInfo(LEVEL_WIDTHS[0]).cols * levelInfo(LEVEL_WIDTHS[0]).rows
         : false;
     }
@@ -144,7 +150,18 @@ export default function OverviewRasterRuntime() {
       return bounds;
     }
 
+    function allJobs(level) {
+      const info = levelInfo(level);
+      const jobs = [];
+      for (let row = 0; row < info.rows; row += 1) {
+        for (let col = 0; col < info.cols; col += 1) jobs.push({ col, row, distance: 0 });
+      }
+      currentTileLimit = jobs.length;
+      return jobs;
+    }
+
     function visibleJobs(level) {
+      if (windowsFixedLevel) return allJobs(windowsLevel);
       if (!bounds) return [];
       const info = levelInfo(level);
       const scale = Math.max(0.0001, camera.scale);
@@ -234,6 +251,7 @@ export default function OverviewRasterRuntime() {
     }
 
     function releaseExcept(keep) {
+      if (windowsFixedLevel) return;
       for (const [key, entry] of tiles) {
         if (keep.has(key)) continue;
         tiles.delete(key);
@@ -246,7 +264,7 @@ export default function OverviewRasterRuntime() {
     async function refreshTiles() {
       if (!stage || !layer || !bounds || disposed) return;
       const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
-      const nextLevel = chooseLevel(bounds.width * camera.scale * dpr);
+      const nextLevel = windowsFixedLevel ? windowsLevel : chooseLevel(bounds.width * camera.scale * dpr);
       const jobs = visibleJobs(nextLevel);
       const keep = new Set(jobs.map((job) => tileKey(nextLevel, job.col, job.row)));
       const fitView = isFitCamera() && nextLevel === LEVEL_WIDTHS[0];
@@ -293,9 +311,11 @@ export default function OverviewRasterRuntime() {
         }
       }
 
-      const parallelLoads = fitView
-        ? Math.min(4, Math.max(1, missing.length))
-        : Math.min(maxParallelLoads, Math.max(1, missing.length));
+      const parallelLoads = windowsFixedLevel
+        ? Math.min(maxParallelLoads, Math.max(1, missing.length))
+        : fitView
+          ? Math.min(4, Math.max(1, missing.length))
+          : Math.min(maxParallelLoads, Math.max(1, missing.length));
       await Promise.all(Array.from({ length: parallelLoads }, () => worker()));
       if (disposed || epoch !== renderEpoch) return;
       stats.pendingTiles = 0;
@@ -315,7 +335,7 @@ export default function OverviewRasterRuntime() {
       camera = { scale: next.scale, tx: next.tx || 0, ty: next.ty || 0 };
       repositionExistingTiles();
       window.clearTimeout(settleTimer);
-      if (!next.dragging) scheduleRefresh(isFitCamera() ? 0 : SETTLE_MS);
+      if (!windowsFixedLevel && !next.dragging) scheduleRefresh(isFitCamera() ? 0 : SETTLE_MS);
     }
 
     function releaseAll() {
@@ -348,7 +368,7 @@ export default function OverviewRasterRuntime() {
       if (!stage) return;
       publishBounds();
       repositionExistingTiles();
-      scheduleRefresh(120);
+      if (!windowsFixedLevel) scheduleRefresh(120);
     }
 
     function attach(nextStage) {
