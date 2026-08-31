@@ -84,6 +84,8 @@ export default function OverviewPenRuntime() {
     let disposed = false;
     let retryRaf = 0;
     let retryCount = 0;
+    let draftFixed = null;
+    let draftLive = null;
 
     removeLegacyRectangles();
     saveShapes(shapes);
@@ -150,9 +152,9 @@ export default function OverviewPenRuntime() {
       const shape = shapes[shapeIndex];
       const points = shape.points.map((current, pointIndex) => pointIndex === index ? normalizePoint(point) : current);
       shapes = shapes.map((item, indexShape) => indexShape === shapeIndex ? { ...shape, points } : item);
-      saveShapes(shapes);
-      render();
-      emitHighlightsChanged();
+      const node = layer?.querySelector(`[data-pen-shape-id="${CSS.escape(String(selectedId))}"]`);
+      node?.setAttribute("points", pointsAttr(points));
+      renderAnchors();
     }
 
     function renderAnchors() {
@@ -198,17 +200,54 @@ export default function OverviewPenRuntime() {
       });
     }
 
+    function ensureDraftNodes() {
+      if (!layer) return;
+      if (!draftFixed?.isConnected) {
+        draftFixed = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        draftFixed.setAttribute("class", "pf-pen-draft-fixed");
+        draftFixed.setAttribute("vector-effect", "non-scaling-stroke");
+        layer.appendChild(draftFixed);
+      }
+      if (!draftLive?.isConnected) {
+        draftLive = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        draftLive.setAttribute("class", "pf-pen-draft-live");
+        draftLive.setAttribute("vector-effect", "non-scaling-stroke");
+        layer.appendChild(draftLive);
+      }
+    }
+
+    function updateDraftPreview() {
+      if (!layer) return;
+      ensureDraftNodes();
+      if (draft.length >= 2) {
+        draftFixed.setAttribute("points", pointsAttr(draft));
+        draftFixed.style.display = "";
+      } else {
+        draftFixed.style.display = "none";
+      }
+      if (draft.length >= 1 && hover) {
+        const last = draft.at(-1);
+        draftLive.setAttribute("x1", String(last.x));
+        draftLive.setAttribute("y1", String(last.y));
+        draftLive.setAttribute("x2", String(hover.x));
+        draftLive.setAttribute("y2", String(hover.y));
+        draftLive.style.display = "";
+      } else {
+        draftLive.style.display = "none";
+      }
+      renderAnchors();
+    }
+
     function render() {
       if (!layer) return;
-      const committed = shapes.map((shape) => {
+      layer.innerHTML = shapes.map((shape) => {
         const style = normalizeStyle(shape.style);
         const selected = String(shape.id) === String(selectedId) ? " is-selected" : "";
         return `<polygon class="pf-pen-shape${selected}" data-pen-shape-id="${escapeAttr(shape.id)}" points="${pointsAttr(shape.points)}" fill="${style.fill}" fill-opacity="${style.fillOpacity}" stroke="${style.stroke}" stroke-width="${style.strokeWidth}" stroke-opacity="${style.strokeOpacity}" vector-effect="non-scaling-stroke" />`;
       }).join("");
-      const fixed = draft.length >= 2 ? `<polyline class="pf-pen-draft-fixed" points="${pointsAttr(draft)}" vector-effect="non-scaling-stroke" />` : "";
-      const live = draft.length >= 2 && hover ? `<line class="pf-pen-draft-live" x1="${draft.at(-1).x}" y1="${draft.at(-1).y}" x2="${hover.x}" y2="${hover.y}" vector-effect="non-scaling-stroke" />` : "";
-      layer.innerHTML = committed + fixed + live;
-      renderAnchors();
+      draftFixed = null;
+      draftLive = null;
+      updateDraftPreview();
     }
 
     function applyCamera() {
@@ -230,7 +269,11 @@ export default function OverviewPenRuntime() {
       draft = []; hover = null; render(); syncStyleControls();
     }
 
-    function cancelDraft() { draft = []; hover = null; render(); }
+    function cancelDraft() {
+      draft = [];
+      hover = null;
+      updateDraftPreview();
+    }
 
     function setActive(next) {
       active = next;
@@ -280,7 +323,7 @@ export default function OverviewPenRuntime() {
       if (shapeNode) { selectShape(shapeNode.dataset.penShapeId); return; }
       const point = worldPoint(event);
       if (!point) return;
-      draft.push(point); hover = point; render();
+      draft.push(point); hover = point; updateDraftPreview();
     }
 
     function onDoubleClick(event) {
@@ -295,7 +338,17 @@ export default function OverviewPenRuntime() {
         return;
       }
       if (!active || !stage) return;
-      if (draft.length) { hover = worldPoint(event); render(); }
+      if (draft.length) {
+        hover = worldPoint(event);
+        if (draftLive && hover) {
+          const last = draft.at(-1);
+          draftLive.setAttribute("x1", String(last.x));
+          draftLive.setAttribute("y1", String(last.y));
+          draftLive.setAttribute("x2", String(hover.x));
+          draftLive.setAttribute("y2", String(hover.y));
+          draftLive.style.display = "";
+        }
+      }
       if (cursor) { cursor.style.left = `${event.clientX}px`; cursor.style.top = `${event.clientY}px`; }
     }
 
@@ -318,7 +371,7 @@ export default function OverviewPenRuntime() {
       if (event.key === "Enter") { event.preventDefault(); finish(); }
       if (event.key === "Escape") { event.preventDefault(); cancelDraft(); setActive(false); }
       if ((event.key === "Backspace" || event.key === "Delete") && draft.length) {
-        event.preventDefault(); draft.pop(); hover = draft.at(-1) || null; render();
+        event.preventDefault(); draft.pop(); hover = draft.at(-1) || null; updateDraftPreview();
       } else if ((event.key === "Backspace" || event.key === "Delete") && selectedShape()) {
         event.preventDefault(); deleteShape(selectedId);
       }
