@@ -6,9 +6,10 @@ const TILE_SIZE = 512;
 const LEVEL_WIDTHS = [1800, 2625, 5250, 10500, 21000, 42000];
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
 const MAX_DPR = 1.35;
-const CAMERA_SETTLE_MS = 84;
+const CAMERA_SETTLE_MS = 64;
 const URGENT_RENDER_RATIO = 1.75;
 const MAX_LIVE_RATIO = 3;
+const MAX_PARALLEL_TILES = 4;
 
 function levelInfo(width) {
   const height = Math.round(BASE_HEIGHT * (width / BASE_WIDTH));
@@ -71,7 +72,7 @@ export default function OverviewRasterRuntime() {
     let pendingCamera = { scale: 1, tx: 0, ty: 0 };
 
     const stats = {
-      mode: "raster-tile-stable-double-buffer",
+      mode: "raster-tile-bounded-parallel",
       source: "prepared-masterplan-page-1",
       group: "Hoàn thiện",
       currentLevel: 0,
@@ -82,6 +83,7 @@ export default function OverviewRasterRuntime() {
       frameSwaps: 0,
       cancelledRenders: 0,
       urgentRenders: 0,
+      parallelLimit: MAX_PARALLEL_TILES,
       pdfRuntimeLoaded: false,
     };
     window.__plotflowOverviewRuntime = stats;
@@ -172,18 +174,26 @@ export default function OverviewRasterRuntime() {
       const ly0 = sy0 * levelScaleY;
       const lx1 = sx1 * levelScaleX;
       const ly1 = sy1 * levelScaleY;
-      const margin = 1;
+      const margin = levelWidth <= 2625 ? 0 : 1;
       const firstCol = Math.max(0, Math.floor(lx0 / TILE_SIZE) - margin);
       const firstRow = Math.max(0, Math.floor(ly0 / TILE_SIZE) - margin);
       const lastCol = Math.min(level.cols - 1, Math.floor((lx1 - 0.001) / TILE_SIZE) + margin);
       const lastRow = Math.min(level.rows - 1, Math.floor((ly1 - 0.001) / TILE_SIZE) + margin);
-      const expectedTiles = Math.max(0, lastCol - firstCol + 1) * Math.max(0, lastRow - firstRow + 1);
-      stats.activeTiles = expectedTiles;
-      let drawnTiles = 0;
 
+      const jobs = [];
       for (let row = firstRow; row <= lastRow; row += 1) {
-        for (let col = firstCol; col <= lastCol; col += 1) {
-          if (disposed || epoch !== renderEpoch) { markCancelled(epoch); return; }
+        for (let col = firstCol; col <= lastCol; col += 1) jobs.push({ row, col });
+      }
+      stats.activeTiles = jobs.length;
+      let drawnTiles = 0;
+      let cursor = 0;
+
+      async function worker() {
+        while (!disposed && epoch === renderEpoch) {
+          const index = cursor;
+          cursor += 1;
+          if (index >= jobs.length) return;
+          const { row, col } = jobs[index];
           const url = `${TILE_BASE}/${level.width}/${col}_${row}.webp`;
           let bitmap = null;
           try {
@@ -213,8 +223,11 @@ export default function OverviewRasterRuntime() {
         }
       }
 
+      const workerCount = Math.min(MAX_PARALLEL_TILES, Math.max(1, jobs.length));
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
       if (disposed || epoch !== renderEpoch) { markCancelled(epoch); return; }
-      if (expectedTiles > 0 && drawnTiles === 0) return;
+      if (jobs.length > 0 && drawnTiles === 0) return;
 
       renderedCamera = { ...camera };
       bufferCanvas.style.visibility = "visible";
@@ -289,7 +302,7 @@ export default function OverviewRasterRuntime() {
       activeCtx = activeCanvas.getContext("2d", { alpha: false, desynchronized: true });
       bufferCtx = bufferCanvas.getContext("2d", { alpha: false, desynchronized: true });
       window.addEventListener("pf-overview-camera", onCamera);
-      resizeObserver = new ResizeObserver(() => schedule(pendingCamera, 100));
+      resizeObserver = new ResizeObserver(() => schedule(pendingCamera, 80));
       resizeObserver.observe(stage);
       schedule(pendingCamera, 0);
     }
