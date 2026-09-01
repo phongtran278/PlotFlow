@@ -34,6 +34,57 @@ export default function WindowsOverviewViewportRuntime() {
       return stage;
     }
 
+    function overviewCards() {
+      return stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout")) : [];
+    }
+
+    function selectedCards() {
+      return overviewCards().filter((card) => card.classList.contains("pf-card-selected"));
+    }
+
+    function clearKeyCard() {
+      overviewCards().forEach((card) => card.classList.remove("pf-card-key"));
+    }
+
+    function emitSelectionChanged() {
+      const selected = selectedCards();
+      const key = selected.find((card) => card.classList.contains("pf-card-key")) || null;
+      window.dispatchEvent(new CustomEvent("pf-overview-card-selection-changed", {
+        detail: {
+          codes: selected.map(codeForCard).filter(Boolean),
+          key: codeForCard(key),
+        },
+      }));
+    }
+
+    function updateCardSelection(card, event) {
+      const current = selectedCards();
+      const alreadySelected = card.classList.contains("pf-card-selected");
+
+      if (event.shiftKey) {
+        if (alreadySelected) {
+          card.classList.remove("pf-card-selected", "pf-card-key");
+        } else {
+          card.classList.add("pf-card-selected");
+        }
+        if (selectedCards().length < 2) clearKeyCard();
+        emitSelectionChanged();
+        return "selection-only";
+      }
+
+      if (alreadySelected && current.length > 1) {
+        clearKeyCard();
+        card.classList.add("pf-card-key");
+        emitSelectionChanged();
+        return "key";
+      }
+
+      overviewCards().forEach((item) => item.classList.remove("pf-card-selected", "pf-card-key"));
+      card.classList.add("pf-card-selected");
+      emitSelectionChanged();
+      return "single";
+    }
+
     function normalizeOverlayOwnership() {
       if (!stage) return;
       stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").forEach((card) => {
@@ -125,7 +176,7 @@ export default function WindowsOverviewViewportRuntime() {
     function syncLinkedSelection(preferredCard = null) {
       if (!stage) return;
       const selected = preferredCard
-        || stage.querySelector(".pf-live-sales-callout.pf-card-selected,.pf-live-sales-callout.pf-focus-card-active");
+        || stage.querySelector(".pf-live-sales-callout.pf-card-key,.pf-live-sales-callout.pf-card-selected,.pf-live-sales-callout.pf-focus-card-active");
       if (selected) activeCode = codeForCard(selected);
       const code = activeCode;
       stage.classList.toggle("pf-has-linked-selection", Boolean(code));
@@ -172,8 +223,11 @@ export default function WindowsOverviewViewportRuntime() {
 
       event.preventDefault();
       event.stopPropagation();
+      const selectionMode = updateCardSelection(card, event);
       activeCode = codeForCard(card);
       syncLinkedSelection(card);
+      if (selectionMode === "selection-only") return;
+
       drag = {
         card,
         pointerId: event.pointerId,
@@ -242,6 +296,9 @@ export default function WindowsOverviewViewportRuntime() {
 
     function onGroupChanged() {
       activeCode = "";
+      drag = null;
+      overviewCards().forEach((card) => card.classList.remove("pf-card-selected", "pf-card-key"));
+      emitSelectionChanged();
       onLayoutChanged();
     }
 
