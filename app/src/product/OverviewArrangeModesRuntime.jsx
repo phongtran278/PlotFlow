@@ -175,24 +175,6 @@ export default function OverviewArrangeModesRuntime() {
       renderDraft();
     }
 
-    function connectorStart(item, point) {
-      const bounds = pdfBounds();
-      if (!bounds) return point;
-      const halfW = Math.max(0.001, item.width / bounds.width / 2);
-      const halfH = Math.max(0.001, item.height / bounds.height / 2);
-      const dx = point.x - item.anchor.x;
-      const dy = point.y - item.anchor.y;
-
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        return dx < 0
-          ? { x: point.x + halfW, y: point.y }
-          : { x: point.x - halfW, y: point.y };
-      }
-      return dy > 0
-        ? { x: point.x, y: point.y - halfH }
-        : { x: point.x, y: point.y + halfH };
-    }
-
     function updateFooter() {
       const footer = overlay?.querySelector("footer>span");
       if (!footer) return;
@@ -200,6 +182,45 @@ export default function OverviewArrangeModesRuntime() {
       footer.textContent = resolved + 0.05 < ui.gap
         ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px fits · preview only`
         : `${items.length} cards · ${ui.gap}px gap · preview only`;
+    }
+
+    function syncPreviewConnectors() {
+      if (!canvas) return;
+      const canvasRect = canvas.getBoundingClientRect();
+      if (canvasRect.width < 1 || canvasRect.height < 1) return;
+
+      canvas.querySelectorAll(".pf-arrange-preview-lines line").forEach((line) => {
+        const code = line.dataset.code || "";
+        const chip = canvas.querySelector(`.pf-arrange-preview-chip[data-code="${CSS.escape(code)}"]`);
+        const anchor = canvas.querySelector(`.pf-arrange-preview-anchor[data-code="${CSS.escape(code)}"]`);
+        if (!chip || !anchor) return;
+
+        const chipRect = chip.getBoundingClientRect();
+        const anchorRect = anchor.getBoundingClientRect();
+        const cardLeft = chipRect.left - canvasRect.left;
+        const cardTop = chipRect.top - canvasRect.top;
+        const cardRight = chipRect.right - canvasRect.left;
+        const cardBottom = chipRect.bottom - canvasRect.top;
+        const cardCenterX = (cardLeft + cardRight) / 2;
+        const cardCenterY = (cardTop + cardBottom) / 2;
+        const anchorX = anchorRect.left - canvasRect.left + anchorRect.width / 2;
+        const anchorY = anchorRect.top - canvasRect.top + anchorRect.height / 2;
+        const dx = cardCenterX - anchorX;
+        const dy = cardCenterY - anchorY;
+
+        let startX = cardCenterX;
+        let startY = cardCenterY;
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          startX = dx < 0 ? cardRight : cardLeft;
+        } else {
+          startY = dy > 0 ? cardTop : cardBottom;
+        }
+
+        line.setAttribute("x1", String(startX / canvasRect.width * 100));
+        line.setAttribute("y1", String(startY / canvasRect.height * 100));
+        line.setAttribute("x2", String(anchorX / canvasRect.width * 100));
+        line.setAttribute("y2", String(anchorY / canvasRect.height * 100));
+      });
     }
 
     function renderDraft() {
@@ -210,16 +231,7 @@ export default function OverviewArrangeModesRuntime() {
         chip.style.left = `${point.x * 100}%`;
         chip.style.top = `${point.y * 100}%`;
       });
-      canvas.querySelectorAll(".pf-arrange-preview-lines line").forEach((line) => {
-        const point = draft[line.dataset.code];
-        const item = items.find((entry) => entry.code === line.dataset.code);
-        if (!point || !item) return;
-        const start = connectorStart(item, point);
-        line.setAttribute("x1", String(start.x * 100));
-        line.setAttribute("y1", String(start.y * 100));
-        line.setAttribute("x2", String(item.anchor.x * 100));
-        line.setAttribute("y2", String(item.anchor.y * 100));
-      });
+      syncPreviewConnectors();
       overlay?.querySelectorAll("[data-arrange-mode]").forEach((button) => {
         button.classList.toggle("active", button.dataset.arrangeMode === mode);
       });
@@ -249,6 +261,7 @@ export default function OverviewArrangeModesRuntime() {
       items.forEach((item) => {
         const anchor = document.createElement("span");
         anchor.className = `pf-arrange-preview-anchor${item.anchor.resolved ? " is-resolved" : ""}`;
+        anchor.dataset.code = item.code;
         anchor.style.left = `${item.anchor.x * 100}%`;
         anchor.style.top = `${item.anchor.y * 100}%`;
         anchor.title = `${item.code} · lot point`;
@@ -327,7 +340,7 @@ export default function OverviewArrangeModesRuntime() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>The top banner area is reserved. Cards, connector lines and lot points use the same midpoint-edge rule as the real layout.</small>
+              <small>The top banner area is reserved. Every connector is attached to the rendered card edge and its matching lot point.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>
