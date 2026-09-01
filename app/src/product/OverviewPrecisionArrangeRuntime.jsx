@@ -4,9 +4,12 @@ import "./OverviewPrecisionArrangeRuntime.css";
 const UI_KEY = "plotflow-overview-precision-arrange-v2";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const LEGACY_LAYOUT_UI_KEY = "phongflow-overview-layout-ui-v1";
+const GROUP_STYLE_KEY = "plotflow-overview-group-style-v1";
+const BASELINE_STYLE_KEY = "plotflow-overview-style-baseline-v1";
 const BASE_CARD_WIDTH = 192;
 const DEFAULT_CARD_WIDTH = 180;
 const DEFAULT_CARD_HEIGHT = 132;
+const DEFAULT_STYLE = { scale: 100, gap: 14, cardRadius: 16, innerRadius: 11 };
 
 function readUi() {
   try {
@@ -17,8 +20,23 @@ function readUi() {
 }
 
 function saveUi(value) { localStorage.setItem(UI_KEY, JSON.stringify(value)); }
+function readJson(key, fallback) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "null");
+    return value && typeof value === "object" ? value : fallback;
+  } catch { return fallback; }
+}
+function saveJson(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* noop */ } }
 function codeFor(card) { return card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code")?.textContent?.trim() || ""; }
 function clamp(value, min, max) { return Math.max(min, Math.min(max, Number(value) || 0)); }
+function normalizeStyle(value = {}) {
+  return {
+    scale: clamp(value.scale ?? DEFAULT_STYLE.scale, 34, 220),
+    gap: clamp(value.gap ?? DEFAULT_STYLE.gap, 0, 120),
+    cardRadius: clamp(value.cardRadius ?? DEFAULT_STYLE.cardRadius, 0, 40),
+    innerRadius: clamp(value.innerRadius ?? DEFAULT_STYLE.innerRadius, 0, 32),
+  };
+}
 
 export default function OverviewPrecisionArrangeRuntime() {
   useEffect(() => {
@@ -30,11 +48,29 @@ export default function OverviewPrecisionArrangeRuntime() {
     let frame = 0;
     let railObserver = null;
     const ui = readUi();
+    let groupStyles = readJson(GROUP_STYLE_KEY, {});
+    let baselineStyle = normalizeStyle(readJson(BASELINE_STYLE_KEY, DEFAULT_STYLE));
 
     const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
     const selected = () => cards().filter((card) => card.classList.contains("pf-card-selected"));
     const keyCard = (list) => list.find((card) => card.classList.contains("pf-card-key")) || list[0] || null;
     const targetCards = () => selected().length ? selected() : cards();
+
+    function currentGroup() {
+      return String(stage?.dataset?.overviewGroup || document.querySelector(".pf-overview-groups button.active")?.textContent?.trim() || "Overview").trim();
+    }
+
+    function styleForGroup(group = currentGroup()) {
+      return normalizeStyle(groupStyles[group] || baselineStyle || DEFAULT_STYLE);
+    }
+
+    function saveGroupStyle(patch = {}) {
+      const group = currentGroup();
+      const next = normalizeStyle({ ...styleForGroup(group), ...patch });
+      groupStyles = { ...groupStyles, [group]: next };
+      saveJson(GROUP_STYLE_KEY, groupStyles);
+      return next;
+    }
 
     function objectScale(card) {
       return clamp(card?.dataset?.pfObjectScale || 1, 0.34, 2.2);
@@ -84,15 +120,21 @@ export default function OverviewPrecisionArrangeRuntime() {
       card.style.setProperty("--pf-card-content-scale", String(visualScale));
     }
 
-    function setObjectScale(card, scale) {
+    function applyCornerRadii(card, style = styleForGroup()) {
+      if (!card) return;
+      const scale = objectScale(card);
+      card.style.setProperty("border-radius", `${style.cardRadius / scale}px`, "important");
+      const priceBox = card.querySelector(".pf-sell-card-pricebox");
+      if (priceBox) priceBox.style.setProperty("border-radius", `${style.innerRadius / scale}px`, "important");
+    }
+
+    function setObjectScale(card, scale, style = styleForGroup()) {
       if (!card) return;
       const nextScale = clamp(scale, 0.34, 2.2);
       card.dataset.pfObjectScale = String(nextScale);
       card.style.transformOrigin = "0 0";
       card.style.transform = `scale(${nextScale})`;
-      card.style.borderRadius = `${16 / nextScale}px`;
-      const priceBox = card.querySelector(".pf-sell-card-pricebox");
-      if (priceBox) priceBox.style.borderRadius = `${11 / nextScale}px`;
+      applyCornerRadii(card, style);
     }
 
     function setProportionalCardWidth(card, width) {
@@ -120,10 +162,19 @@ export default function OverviewPrecisionArrangeRuntime() {
       syncCardVisualScale(card, nextWidth);
     }
 
-    function syncAllCardVisualScales() {
+    function applyGroupStyle({ persistLayout = false } = {}) {
+      const style = styleForGroup();
+      ui.scale = style.scale;
+      ui.gap = style.gap;
       cards().forEach((card) => {
         syncCardVisualScale(card);
-        setObjectScale(card, clamp(ui.scale || 100, 34, 220) / 100);
+        setObjectScale(card, style.scale / 100, style);
+      });
+      syncQuickArrangeGap(style.gap);
+      if (persistLayout) persist();
+      requestAnimationFrame(() => {
+        updateConnectors();
+        syncPanelFromSelection();
       });
     }
 
@@ -140,7 +191,8 @@ export default function OverviewPrecisionArrangeRuntime() {
     function applyAbsoluteScale(list, percent, { save = true } = {}) {
       if (!list.length) return;
       const next = clamp(percent, 34, 220);
-      list.forEach((card) => setObjectScale(card, next / 100));
+      const style = save ? saveGroupStyle({ scale: next }) : normalizeStyle({ ...styleForGroup(), scale: next });
+      list.forEach((card) => setObjectScale(card, next / 100, style));
       ui.scale = next;
       if (save) saveUi(ui);
       requestAnimationFrame(() => {
@@ -148,6 +200,12 @@ export default function OverviewPrecisionArrangeRuntime() {
         updateConnectors();
         syncPanelFromSelection();
       });
+    }
+
+    function applyGroupRadii(cardRadius, innerRadius) {
+      const style = saveGroupStyle({ cardRadius, innerRadius });
+      cards().forEach((card) => applyCornerRadii(card, style));
+      requestAnimationFrame(syncPanelFromSelection);
     }
 
     function scaleCards(list, ratio) {
@@ -219,7 +277,7 @@ export default function OverviewPrecisionArrangeRuntime() {
     function equalGap(axis = "vertical") {
       const list = [...selected()];
       if (list.length < 2) return;
-      const gap = clamp(ui.gap, 0, 120);
+      const gap = styleForGroup().gap;
       if (axis === "horizontal") {
         list.sort((a, b) => a.offsetLeft - b.offsetLeft);
         let left = list[0].offsetLeft;
@@ -235,14 +293,25 @@ export default function OverviewPrecisionArrangeRuntime() {
     function syncPanelFromSelection() {
       const list = selected();
       const key = keyCard(list);
-      if (panel?.isConnected && key) {
+      const style = styleForGroup();
+      if (panel?.isConnected) {
         const width = panel.querySelector("[data-precision-width]");
         const height = panel.querySelector("[data-precision-height]");
-        if (width && document.activeElement !== width) width.value = String(Math.round(key.offsetWidth));
-        if (height && document.activeElement !== height) height.value = String(Math.round(key.offsetHeight));
+        const scale = panel.querySelector("[data-precision-scale]");
+        const gap = panel.querySelector("[data-precision-gap]");
+        const cardRadius = panel.querySelector("[data-card-radius]");
+        const innerRadius = panel.querySelector("[data-inner-radius]");
+        const groupName = panel.querySelector("[data-style-group]");
+        if (key && width && document.activeElement !== width) width.value = String(Math.round(key.offsetWidth));
+        if (key && height && document.activeElement !== height) height.value = String(Math.round(key.offsetHeight));
+        if (scale && document.activeElement !== scale) scale.value = String(Math.round(style.scale));
+        if (gap && document.activeElement !== gap) gap.value = String(Math.round(style.gap));
+        if (cardRadius && document.activeElement !== cardRadius) cardRadius.value = String(Math.round(style.cardRadius));
+        if (innerRadius && document.activeElement !== innerRadius) innerRadius.value = String(Math.round(style.innerRadius));
+        if (groupName) groupName.textContent = currentGroup();
       }
-      if (quickScale?.isConnected && key) {
-        const pct = clamp(objectScale(key) * 100, 34, 220);
+      if (quickScale?.isConnected) {
+        const pct = key ? clamp(objectScale(key) * 100, 34, 220) : style.scale;
         const range = quickScale.querySelector("[data-quick-scale-range]");
         const number = quickScale.querySelector("[data-quick-scale-number]");
         if (range && document.activeElement !== range) range.value = String(Math.round(pct));
@@ -278,8 +347,6 @@ export default function OverviewPrecisionArrangeRuntime() {
       rail = document.querySelector(".pf-overview-control-rail");
       if (!stage || !rail) return false;
       hideLegacySizing();
-      syncQuickArrangeGap(ui.gap);
-      syncAllCardVisualScales();
       installQuickScale();
       if (!railObserver) {
         railObserver = new MutationObserver(() => {
@@ -294,7 +361,13 @@ export default function OverviewPrecisionArrangeRuntime() {
         panel.innerHTML = `
           <summary>Transform</summary>
           <div class="pf-precision-popover">
-            <header><strong>Card transform</strong><small>Scale transforms the whole card as one object. Width and Height are separate reflow controls.</small></header>
+            <header><div><strong>Layout system</strong><em data-style-group>Overview</em></div><small>Scale, spacing and corner rules are saved per group. Baseline copies style rules only — never card positions.</small></header>
+            <div class="pf-style-system-grid">
+              <label><span>Card radius</span><input data-card-radius type="number" min="0" max="40" step="1"><b>px</b></label>
+              <label><span>Inner radius</span><input data-inner-radius type="number" min="0" max="32" step="1"><b>px</b></label>
+            </div>
+            <div class="pf-style-baseline-row"><button data-set-baseline>Set as baseline</button><button data-use-baseline>Use baseline</button></div>
+            <div class="pf-precision-section-label">Advanced transform</div>
             <label><span>Width</span><input data-precision-width type="number" min="64" max="420" step="1"><b>px</b></label>
             <label><span>Height</span><input data-precision-height type="number" min="56" max="420" step="1"><b>px</b></label>
             <label class="pf-precision-ratio"><span>Constrain</span><input data-precision-constrain type="checkbox"><b>W:H</b></label>
@@ -309,13 +382,14 @@ export default function OverviewPrecisionArrangeRuntime() {
         const constrain = panel.querySelector("[data-precision-constrain]");
         const scale = panel.querySelector("[data-precision-scale]");
         const gap = panel.querySelector("[data-precision-gap]");
+        const cardRadius = panel.querySelector("[data-card-radius]");
+        const innerRadius = panel.querySelector("[data-inner-radius]");
         const applyAll = panel.querySelector("[data-precision-all-size]");
+        const setBaseline = panel.querySelector("[data-set-baseline]");
+        const useBaseline = panel.querySelector("[data-use-baseline]");
         width.value = String(clamp(ui.cardWidth || DEFAULT_CARD_WIDTH, 64, 420));
         height.value = String(clamp(ui.cardHeight || DEFAULT_CARD_HEIGHT, 56, 420));
         constrain.checked = ui.constrain !== false;
-        ui.scale = clamp(ui.scale || 100, 34, 220);
-        scale.value = String(ui.scale);
-        gap.value = String(clamp(ui.gap, 0, 120));
 
         constrain.addEventListener("change", () => {
           ui.constrain = constrain.checked;
@@ -361,26 +435,51 @@ export default function OverviewPrecisionArrangeRuntime() {
           const next = clamp(scale.value, 34, 220);
           scale.value = String(next);
           applyAbsoluteScale(targetCards(), next, { save: true });
-          if (quickScale?.isConnected) {
-            quickScale.querySelector("[data-quick-scale-range]").value = String(next);
-            quickScale.querySelector("[data-quick-scale-number]").value = String(next);
-          }
         });
-        gap.addEventListener("change", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); syncQuickArrangeGap(ui.gap); });
+        gap.addEventListener("change", () => {
+          const next = clamp(gap.value, 0, 120);
+          ui.gap = next;
+          saveUi(ui);
+          saveGroupStyle({ gap: next });
+          syncQuickArrangeGap(next);
+          syncPanelFromSelection();
+        });
+        const updateRadii = () => applyGroupRadii(clamp(cardRadius.value, 0, 40), clamp(innerRadius.value, 0, 32));
+        cardRadius.addEventListener("input", updateRadii);
+        cardRadius.addEventListener("change", updateRadii);
+        innerRadius.addEventListener("input", updateRadii);
+        innerRadius.addEventListener("change", updateRadii);
+        setBaseline.addEventListener("click", (event) => {
+          event.preventDefault();
+          baselineStyle = styleForGroup();
+          saveJson(BASELINE_STYLE_KEY, baselineStyle);
+          setBaseline.textContent = "Baseline saved ✓";
+          window.setTimeout(() => { if (setBaseline?.isConnected) setBaseline.textContent = "Set as baseline"; }, 1200);
+        });
+        useBaseline.addEventListener("click", (event) => {
+          event.preventDefault();
+          const next = normalizeStyle(baselineStyle);
+          groupStyles = { ...groupStyles, [currentGroup()]: next };
+          saveJson(GROUP_STYLE_KEY, groupStyles);
+          applyGroupStyle({ persistLayout: true });
+        });
         panel.querySelectorAll("[data-align]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); align(button.dataset.align); }));
         panel.querySelectorAll("[data-distribute]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); equalGap(button.dataset.distribute); }));
         rail.appendChild(panel);
       }
+      applyGroupStyle();
       syncPanelFromSelection();
       return true;
     }
 
     function onSelectionChange() { requestAnimationFrame(syncPanelFromSelection); }
-    function onUnitsReady() { requestAnimationFrame(() => { syncAllCardVisualScales(); install(); updateConnectors(); }); }
+    function onUnitsReady() { requestAnimationFrame(() => { applyGroupStyle(); install(); updateConnectors(); }); }
+    function onGroupChange() { requestAnimationFrame(() => { applyGroupStyle(); syncPanelFromSelection(); }); }
     function tick() { if (disposed || install()) return; frame = requestAnimationFrame(tick); }
 
     tick();
     window.addEventListener("pf-overview-live-units-ready", onUnitsReady);
+    window.addEventListener("pf-overview-group-changed", onGroupChange);
     window.addEventListener("pf-overview-auto-arranged", () => requestAnimationFrame(updateConnectors));
     document.addEventListener("pointerup", onSelectionChange, true);
 
@@ -389,6 +488,7 @@ export default function OverviewPrecisionArrangeRuntime() {
       cancelAnimationFrame(frame);
       railObserver?.disconnect();
       window.removeEventListener("pf-overview-live-units-ready", onUnitsReady);
+      window.removeEventListener("pf-overview-group-changed", onGroupChange);
       document.removeEventListener("pointerup", onSelectionChange, true);
       quickScale?.remove();
       panel?.remove();
