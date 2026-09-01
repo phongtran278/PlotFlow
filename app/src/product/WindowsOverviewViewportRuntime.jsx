@@ -99,15 +99,23 @@ export default function WindowsOverviewViewportRuntime() {
       if (selected) activeCode = codeForCard(selected);
       const code = activeCode;
       stage.classList.toggle("pf-has-linked-selection", Boolean(code));
+
+      const anchors = Array.from(stage.querySelectorAll(".pf-live-map-anchor"));
       stage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
         card.classList.toggle("pf-linked-active", Boolean(code) && codeForCard(card) === code);
       });
       stage.querySelectorAll(".pf-live-callout-lines line").forEach((line) => {
-        line.classList.toggle("pf-linked-active", Boolean(code) && line.dataset.unitCode === code);
+        const lineCode = line.dataset.unitCode || "";
+        const anchor = anchors.find((item) => (item.dataset.unitCode || item.textContent?.trim()) === lineCode);
+        const resolved = anchor && (anchor.dataset.located === "1" || anchor.dataset.saved === "1");
+        const active = Boolean(code) && lineCode === code;
+        line.classList.toggle("pf-linked-active", active);
+        line.style.opacity = resolved ? (code ? (active ? "1" : "0.08") : "0.28") : "0";
       });
-      stage.querySelectorAll(".pf-live-map-anchor").forEach((anchor) => {
+      anchors.forEach((anchor) => {
         const anchorCode = anchor.dataset.unitCode || anchor.textContent?.trim() || "";
-        anchor.classList.toggle("pf-linked-active", Boolean(code) && anchorCode === code);
+        const resolved = anchor.dataset.located === "1" || anchor.dataset.saved === "1";
+        anchor.classList.toggle("pf-linked-active", resolved && Boolean(code) && anchorCode === code);
       });
     }
 
@@ -202,6 +210,11 @@ export default function WindowsOverviewViewportRuntime() {
       }
     }
 
+    function onGroupChanged() {
+      activeCode = "";
+      onLayoutChanged();
+    }
+
     syncStage();
     normalizeOverlayOwnership();
     positionConnectorsWorld();
@@ -216,7 +229,7 @@ export default function WindowsOverviewViewportRuntime() {
     window.addEventListener("pf-overview-card-size-changed", onLayoutChanged);
     window.addEventListener("pf-overview-anchor-changed", onLayoutChanged);
     window.addEventListener("pf-overview-live-units-ready", onLayoutChanged);
-    window.addEventListener("pf-overview-group-changed", () => { activeCode = ""; onLayoutChanged(); });
+    window.addEventListener("pf-overview-group-changed", onGroupChanged);
 
     return () => {
       drag = null;
@@ -230,6 +243,7 @@ export default function WindowsOverviewViewportRuntime() {
       window.removeEventListener("pf-overview-card-size-changed", onLayoutChanged);
       window.removeEventListener("pf-overview-anchor-changed", onLayoutChanged);
       window.removeEventListener("pf-overview-live-units-ready", onLayoutChanged);
+      window.removeEventListener("pf-overview-group-changed", onGroupChanged);
     };
   }, []);
 
