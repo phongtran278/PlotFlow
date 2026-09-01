@@ -34,6 +34,7 @@ import OverviewDetailLocatorBridge from "./product/OverviewDetailLocatorBridge.j
 import OverviewControlRailRuntime from "./product/OverviewControlRailRuntime.jsx";
 import OverviewPrecisionArrangeRuntime from "./product/OverviewPrecisionArrangeRuntime.jsx";
 import OverviewV2Runtime from "./product/OverviewV2Runtime.jsx";
+import OverviewArrangeModesRuntime from "./product/OverviewArrangeModesRuntime.jsx";
 import OverviewSellDataRuntime from "./product/OverviewSellDataRuntime.jsx";
 import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
@@ -169,6 +170,7 @@ function OverviewRuntimes() {
       <OverviewControlRailRuntime />
       <OverviewPrecisionArrangeRuntime />
       <OverviewV2Runtime />
+      <OverviewArrangeModesRuntime />
       <OverviewPenRuntime />
       <OverviewSimplifiedRuntime />
       <OverviewGuideRuntime />
