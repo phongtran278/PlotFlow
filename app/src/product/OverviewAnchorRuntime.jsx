@@ -4,6 +4,12 @@ import "./OverviewAnchorRuntime.css";
 const STORAGE_KEY = "phongflow-overview-anchor-layout-v2";
 const FOCUS_SCALE = 70;
 
+function isWindows() {
+  if (typeof navigator === "undefined") return false;
+  const value = String(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || "").toLowerCase();
+  return value.includes("win");
+}
+
 function readAnchors() {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
@@ -19,6 +25,7 @@ function saveAnchors(value) {
 
 export default function OverviewAnchorRuntime() {
   useEffect(() => {
+    const windows = isWindows();
     let stage = null;
     let observer = null;
     let camera = { scale: 1, tx: 0, ty: 0 };
@@ -29,16 +36,17 @@ export default function OverviewAnchorRuntime() {
     let navSelect = null;
     let navStatus = null;
 
-    const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-sales-callout")) : [];
-    const codeForCard = (card) => card?.dataset?.unitCode || card?.querySelector("header strong")?.textContent?.trim() || "";
+    const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout")) : [];
+    const codeForCard = (card) => card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code,header strong")?.textContent?.trim() || "";
     const codes = () => cards().map(codeForCard).filter(Boolean);
-    const anchorForCode = (code) => stage ? Array.from(stage.querySelectorAll(".pf-map-anchor")).find((node) => (node.dataset?.unitCode || node.textContent?.trim()) === code) || null : null;
+    const anchorForCode = (code) => stage ? Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor")).find((node) => (node.dataset?.unitCode || node.textContent?.trim()) === code) || null : null;
     const lineForCode = (code) => {
       if (!stage) return null;
-      const direct = Array.from(stage.querySelectorAll(".pf-callout-lines line")).find((line) => line.dataset?.unitCode === code);
+      const lines = Array.from(stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line"));
+      const direct = lines.find((line) => line.dataset?.unitCode === code);
       if (direct) return direct;
       const index = cards().findIndex((card) => codeForCard(card) === code);
-      return index >= 0 ? Array.from(stage.querySelectorAll(".pf-callout-lines line"))[index] || null : null;
+      return index >= 0 ? lines[index] || null : null;
     };
 
     function applySavedAnchor(code) {
@@ -65,14 +73,18 @@ export default function OverviewAnchorRuntime() {
 
     function refreshAnchorVisuals() {
       if (!stage) return;
-      Array.from(stage.querySelectorAll(".pf-map-anchor")).forEach((anchor) => {
+      Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor")).forEach((anchor) => {
         const code = anchor.dataset?.unitCode || anchor.textContent?.trim() || "";
         applySavedAnchor(code);
         const active = code === activeCode;
         anchor.classList.toggle("pf-anchor-dot-active", active);
         anchor.setAttribute("aria-label", active ? `Connector endpoint ${code}. Drag to refine.` : `Connector endpoint ${code}`);
         anchor.title = active ? `${code} · drag endpoint to refine` : code;
-        anchor.style.transform = active ? `translate(-50%,-50%) scale(${1 / Math.max(camera.scale, 0.0001)})` : "translate(-50%,-50%)";
+        anchor.style.transform = active
+          ? windows
+            ? "translate(-50%,-50%)"
+            : `translate(-50%,-50%) scale(${1 / Math.max(camera.scale, 0.0001)})`
+          : "translate(-50%,-50%)";
       });
     }
 
@@ -171,7 +183,7 @@ export default function OverviewAnchorRuntime() {
     }
 
     function onAnchorPointerDown(event) {
-      const anchor = event.target.closest?.(".pf-map-anchor.pf-anchor-dot-active");
+      const anchor = event.target.closest?.(".pf-live-map-anchor.pf-anchor-dot-active,.pf-map-anchor.pf-anchor-dot-active");
       if (!anchor || !stage?.contains(anchor) || event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
@@ -207,6 +219,7 @@ export default function OverviewAnchorRuntime() {
         line.setAttribute("y2", String(y));
       }
       anchors[drag.code] = { x: Number(x.toFixed(5)), y: Number(y.toFixed(5)) };
+      window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code: drag.code, ...anchors[drag.code], live: true } }));
     }
 
     function finishAnchorDrag(event) {
@@ -220,7 +233,7 @@ export default function OverviewAnchorRuntime() {
     }
 
     function onDoubleClick(event) {
-      const card = event.target.closest?.(".pf-sales-callout");
+      const card = event.target.closest?.(".pf-live-sales-callout,.pf-sales-callout");
       if (!card || !stage?.contains(card)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -229,7 +242,7 @@ export default function OverviewAnchorRuntime() {
     }
 
     function onCardClick(event) {
-      const card = event.target.closest?.(".pf-sales-callout");
+      const card = event.target.closest?.(".pf-live-sales-callout,.pf-sales-callout");
       if (!card || !stage?.contains(card)) return;
       const code = codeForCard(card);
       if (code && navSelect) navSelect.value = code;
