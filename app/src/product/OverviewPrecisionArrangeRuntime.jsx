@@ -36,6 +36,18 @@ export default function OverviewPrecisionArrangeRuntime() {
     const keyCard = (list) => list.find((card) => card.classList.contains("pf-card-key")) || list[0] || null;
     const targetCards = () => selected().length ? selected() : cards();
 
+    function objectScale(card) {
+      return clamp(card?.dataset?.pfObjectScale || 1, 0.34, 2.2);
+    }
+
+    function visualWidth(card) {
+      return (card?.offsetWidth || BASE_CARD_WIDTH) * objectScale(card);
+    }
+
+    function visualHeight(card) {
+      return (card?.offsetHeight || DEFAULT_CARD_HEIGHT) * objectScale(card);
+    }
+
     function persist() {
       const layout = {};
       cards().forEach((card) => {
@@ -56,9 +68,11 @@ export default function OverviewPrecisionArrangeRuntime() {
         const anchor = Array.from(stage.querySelectorAll(".pf-live-map-anchor")).find((node) => (node.dataset.unitCode || node.textContent?.trim()) === code);
         if (!line || !anchor) return;
         const anchorX = Number.parseFloat(anchor.style.left || "50") / 100 * w;
-        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-        const startX = anchorX >= cardCenter ? card.offsetLeft + card.offsetWidth : card.offsetLeft;
-        const startY = card.offsetTop + card.offsetHeight / 2;
+        const cardWidth = visualWidth(card);
+        const cardHeight = visualHeight(card);
+        const cardCenter = card.offsetLeft + cardWidth / 2;
+        const startX = anchorX >= cardCenter ? card.offsetLeft + cardWidth : card.offsetLeft;
+        const startY = card.offsetTop + cardHeight / 2;
         line.setAttribute("x1", String(startX / w * 100));
         line.setAttribute("y1", String(startY / h * 100));
       });
@@ -68,6 +82,17 @@ export default function OverviewPrecisionArrangeRuntime() {
       if (!card) return;
       const visualScale = clamp(width / BASE_CARD_WIDTH, 0.34, 2.2);
       card.style.setProperty("--pf-card-content-scale", String(visualScale));
+    }
+
+    function setObjectScale(card, scale) {
+      if (!card) return;
+      const nextScale = clamp(scale, 0.34, 2.2);
+      card.dataset.pfObjectScale = String(nextScale);
+      card.style.transformOrigin = "0 0";
+      card.style.transform = `scale(${nextScale})`;
+      card.style.borderRadius = `${16 / nextScale}px`;
+      const priceBox = card.querySelector(".pf-sell-card-pricebox");
+      if (priceBox) priceBox.style.borderRadius = `${11 / nextScale}px`;
     }
 
     function setProportionalCardWidth(card, width) {
@@ -96,7 +121,10 @@ export default function OverviewPrecisionArrangeRuntime() {
     }
 
     function syncAllCardVisualScales() {
-      cards().forEach((card) => syncCardVisualScale(card));
+      cards().forEach((card) => {
+        syncCardVisualScale(card);
+        setObjectScale(card, clamp(ui.scale || 100, 34, 220) / 100);
+      });
     }
 
     function applyProportionalWidth(list, width, { save = true } = {}) {
@@ -112,8 +140,7 @@ export default function OverviewPrecisionArrangeRuntime() {
     function applyAbsoluteScale(list, percent, { save = true } = {}) {
       if (!list.length) return;
       const next = clamp(percent, 34, 220);
-      const nextWidth = BASE_CARD_WIDTH * next / 100;
-      list.forEach((card) => setProportionalCardWidth(card, nextWidth));
+      list.forEach((card) => setObjectScale(card, next / 100));
       ui.scale = next;
       if (save) saveUi(ui);
       requestAnimationFrame(() => {
@@ -173,15 +200,17 @@ export default function OverviewPrecisionArrangeRuntime() {
       if (list.length < 2) return;
       const key = keyCard(list);
       if (!key) return;
-      const k = { left: key.offsetLeft, top: key.offsetTop, width: key.offsetWidth, height: key.offsetHeight };
+      const k = { left: key.offsetLeft, top: key.offsetTop, width: visualWidth(key), height: visualHeight(key) };
       list.forEach((card) => {
         if (card === key) return;
+        const width = visualWidth(card);
+        const height = visualHeight(card);
         if (kind === "left") card.style.left = `${k.left}px`;
-        if (kind === "center") card.style.left = `${k.left + k.width / 2 - card.offsetWidth / 2}px`;
-        if (kind === "right") card.style.left = `${k.left + k.width - card.offsetWidth}px`;
+        if (kind === "center") card.style.left = `${k.left + k.width / 2 - width / 2}px`;
+        if (kind === "right") card.style.left = `${k.left + k.width - width}px`;
         if (kind === "top") card.style.top = `${k.top}px`;
-        if (kind === "middle") card.style.top = `${k.top + k.height / 2 - card.offsetHeight / 2}px`;
-        if (kind === "bottom") card.style.top = `${k.top + k.height - card.offsetHeight}px`;
+        if (kind === "middle") card.style.top = `${k.top + k.height / 2 - height / 2}px`;
+        if (kind === "bottom") card.style.top = `${k.top + k.height - height}px`;
         card.style.right = "auto";
       });
       persist(); updateConnectors();
@@ -194,11 +223,11 @@ export default function OverviewPrecisionArrangeRuntime() {
       if (axis === "horizontal") {
         list.sort((a, b) => a.offsetLeft - b.offsetLeft);
         let left = list[0].offsetLeft;
-        list.forEach((card) => { card.style.left = `${left}px`; card.style.right = "auto"; left += card.offsetWidth + gap; });
+        list.forEach((card) => { card.style.left = `${left}px`; card.style.right = "auto"; left += visualWidth(card) + gap; });
       } else {
         list.sort((a, b) => a.offsetTop - b.offsetTop);
         let top = list[0].offsetTop;
-        list.forEach((card) => { card.style.top = `${top}px`; top += card.offsetHeight + gap; });
+        list.forEach((card) => { card.style.top = `${top}px`; top += visualHeight(card) + gap; });
       }
       persist(); updateConnectors();
     }
@@ -213,7 +242,7 @@ export default function OverviewPrecisionArrangeRuntime() {
         if (height && document.activeElement !== height) height.value = String(Math.round(key.offsetHeight));
       }
       if (quickScale?.isConnected && key) {
-        const pct = clamp((key.offsetWidth || BASE_CARD_WIDTH) / BASE_CARD_WIDTH * 100, 34, 220);
+        const pct = clamp(objectScale(key) * 100, 34, 220);
         const range = quickScale.querySelector("[data-quick-scale-range]");
         const number = quickScale.querySelector("[data-quick-scale-number]");
         if (range && document.activeElement !== range) range.value = String(Math.round(pct));
@@ -255,7 +284,6 @@ export default function OverviewPrecisionArrangeRuntime() {
       if (!railObserver) {
         railObserver = new MutationObserver(() => {
           hideLegacySizing();
-          syncAllCardVisualScales();
           installQuickScale();
         });
         railObserver.observe(rail, { childList: true, subtree: true });
@@ -266,7 +294,7 @@ export default function OverviewPrecisionArrangeRuntime() {
         panel.innerHTML = `
           <summary>Transform</summary>
           <div class="pf-precision-popover">
-            <header><strong>Card transform</strong><small>Scale is available directly on the toolbar. Width and Height are advanced reflow controls.</small></header>
+            <header><strong>Card transform</strong><small>Scale transforms the whole card as one object. Width and Height are separate reflow controls.</small></header>
             <label><span>Width</span><input data-precision-width type="number" min="64" max="420" step="1"><b>px</b></label>
             <label><span>Height</span><input data-precision-height type="number" min="56" max="420" step="1"><b>px</b></label>
             <label class="pf-precision-ratio"><span>Constrain</span><input data-precision-constrain type="checkbox"><b>W:H</b></label>
@@ -348,7 +376,7 @@ export default function OverviewPrecisionArrangeRuntime() {
     }
 
     function onSelectionChange() { requestAnimationFrame(syncPanelFromSelection); }
-    function onUnitsReady() { requestAnimationFrame(() => { syncAllCardVisualScales(); install(); }); }
+    function onUnitsReady() { requestAnimationFrame(() => { syncAllCardVisualScales(); install(); updateConnectors(); }); }
     function tick() { if (disposed || install()) return; frame = requestAnimationFrame(tick); }
 
     tick();
