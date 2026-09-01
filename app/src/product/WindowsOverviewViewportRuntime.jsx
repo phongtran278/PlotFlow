@@ -8,11 +8,6 @@ function isWindows() {
   return value.includes("win");
 }
 
-function percentToViewport(value, size, offset, scale) {
-  const worldPx = (Number(value) || 0) / 100 * size;
-  return ((offset + worldPx * scale) / Math.max(1, size)) * 100;
-}
-
 function codeForCard(card) {
   return card?.dataset?.unitCode
     || card?.querySelector(".pf-sell-card-code,header strong")?.textContent?.trim()
@@ -53,14 +48,12 @@ export default function WindowsOverviewViewportRuntime() {
 
     function worldAnchorPoint(anchor) {
       if (!anchor) return { x: 50, y: 50 };
-      const storedX = Number.parseFloat(anchor.dataset.pfWorldLeft || "");
-      const storedY = Number.parseFloat(anchor.dataset.pfWorldTop || "");
-      if (Number.isFinite(storedX) && Number.isFinite(storedY)) return { x: storedX, y: storedY };
       const x = Number.parseFloat(anchor.style.left || "50");
       const y = Number.parseFloat(anchor.style.top || "50");
-      anchor.dataset.pfWorldLeft = String(Number.isFinite(x) ? x : 50);
-      anchor.dataset.pfWorldTop = String(Number.isFinite(y) ? y : 50);
-      return { x: Number.isFinite(x) ? x : 50, y: Number.isFinite(y) ? y : 50 };
+      return {
+        x: Number.isFinite(x) ? x : 50,
+        y: Number.isFinite(y) ? y : 50,
+      };
     }
 
     function positionAnchors(scale, tx, ty) {
@@ -69,8 +62,11 @@ export default function WindowsOverviewViewportRuntime() {
       const h = stage.clientHeight || 1;
       stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor").forEach((anchor) => {
         const point = worldAnchorPoint(anchor);
-        anchor.style.left = `${percentToViewport(point.x, w, tx, scale)}%`;
-        anchor.style.top = `${percentToViewport(point.y, h, ty, scale)}%`;
+        const worldX = point.x / 100 * w;
+        const worldY = point.y / 100 * h;
+        const dx = tx + worldX * scale - worldX;
+        const dy = ty + worldY * scale - worldY;
+        anchor.style.translate = `${dx}px ${dy}px`;
       });
     }
 
@@ -101,20 +97,23 @@ export default function WindowsOverviewViewportRuntime() {
         const line = lines.find((item) => item.dataset?.unitCode === code);
         const anchor = anchors.find((item) => (item.dataset?.unitCode || item.textContent?.trim()) === code);
         if (!line || !anchor) return;
-        const point = windows ? worldAnchorPoint(anchor) : {
-          x: Number.parseFloat(anchor.style.left || "50"),
-          y: Number.parseFloat(anchor.style.top || "50"),
-        };
+        const point = worldAnchorPoint(anchor);
         const anchorWorldX = point.x / 100 * w;
         const cardCenterX = card.offsetLeft + card.offsetWidth / 2;
         const cardEdgeX = anchorWorldX >= cardCenterX
           ? card.offsetLeft + card.offsetWidth
           : card.offsetLeft;
         const cardCenterY = card.offsetTop + card.offsetHeight / 2;
-        line.setAttribute("x1", String(cardEdgeX / w * 100));
-        line.setAttribute("y1", String(cardCenterY / h * 100));
-        line.setAttribute("x2", String(point.x));
-        line.setAttribute("y2", String(point.y));
+        line.dataset.pfWorldX1 = String(cardEdgeX / w * 100);
+        line.dataset.pfWorldY1 = String(cardCenterY / h * 100);
+        line.dataset.pfWorldX2 = String(point.x);
+        line.dataset.pfWorldY2 = String(point.y);
+        if (!windows) {
+          line.setAttribute("x1", line.dataset.pfWorldX1);
+          line.setAttribute("y1", line.dataset.pfWorldY1);
+          line.setAttribute("x2", line.dataset.pfWorldX2);
+          line.setAttribute("y2", line.dataset.pfWorldY2);
+        }
       });
     }
 
@@ -124,15 +123,15 @@ export default function WindowsOverviewViewportRuntime() {
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
       stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => {
-        const x1 = Number(line.getAttribute("x1"));
-        const y1 = Number(line.getAttribute("y1"));
-        const x2 = Number(line.getAttribute("x2"));
-        const y2 = Number(line.getAttribute("y2"));
+        const x1 = Number(line.dataset.pfWorldX1);
+        const y1 = Number(line.dataset.pfWorldY1);
+        const x2 = Number(line.dataset.pfWorldX2);
+        const y2 = Number(line.dataset.pfWorldY2);
         if (![x1, y1, x2, y2].every(Number.isFinite)) return;
-        line.setAttribute("x1", String(percentToViewport(x1, w, tx, scale)));
-        line.setAttribute("y1", String(percentToViewport(y1, h, ty, scale)));
-        line.setAttribute("x2", String(percentToViewport(x2, w, tx, scale)));
-        line.setAttribute("y2", String(percentToViewport(y2, h, ty, scale)));
+        line.setAttribute("x1", String(((tx + (x1 / 100 * w) * scale) / w) * 100));
+        line.setAttribute("y1", String(((ty + (y1 / 100 * h) * scale) / h) * 100));
+        line.setAttribute("x2", String(((tx + (x2 / 100 * w) * scale) / w) * 100));
+        line.setAttribute("y2", String(((ty + (y2 / 100 * h) * scale) / h) * 100));
       });
     }
 
@@ -186,7 +185,6 @@ export default function WindowsOverviewViewportRuntime() {
       if ((stage.dataset.overviewTool || "select") !== "select") return;
       const card = event.target?.closest?.(".pf-live-sales-callout,.pf-sales-callout");
       if (!card || !stage.contains(card)) return;
-
       drag = {
         card,
         pointerId: event.pointerId,
@@ -243,12 +241,13 @@ export default function WindowsOverviewViewportRuntime() {
       if (windows) applyCamera(detail);
     }
 
+    function onAnchorChanged() {
+      if (!windows) return;
+      window.requestAnimationFrame(() => applyCamera(lastCamera));
+    }
+
     function onLayoutChanged() {
       if (!windows) return;
-      stage?.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor").forEach((anchor) => {
-        delete anchor.dataset.pfWorldLeft;
-        delete anchor.dataset.pfWorldTop;
-      });
       window.requestAnimationFrame(() => applyCamera(lastCamera));
     }
 
@@ -260,6 +259,7 @@ export default function WindowsOverviewViewportRuntime() {
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-auto-arranged", onLayoutChanged);
     window.addEventListener("pf-overview-card-size-changed", onLayoutChanged);
+    window.addEventListener("pf-overview-anchor-changed", onAnchorChanged);
 
     if (windows) {
       observer = new MutationObserver(() => {
@@ -273,6 +273,9 @@ export default function WindowsOverviewViewportRuntime() {
     return () => {
       drag = null;
       observer?.disconnect();
+      if (stage && windows) {
+        stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor").forEach((anchor) => { anchor.style.translate = ""; });
+      }
       document.removeEventListener("pointerdown", onCardPointerDown, true);
       window.removeEventListener("pointermove", onCardPointerMove, true);
       window.removeEventListener("pointerup", finishCardDrag, true);
@@ -280,6 +283,7 @@ export default function WindowsOverviewViewportRuntime() {
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-auto-arranged", onLayoutChanged);
       window.removeEventListener("pf-overview-card-size-changed", onLayoutChanged);
+      window.removeEventListener("pf-overview-anchor-changed", onAnchorChanged);
       if (windows) delete window.__plotflowWindowsViewportOverlay;
     };
   }, []);
