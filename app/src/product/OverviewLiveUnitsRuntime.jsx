@@ -9,7 +9,7 @@ function canonicalOverviewGroup(value = "") {
   const normalized = raw.toLowerCase();
   if (normalized.includes("hoàn thiện") || normalized.includes("hoan thien")) return "Hoàn thiện";
   if (normalized.includes("giãn xây") || normalized.includes("gian xay")) return "Giãn xây";
-  if (normalized.includes("xây thô") || normalized.includes("xay tho") || normalized.includes("bàn giao thô") || normalized.includes("ban giao tho")) return "Xây thô";
+  if (normalized.includes("xây thô") || normalized.includes("xay tho") || normalized.includes("bàn giao thô") || normalized.includes("ban giao thô")) return "Xây thô";
   return raw;
 }
 
@@ -65,6 +65,10 @@ function formatPrice(value) {
 function signature(units, group) { return JSON.stringify({ group, units }); }
 function makeNode(tag, className = "") { const node = document.createElement(tag); if (className) node.className = className; return node; }
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function objectScale(card) {
+  const value = Number(card?.dataset?.pfObjectScale || card?.style?.scale || 1);
+  return Number.isFinite(value) ? clamp(value, 0.34, 2.2) : 1;
+}
 
 export default function OverviewLiveUnitsRuntime() {
   useEffect(() => {
@@ -101,10 +105,13 @@ export default function OverviewLiveUnitsRuntime() {
         const line = Array.from(layer.querySelectorAll(".pf-live-callout-lines line")).find((node) => node.dataset.unitCode === code);
         const anchor = Array.from(layer.querySelectorAll(".pf-live-map-anchor")).find((node) => node.dataset.unitCode === code);
         if (!line || !anchor) return;
+        const scale = objectScale(card);
+        const visualWidth = card.offsetWidth * scale;
+        const visualHeight = card.offsetHeight * scale;
         const anchorX = Number.parseFloat(anchor.style.left || "50") / 100 * w;
-        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-        const startX = anchorX >= cardCenter ? card.offsetLeft + card.offsetWidth : card.offsetLeft;
-        const startY = card.offsetTop + card.offsetHeight / 2;
+        const cardCenter = card.offsetLeft + visualWidth / 2;
+        const startX = anchorX >= cardCenter ? card.offsetLeft + visualWidth : card.offsetLeft;
+        const startY = card.offsetTop + visualHeight / 2;
         line.setAttribute("x1", String(startX / w * 100));
         line.setAttribute("y1", String(startY / h * 100));
       });
@@ -136,11 +143,15 @@ export default function OverviewLiveUnitsRuntime() {
         list.forEach((card, index) => {
           const code = card.dataset.unitCode || "";
           const saved = code ? savedLayout[code] : null;
-          if (saved?.width) card.style.setProperty("--pf-card-width", `${clamp(Number(saved.width), 64, 420)}px`);
-          if (saved?.height) card.style.setProperty("--pf-card-height", `${clamp(Number(saved.height), 56, 420)}px`);
+          card.style.removeProperty("--pf-card-width");
+          card.style.removeProperty("--pf-card-height");
+          card.style.removeProperty("width");
+          card.style.removeProperty("height");
+          card.style.removeProperty("min-height");
 
-          const cardWidth = card.offsetWidth || 192;
-          const cardHeight = card.offsetHeight || 140;
+          const scale = objectScale(card);
+          const cardWidth = (card.offsetWidth || 192) * scale;
+          const cardHeight = (card.offsetHeight || 140) * scale;
           const minLeft = pdfX + inset;
           const maxLeft = Math.max(minLeft, pdfX + pdfWidth - inset - cardWidth);
           const minTop = pdfY + inset;
@@ -163,7 +174,7 @@ export default function OverviewLiveUnitsRuntime() {
           card.style.left = `${nextLeft}px`;
           card.style.right = "auto";
           card.style.top = `${nextTop}px`;
-          if (code) savedLayout[code] = { left: nextLeft, top: nextTop, width: cardWidth, height: cardHeight };
+          if (code) savedLayout[code] = { left: nextLeft, top: nextTop };
         });
       }
 
@@ -264,11 +275,9 @@ export default function OverviewLiveUnitsRuntime() {
     const onSell = () => schedule(true);
     const onGroup = () => { schedule(true); window.setTimeout(enforcePdfBoundsSoon, 120); };
     const onPdfBounds = () => enforcePdfBoundsSoon();
-    const onAllSize = () => window.setTimeout(() => clampCardsInsidePdf({ arrangeUnsaved: false }), 0);
     window.addEventListener("plotflow-overview-sell-units", onSell);
     window.addEventListener("pf-overview-group-changed", onGroup);
     window.addEventListener("pf-overview-pdf-bounds", onPdfBounds);
-    window.addEventListener("pf-overview-all-card-size", onAllSize);
 
     observer = new MutationObserver((records) => {
       const relevant = records.some((record) => {
@@ -287,7 +296,6 @@ export default function OverviewLiveUnitsRuntime() {
       window.removeEventListener("plotflow-overview-sell-units", onSell);
       window.removeEventListener("pf-overview-group-changed", onGroup);
       window.removeEventListener("pf-overview-pdf-bounds", onPdfBounds);
-      window.removeEventListener("pf-overview-all-card-size", onAllSize);
       window.clearTimeout(timer); window.clearTimeout(clampTimer);
       layer?.remove(); stage?.classList.remove("pf-live-overview-ready");
     };
