@@ -47,8 +47,7 @@ export default function OverviewSimplifiedRuntime() {
     let control = null;
 
     function triggerAutoArrange() {
-      const button = document.querySelector('.pf-overview-v2-controls [data-v2-action="arrange"]');
-      button?.click();
+      window.dispatchEvent(new CustomEvent("pf-overview-arrange-preview-request"));
     }
 
     function install() {
@@ -74,7 +73,7 @@ export default function OverviewSimplifiedRuntime() {
         control.className = "pf-connector-control";
         control.innerHTML = `
           <div class="pf-card-layout-control">
-            <button type="button" data-card-action="arrange" title="Arrange cards automatically">Arrange</button>
+            <button type="button" data-card-action="arrange" title="Preview and arrange cards">Arrange</button>
           </div>
           <div class="pf-connector-style-control">
             <span>Connector</span>
