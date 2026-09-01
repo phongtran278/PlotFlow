@@ -162,20 +162,24 @@ export default function OverviewArrangeModesRuntime() {
       return { left, right };
     }
 
-    function exactVerticalCenters(list, { anchorAware = false } = {}) {
+    function gapCapacityPx(list, bounds) {
+      if (!bounds || list.length <= 1) return ui.gap;
+      const safe = safeArea(bounds);
+      const cardHeightPx = list.reduce((sum, item) => sum + item.height, 0);
+      const safeHeightPx = safe.height * bounds.height;
+      return Math.max(0, (safeHeightPx - cardHeightPx) / (list.length - 1));
+    }
+
+    function exactVerticalCenters(list, { anchorAware = false, gapPx = ui.gap } = {}) {
       const bounds = pdfBounds();
       const sorted = [...list].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
       const result = new Map();
-      if (!bounds || !sorted.length) return { centers: result, gapPx: ui.gap };
+      if (!bounds || !sorted.length) return { centers: result };
 
       const safe = safeArea(bounds);
       const heights = sorted.map((item) => item.height / bounds.height);
       const cardHeight = heights.reduce((sum, value) => sum + value, 0);
-      const requestedGap = ui.gap / bounds.height;
-      const maxGap = sorted.length > 1
-        ? Math.max(0, (safe.height - cardHeight) / (sorted.length - 1))
-        : requestedGap;
-      const gap = Math.min(requestedGap, maxGap);
+      const gap = Math.max(0, gapPx) / bounds.height;
       const total = cardHeight + Math.max(0, sorted.length - 1) * gap;
 
       const anchorMean = sorted.reduce((sum, item) => sum + item.anchor.y, 0) / sorted.length;
@@ -190,18 +194,23 @@ export default function OverviewArrangeModesRuntime() {
         cursor += heights[index] + gap;
       });
 
-      return { centers: result, gapPx: gap * bounds.height };
+      return { centers: result };
     }
 
     function buildDraft(selectedMode) {
       mode = selectedMode;
       const next = {};
       const { left, right } = split(items, selectedMode);
+      const bounds = pdfBounds();
+      const capacityCandidates = bounds
+        ? [left, right].filter((list) => list.length > 1).map((list) => gapCapacityPx(list, bounds))
+        : [];
+      resolvedGapPx = capacityCandidates.length
+        ? Math.min(ui.gap, ...capacityCandidates)
+        : ui.gap;
       const anchorAware = selectedMode === "smart";
-      const leftSolve = exactVerticalCenters(left, { anchorAware });
-      const rightSolve = exactVerticalCenters(right, { anchorAware });
-      const gapCandidates = [leftSolve.gapPx, rightSolve.gapPx].filter(Number.isFinite);
-      resolvedGapPx = gapCandidates.length ? Math.min(...gapCandidates) : ui.gap;
+      const leftSolve = exactVerticalCenters(left, { anchorAware, gapPx: resolvedGapPx });
+      const rightSolve = exactVerticalCenters(right, { anchorAware, gapPx: resolvedGapPx });
       const leftX = selectedMode === "compact" ? 0.24 : selectedMode === "left" ? 0.16 : 0.13;
       const rightX = selectedMode === "compact" ? 0.76 : selectedMode === "right" ? 0.84 : 0.87;
       left.forEach((item) => { next[item.code] = { x: leftX, y: leftSolve.centers.get(item.code) ?? 0.5 }; });
@@ -215,8 +224,8 @@ export default function OverviewArrangeModesRuntime() {
       if (!footer) return;
       const resolved = Math.round(resolvedGapPx * 10) / 10;
       footer.textContent = resolved + 0.05 < ui.gap
-        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px fits · preview only`
-        : `${items.length} cards · ${ui.gap}px gap · preview only`;
+        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px shared gap fits · preview only`
+        : `${items.length} cards · ${ui.gap}px shared gap · preview only`;
     }
 
     function syncPreviewConnectors() {
