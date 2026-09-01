@@ -59,6 +59,40 @@ export default function WindowsOverviewViewportRuntime() {
       };
     }
 
+    function connectorSideFor(card, anchorWorldX, anchorWorldY) {
+      const manual = String(card?.dataset?.pfConnectorSide || "").toLowerCase();
+      if (["left", "right", "top", "bottom"].includes(manual)) return manual;
+
+      const scale = objectScale(card);
+      const width = card.offsetWidth * scale;
+      const height = card.offsetHeight * scale;
+      const centerX = card.offsetLeft + width / 2;
+      const centerY = card.offsetTop + height / 2;
+      const dx = centerX - anchorWorldX;
+      const dy = centerY - anchorWorldY;
+
+      if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? "right" : "left";
+      return dy > 0 ? "top" : "bottom";
+    }
+
+    function connectorStart(card, anchorWorldX, anchorWorldY) {
+      const scale = objectScale(card);
+      const left = card.offsetLeft;
+      const top = card.offsetTop;
+      const width = card.offsetWidth * scale;
+      const height = card.offsetHeight * scale;
+      const right = left + width;
+      const bottom = top + height;
+      const centerX = left + width / 2;
+      const centerY = top + height / 2;
+      const side = connectorSideFor(card, anchorWorldX, anchorWorldY);
+
+      if (side === "right") return { x: right, y: centerY, side };
+      if (side === "left") return { x: left, y: centerY, side };
+      if (side === "top") return { x: centerX, y: top, side };
+      return { x: centerX, y: bottom, side: "bottom" };
+    }
+
     function positionConnectorsWorld() {
       if (!stage) return;
       const w = stage.clientWidth || 1;
@@ -75,18 +109,14 @@ export default function WindowsOverviewViewportRuntime() {
         if (!line || !anchor) return;
 
         const point = worldAnchorPoint(anchor);
-        const scale = objectScale(card);
-        const visualWidth = card.offsetWidth * scale;
-        const visualHeight = card.offsetHeight * scale;
         const anchorWorldX = point.x / 100 * w;
-        const cardCenterX = card.offsetLeft + visualWidth / 2;
-        const cardEdgeX = anchorWorldX >= cardCenterX
-          ? card.offsetLeft + visualWidth
-          : card.offsetLeft;
-        const cardCenterY = card.offsetTop + visualHeight / 2;
+        const anchorWorldY = point.y / 100 * h;
+        const start = connectorStart(card, anchorWorldX, anchorWorldY);
 
-        line.setAttribute("x1", String(cardEdgeX / w * 100));
-        line.setAttribute("y1", String(cardCenterY / h * 100));
+        card.dataset.pfConnectorAutoSide = start.side;
+        line.dataset.pfConnectorSide = start.side;
+        line.setAttribute("x1", String(start.x / w * 100));
+        line.setAttribute("y1", String(start.y / h * 100));
         line.setAttribute("x2", String(point.x));
         line.setAttribute("y2", String(point.y));
       });
