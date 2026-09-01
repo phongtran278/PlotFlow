@@ -42,10 +42,6 @@ function anchorFor(stage, code) {
   ) || null;
 }
 
-function lineFor(stage, code) {
-  return Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).find((node) => node.dataset.unitCode === code) || null;
-}
-
 function numStyle(node, prop, fallback = 0) {
   const value = Number.parseFloat(node?.style?.[prop] || "");
   return Number.isFinite(value) ? value : fallback;
@@ -122,29 +118,8 @@ export default function OverviewV2Runtime() {
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
     }
 
-    function updateLineStarts(cards) {
-      if (!stage) return;
-      const w = stage.clientWidth || 1;
-      const h = stage.clientHeight || 1;
-      cards.forEach((card) => {
-        const code = codeFor(card);
-        const line = lineFor(stage, code);
-        const anchor = anchorFor(stage, code);
-        if (!line || !anchor) return;
-        const left = card.offsetLeft;
-        const top = card.offsetTop;
-        const scale = objectScale(card);
-        const width = card.offsetWidth * scale;
-        const height = card.offsetHeight * scale;
-        const anchorX = Number.parseFloat(anchor.style.left || "50") / 100 * w;
-        const centerX = left + width / 2;
-        const edgeX = anchorX >= centerX ? left + width : left;
-        line.setAttribute("x1", String((edgeX / w) * 100));
-        line.setAttribute("y1", String(((top + height / 2) / h) * 100));
-        line.setAttribute("x2", String(Number.parseFloat(anchor.style.left || "50")));
-        line.setAttribute("y2", String(Number.parseFloat(anchor.style.top || "50")));
-        line.style.opacity = anchor.dataset.located === "1" || anchor.dataset.saved === "1" ? "" : "0";
-      });
+    function updateLineStarts() {
+      window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
     }
 
     function autoArrange() {
@@ -208,7 +183,7 @@ export default function OverviewV2Runtime() {
         card.style.top = `${marginY + index * 8}px`;
       });
       persistLayout(cards);
-      updateLineStarts(cards);
+      updateLineStarts();
       window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length } }));
     }
 
