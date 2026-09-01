@@ -255,6 +255,7 @@ export default function OverviewArrangeModesRuntime() {
 
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", "0 0 100 100");
+      svg.setAttribute("preserveAspectRatio", "none");
       svg.classList.add("pf-arrange-preview-lines");
       canvas.appendChild(svg);
 
