@@ -80,11 +80,12 @@ export default function OverviewAnchorRuntime() {
         anchor.classList.toggle("pf-anchor-dot-active", active);
         anchor.setAttribute("aria-label", active ? `Connector endpoint ${code}. Drag to refine.` : `Connector endpoint ${code}`);
         anchor.title = active ? `${code} · drag endpoint to refine` : code;
+        const handleScale = 1 / Math.max(camera.scale, 0.0001);
         anchor.style.transform = active
-          ? windows
-            ? "translate(-50%,-50%)"
-            : `translate(-50%,-50%) scale(${1 / Math.max(camera.scale, 0.0001)})`
-          : "translate(-50%,-50%)";
+          ? `translate(-50%,-50%) scale(${handleScale})`
+          : windows && camera.scale !== 1
+            ? `translate(-50%,-50%) scale(${handleScale})`
+            : "translate(-50%,-50%)";
       });
     }
 
