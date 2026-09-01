@@ -68,11 +68,20 @@ export default function OverviewPrecisionArrangeRuntime() {
       card.style.setProperty("--pf-card-content-scale", String(visualScale));
     }
 
-    function syncAllCardVisualScales() {
-      cards().forEach((card) => syncCardVisualScale(card));
+    function setProportionalCardWidth(card, width) {
+      if (!card) return;
+      const nextWidth = clamp(width, 64, 420);
+      card.style.setProperty("--pf-card-width", `${nextWidth}px`);
+      card.style.removeProperty("--pf-card-height");
+      card.style.width = `${nextWidth}px`;
+      card.style.height = "auto";
+      card.style.minHeight = "0px";
+      card.style.right = "auto";
+      syncCardVisualScale(card, nextWidth);
     }
 
-    function setCardSize(card, width, height) {
+    function setFreeCardSize(card, width, height) {
+      if (!card) return;
       const nextWidth = clamp(width, 64, 420);
       const nextHeight = clamp(height, 56, 420);
       card.style.setProperty("--pf-card-width", `${nextWidth}px`);
@@ -84,26 +93,46 @@ export default function OverviewPrecisionArrangeRuntime() {
       syncCardVisualScale(card, nextWidth);
     }
 
-    function applyDimensionsTo(list, { width = null, height = null, ratio = null } = {}) {
+    function syncAllCardVisualScales() {
+      cards().forEach((card) => syncCardVisualScale(card));
+    }
+
+    function applyProportionalWidth(list, width) {
+      if (!list.length) return;
+      list.forEach((card) => setProportionalCardWidth(card, width));
+      requestAnimationFrame(() => {
+        persist();
+        updateConnectors();
+        syncPanelFromSelection();
+      });
+    }
+
+    function scaleCards(list, ratio) {
       if (!list.length) return;
       list.forEach((card) => {
         const currentWidth = card.offsetWidth || DEFAULT_CARD_WIDTH;
-        const currentHeight = card.offsetHeight || DEFAULT_CARD_HEIGHT;
-        const nextWidth = ratio == null ? (width ?? currentWidth) : currentWidth * ratio;
-        const nextHeight = ratio == null ? (height ?? currentHeight) : currentHeight * ratio;
-        setCardSize(card, nextWidth, nextHeight);
+        setProportionalCardWidth(card, currentWidth * ratio);
       });
+      requestAnimationFrame(() => {
+        persist();
+        updateConnectors();
+        syncPanelFromSelection();
+      });
+    }
+
+    function applyFreeSize(list, width, height) {
+      if (!list.length) return;
+      list.forEach((card) => setFreeCardSize(card, width ?? card.offsetWidth, height ?? card.offsetHeight));
       persist();
       requestAnimationFrame(updateConnectors);
     }
 
-    function applyDimensions(options = {}) { applyDimensionsTo(selected(), options); }
-
     function applySizeToAll(width, height) {
       const list = cards();
       if (!list.length) return;
-      applyDimensionsTo(list, { width, height });
-      window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", { detail: { count: list.length, width, height } }));
+      if (ui.constrain !== false) applyProportionalWidth(list, width);
+      else applyFreeSize(list, width, height);
+      window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", { detail: { count: list.length, width, height, proportional: ui.constrain !== false } }));
     }
 
     function hideLegacySizing() {
@@ -212,31 +241,38 @@ export default function OverviewPrecisionArrangeRuntime() {
         scale.value = String(ui.scale);
         gap.value = String(clamp(ui.gap, 0, 120));
 
-        function currentRatio() {
-          const w = Math.max(1, Number(width.value) || ui.cardWidth || DEFAULT_CARD_WIDTH);
-          const h = Math.max(1, Number(height.value) || ui.cardHeight || DEFAULT_CARD_HEIGHT);
-          return w / h;
-        }
-        let ratio = currentRatio();
-
         constrain.addEventListener("change", () => {
           ui.constrain = constrain.checked;
-          if (ui.constrain) ratio = currentRatio();
           saveUi(ui);
         });
         width.addEventListener("change", () => {
           const nextWidth = clamp(width.value, 64, 420);
-          let nextHeight = clamp(height.value, 56, 420);
-          if (constrain.checked) { nextHeight = clamp(nextWidth / Math.max(0.01, ratio), 56, 420); height.value = String(Math.round(nextHeight)); }
-          ui.cardWidth = nextWidth; ui.cardHeight = nextHeight; saveUi(ui);
-          applyDimensions({ width: nextWidth, height: constrain.checked ? nextHeight : null });
+          ui.cardWidth = nextWidth;
+          if (constrain.checked) applyProportionalWidth(selected(), nextWidth);
+          else applyFreeSize(selected(), nextWidth, null);
+          requestAnimationFrame(() => {
+            const key = keyCard(selected());
+            if (key) ui.cardHeight = key.offsetHeight;
+            saveUi(ui);
+            syncPanelFromSelection();
+          });
         });
         height.addEventListener("change", () => {
           const nextHeight = clamp(height.value, 56, 420);
-          let nextWidth = clamp(width.value, 64, 420);
-          if (constrain.checked) { nextWidth = clamp(nextHeight * ratio, 64, 420); width.value = String(Math.round(nextWidth)); }
-          ui.cardWidth = nextWidth; ui.cardHeight = nextHeight; saveUi(ui);
-          applyDimensions({ width: constrain.checked ? nextWidth : null, height: nextHeight });
+          const list = selected();
+          if (constrain.checked) {
+            const key = keyCard(list);
+            const currentHeight = Math.max(1, key?.offsetHeight || DEFAULT_CARD_HEIGHT);
+            scaleCards(list, nextHeight / currentHeight);
+          } else {
+            applyFreeSize(list, null, nextHeight);
+          }
+          requestAnimationFrame(() => {
+            const key = keyCard(selected());
+            if (key) { ui.cardWidth = key.offsetWidth; ui.cardHeight = key.offsetHeight; }
+            saveUi(ui);
+            syncPanelFromSelection();
+          });
         });
         applyAll.addEventListener("click", (event) => {
           event.preventDefault();
@@ -251,7 +287,7 @@ export default function OverviewPrecisionArrangeRuntime() {
           ui.scale = next;
           saveUi(ui);
           scale.value = String(next);
-          applyDimensions({ ratio: next / Math.max(10, previous) });
+          scaleCards(selected(), next / Math.max(10, previous));
         });
         gap.addEventListener("change", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); syncQuickArrangeGap(ui.gap); });
         panel.querySelectorAll("[data-align]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); align(button.dataset.align); }));
