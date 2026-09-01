@@ -59,28 +59,6 @@ export default function WindowsOverviewViewportRuntime() {
       };
     }
 
-    function nearestCardEdgeMidpoint(card, anchorWorldX, anchorWorldY) {
-      const scale = objectScale(card);
-      const left = card.offsetLeft;
-      const top = card.offsetTop;
-      const width = card.offsetWidth * scale;
-      const height = card.offsetHeight * scale;
-      const right = left + width;
-      const bottom = top + height;
-      const cx = left + width / 2;
-      const cy = top + height / 2;
-      const candidates = [
-        { x: left, y: cy },
-        { x: right, y: cy },
-        { x: cx, y: top },
-        { x: cx, y: bottom },
-      ];
-      return candidates.reduce((best, point) => {
-        const distance = Math.hypot(anchorWorldX - point.x, anchorWorldY - point.y);
-        return !best || distance < best.distance ? { ...point, distance } : best;
-      }, null);
-    }
-
     function positionConnectorsWorld() {
       if (!stage) return;
       const w = stage.clientWidth || 1;
@@ -97,13 +75,18 @@ export default function WindowsOverviewViewportRuntime() {
         if (!line || !anchor) return;
 
         const point = worldAnchorPoint(anchor);
+        const scale = objectScale(card);
+        const visualWidth = card.offsetWidth * scale;
+        const visualHeight = card.offsetHeight * scale;
         const anchorWorldX = point.x / 100 * w;
-        const anchorWorldY = point.y / 100 * h;
-        const start = nearestCardEdgeMidpoint(card, anchorWorldX, anchorWorldY);
-        if (!start) return;
+        const cardCenterX = card.offsetLeft + visualWidth / 2;
+        const cardEdgeX = anchorWorldX >= cardCenterX
+          ? card.offsetLeft + visualWidth
+          : card.offsetLeft;
+        const cardCenterY = card.offsetTop + visualHeight / 2;
 
-        line.setAttribute("x1", String(start.x / w * 100));
-        line.setAttribute("y1", String(start.y / h * 100));
+        line.setAttribute("x1", String(cardEdgeX / w * 100));
+        line.setAttribute("y1", String(cardCenterY / h * 100));
         line.setAttribute("x2", String(point.x));
         line.setAttribute("y2", String(point.y));
       });
