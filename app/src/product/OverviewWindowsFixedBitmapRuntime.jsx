@@ -20,7 +20,8 @@ function isWindows() {
 }
 
 function sharpLevelForScale(scale) {
-  if (scale >= 8) return 21000;
+  if (scale >= 18) return 42000;
+  if (scale >= 6) return 21000;
   if (scale >= 2.5) return 10500;
   return 0;
 }
