@@ -6,8 +6,9 @@ const LEGACY_MARKUP_KEY = "phongflow-overview-markup-v2";
 const PEN_KEY = "phongflow-overview-pen-shapes-v1";
 const CARD_SIZE_KEY = "plotflow-overview-card-size-v2";
 const LEGACY_CARD_SIZE_KEY = "plotflow-overview-card-size-v1";
-const DEFAULT_CARD_WIDTH = 160;
-const MIN_CARD_WIDTH = 132;
+const BASE_CARD_WIDTH = 176;
+const DEFAULT_CARD_WIDTH = 148;
+const MIN_CARD_WIDTH = 80;
 const MAX_CARD_WIDTH = 260;
 
 function clamp(value, min, max) {
@@ -33,7 +34,7 @@ function applyConnector(stage, width, color, opacity) {
   stage.style.setProperty("--pf-connector-width", String(width));
   stage.style.setProperty("--pf-connector-color", color);
   stage.style.setProperty("--pf-connector-opacity", String(opacity));
-  stage.querySelectorAll(".pf-live-callout-lines line").forEach((line) => {
+  stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => {
     line.style.setProperty("stroke", color, "important");
     line.style.setProperty("stroke-width", String(width), "important");
     line.style.setProperty("stroke-opacity", String(opacity), "important");
@@ -66,9 +67,9 @@ function legacyWidth(stage) {
   try {
     const values = JSON.parse(localStorage.getItem(LEGACY_CARD_SIZE_KEY) || "{}");
     const preset = values?.[groupKey(stage)];
-    if (preset === "compact") return 168;
+    if (preset === "compact") return 148;
     if (preset === "large") return 220;
-    if (preset === "standard") return 192;
+    if (preset === "standard") return 176;
   } catch { /* noop */ }
   return DEFAULT_CARD_WIDTH;
 }
@@ -87,18 +88,19 @@ function saveCardWidth(stage, width) {
 function applyCardWidth(stage, width = DEFAULT_CARD_WIDTH) {
   if (!stage) return;
   const resolved = clamp(width, MIN_CARD_WIDTH, MAX_CARD_WIDTH);
-  const contentScale = clamp(resolved / 192, 0.78, 1.18);
-  stage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
+  const scale = clamp(resolved / BASE_CARD_WIDTH, MIN_CARD_WIDTH / BASE_CARD_WIDTH, MAX_CARD_WIDTH / BASE_CARD_WIDTH);
+  stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").forEach((card) => {
     card.style.setProperty("--pf-card-width", `${resolved}px`);
+    card.style.setProperty("--pf-card-scale", String(scale));
+    card.style.setProperty("--pf-card-content-scale", String(scale));
     card.style.setProperty("--pf-card-height", "auto");
-    card.style.setProperty("--pf-card-content-scale", String(contentScale));
     card.style.removeProperty("min-height");
   });
   window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", {
-    detail: { width: resolved, scale: contentScale },
+    detail: { width: resolved, scale },
   }));
   window.dispatchEvent(new CustomEvent("pf-overview-card-size-changed", {
-    detail: { width: resolved, scale: contentScale },
+    detail: { width: resolved, scale },
   }));
 }
 
@@ -147,11 +149,11 @@ export default function OverviewSimplifiedRuntime() {
         control.className = "pf-connector-control";
         control.innerHTML = `
           <div class="pf-card-layout-control">
-            <span>Card W</span>
-            <label class="pf-card-width-slider" title="Resize every card in this group">
+            <span>Card</span>
+            <label class="pf-card-width-slider" title="Scale every card proportionally in this group">
               <input data-card-size="range" type="range" min="${MIN_CARD_WIDTH}" max="${MAX_CARD_WIDTH}" step="2" value="${cardWidth}">
             </label>
-            <label class="pf-card-width-number" title="Card width in pixels">
+            <label class="pf-card-width-number" title="Visual card width in pixels">
               <input data-card-size="number" type="number" min="${MIN_CARD_WIDTH}" max="${MAX_CARD_WIDTH}" step="2" value="${cardWidth}">
               <em>px</em>
             </label>
