@@ -4,12 +4,15 @@ import "./OverviewSimplifiedRuntime.css";
 const SETTINGS_KEY = "phongflow-overview-v2-settings";
 const LEGACY_MARKUP_KEY = "phongflow-overview-markup-v2";
 const PEN_KEY = "phongflow-overview-pen-shapes-v1";
-const CARD_SIZE_KEY = "plotflow-overview-card-size-v1";
-const CARD_PRESETS = {
-  compact: { width: 168, scale: 0.88 },
-  standard: { width: 192, scale: 1 },
-  large: { width: 220, scale: 1.12 },
-};
+const CARD_SIZE_KEY = "plotflow-overview-card-size-v2";
+const LEGACY_CARD_SIZE_KEY = "plotflow-overview-card-size-v1";
+const DEFAULT_CARD_WIDTH = 160;
+const MIN_CARD_WIDTH = 132;
+const MAX_CARD_WIDTH = 260;
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, Number(value) || 0));
+}
 
 function readSettings() {
   try {
@@ -59,28 +62,43 @@ function groupKey(stage) {
   return String(stage?.dataset?.overviewGroup || "default").trim() || "default";
 }
 
-function savedCardPreset(stage) {
-  const value = readCardSizes()[groupKey(stage)];
-  return CARD_PRESETS[value] ? value : "standard";
+function legacyWidth(stage) {
+  try {
+    const values = JSON.parse(localStorage.getItem(LEGACY_CARD_SIZE_KEY) || "{}");
+    const preset = values?.[groupKey(stage)];
+    if (preset === "compact") return 168;
+    if (preset === "large") return 220;
+    if (preset === "standard") return 192;
+  } catch { /* noop */ }
+  return DEFAULT_CARD_WIDTH;
 }
 
-function saveCardPreset(stage, preset) {
+function savedCardWidth(stage) {
+  const value = Number(readCardSizes()[groupKey(stage)]);
+  return Number.isFinite(value) ? clamp(value, MIN_CARD_WIDTH, MAX_CARD_WIDTH) : legacyWidth(stage);
+}
+
+function saveCardWidth(stage, width) {
   const next = readCardSizes();
-  next[groupKey(stage)] = CARD_PRESETS[preset] ? preset : "standard";
+  next[groupKey(stage)] = clamp(width, MIN_CARD_WIDTH, MAX_CARD_WIDTH);
   localStorage.setItem(CARD_SIZE_KEY, JSON.stringify(next));
 }
 
-function applyCardPreset(stage, preset = "standard") {
+function applyCardWidth(stage, width = DEFAULT_CARD_WIDTH) {
   if (!stage) return;
-  const resolved = CARD_PRESETS[preset] || CARD_PRESETS.standard;
+  const resolved = clamp(width, MIN_CARD_WIDTH, MAX_CARD_WIDTH);
+  const contentScale = clamp(resolved / 192, 0.78, 1.18);
   stage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
-    card.style.setProperty("--pf-card-width", `${resolved.width}px`);
+    card.style.setProperty("--pf-card-width", `${resolved}px`);
     card.style.setProperty("--pf-card-height", "auto");
-    card.style.setProperty("--pf-card-content-scale", String(resolved.scale));
+    card.style.setProperty("--pf-card-content-scale", String(contentScale));
     card.style.removeProperty("min-height");
   });
   window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", {
-    detail: { preset, width: resolved.width, scale: resolved.scale },
+    detail: { width: resolved, scale: contentScale },
+  }));
+  window.dispatchEvent(new CustomEvent("pf-overview-card-size-changed", {
+    detail: { width: resolved, scale: contentScale },
   }));
 }
 
@@ -95,12 +113,14 @@ export default function OverviewSimplifiedRuntime() {
     let stage = null;
     let control = null;
 
-    function syncCardPreset() {
+    function syncCardWidth() {
       if (!stage) return;
-      const preset = savedCardPreset(stage);
-      const select = control?.querySelector('[data-card-size="preset"]');
-      if (select) select.value = preset;
-      applyCardPreset(stage, preset);
+      const width = savedCardWidth(stage);
+      const slider = control?.querySelector('[data-card-size="range"]');
+      const number = control?.querySelector('[data-card-size="number"]');
+      if (slider) slider.value = String(width);
+      if (number) number.value = String(width);
+      applyCardWidth(stage, width);
     }
 
     function install() {
@@ -121,21 +141,21 @@ export default function OverviewSimplifiedRuntime() {
         const width = Number(settings.lineWidth) || 0.5;
         const color = settings.lineColor || "#e00000";
         const opacity = Number.isFinite(Number(settings.lineOpacity)) ? Number(settings.lineOpacity) : 1;
-        const cardPreset = savedCardPreset(stage);
+        const cardWidth = savedCardWidth(stage);
 
         control = document.createElement("div");
         control.className = "pf-connector-control";
         control.innerHTML = `
           <div class="pf-card-layout-control">
-            <span>Cards</span>
-            <label title="Card size for this handover group">
-              <select data-card-size="preset">
-                <option value="compact">Compact</option>
-                <option value="standard">Standard</option>
-                <option value="large">Large</option>
-              </select>
+            <span>Card W</span>
+            <label class="pf-card-width-slider" title="Resize every card in this group">
+              <input data-card-size="range" type="range" min="${MIN_CARD_WIDTH}" max="${MAX_CARD_WIDTH}" step="2" value="${cardWidth}">
             </label>
-            <button type="button" data-card-action="arrange" title="Arrange all cards automatically without overlap">Auto arrange</button>
+            <label class="pf-card-width-number" title="Card width in pixels">
+              <input data-card-size="number" type="number" min="${MIN_CARD_WIDTH}" max="${MAX_CARD_WIDTH}" step="2" value="${cardWidth}">
+              <em>px</em>
+            </label>
+            <button type="button" data-card-action="arrange" title="Arrange cards automatically">Arrange</button>
           </div>
           <div class="pf-connector-style-control">
             <span>Connector</span>
@@ -148,7 +168,6 @@ export default function OverviewSimplifiedRuntime() {
             <button type="button" data-connector-action="clear" title="Remove every rectangle and pen highlight">Clear highlights</button>
           </div>`;
 
-        control.querySelector('[data-card-size="preset"]').value = cardPreset;
         control.querySelector('[data-connector="width"]').value = String(width);
         control.querySelector('[data-connector="color"]').value = color;
         control.querySelector('[data-connector="opacity"]').value = String(opacity);
@@ -161,16 +180,28 @@ export default function OverviewSimplifiedRuntime() {
           applyConnector(stage, nextWidth, nextColor, nextOpacity);
         };
 
+        const syncWidthInputs = (source) => {
+          const nextWidth = clamp(source.value, MIN_CARD_WIDTH, MAX_CARD_WIDTH);
+          const slider = control.querySelector('[data-card-size="range"]');
+          const number = control.querySelector('[data-card-size="number"]');
+          slider.value = String(nextWidth);
+          number.value = String(nextWidth);
+          saveCardWidth(stage, nextWidth);
+          applyCardWidth(stage, nextWidth);
+        };
+
         control.addEventListener("input", (event) => {
+          const sizeInput = event.target.closest('[data-card-size="range"],[data-card-size="number"]');
+          if (sizeInput) {
+            syncWidthInputs(sizeInput);
+            return;
+          }
           if (event.target.closest("[data-connector]")) syncConnector();
         });
         control.addEventListener("change", (event) => {
-          const presetSelect = event.target.closest('[data-card-size="preset"]');
-          if (presetSelect) {
-            const preset = presetSelect.value;
-            saveCardPreset(stage, preset);
-            applyCardPreset(stage, preset);
-            window.setTimeout(triggerAutoArrange, 0);
+          const sizeInput = event.target.closest('[data-card-size="range"],[data-card-size="number"]');
+          if (sizeInput) {
+            syncWidthInputs(sizeInput);
             return;
           }
           if (event.target.closest("[data-connector]")) syncConnector();
@@ -188,21 +219,21 @@ export default function OverviewSimplifiedRuntime() {
         });
         rail.appendChild(control);
         syncConnector();
-        applyCardPreset(stage, cardPreset);
+        applyCardWidth(stage, cardWidth);
       } else {
         const settings = readSettings();
         applyConnector(stage, Number(settings.lineWidth) || 0.5, settings.lineColor || "#e00000", Number.isFinite(Number(settings.lineOpacity)) ? Number(settings.lineOpacity) : 1);
-        syncCardPreset();
+        syncCardWidth();
       }
     }
 
     const onGroupChanged = () => window.setTimeout(() => {
       install();
-      syncCardPreset();
+      syncCardWidth();
     }, 0);
     const onUnitsReady = () => {
       install();
-      syncCardPreset();
+      syncCardWidth();
     };
 
     install();
