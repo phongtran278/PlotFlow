@@ -186,10 +186,17 @@ export default function OverviewArrangeModesRuntime() {
 
     function syncPreviewConnectors() {
       if (!canvas) return;
-      const canvasRect = canvas.getBoundingClientRect();
-      if (canvasRect.width < 1 || canvasRect.height < 1) return;
+      const svg = canvas.querySelector(".pf-arrange-preview-lines");
+      if (!svg) return;
+      const svgRect = svg.getBoundingClientRect();
+      if (svgRect.width < 1 || svgRect.height < 1) return;
 
-      canvas.querySelectorAll(".pf-arrange-preview-lines line").forEach((line) => {
+      // Keep SVG user units identical to its rendered pixel box. Card chips and lot
+      // anchors are HTML elements, so this avoids any percentage/viewBox mismatch.
+      svg.setAttribute("viewBox", `0 0 ${svgRect.width} ${svgRect.height}`);
+      svg.setAttribute("preserveAspectRatio", "none");
+
+      svg.querySelectorAll("line").forEach((line) => {
         const code = line.dataset.code || "";
         const chip = canvas.querySelector(`.pf-arrange-preview-chip[data-code="${CSS.escape(code)}"]`);
         const anchor = canvas.querySelector(`.pf-arrange-preview-anchor[data-code="${CSS.escape(code)}"]`);
@@ -197,14 +204,14 @@ export default function OverviewArrangeModesRuntime() {
 
         const chipRect = chip.getBoundingClientRect();
         const anchorRect = anchor.getBoundingClientRect();
-        const cardLeft = chipRect.left - canvasRect.left;
-        const cardTop = chipRect.top - canvasRect.top;
-        const cardRight = chipRect.right - canvasRect.left;
-        const cardBottom = chipRect.bottom - canvasRect.top;
+        const cardLeft = chipRect.left - svgRect.left;
+        const cardTop = chipRect.top - svgRect.top;
+        const cardRight = chipRect.right - svgRect.left;
+        const cardBottom = chipRect.bottom - svgRect.top;
         const cardCenterX = (cardLeft + cardRight) / 2;
         const cardCenterY = (cardTop + cardBottom) / 2;
-        const anchorX = anchorRect.left - canvasRect.left + anchorRect.width / 2;
-        const anchorY = anchorRect.top - canvasRect.top + anchorRect.height / 2;
+        const anchorX = anchorRect.left + anchorRect.width / 2 - svgRect.left;
+        const anchorY = anchorRect.top + anchorRect.height / 2 - svgRect.top;
         const dx = cardCenterX - anchorX;
         const dy = cardCenterY - anchorY;
 
@@ -216,10 +223,10 @@ export default function OverviewArrangeModesRuntime() {
           startY = dy > 0 ? cardTop : cardBottom;
         }
 
-        line.setAttribute("x1", String(startX / canvasRect.width * 100));
-        line.setAttribute("y1", String(startY / canvasRect.height * 100));
-        line.setAttribute("x2", String(anchorX / canvasRect.width * 100));
-        line.setAttribute("y2", String(anchorY / canvasRect.height * 100));
+        line.setAttribute("x1", String(startX));
+        line.setAttribute("y1", String(startY));
+        line.setAttribute("x2", String(anchorX));
+        line.setAttribute("y2", String(anchorY));
       });
     }
 
