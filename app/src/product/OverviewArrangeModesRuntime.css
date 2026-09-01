@@ -1,3 +1,4 @@
+.pf-overview-v2-controls .pf-v2-arrange{display:none!important}
 .pf-arrange-preview-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:18px;background:rgba(10,14,20,.48);backdrop-filter:blur(8px)}
 .pf-arrange-preview-panel{width:min(920px,calc(100vw - 36px));max-height:calc(100vh - 36px);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(16,24,40,.10);border-radius:18px;background:#fff;box-shadow:0 28px 80px rgba(9,18,32,.28);font-family:var(--pf-font-sans)}
 .pf-arrange-preview-panel>header,.pf-arrange-preview-panel>footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:#fff}
