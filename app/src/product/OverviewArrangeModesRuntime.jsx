@@ -115,14 +115,49 @@ export default function OverviewArrangeModesRuntime() {
       const sorted = [...itemsForMode].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
       if (selectedMode === "left") return { left: sorted, right };
       if (selectedMode === "right") return { left, right: sorted };
-      if (selectedMode === "balanced") {
-        sorted.forEach((item, index) => (index % 2 ? right : left).push(item));
+
+      const bounds = pdfBounds();
+      if (!bounds) return { left: sorted, right };
+      const safe = safeArea(bounds);
+      const gap = ui.gap / Math.max(1, bounds.height);
+      let leftLoad = 0;
+      let rightLoad = 0;
+
+      function addedLoad(list, item) {
+        return item.height / Math.max(1, bounds.height) + (list.length ? gap : 0);
+      }
+
+      function addTo(side, item) {
+        if (side === "left") {
+          leftLoad += addedLoad(left, item);
+          left.push(item);
+        } else {
+          rightLoad += addedLoad(right, item);
+          right.push(item);
+        }
+      }
+
+      if (selectedMode === "balanced" || selectedMode === "compact") {
+        sorted.forEach((item) => addTo(leftLoad <= rightLoad ? "left" : "right", item));
         return { left, right };
       }
+
       sorted.forEach((item) => {
-        if (item.anchor.x < 0.47) left.push(item);
-        else if (item.anchor.x > 0.53) right.push(item);
-        else (left.length <= right.length ? left : right).push(item);
+        const preferred = item.anchor.x < 0.47 ? "left" : item.anchor.x > 0.53 ? "right" : null;
+        if (!preferred) {
+          addTo(leftLoad <= rightLoad ? "left" : "right", item);
+          return;
+        }
+
+        const preferredList = preferred === "left" ? left : right;
+        const other = preferred === "left" ? "right" : "left";
+        const preferredLoad = preferred === "left" ? leftLoad : rightLoad;
+        const otherLoad = preferred === "left" ? rightLoad : leftLoad;
+        const preferredNext = preferredLoad + addedLoad(preferredList, item);
+        const otherList = other === "left" ? left : right;
+        const otherNext = otherLoad + addedLoad(otherList, item);
+        const shouldRebalance = preferredNext > safe.height && otherNext < preferredNext;
+        addTo(shouldRebalance ? other : preferred, item);
       });
       return { left, right };
     }
@@ -353,9 +388,9 @@ export default function OverviewArrangeModesRuntime() {
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>
               <label class="pf-arrange-gap-control"><span>Gap</span><input data-arrange-gap type="number" min="0" max="120" step="1" value="${ui.gap}"><b>px</b></label>
-              <button type="button" data-arrange-mode="smart"><strong>Smart L/R</strong><small>Follow lot side and lot height</small></button>
-              <button type="button" data-arrange-mode="balanced"><strong>Balanced</strong><small>Even card count on both sides</small></button>
-              <button type="button" data-arrange-mode="compact"><strong>Compact</strong><small>Tighter centered columns</small></button>
+              <button type="button" data-arrange-mode="smart"><strong>Smart L/R</strong><small>Follow lot side; rebalance only when needed</small></button>
+              <button type="button" data-arrange-mode="balanced"><strong>Balanced</strong><small>Balance visual card load across both sides</small></button>
+              <button type="button" data-arrange-mode="compact"><strong>Compact</strong><small>Balanced columns closer to the masterplan</small></button>
               <button type="button" data-arrange-mode="left"><strong>All left</strong><small>One left-side column</small></button>
               <button type="button" data-arrange-mode="right"><strong>All right</strong><small>One right-side column</small></button>
             </aside>
