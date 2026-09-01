@@ -85,23 +85,7 @@ export default function OverviewPrecisionArrangeRuntime() {
     }
 
     function updateConnectors() {
-      if (!stage) return;
-      const w = stage.clientWidth || 1;
-      const h = stage.clientHeight || 1;
-      cards().forEach((card) => {
-        const code = codeFor(card);
-        const line = Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).find((node) => node.dataset.unitCode === code);
-        const anchor = Array.from(stage.querySelectorAll(".pf-live-map-anchor")).find((node) => (node.dataset.unitCode || node.textContent?.trim()) === code);
-        if (!line || !anchor) return;
-        const anchorX = Number.parseFloat(anchor.style.left || "50") / 100 * w;
-        const width = visualWidth(card);
-        const height = visualHeight(card);
-        const centerX = card.offsetLeft + width / 2;
-        const startX = anchorX >= centerX ? card.offsetLeft + width : card.offsetLeft;
-        const startY = card.offsetTop + height / 2;
-        line.setAttribute("x1", String(startX / w * 100));
-        line.setAttribute("y1", String(startY / h * 100));
-      });
+      window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
     }
 
     function applyCornerRadii(card, style = styleForGroup()) {
