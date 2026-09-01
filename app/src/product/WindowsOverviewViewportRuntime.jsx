@@ -119,19 +119,34 @@ export default function WindowsOverviewViewportRuntime() {
 
     function positionConnectors(scale, tx, ty) {
       if (!windows || !stage) return;
-      positionConnectorsWorld();
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
-      stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => {
-        const x1 = Number(line.dataset.pfWorldX1);
-        const y1 = Number(line.dataset.pfWorldY1);
-        const x2 = Number(line.dataset.pfWorldX2);
-        const y2 = Number(line.dataset.pfWorldY2);
-        if (![x1, y1, x2, y2].every(Number.isFinite)) return;
-        line.setAttribute("x1", String(((tx + (x1 / 100 * w) * scale) / w) * 100));
-        line.setAttribute("y1", String(((ty + (y1 / 100 * h) * scale) / h) * 100));
-        line.setAttribute("x2", String(((tx + (x2 / 100 * w) * scale) / w) * 100));
-        line.setAttribute("y2", String(((ty + (y2 / 100 * h) * scale) / h) * 100));
+      const cards = Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout"));
+      const anchors = Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor"));
+      const lines = Array.from(stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line"));
+
+      cards.forEach((card) => {
+        const code = codeForCard(card);
+        if (!code) return;
+        const line = lines.find((item) => item.dataset?.unitCode === code);
+        const anchor = anchors.find((item) => (item.dataset?.unitCode || item.textContent?.trim()) === code);
+        if (!line || !anchor) return;
+
+        const point = worldAnchorPoint(anchor);
+        const anchorScreenX = tx + (point.x / 100 * w) * scale;
+        const anchorScreenY = ty + (point.y / 100 * h) * scale;
+        const cardScreenLeft = tx + card.offsetLeft * scale;
+        const cardScreenTop = ty + card.offsetTop * scale;
+        const cardScreenCenterX = cardScreenLeft + card.offsetWidth / 2;
+        const cardScreenEdgeX = anchorScreenX >= cardScreenCenterX
+          ? cardScreenLeft + card.offsetWidth
+          : cardScreenLeft;
+        const cardScreenCenterY = cardScreenTop + card.offsetHeight / 2;
+
+        line.setAttribute("x1", String((cardScreenEdgeX / w) * 100));
+        line.setAttribute("y1", String((cardScreenCenterY / h) * 100));
+        line.setAttribute("x2", String((anchorScreenX / w) * 100));
+        line.setAttribute("y2", String((anchorScreenY / h) * 100));
       });
     }
 
