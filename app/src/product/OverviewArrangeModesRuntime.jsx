@@ -3,6 +3,8 @@ import "./OverviewArrangeModesRuntime.css";
 
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const ARRANGE_UI_KEY = "plotflow-overview-arrange-preview-v1";
+const SAFE_TOP_PX = 96;
+const SAFE_BOTTOM_PX = 20;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, Number(value) || 0));
@@ -38,6 +40,7 @@ export default function OverviewArrangeModesRuntime() {
     let draft = {};
     let items = [];
     let drag = null;
+    let resolvedGapPx = 14;
     const ui = readArrangeUi();
 
     const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
@@ -59,6 +62,12 @@ export default function OverviewArrangeModesRuntime() {
       const height = Number(stage.dataset.pfPdfHeight);
       if (![x, y, width, height].every(Number.isFinite) || width < 2 || height < 2) return null;
       return { x, y, width, height };
+    }
+
+    function safeArea(bounds) {
+      const top = clamp(SAFE_TOP_PX / Math.max(1, bounds.height), 0.04, 0.18);
+      const bottom = clamp(SAFE_BOTTOM_PX / Math.max(1, bounds.height), 0.015, 0.08);
+      return { top, bottom, height: Math.max(0.2, 1 - top - bottom) };
     }
 
     function anchorFor(code, bounds) {
@@ -122,39 +131,31 @@ export default function OverviewArrangeModesRuntime() {
       const bounds = pdfBounds();
       const sorted = [...list].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
       const result = new Map();
-      if (!bounds || !sorted.length) return result;
+      if (!bounds || !sorted.length) return { centers: result, gapPx: ui.gap };
 
+      const safe = safeArea(bounds);
       const heights = sorted.map((item) => item.height / bounds.height);
-      const gap = ui.gap / bounds.height;
-      const minCenter = (index) => 0.04 + heights[index] / 2;
-      const maxCenter = (index) => 0.96 - heights[index] / 2;
-      const placed = sorted.map((item, index) => ({
-        item,
-        center: anchorAware
-          ? clamp(item.anchor.y, minCenter(index), maxCenter(index))
-          : sorted.length === 1
-            ? 0.5
-            : clamp(0.08 + index * (0.84 / Math.max(1, sorted.length - 1)), minCenter(index), maxCenter(index)),
-      }));
+      const cardHeight = heights.reduce((sum, value) => sum + value, 0);
+      const requestedGap = ui.gap / bounds.height;
+      const maxGap = sorted.length > 1
+        ? Math.max(0, (safe.height - cardHeight) / (sorted.length - 1))
+        : requestedGap;
+      const gap = Math.min(requestedGap, maxGap);
+      const total = cardHeight + Math.max(0, sorted.length - 1) * gap;
 
-      for (let index = 1; index < placed.length; index += 1) {
-        const required = placed[index - 1].center + heights[index - 1] / 2 + gap + heights[index] / 2;
-        placed[index].center = Math.max(placed[index].center, required);
-      }
+      const anchorMean = sorted.reduce((sum, item) => sum + item.anchor.y, 0) / sorted.length;
+      const targetCenter = anchorAware ? anchorMean : safe.top + safe.height / 2;
+      const minStart = safe.top;
+      const maxStart = Math.max(minStart, 1 - safe.bottom - total);
+      let cursor = clamp(targetCenter - total / 2, minStart, maxStart);
 
-      const overflow = placed.at(-1).center - maxCenter(placed.length - 1);
-      if (overflow > 0) {
-        placed[placed.length - 1].center -= overflow;
-        for (let index = placed.length - 2; index >= 0; index -= 1) {
-          const required = placed[index + 1].center - heights[index + 1] / 2 - gap - heights[index] / 2;
-          placed[index].center = Math.min(placed[index].center, required);
-        }
-      }
+      sorted.forEach((item, index) => {
+        const center = cursor + heights[index] / 2;
+        result.set(item.code, center);
+        cursor += heights[index] + gap;
+      });
 
-      const underflow = minCenter(0) - placed[0].center;
-      if (underflow > 0) placed.forEach((entry) => { entry.center += underflow; });
-      placed.forEach(({ item, center }, index) => result.set(item.code, clamp(center, minCenter(index), maxCenter(index))));
-      return result;
+      return { centers: result, gapPx: gap * bounds.height };
     }
 
     function buildDraft(selectedMode) {
@@ -162,12 +163,14 @@ export default function OverviewArrangeModesRuntime() {
       const next = {};
       const { left, right } = split(items, selectedMode);
       const anchorAware = selectedMode === "smart";
-      const leftY = exactVerticalCenters(left, { anchorAware });
-      const rightY = exactVerticalCenters(right, { anchorAware });
+      const leftSolve = exactVerticalCenters(left, { anchorAware });
+      const rightSolve = exactVerticalCenters(right, { anchorAware });
+      const gapCandidates = [leftSolve.gapPx, rightSolve.gapPx].filter(Number.isFinite);
+      resolvedGapPx = gapCandidates.length ? Math.min(...gapCandidates) : ui.gap;
       const leftX = selectedMode === "compact" ? 0.24 : selectedMode === "left" ? 0.16 : 0.13;
       const rightX = selectedMode === "compact" ? 0.76 : selectedMode === "right" ? 0.84 : 0.87;
-      left.forEach((item) => { next[item.code] = { x: leftX, y: leftY.get(item.code) ?? 0.5 }; });
-      right.forEach((item) => { next[item.code] = { x: rightX, y: rightY.get(item.code) ?? 0.5 }; });
+      left.forEach((item) => { next[item.code] = { x: leftX, y: leftSolve.centers.get(item.code) ?? 0.5 }; });
+      right.forEach((item) => { next[item.code] = { x: rightX, y: rightSolve.centers.get(item.code) ?? 0.5 }; });
       draft = next;
       renderDraft();
     }
@@ -177,16 +180,26 @@ export default function OverviewArrangeModesRuntime() {
       if (!bounds) return point;
       const halfW = Math.max(0.001, item.width / bounds.width / 2);
       const halfH = Math.max(0.001, item.height / bounds.height / 2);
-      const dx = item.anchor.x - point.x;
-      const dy = item.anchor.y - point.y;
-      if (!dx && !dy) return point;
-      const tx = dx ? halfW / Math.abs(dx) : Number.POSITIVE_INFINITY;
-      const ty = dy ? halfH / Math.abs(dy) : Number.POSITIVE_INFINITY;
-      const t = Math.min(tx, ty);
-      return {
-        x: clamp(point.x + dx * t, 0, 1),
-        y: clamp(point.y + dy * t, 0, 1),
-      };
+      const dx = point.x - item.anchor.x;
+      const dy = point.y - item.anchor.y;
+
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        return dx < 0
+          ? { x: point.x + halfW, y: point.y }
+          : { x: point.x - halfW, y: point.y };
+      }
+      return dy > 0
+        ? { x: point.x, y: point.y - halfH }
+        : { x: point.x, y: point.y + halfH };
+    }
+
+    function updateFooter() {
+      const footer = overlay?.querySelector("footer>span");
+      if (!footer) return;
+      const resolved = Math.round(resolvedGapPx * 10) / 10;
+      footer.textContent = resolved + 0.05 < ui.gap
+        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px fits · preview only`
+        : `${items.length} cards · ${ui.gap}px gap · preview only`;
     }
 
     function renderDraft() {
@@ -212,13 +225,22 @@ export default function OverviewArrangeModesRuntime() {
       });
       const label = overlay?.querySelector("[data-arrange-mode-label]");
       if (label) label.textContent = mode === "smart" ? "Smart L/R" : mode === "balanced" ? "Balanced" : mode === "compact" ? "Compact" : mode === "left" ? "All left" : "All right";
+      updateFooter();
     }
 
     function buildCanvas() {
       if (!canvas) return;
       const bounds = pdfBounds();
       if (!bounds) return;
+      const safe = safeArea(bounds);
       canvas.innerHTML = "";
+      canvas.style.setProperty("--pf-arrange-safe-top", `${safe.top * 100}%`);
+      const reserved = document.createElement("div");
+      reserved.className = "pf-arrange-preview-safe-top";
+      reserved.style.height = `${safe.top * 100}%`;
+      reserved.innerHTML = "<span>Reserved banner area</span>";
+      canvas.appendChild(reserved);
+
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", "0 0 100 100");
       svg.classList.add("pf-arrange-preview-lines");
@@ -259,15 +281,17 @@ export default function OverviewArrangeModesRuntime() {
     function applyDraft() {
       const bounds = pdfBounds();
       if (!bounds) return;
+      const safe = safeArea(bounds);
       let layout = {};
       try { layout = JSON.parse(localStorage.getItem(CARD_LAYOUT_KEY) || "{}") || {}; } catch { layout = {}; }
       items.forEach((item) => {
         const point = draft[item.code];
         if (!point) return;
+        const minTop = bounds.y + safe.top * bounds.height;
         const maxLeft = bounds.x + bounds.width - item.width;
-        const maxTop = bounds.y + bounds.height - item.height;
+        const maxTop = bounds.y + bounds.height - safe.bottom * bounds.height - item.height;
         const left = clamp(bounds.x + point.x * bounds.width - item.width / 2, bounds.x, Math.max(bounds.x, maxLeft));
-        const top = clamp(bounds.y + point.y * bounds.height - item.height / 2, bounds.y, Math.max(bounds.y, maxTop));
+        const top = clamp(bounds.y + point.y * bounds.height - item.height / 2, minTop, Math.max(minTop, maxTop));
         item.card.style.left = `${left}px`;
         item.card.style.right = "auto";
         item.card.style.top = `${top}px`;
@@ -277,7 +301,7 @@ export default function OverviewArrangeModesRuntime() {
         delete layout[item.code].height;
       });
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: `preview-${mode}`, count: items.length, gap: ui.gap } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: `preview-${mode}`, count: items.length, gap: resolvedGapPx, requestedGap: ui.gap } }));
       window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
       closePreview();
     }
@@ -303,7 +327,7 @@ export default function OverviewArrangeModesRuntime() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>Card, connector and lot point use the same geometry as the real layout. Drag a card to refine the draft before Apply.</small>
+              <small>The top banner area is reserved. Cards, connector lines and lot points use the same midpoint-edge rule as the real layout.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>
@@ -326,8 +350,6 @@ export default function OverviewArrangeModesRuntime() {
         if (!event.target.matches("[data-arrange-gap]")) return;
         ui.gap = clamp(event.target.value, 0, 120);
         saveArrangeUi();
-        const footer = overlay.querySelector("footer>span");
-        if (footer) footer.textContent = `${items.length} cards · ${ui.gap}px gap · preview only`;
         buildDraft(mode);
       });
       overlay.addEventListener("click", (event) => {
@@ -342,9 +364,14 @@ export default function OverviewArrangeModesRuntime() {
     function onPointerMove(event) {
       if (!drag || event.pointerId !== drag.pointerId || !canvas) return;
       event.preventDefault();
+      const bounds = pdfBounds();
+      if (!bounds) return;
+      const safe = safeArea(bounds);
+      const item = items.find((entry) => entry.code === drag.code);
       const rect = canvas.getBoundingClientRect();
+      const halfH = item ? item.height / bounds.height / 2 : 0;
       const x = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0.04, 0.96);
-      const y = clamp((event.clientY - rect.top) / Math.max(1, rect.height), 0.05, 0.95);
+      const y = clamp((event.clientY - rect.top) / Math.max(1, rect.height), safe.top + halfH, 1 - safe.bottom - halfH);
       draft[drag.code] = { x, y };
       renderDraft();
     }
