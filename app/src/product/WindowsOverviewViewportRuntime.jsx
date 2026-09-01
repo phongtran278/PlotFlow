@@ -19,7 +19,7 @@ function readCardLayout() {
 
 function objectScale(card) {
   const value = Number(card?.dataset?.pfObjectScale || card?.style?.scale || 1);
-  return Number.isFinite(value) ? Math.max(0.34, Math.min(2.2, value)) : 1;
+  return Number.isFinite(value) ? Math.max(0.2, Math.min(2.2, value)) : 1;
 }
 
 export default function WindowsOverviewViewportRuntime() {
@@ -117,11 +117,20 @@ export default function WindowsOverviewViewportRuntime() {
       const scale = objectScale(card);
       const width = card.offsetWidth * scale;
       const height = card.offsetHeight * scale;
-      const centerX = card.offsetLeft + width / 2;
-      const centerY = card.offsetTop + height / 2;
+      const left = card.offsetLeft;
+      const top = card.offsetTop;
+      const right = left + width;
+      const bottom = top + height;
+
+      if (anchorWorldX < left) return "left";
+      if (anchorWorldX > right) return "right";
+      if (anchorWorldY < top) return "top";
+      if (anchorWorldY > bottom) return "bottom";
+
+      const centerX = left + width / 2;
+      const centerY = top + height / 2;
       const dx = centerX - anchorWorldX;
       const dy = centerY - anchorWorldY;
-
       if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? "right" : "left";
       return dy > 0 ? "top" : "bottom";
     }
@@ -136,12 +145,20 @@ export default function WindowsOverviewViewportRuntime() {
       const bottom = top + height;
       const centerX = left + width / 2;
       const centerY = top + height / 2;
+      const dx = anchorWorldX - centerX;
+      const dy = anchorWorldY - centerY;
+      const halfW = Math.max(width / 2, 0.0001);
+      const halfH = Math.max(height / 2, 0.0001);
+      const denominator = Math.max(Math.abs(dx) / halfW, Math.abs(dy) / halfH, 0.0001);
+      const startX = centerX + dx / denominator;
+      const startY = centerY + dy / denominator;
       const side = connectorSideFor(card, anchorWorldX, anchorWorldY);
 
-      if (side === "right") return { x: right, y: centerY, side };
-      if (side === "left") return { x: left, y: centerY, side };
-      if (side === "top") return { x: centerX, y: top, side };
-      return { x: centerX, y: bottom, side: "bottom" };
+      return {
+        x: Math.max(left, Math.min(right, startX)),
+        y: Math.max(top, Math.min(bottom, startY)),
+        side,
+      };
     }
 
     function positionConnectorsWorld() {
