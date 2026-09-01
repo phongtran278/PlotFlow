@@ -52,6 +52,10 @@ function objectScale(card) {
   return Number.isFinite(value) ? Math.max(0.34, Math.min(2.2, value)) : 1;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 export default function OverviewV2Runtime() {
   useEffect(() => {
     let disposed = false;
@@ -127,10 +131,20 @@ export default function OverviewV2Runtime() {
       const cards = Array.from(stage.querySelectorAll(".pf-live-sales-callout"));
       if (cards.length < 2) return;
 
-      const w = stage.clientWidth;
-      const h = stage.clientHeight;
-      const marginX = Math.max(12, Math.round(w * 0.015));
-      const marginY = Math.max(10, Math.round(h * 0.02));
+      const stageW = stage.clientWidth || 1;
+      const stageH = stage.clientHeight || 1;
+      const rawPdfX = Number(stage.dataset.pfPdfX);
+      const rawPdfY = Number(stage.dataset.pfPdfY);
+      const rawPdfW = Number(stage.dataset.pfPdfWidth);
+      const rawPdfH = Number(stage.dataset.pfPdfHeight);
+      const hasPdfBounds = [rawPdfX, rawPdfY, rawPdfW, rawPdfH].every(Number.isFinite) && rawPdfW > 1 && rawPdfH > 1;
+      const pdfX = hasPdfBounds ? rawPdfX : 0;
+      const pdfY = hasPdfBounds ? rawPdfY : 0;
+      const pdfW = hasPdfBounds ? rawPdfW : stageW;
+      const pdfH = hasPdfBounds ? rawPdfH : stageH;
+      const insetX = Math.max(14, Math.min(28, Math.round(pdfW * 0.018)));
+      const insetY = Math.max(12, Math.min(24, Math.round(pdfH * 0.02)));
+      const gap = 12;
 
       const items = cards.map((card) => {
         const code = codeFor(card);
@@ -147,44 +161,71 @@ export default function OverviewV2Runtime() {
         };
       }).filter((item) => item.anchor && (item.anchor.dataset.located === "1" || item.anchor.dataset.saved === "1"));
 
-      const unresolved = cards.filter((card) => !items.some((item) => item.card === card));
-      let leftCount;
+      if (!items.length) return;
+
+      let left;
+      let right;
       if (settings.leftCount === "auto") {
-        const natural = items.filter((item) => item.x <= 50).length;
-        leftCount = Math.max(1, Math.min(items.length - 1, natural || Math.round(items.length / 2)));
+        left = items.filter((item) => item.x <= 50).sort((a, b) => a.y - b.y);
+        right = items.filter((item) => item.x > 50).sort((a, b) => a.y - b.y);
+        if (!left.length && right.length > 1) {
+          const split = Math.ceil(right.length / 2);
+          left = right.splice(0, split).sort((a, b) => a.y - b.y);
+        } else if (!right.length && left.length > 1) {
+          const split = Math.ceil(left.length / 2);
+          right = left.splice(split).sort((a, b) => a.y - b.y);
+        }
       } else {
-        leftCount = Math.max(1, Math.min(items.length - 1, Number(settings.leftCount) || Math.round(items.length / 2)));
+        const ordered = [...items].sort((a, b) => a.x - b.x);
+        const leftCount = Math.max(1, Math.min(ordered.length - 1, Number(settings.leftCount) || Math.round(ordered.length / 2)));
+        left = ordered.slice(0, leftCount).sort((a, b) => a.y - b.y);
+        right = ordered.slice(leftCount).sort((a, b) => a.y - b.y);
       }
 
-      const byX = [...items].sort((a, b) => a.x - b.x);
-      const left = byX.slice(0, leftCount).sort((a, b) => a.y - b.y);
-      const right = byX.slice(leftCount).sort((a, b) => a.y - b.y);
+      function solveVerticalPositions(list) {
+        if (!list.length) return [];
+        const minTop = pdfY + insetY;
+        const maxBottom = pdfY + pdfH - insetY;
+        const placed = list.map((item) => ({
+          ...item,
+          top: clamp(pdfY + (item.y / 100) * pdfH - item.height / 2, minTop, Math.max(minTop, maxBottom - item.height)),
+        }));
+
+        for (let i = 1; i < placed.length; i += 1) {
+          placed[i].top = Math.max(placed[i].top, placed[i - 1].top + placed[i - 1].height + gap);
+        }
+
+        const overflow = placed.at(-1).top + placed.at(-1).height - maxBottom;
+        if (overflow > 0) {
+          placed[placed.length - 1].top -= overflow;
+          for (let i = placed.length - 2; i >= 0; i -= 1) {
+            placed[i].top = Math.min(placed[i].top, placed[i + 1].top - gap - placed[i].height);
+          }
+          const underflow = minTop - placed[0].top;
+          if (underflow > 0) placed.forEach((item) => { item.top += underflow; });
+        }
+        return placed;
+      }
 
       function placeSide(list, side) {
-        if (!list.length) return;
-        const totalHeight = list.reduce((sum, item) => sum + item.height, 0);
-        const available = Math.max(0, h - marginY * 2 - totalHeight);
-        const gap = list.length > 1 ? Math.max(5, available / (list.length - 1)) : 0;
-        let top = list.length === 1 ? (h - list[0].height) / 2 : marginY;
-        list.forEach(({ card, width, height }) => {
-          const leftPx = side === "left" ? marginX : w - marginX - width;
+        solveVerticalPositions(list).forEach(({ card, width, top }) => {
+          const leftPx = side === "left"
+            ? pdfX + insetX
+            : pdfX + pdfW - insetX - width;
           card.style.left = `${leftPx}px`;
           card.style.right = "auto";
           card.style.top = `${top}px`;
           card.dataset.pfAutoSide = side;
-          top += height + gap;
         });
       }
 
       placeSide(left, "left");
       placeSide(right, "right");
-      unresolved.forEach((card, index) => {
-        card.style.left = `${marginX + index * 8}px`;
-        card.style.top = `${marginY + index * 8}px`;
-      });
       persistLayout(cards);
       updateLineStarts();
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { left: left.length, right: right.length } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", {
+        detail: { left: left.length, right: right.length, mode: "anchor-aware" },
+      }));
     }
 
     function buildPanel() {
@@ -209,7 +250,7 @@ export default function OverviewV2Runtime() {
         <div class="pf-v2-group pf-v2-arrange">
           <span>Arrange</span>
           <select data-v2="left" title="Number of cards on the left"><option value="auto">Auto L/R</option></select>
-          <button type="button" data-v2-action="arrange" title="Arrange card positions without changing card size">Auto Arrange</button>
+          <button type="button" data-v2-action="arrange" title="Arrange by lot position, preserve card size, reduce connector crossings">Auto Arrange</button>
         </div>
         <details class="pf-v2-style">
           <summary>Style</summary>
