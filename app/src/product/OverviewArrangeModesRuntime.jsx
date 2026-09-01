@@ -1,31 +1,337 @@
 import { useEffect } from "react";
 import "./OverviewArrangeModesRuntime.css";
 
-const CARD_LAYOUT_KEY="phongflow-overview-card-layout-v2";
-const PRECISION_KEY="plotflow-overview-precision-arrange-v2";
-const BASE_CARD_WIDTH=192;
-function clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
-function readJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)||"null")??fallback}catch{return fallback}}
-function codeFor(card){return card?.dataset?.unitCode||card?.querySelector(".pf-sell-card-code")?.textContent?.trim()||""}
+const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 
-export default function OverviewArrangeModesRuntime(){
-  useEffect(()=>{
-    let disposed=false,stage=null,observer=null,activeMode="smart";
-    const cards=()=>stage?Array.from(stage.querySelectorAll(".pf-live-sales-callout")):[];
-    function pdfBounds(){if(!stage)return null;const x=Number(stage.dataset.pfPdfX),y=Number(stage.dataset.pfPdfY),width=Number(stage.dataset.pfPdfWidth),height=Number(stage.dataset.pfPdfHeight);return[x,y,width,height].every(Number.isFinite)&&width>2&&height>2?{x,y,width,height}:null}
-    function anchorFor(card){const code=codeFor(card),anchor=Array.from(stage?.querySelectorAll(".pf-live-map-anchor")||[]).find(n=>(n.dataset.unitCode||n.textContent?.trim())===code);return{x:clamp(Number.parseFloat(anchor?.style.left||"50"),0,100),y:clamp(Number.parseFloat(anchor?.style.top||"50"),0,100)}}
-    function persist(){const layout={};cards().forEach(card=>{const code=codeFor(card);if(code)layout[code]={left:card.offsetLeft,top:card.offsetTop,width:card.offsetWidth,height:card.offsetHeight}});localStorage.setItem(CARD_LAYOUT_KEY,JSON.stringify(layout))}
-    function setCardSize(card,width,height){const w=clamp(width,64,420),h=clamp(height,56,420);card.style.setProperty("--pf-card-width",`${w}px`);card.style.setProperty("--pf-card-height",`${h}px`);card.style.setProperty("--pf-card-content-scale",String(clamp(w/BASE_CARD_WIDTH,.34,2.2)));card.style.width=`${w}px`;card.style.height=`${h}px`;card.style.minHeight=`${h}px`;card.style.right="auto"}
-    function fitCamera(){document.querySelector('.pf-overview-zoom-toolbar [data-action="fit"]')?.click()}
-    function compactColumn(items,bounds,gap){if(!items.length)return gap;const insetY=18,minGap=4;let total=items.reduce((s,item)=>s+item.card.offsetHeight,0);const available=bounds.height-insetY*2;let resolvedGap=Math.min(gap,items.length>1?Math.max(minGap,(available-total)/(items.length-1)):0);let used=total+Math.max(0,items.length-1)*resolvedGap;if(used<=available)return resolvedGap;const targetCardArea=Math.max(56*items.length,available-Math.max(0,items.length-1)*minGap),ratio=clamp(targetCardArea/Math.max(total,1),.52,1);items.forEach(({card})=>setCardSize(card,card.offsetWidth*ratio,card.offsetHeight*ratio));total=items.reduce((s,item)=>s+item.card.offsetHeight,0);resolvedGap=items.length>1?Math.max(2,Math.min(gap,(available-total)/(items.length-1))):0;return Math.max(0,resolvedGap)}
-    function placeColumn(items,side,bounds,gap,laneIndex=0){if(!items.length)return;const insetX=22,insetY=18,laneGap=12,sorted=[...items].sort((a,b)=>a.anchor.y-b.anchor.y||codeFor(a.card).localeCompare(codeFor(b.card))),resolvedGap=compactColumn(sorted,bounds,gap),totalHeight=sorted.reduce((s,i)=>s+i.card.offsetHeight,0)+Math.max(0,sorted.length-1)*resolvedGap,maxWidth=Math.max(...sorted.map(i=>i.card.offsetWidth),0);let top=Math.max(bounds.y+insetY,bounds.y+(bounds.height-totalHeight)/2);sorted.forEach(({card})=>{const laneShift=laneIndex*(maxWidth+laneGap);const base=side==="left"?bounds.x+insetX+laneShift:bounds.x+bounds.width-insetX-card.offsetWidth-laneShift;const minLeft=bounds.x+insetX,maxLeft=Math.max(minLeft,bounds.x+bounds.width-insetX-card.offsetWidth);card.style.left=`${clamp(base,minLeft,maxLeft)}px`;card.style.top=`${clamp(top,bounds.y+insetY,Math.max(bounds.y+insetY,bounds.y+bounds.height-insetY-card.offsetHeight))}px`;card.style.right="auto";top+=card.offsetHeight+resolvedGap})}
-    function placeSide(items,side,bounds,gap){if(!items.length)return;const sorted=[...items].sort((a,b)=>a.anchor.y-b.anchor.y||codeFor(a.card).localeCompare(codeFor(b.card)));const available=bounds.height-36;const minCardHeight=Math.max(56,Math.min(...sorted.map(i=>i.card.offsetHeight||56)));const perLane=Math.max(1,Math.floor((available+Math.max(4,gap))/(minCardHeight+Math.max(4,gap))));const laneCount=Math.min(2,Math.max(1,Math.ceil(sorted.length/perLane)));if(laneCount===1){placeColumn(sorted,side,bounds,gap,0);return}const lanes=Array.from({length:laneCount},()=>[]);sorted.forEach((item,index)=>lanes[index%laneCount].push(item));lanes.forEach((lane,index)=>placeColumn(lane,side,bounds,gap,index))}
-    function splitForMode(items,mode){let left=[],right=[];if(mode==="left")left=items;else if(mode==="right")right=items;else if(mode==="even"){[...items].sort((a,b)=>a.anchor.y-b.anchor.y).forEach((item,i)=>(i%2?right:left).push(item))}else{[...items].sort((a,b)=>a.anchor.y-b.anchor.y).forEach(item=>{if(item.anchor.x<47)left.push(item);else if(item.anchor.x>53)right.push(item);else(left.length<=right.length?left:right).push(item)});while(Math.abs(left.length-right.length)>1){const from=left.length>right.length?left:right,to=from===left?right:left;to.push(from.splice(Math.floor(from.length/2),1)[0])}}return{left,right}}
-    function previewSide(list,side,mapCanvas){const sorted=[...list].sort((a,b)=>a.anchor.y-b.anchor.y);if(!sorted.length)return;const laneCount=sorted.length>5?2:1;const lanes=Array.from({length:laneCount},()=>[]);sorted.forEach((item,index)=>lanes[index%laneCount].push(item));lanes.forEach((lane,laneIndex)=>{lane.forEach((item,index)=>{const code=codeFor(item.card);const chip=mapCanvas.querySelector(`.pf-layout-map-chip[data-code="${CSS.escape(code)}"]`);const line=mapCanvas.querySelector(`.pf-layout-map-lines line[data-code="${CSS.escape(code)}"]`);if(!chip)return;const x=side==="left"?(laneCount===1?18:14+laneIndex*16):(laneCount===1?82:86-laneIndex*16);const y=lane.length===1?50:14+(index*(72/Math.max(1,lane.length-1)));chip.style.left=`${x}%`;chip.style.top=`${y}%`;chip.classList.add("is-layout-preview");line?.setAttribute("x1",String(x));line?.setAttribute("y1",String(y))})})}
-    function previewThumbnail(mode){const mapCanvas=document.querySelector(".pf-layout-map-canvas");if(!mapCanvas||!stage)return;const items=cards().map(card=>({card,anchor:anchorFor(card)}));const {left,right}=splitForMode(items,mode);mapCanvas.dataset.arrangePreview=mode;mapCanvas.querySelectorAll(".pf-layout-map-chip").forEach(chip=>chip.classList.remove("is-layout-preview"));previewSide(left,"left",mapCanvas);previewSide(right,"right",mapCanvas);document.querySelectorAll("[data-pf-arrange-mode]").forEach(button=>button.classList.toggle("active",button.dataset.pfArrangeMode===mode))}
-    function arrange(mode){const bounds=pdfBounds(),list=cards();if(!bounds||!list.length)return;activeMode=mode;fitCamera();const gap=clamp(readJson(PRECISION_KEY,{}).gap??14,0,120),items=list.map(card=>({card,anchor:anchorFor(card)})),{left,right}=splitForMode(items,mode);placeSide(left,"left",bounds,gap);placeSide(right,"right",bounds,gap);persist();window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged",{detail:{mode:`preset-${mode}`,left:left.length,right:right.length,gap}}));requestAnimationFrame(()=>{fitCamera();previewThumbnail(mode)})}
-    function enhanceArrangeUi(){const popover=document.querySelector(".pf-layout-map-popover");if(!popover)return;const footer=popover.querySelector("footer"),legacy=footer?.querySelector('[data-layout-ui="tidy"]');if(legacy)legacy.style.display="none";if(!popover.querySelector(".pf-arrange-mode-grid")){const modes=document.createElement("div");modes.className="pf-arrange-mode-grid";modes.innerHTML=`<button type="button" data-pf-arrange-mode="smart"><strong>Smart balance</strong><small>Anchor-aware · dense safe</small></button><button type="button" data-pf-arrange-mode="even"><strong>Even split</strong><small>Balanced left / right</small></button><button type="button" data-pf-arrange-mode="left"><strong>Left column</strong><small>Single / dense lanes</small></button><button type="button" data-pf-arrange-mode="right"><strong>Right column</strong><small>Single / dense lanes</small></button>`;modes.addEventListener("click",event=>{const button=event.target.closest("button[data-pf-arrange-mode]");if(!button)return;event.preventDefault();arrange(button.dataset.pfArrangeMode)});footer?.before(modes)}requestAnimationFrame(()=>previewThumbnail(activeMode))}
-    function sync(){if(disposed)return;stage=document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");enhanceArrangeUi()}
-    window.addEventListener("pf-overview-live-units-ready",sync);window.addEventListener("pf-overview-pdf-bounds",sync);observer=new MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true});sync();return()=>{disposed=true;observer?.disconnect();window.removeEventListener("pf-overview-live-units-ready",sync);window.removeEventListener("pf-overview-pdf-bounds",sync);document.querySelector(".pf-arrange-mode-grid")?.remove()}
-  },[]);return null;
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, Number(value) || 0));
+}
+
+function codeFor(card) {
+  return card?.dataset?.unitCode
+    || card?.querySelector(".pf-sell-card-code")?.textContent?.trim()
+    || "";
+}
+
+function objectScale(card) {
+  const value = Number(card?.dataset?.pfObjectScale || card?.style?.scale || 1);
+  return Number.isFinite(value) ? clamp(value, 0.34, 2.2) : 1;
+}
+
+export default function OverviewArrangeModesRuntime() {
+  useEffect(() => {
+    let disposed = false;
+    let stage = null;
+    let overlay = null;
+    let canvas = null;
+    let mode = "smart";
+    let draft = {};
+    let items = [];
+    let drag = null;
+
+    const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
+
+    function syncStage() {
+      stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts") || null;
+      return stage;
+    }
+
+    function pdfBounds() {
+      if (!stage) return null;
+      const x = Number(stage.dataset.pfPdfX);
+      const y = Number(stage.dataset.pfPdfY);
+      const width = Number(stage.dataset.pfPdfWidth);
+      const height = Number(stage.dataset.pfPdfHeight);
+      if (![x, y, width, height].every(Number.isFinite) || width < 2 || height < 2) return null;
+      return { x, y, width, height };
+    }
+
+    function anchorFor(code, bounds) {
+      const anchor = Array.from(stage?.querySelectorAll(".pf-live-map-anchor") || [])
+        .find((node) => (node.dataset.unitCode || node.textContent?.trim()) === code);
+      if (!anchor || !bounds) return { x: 0.5, y: 0.5, resolved: false };
+      const stageW = stage.clientWidth || 1;
+      const stageH = stage.clientHeight || 1;
+      const px = Number.parseFloat(anchor.style.left || "50") / 100 * stageW;
+      const py = Number.parseFloat(anchor.style.top || "50") / 100 * stageH;
+      return {
+        x: clamp((px - bounds.x) / bounds.width, 0.02, 0.98),
+        y: clamp((py - bounds.y) / bounds.height, 0.02, 0.98),
+        resolved: anchor.dataset.located === "1" || anchor.dataset.saved === "1",
+      };
+    }
+
+    function captureItems() {
+      const bounds = pdfBounds();
+      if (!bounds) return [];
+      return cards().map((card, index) => {
+        const code = codeFor(card);
+        const scale = objectScale(card);
+        const width = (card.offsetWidth || 192) * scale;
+        const height = (card.offsetHeight || 132) * scale;
+        const anchor = anchorFor(code, bounds);
+        return {
+          card,
+          code,
+          index,
+          width,
+          height,
+          anchor,
+          current: {
+            x: clamp((card.offsetLeft + width / 2 - bounds.x) / bounds.width, 0.03, 0.97),
+            y: clamp((card.offsetTop + height / 2 - bounds.y) / bounds.height, 0.03, 0.97),
+          },
+        };
+      }).filter((item) => item.code);
+    }
+
+    function spacedY(list, { compact = false, anchorAware = false } = {}) {
+      const sorted = [...list].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+      if (!sorted.length) return new Map();
+      const result = new Map();
+      const count = sorted.length;
+      if (compact) {
+        const step = Math.min(0.13, 0.62 / Math.max(1, count - 1));
+        const start = 0.5 - step * (count - 1) / 2;
+        sorted.forEach((item, index) => result.set(item.code, clamp(start + index * step, 0.08, 0.92)));
+        return result;
+      }
+      if (!anchorAware) {
+        sorted.forEach((item, index) => {
+          const y = count === 1 ? 0.5 : 0.10 + index * (0.80 / Math.max(1, count - 1));
+          result.set(item.code, y);
+        });
+        return result;
+      }
+      const minGap = Math.min(0.12, 0.72 / Math.max(1, count));
+      let previous = 0.06;
+      sorted.forEach((item, index) => {
+        const remaining = count - index - 1;
+        const maxHere = 0.94 - remaining * minGap;
+        const y = clamp(Math.max(item.anchor.y, previous), 0.06, maxHere);
+        result.set(item.code, y);
+        previous = y + minGap;
+      });
+      return result;
+    }
+
+    function split(itemsForMode, selectedMode) {
+      const left = [];
+      const right = [];
+      const sorted = [...itemsForMode].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+      if (selectedMode === "left") return { left: sorted, right };
+      if (selectedMode === "right") return { left, right: sorted };
+      if (selectedMode === "balanced") {
+        sorted.forEach((item, index) => (index % 2 ? right : left).push(item));
+        return { left, right };
+      }
+      sorted.forEach((item) => {
+        if (item.anchor.x < 0.47) left.push(item);
+        else if (item.anchor.x > 0.53) right.push(item);
+        else (left.length <= right.length ? left : right).push(item);
+      });
+      return { left, right };
+    }
+
+    function buildDraft(selectedMode) {
+      mode = selectedMode;
+      const next = {};
+      const { left, right } = split(items, selectedMode);
+      const compact = selectedMode === "compact";
+      const anchorAware = selectedMode === "smart";
+      const leftY = spacedY(left, { compact, anchorAware });
+      const rightY = spacedY(right, { compact, anchorAware });
+      const leftX = selectedMode === "compact" ? 0.20 : selectedMode === "left" ? 0.16 : 0.13;
+      const rightX = selectedMode === "compact" ? 0.80 : selectedMode === "right" ? 0.84 : 0.87;
+      left.forEach((item) => { next[item.code] = { x: leftX, y: leftY.get(item.code) ?? 0.5 }; });
+      right.forEach((item) => { next[item.code] = { x: rightX, y: rightY.get(item.code) ?? 0.5 }; });
+      draft = next;
+      renderDraft();
+    }
+
+    function renderDraft() {
+      if (!canvas) return;
+      canvas.querySelectorAll(".pf-arrange-preview-chip").forEach((chip) => {
+        const point = draft[chip.dataset.code];
+        if (!point) return;
+        chip.style.left = `${point.x * 100}%`;
+        chip.style.top = `${point.y * 100}%`;
+      });
+      canvas.querySelectorAll(".pf-arrange-preview-lines line").forEach((line) => {
+        const point = draft[line.dataset.code];
+        if (!point) return;
+        line.setAttribute("x1", String(point.x * 100));
+        line.setAttribute("y1", String(point.y * 100));
+      });
+      overlay?.querySelectorAll("[data-arrange-mode]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.arrangeMode === mode);
+      });
+      const label = overlay?.querySelector("[data-arrange-mode-label]");
+      if (label) label.textContent = mode === "smart" ? "Smart L/R" : mode === "balanced" ? "Balanced" : mode === "compact" ? "Compact" : mode === "left" ? "All left" : "All right";
+    }
+
+    function buildCanvas() {
+      if (!canvas) return;
+      canvas.innerHTML = "";
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 100 100");
+      svg.classList.add("pf-arrange-preview-lines");
+      canvas.appendChild(svg);
+
+      items.forEach((item) => {
+        const anchor = document.createElement("span");
+        anchor.className = `pf-arrange-preview-anchor${item.anchor.resolved ? " is-resolved" : ""}`;
+        anchor.style.left = `${item.anchor.x * 100}%`;
+        anchor.style.top = `${item.anchor.y * 100}%`;
+        anchor.title = `${item.code} · lot point`;
+        canvas.appendChild(anchor);
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.dataset.code = item.code;
+        line.setAttribute("x2", String(item.anchor.x * 100));
+        line.setAttribute("y2", String(item.anchor.y * 100));
+        if (!item.anchor.resolved) line.classList.add("is-unresolved");
+        svg.appendChild(line);
+
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "pf-arrange-preview-chip";
+        chip.dataset.code = item.code;
+        chip.textContent = item.code;
+        chip.title = `${item.code} · drag to refine preview`;
+        chip.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+          drag = { code: item.code, pointerId: event.pointerId, node: chip };
+          chip.setPointerCapture?.(event.pointerId);
+        });
+        canvas.appendChild(chip);
+      });
+    }
+
+    function applyDraft() {
+      const bounds = pdfBounds();
+      if (!bounds) return;
+      let layout = {};
+      try { layout = JSON.parse(localStorage.getItem(CARD_LAYOUT_KEY) || "{}") || {}; } catch { layout = {}; }
+      items.forEach((item) => {
+        const point = draft[item.code];
+        if (!point) return;
+        const maxLeft = bounds.x + bounds.width - item.width;
+        const maxTop = bounds.y + bounds.height - item.height;
+        const left = clamp(bounds.x + point.x * bounds.width - item.width / 2, bounds.x, Math.max(bounds.x, maxLeft));
+        const top = clamp(bounds.y + point.y * bounds.height - item.height / 2, bounds.y, Math.max(bounds.y, maxTop));
+        item.card.style.left = `${left}px`;
+        item.card.style.right = "auto";
+        item.card.style.top = `${top}px`;
+        item.card.dataset.pfAutoSide = point.x <= 0.5 ? "left" : "right";
+        layout[item.code] = { ...(layout[item.code] || {}), left, top };
+        delete layout[item.code].width;
+        delete layout[item.code].height;
+      });
+      localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: `preview-${mode}`, count: items.length } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
+      closePreview();
+    }
+
+    function closePreview() {
+      drag = null;
+      overlay?.remove();
+      overlay = null;
+      canvas = null;
+    }
+
+    function openPreview() {
+      if (disposed || !syncStage()) return;
+      items = captureItems();
+      if (!items.length) return;
+      closePreview();
+      overlay = document.createElement("div");
+      overlay.className = "pf-arrange-preview-overlay";
+      overlay.innerHTML = `
+        <section class="pf-arrange-preview-panel" role="dialog" aria-modal="true" aria-label="Arrange preview">
+          <header><div><span>AUTO ARRANGE</span><strong>Preview layout before applying</strong></div><button type="button" data-arrange-close aria-label="Close">×</button></header>
+          <div class="pf-arrange-preview-body">
+            <div class="pf-arrange-preview-map-wrap">
+              <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
+              <div class="pf-arrange-preview-map"></div>
+              <small>Drag cards directly in this minimap to refine the draft. Nothing changes on the real layout until Apply.</small>
+            </div>
+            <aside class="pf-arrange-preview-modes">
+              <span>LAYOUT OPTIONS</span>
+              <button type="button" data-arrange-mode="smart"><strong>Smart L/R</strong><small>Follow lot side and lot height</small></button>
+              <button type="button" data-arrange-mode="balanced"><strong>Balanced</strong><small>Even card count on both sides</small></button>
+              <button type="button" data-arrange-mode="compact"><strong>Compact</strong><small>Tighter centered columns</small></button>
+              <button type="button" data-arrange-mode="left"><strong>All left</strong><small>One left-side column</small></button>
+              <button type="button" data-arrange-mode="right"><strong>All right</strong><small>One right-side column</small></button>
+            </aside>
+          </div>
+          <footer><span>${items.length} cards · preview only</span><div><button type="button" data-arrange-cancel>Cancel</button><button type="button" class="primary" data-arrange-apply>Apply layout</button></div></footer>
+        </section>`;
+      document.body.appendChild(overlay);
+      canvas = overlay.querySelector(".pf-arrange-preview-map");
+      buildCanvas();
+      buildDraft("smart");
+
+      overlay.addEventListener("click", (event) => {
+        const modeButton = event.target.closest("[data-arrange-mode]");
+        if (modeButton) { buildDraft(modeButton.dataset.arrangeMode); return; }
+        if (event.target.closest("[data-arrange-apply]")) { applyDraft(); return; }
+        if (event.target.closest("[data-arrange-close],[data-arrange-cancel]")) { closePreview(); return; }
+        if (event.target === overlay) closePreview();
+      });
+    }
+
+    function onPointerMove(event) {
+      if (!drag || event.pointerId !== drag.pointerId || !canvas) return;
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const x = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0.04, 0.96);
+      const y = clamp((event.clientY - rect.top) / Math.max(1, rect.height), 0.05, 0.95);
+      draft[drag.code] = { x, y };
+      renderDraft();
+    }
+
+    function finishDrag(event) {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      try { drag.node.releasePointerCapture?.(event.pointerId); } catch { /* noop */ }
+      drag = null;
+    }
+
+    function onKeyDown(event) {
+      if (event.key === "Escape" && overlay) closePreview();
+    }
+
+    function onRequest() {
+      openPreview();
+    }
+
+    function onGroupChanged() {
+      closePreview();
+      syncStage();
+    }
+
+    syncStage();
+    window.addEventListener("pf-overview-arrange-preview-request", onRequest);
+    window.addEventListener("pf-overview-group-changed", onGroupChanged);
+    window.addEventListener("pointermove", onPointerMove, true);
+    window.addEventListener("pointerup", finishDrag, true);
+    window.addEventListener("pointercancel", finishDrag, true);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      disposed = true;
+      closePreview();
+      window.removeEventListener("pf-overview-arrange-preview-request", onRequest);
+      window.removeEventListener("pf-overview-group-changed", onGroupChanged);
+      window.removeEventListener("pointermove", onPointerMove, true);
+      window.removeEventListener("pointerup", finishDrag, true);
+      window.removeEventListener("pointercancel", finishDrag, true);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  return null;
 }
