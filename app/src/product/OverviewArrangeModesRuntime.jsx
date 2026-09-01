@@ -18,7 +18,7 @@ function codeFor(card) {
 
 function objectScale(card) {
   const value = Number(card?.dataset?.pfObjectScale || card?.style?.scale || 1);
-  return Number.isFinite(value) ? clamp(value, 0.34, 2.2) : 1;
+  return Number.isFinite(value) ? clamp(value, 0.2, 2.2) : 1;
 }
 
 function readArrangeUi() {

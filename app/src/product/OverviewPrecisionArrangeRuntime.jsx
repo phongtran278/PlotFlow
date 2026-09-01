@@ -19,7 +19,7 @@ function readJson(key, fallback) {
 function saveJson(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* noop */ } }
 function normalizeStyle(value = {}) {
   return {
-    scale: clamp(value.scale ?? DEFAULT_STYLE.scale, 34, 220),
+    scale: clamp(value.scale ?? DEFAULT_STYLE.scale, 20, 220),
     gap: clamp(value.gap ?? DEFAULT_STYLE.gap, 0, 120),
     cardRadius: clamp(value.cardRadius ?? DEFAULT_STYLE.cardRadius, 0, 40),
     innerRadius: clamp(value.innerRadius ?? DEFAULT_STYLE.innerRadius, 0, 32),
@@ -70,7 +70,7 @@ export default function OverviewPrecisionArrangeRuntime() {
       saveJson(GROUP_STYLE_KEY, groupStyles);
       return next;
     }
-    function objectScale(card) { return clamp(card?.dataset?.pfObjectScale || 1, 0.34, 2.2); }
+    function objectScale(card) { return clamp(card?.dataset?.pfObjectScale || 1, 0.2, 2.2); }
     function visualWidth(card) { return (card?.offsetWidth || BASE_CARD_WIDTH) * objectScale(card); }
     function visualHeight(card) { return (card?.offsetHeight || DEFAULT_CARD_HEIGHT) * objectScale(card); }
 
@@ -98,7 +98,7 @@ export default function OverviewPrecisionArrangeRuntime() {
 
     function setObjectScale(card, scale, style = styleForGroup()) {
       if (!card) return;
-      const next = clamp(scale, 0.34, 2.2);
+      const next = clamp(scale, 0.2, 2.2);
       card.dataset.pfObjectScale = String(next);
       card.style.transformOrigin = "0 0";
       card.style.scale = String(next);
@@ -106,7 +106,7 @@ export default function OverviewPrecisionArrangeRuntime() {
     }
 
     function applyScale(percent, { save = true } = {}) {
-      const next = clamp(percent, 34, 220);
+      const next = clamp(percent, 20, 220);
       const style = save ? saveGroupStyle({ scale: next }) : normalizeStyle({ ...styleForGroup(), scale: next });
       cards().forEach((card) => setObjectScale(card, next / 100, style));
       if (save) persist();
@@ -143,7 +143,7 @@ export default function OverviewPrecisionArrangeRuntime() {
       const current = axis === "width" ? visualWidth(key) : visualHeight(key);
       if (current <= 0) return;
       const target = clamp(requested, axis === "width" ? 24 : 24, 900);
-      const nextScale = clamp(objectScale(key) * (target / current), 0.34, 2.2);
+      const nextScale = clamp(objectScale(key) * (target / current), 0.2, 2.2);
       list.forEach((card) => setObjectScale(card, nextScale, styleForGroup()));
       requestAnimationFrame(() => { persist(); updateConnectors(); syncPanel(); });
     }
@@ -245,17 +245,17 @@ export default function OverviewPrecisionArrangeRuntime() {
       if (!rail || quickScale?.isConnected) return;
       quickScale = document.createElement("div");
       quickScale.className = "pf-card-quick-scale";
-      quickScale.innerHTML = `<span>Scale</span><input data-quick-scale-range type="range" min="34" max="220" step="1" value="100" aria-label="Card scale"><label><input data-quick-scale-number type="number" min="34" max="220" step="1" value="100" aria-label="Card scale"><b>%</b></label>`;
+      quickScale.innerHTML = `<span>Scale</span><input data-quick-scale-range type="range" min="20" max="220" step="1" value="100" aria-label="Card scale"><label><input data-quick-scale-number type="number" min="20" max="220" step="1" value="100" aria-label="Card scale"><b>%</b></label>`;
       const range = quickScale.querySelector("[data-quick-scale-range]");
       const number = quickScale.querySelector("[data-quick-scale-number]");
       const live = (value) => {
-        const next = clamp(value, 34, 220);
+        const next = clamp(value, 20, 220);
         range.value = String(next);
         number.value = String(Math.round(next));
         applyScale(next, { save: false });
       };
       const commit = (value) => {
-        const next = clamp(value, 34, 220);
+        const next = clamp(value, 20, 220);
         range.value = String(next);
         number.value = String(Math.round(next));
         applyScale(next, { save: true });
