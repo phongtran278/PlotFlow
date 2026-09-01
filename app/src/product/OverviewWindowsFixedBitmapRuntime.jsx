@@ -4,6 +4,8 @@ const BASE_WIDTH = 42000;
 const BASE_HEIGHT = 29709;
 const TILE_SIZE = 512;
 const FIXED_LEVEL = 1800;
+const SHARP_TILE_LIMIT = 6;
+const SHARP_SETTLE_MS = 220;
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
 
 function levelInfo(width) {
@@ -15,6 +17,12 @@ function isWindows() {
   if (typeof navigator === "undefined") return false;
   const value = String(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || "").toLowerCase();
   return value.includes("win");
+}
+
+function sharpLevelForScale(scale) {
+  if (scale >= 8) return 21000;
+  if (scale >= 2.5) return 10500;
+  return 0;
 }
 
 export default function OverviewWindowsFixedBitmapRuntime() {
@@ -30,7 +38,10 @@ export default function OverviewWindowsFixedBitmapRuntime() {
     let bounds = null;
     let camera = { scale: 1, tx: 0, ty: 0 };
     let raf = 0;
+    let settleTimer = 0;
+    let sharpGeneration = 0;
     const bitmaps = new Map();
+    const sharpBitmaps = new Map();
     const info = levelInfo(FIXED_LEVEL);
     const totalTiles = info.cols * info.rows;
 
@@ -49,6 +60,11 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       pdfRuntimeLoaded: false,
       iframeOpened: false,
       refetchOnCamera: false,
+      sharpTileLimit: SHARP_TILE_LIMIT,
+      sharpLevel: 0,
+      sharpActiveBitmaps: 0,
+      sharpFetchTotal: 0,
+      sharpPending: 0,
     };
     window.__plotflowOverviewRuntime = stats;
 
@@ -100,8 +116,31 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       if (canvas.width !== width) canvas.width = width;
       if (canvas.height !== height) canvas.height = height;
       ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       publishBounds();
       scheduleDraw();
+      scheduleSharpSettle();
+    }
+
+    function drawEntry(entry, levelWidth, overlap = 0) {
+      if (!ctx || !canvas || !bounds) return;
+      const level = levelInfo(levelWidth);
+      const levelScaleX = level.width / BASE_WIDTH;
+      const levelScaleY = level.height / BASE_HEIGHT;
+      const tileLeft = entry.col * TILE_SIZE;
+      const tileTop = entry.row * TILE_SIZE;
+      const tileRight = Math.min(level.width, tileLeft + entry.bitmap.width);
+      const tileBottom = Math.min(level.height, tileTop + entry.bitmap.height);
+      const baseLeft = bounds.x + (tileLeft / levelScaleX) * bounds.fit;
+      const baseTop = bounds.y + (tileTop / levelScaleY) * bounds.fit;
+      const baseRight = bounds.x + (tileRight / levelScaleX) * bounds.fit;
+      const baseBottom = bounds.y + (tileBottom / levelScaleY) * bounds.fit;
+      const left = camera.tx + baseLeft * camera.scale;
+      const top = camera.ty + baseTop * camera.scale;
+      const right = camera.tx + baseRight * camera.scale;
+      const bottom = camera.ty + baseBottom * camera.scale;
+      if (right <= 0 || bottom <= 0 || left >= canvas.width || top >= canvas.height) return;
+      ctx.drawImage(entry.bitmap, left, top, right - left + overlap, bottom - top + overlap);
     }
 
     function drawNow() {
@@ -110,32 +149,104 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const levelScaleX = info.width / BASE_WIDTH;
-      const levelScaleY = info.height / BASE_HEIGHT;
-      for (const entry of bitmaps.values()) {
-        const tileLeft = entry.col * TILE_SIZE;
-        const tileTop = entry.row * TILE_SIZE;
-        const tileRight = Math.min(info.width, tileLeft + entry.bitmap.width);
-        const tileBottom = Math.min(info.height, tileTop + entry.bitmap.height);
-        const baseLeft = bounds.x + (tileLeft / levelScaleX) * bounds.fit;
-        const baseTop = bounds.y + (tileTop / levelScaleY) * bounds.fit;
-        const baseRight = bounds.x + (tileRight / levelScaleX) * bounds.fit;
-        const baseBottom = bounds.y + (tileBottom / levelScaleY) * bounds.fit;
-        const left = camera.tx + baseLeft * camera.scale;
-        const top = camera.ty + baseTop * camera.scale;
-        const right = camera.tx + baseRight * camera.scale;
-        const bottom = camera.ty + baseBottom * camera.scale;
-        if (right <= 0 || bottom <= 0 || left >= canvas.width || top >= canvas.height) continue;
-        ctx.drawImage(entry.bitmap, left, top, right - left, bottom - top);
-      }
+      for (const entry of bitmaps.values()) drawEntry(entry, FIXED_LEVEL, 1);
+      for (const entry of sharpBitmaps.values()) drawEntry(entry, entry.level, 0.5);
       stats.drawCount += 1;
       stats.activeBitmaps = bitmaps.size;
+      stats.sharpActiveBitmaps = sharpBitmaps.size;
     }
 
     function scheduleDraw() {
       if (raf) return;
       raf = window.requestAnimationFrame(drawNow);
+    }
+
+    function clearSharpBitmaps() {
+      sharpGeneration += 1;
+      for (const entry of sharpBitmaps.values()) entry.bitmap.close?.();
+      sharpBitmaps.clear();
+      stats.sharpActiveBitmaps = 0;
+      stats.sharpPending = 0;
+      stats.sharpLevel = 0;
+    }
+
+    function visibleSharpTiles(levelWidth) {
+      if (!bounds || !canvas || camera.scale <= 0) return [];
+      const level = levelInfo(levelWidth);
+      const leftBase = (((0 - camera.tx) / camera.scale) - bounds.x) / Math.max(bounds.fit, 0.000001);
+      const topBase = (((0 - camera.ty) / camera.scale) - bounds.y) / Math.max(bounds.fit, 0.000001);
+      const rightBase = (((canvas.width - camera.tx) / camera.scale) - bounds.x) / Math.max(bounds.fit, 0.000001);
+      const bottomBase = (((canvas.height - camera.ty) / camera.scale) - bounds.y) / Math.max(bounds.fit, 0.000001);
+      const minBaseX = Math.max(0, Math.min(BASE_WIDTH, Math.min(leftBase, rightBase)));
+      const maxBaseX = Math.max(0, Math.min(BASE_WIDTH, Math.max(leftBase, rightBase)));
+      const minBaseY = Math.max(0, Math.min(BASE_HEIGHT, Math.min(topBase, bottomBase)));
+      const maxBaseY = Math.max(0, Math.min(BASE_HEIGHT, Math.max(topBase, bottomBase)));
+      if (maxBaseX <= minBaseX || maxBaseY <= minBaseY) return [];
+      const sx = level.width / BASE_WIDTH;
+      const sy = level.height / BASE_HEIGHT;
+      const minCol = Math.max(0, Math.floor((minBaseX * sx) / TILE_SIZE));
+      const maxCol = Math.min(level.cols - 1, Math.floor((maxBaseX * sx) / TILE_SIZE));
+      const minRow = Math.max(0, Math.floor((minBaseY * sy) / TILE_SIZE));
+      const maxRow = Math.min(level.rows - 1, Math.floor((maxBaseY * sy) / TILE_SIZE));
+      const centerCol = ((minBaseX + maxBaseX) * 0.5 * sx) / TILE_SIZE;
+      const centerRow = ((minBaseY + maxBaseY) * 0.5 * sy) / TILE_SIZE;
+      const candidates = [];
+      for (let row = minRow; row <= maxRow; row += 1) {
+        for (let col = minCol; col <= maxCol; col += 1) {
+          candidates.push({ col, row, distance: Math.hypot(col + 0.5 - centerCol, row + 0.5 - centerRow) });
+        }
+      }
+      return candidates.sort((a, b) => a.distance - b.distance).slice(0, SHARP_TILE_LIMIT);
+    }
+
+    async function loadSharpForSettle() {
+      if (disposed || !stage || !bounds) return;
+      const level = sharpLevelForScale(camera.scale);
+      if (!level) {
+        clearSharpBitmaps();
+        scheduleDraw();
+        return;
+      }
+      const targets = visibleSharpTiles(level);
+      if (!targets.length) return;
+      const generation = ++sharpGeneration;
+      const next = new Map();
+      stats.sharpLevel = level;
+      stats.sharpPending = targets.length;
+      for (const target of targets) {
+        if (disposed || generation !== sharpGeneration) break;
+        try {
+          stats.sharpFetchTotal += 1;
+          const response = await fetch(`${TILE_BASE}/${level}/${target.col}_${target.row}.webp`, { cache: "force-cache" });
+          if (!response.ok) throw new Error(`sharp tile ${response.status}`);
+          const blob = await response.blob();
+          const bitmap = await createImageBitmap(blob);
+          if (disposed || generation !== sharpGeneration) {
+            bitmap.close?.();
+            break;
+          }
+          next.set(`${target.col}:${target.row}`, { bitmap, col: target.col, row: target.row, level });
+          stats.sharpPending = Math.max(0, stats.sharpPending - 1);
+        } catch (error) {
+          stats.sharpPending = Math.max(0, stats.sharpPending - 1);
+          console.debug("Windows sharp settle tile skipped", error);
+        }
+      }
+      if (disposed || generation !== sharpGeneration) {
+        for (const entry of next.values()) entry.bitmap.close?.();
+        return;
+      }
+      for (const entry of sharpBitmaps.values()) entry.bitmap.close?.();
+      sharpBitmaps.clear();
+      for (const [key, entry] of next) sharpBitmaps.set(key, entry);
+      stats.sharpActiveBitmaps = sharpBitmaps.size;
+      stats.sharpPending = 0;
+      scheduleDraw();
+    }
+
+    function scheduleSharpSettle() {
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(loadSharpForSettle, SHARP_SETTLE_MS);
     }
 
     async function loadFixedBitmaps() {
@@ -170,14 +281,18 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       if (!Number.isFinite(next.scale)) return;
       camera = { scale: next.scale, tx: next.tx || 0, ty: next.ty || 0 };
       scheduleDraw();
+      scheduleSharpSettle();
     }
 
     function detachStage() {
       resizeObserver?.disconnect();
       resizeObserver = null;
       window.removeEventListener("pf-overview-camera", onCamera);
+      window.clearTimeout(settleTimer);
+      settleTimer = 0;
       if (raf) window.cancelAnimationFrame(raf);
       raf = 0;
+      clearSharpBitmaps();
       for (const entry of bitmaps.values()) entry.bitmap.close?.();
       bitmaps.clear();
       stats.activeBitmaps = 0;
