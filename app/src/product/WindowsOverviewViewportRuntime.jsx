@@ -17,10 +17,16 @@ function readCardLayout() {
   }
 }
 
+function objectScale(card) {
+  const value = Number(card?.dataset?.pfObjectScale || card?.style?.scale || 1);
+  return Number.isFinite(value) ? Math.max(0.34, Math.min(2.2, value)) : 1;
+}
+
 export default function WindowsOverviewViewportRuntime() {
   useEffect(() => {
     let stage = null;
     let drag = null;
+    let activeCode = "";
     let lastCamera = { scale: 1, tx: 0, ty: 0 };
 
     function syncStage() {
@@ -69,17 +75,39 @@ export default function WindowsOverviewViewportRuntime() {
         if (!line || !anchor) return;
 
         const point = worldAnchorPoint(anchor);
+        const scale = objectScale(card);
+        const visualWidth = card.offsetWidth * scale;
+        const visualHeight = card.offsetHeight * scale;
         const anchorWorldX = point.x / 100 * w;
-        const cardCenterX = card.offsetLeft + card.offsetWidth / 2;
+        const cardCenterX = card.offsetLeft + visualWidth / 2;
         const cardEdgeX = anchorWorldX >= cardCenterX
-          ? card.offsetLeft + card.offsetWidth
+          ? card.offsetLeft + visualWidth
           : card.offsetLeft;
-        const cardCenterY = card.offsetTop + card.offsetHeight / 2;
+        const cardCenterY = card.offsetTop + visualHeight / 2;
 
         line.setAttribute("x1", String(cardEdgeX / w * 100));
         line.setAttribute("y1", String(cardCenterY / h * 100));
         line.setAttribute("x2", String(point.x));
         line.setAttribute("y2", String(point.y));
+      });
+    }
+
+    function syncLinkedSelection(preferredCard = null) {
+      if (!stage) return;
+      const selected = preferredCard
+        || stage.querySelector(".pf-live-sales-callout.pf-card-selected,.pf-live-sales-callout.pf-focus-card-active");
+      if (selected) activeCode = codeForCard(selected);
+      const code = activeCode;
+      stage.classList.toggle("pf-has-linked-selection", Boolean(code));
+      stage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
+        card.classList.toggle("pf-linked-active", Boolean(code) && codeForCard(card) === code);
+      });
+      stage.querySelectorAll(".pf-live-callout-lines line").forEach((line) => {
+        line.classList.toggle("pf-linked-active", Boolean(code) && line.dataset.unitCode === code);
+      });
+      stage.querySelectorAll(".pf-live-map-anchor").forEach((anchor) => {
+        const anchorCode = anchor.dataset.unitCode || anchor.textContent?.trim() || "";
+        anchor.classList.toggle("pf-linked-active", Boolean(code) && anchorCode === code);
       });
     }
 
@@ -91,9 +119,9 @@ export default function WindowsOverviewViewportRuntime() {
         ...(layout[code] || {}),
         left: +card.offsetLeft.toFixed(2),
         top: +card.offsetTop.toFixed(2),
-        width: +card.offsetWidth.toFixed(2),
-        height: +card.offsetHeight.toFixed(2),
       };
+      delete layout[code].width;
+      delete layout[code].height;
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
     }
 
@@ -104,6 +132,10 @@ export default function WindowsOverviewViewportRuntime() {
       const card = event.target?.closest?.(".pf-live-sales-callout,.pf-sales-callout");
       if (!card || !stage.contains(card)) return;
 
+      event.preventDefault();
+      event.stopPropagation();
+      activeCode = codeForCard(card);
+      syncLinkedSelection(card);
       drag = {
         card,
         pointerId: event.pointerId,
@@ -125,6 +157,7 @@ export default function WindowsOverviewViewportRuntime() {
       drag.card.style.top = `${top}px`;
       drag.card.style.right = "auto";
       positionConnectorsWorld();
+      syncLinkedSelection(drag.card);
     }
 
     function finishCardDrag(event) {
@@ -133,6 +166,7 @@ export default function WindowsOverviewViewportRuntime() {
       drag = null;
       persistCard(card);
       positionConnectorsWorld();
+      syncLinkedSelection(card);
       window.dispatchEvent(new CustomEvent("pf-overview-card-position-changed", {
         detail: { code: codeForCard(card), left: card.offsetLeft, top: card.offsetTop },
       }));
@@ -148,6 +182,7 @@ export default function WindowsOverviewViewportRuntime() {
       if (!syncStage()) return;
       normalizeOverlayOwnership();
       positionConnectorsWorld();
+      syncLinkedSelection();
     }
 
     function onLayoutChanged() {
@@ -155,13 +190,24 @@ export default function WindowsOverviewViewportRuntime() {
         if (!syncStage()) return;
         normalizeOverlayOwnership();
         positionConnectorsWorld();
+        syncLinkedSelection();
       });
+    }
+
+    function onPointerUpSelection(event) {
+      const card = event.target?.closest?.(".pf-live-sales-callout,.pf-sales-callout");
+      if (card && stage?.contains(card)) {
+        activeCode = codeForCard(card);
+        window.requestAnimationFrame(() => syncLinkedSelection(card));
+      }
     }
 
     syncStage();
     normalizeOverlayOwnership();
     positionConnectorsWorld();
+    syncLinkedSelection();
     document.addEventListener("pointerdown", onCardPointerDown, true);
+    document.addEventListener("pointerup", onPointerUpSelection, true);
     window.addEventListener("pointermove", onCardPointerMove, true);
     window.addEventListener("pointerup", finishCardDrag, true);
     window.addEventListener("pointercancel", finishCardDrag, true);
@@ -170,10 +216,12 @@ export default function WindowsOverviewViewportRuntime() {
     window.addEventListener("pf-overview-card-size-changed", onLayoutChanged);
     window.addEventListener("pf-overview-anchor-changed", onLayoutChanged);
     window.addEventListener("pf-overview-live-units-ready", onLayoutChanged);
+    window.addEventListener("pf-overview-group-changed", () => { activeCode = ""; onLayoutChanged(); });
 
     return () => {
       drag = null;
       document.removeEventListener("pointerdown", onCardPointerDown, true);
+      document.removeEventListener("pointerup", onPointerUpSelection, true);
       window.removeEventListener("pointermove", onCardPointerMove, true);
       window.removeEventListener("pointerup", finishCardDrag, true);
       window.removeEventListener("pointercancel", finishCardDrag, true);
