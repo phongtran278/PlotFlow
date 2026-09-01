@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import "./OverviewArrangeModesRuntime.css";
 
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
+const ARRANGE_UI_KEY = "plotflow-overview-arrange-preview-v1";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, Number(value) || 0));
@@ -18,6 +19,15 @@ function objectScale(card) {
   return Number.isFinite(value) ? clamp(value, 0.34, 2.2) : 1;
 }
 
+function readArrangeUi() {
+  try {
+    const value = JSON.parse(localStorage.getItem(ARRANGE_UI_KEY) || "{}");
+    return { gap: clamp(value?.gap ?? 14, 0, 120) };
+  } catch {
+    return { gap: 14 };
+  }
+}
+
 export default function OverviewArrangeModesRuntime() {
   useEffect(() => {
     let disposed = false;
@@ -28,8 +38,13 @@ export default function OverviewArrangeModesRuntime() {
     let draft = {};
     let items = [];
     let drag = null;
+    const ui = readArrangeUi();
 
     const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
+
+    function saveArrangeUi() {
+      localStorage.setItem(ARRANGE_UI_KEY, JSON.stringify(ui));
+    }
 
     function syncStage() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts") || null;
@@ -85,36 +100,6 @@ export default function OverviewArrangeModesRuntime() {
       }).filter((item) => item.code);
     }
 
-    function spacedY(list, { compact = false, anchorAware = false } = {}) {
-      const sorted = [...list].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
-      if (!sorted.length) return new Map();
-      const result = new Map();
-      const count = sorted.length;
-      if (compact) {
-        const step = Math.min(0.13, 0.62 / Math.max(1, count - 1));
-        const start = 0.5 - step * (count - 1) / 2;
-        sorted.forEach((item, index) => result.set(item.code, clamp(start + index * step, 0.08, 0.92)));
-        return result;
-      }
-      if (!anchorAware) {
-        sorted.forEach((item, index) => {
-          const y = count === 1 ? 0.5 : 0.10 + index * (0.80 / Math.max(1, count - 1));
-          result.set(item.code, y);
-        });
-        return result;
-      }
-      const minGap = Math.min(0.12, 0.72 / Math.max(1, count));
-      let previous = 0.06;
-      sorted.forEach((item, index) => {
-        const remaining = count - index - 1;
-        const maxHere = 0.94 - remaining * minGap;
-        const y = clamp(Math.max(item.anchor.y, previous), 0.06, maxHere);
-        result.set(item.code, y);
-        previous = y + minGap;
-      });
-      return result;
-    }
-
     function split(itemsForMode, selectedMode) {
       const left = [];
       const right = [];
@@ -133,20 +118,75 @@ export default function OverviewArrangeModesRuntime() {
       return { left, right };
     }
 
+    function exactVerticalCenters(list, { anchorAware = false } = {}) {
+      const bounds = pdfBounds();
+      const sorted = [...list].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+      const result = new Map();
+      if (!bounds || !sorted.length) return result;
+
+      const heights = sorted.map((item) => item.height / bounds.height);
+      const gap = ui.gap / bounds.height;
+      const minCenter = (index) => 0.04 + heights[index] / 2;
+      const maxCenter = (index) => 0.96 - heights[index] / 2;
+      const placed = sorted.map((item, index) => ({
+        item,
+        center: anchorAware
+          ? clamp(item.anchor.y, minCenter(index), maxCenter(index))
+          : sorted.length === 1
+            ? 0.5
+            : clamp(0.08 + index * (0.84 / Math.max(1, sorted.length - 1)), minCenter(index), maxCenter(index)),
+      }));
+
+      for (let index = 1; index < placed.length; index += 1) {
+        const required = placed[index - 1].center + heights[index - 1] / 2 + gap + heights[index] / 2;
+        placed[index].center = Math.max(placed[index].center, required);
+      }
+
+      const overflow = placed.at(-1).center - maxCenter(placed.length - 1);
+      if (overflow > 0) {
+        placed[placed.length - 1].center -= overflow;
+        for (let index = placed.length - 2; index >= 0; index -= 1) {
+          const required = placed[index + 1].center - heights[index + 1] / 2 - gap - heights[index] / 2;
+          placed[index].center = Math.min(placed[index].center, required);
+        }
+      }
+
+      const underflow = minCenter(0) - placed[0].center;
+      if (underflow > 0) placed.forEach((entry) => { entry.center += underflow; });
+      placed.forEach(({ item, center }, index) => result.set(item.code, clamp(center, minCenter(index), maxCenter(index))));
+      return result;
+    }
+
     function buildDraft(selectedMode) {
       mode = selectedMode;
       const next = {};
       const { left, right } = split(items, selectedMode);
-      const compact = selectedMode === "compact";
       const anchorAware = selectedMode === "smart";
-      const leftY = spacedY(left, { compact, anchorAware });
-      const rightY = spacedY(right, { compact, anchorAware });
-      const leftX = selectedMode === "compact" ? 0.20 : selectedMode === "left" ? 0.16 : 0.13;
-      const rightX = selectedMode === "compact" ? 0.80 : selectedMode === "right" ? 0.84 : 0.87;
+      const leftY = exactVerticalCenters(left, { anchorAware });
+      const rightY = exactVerticalCenters(right, { anchorAware });
+      const leftX = selectedMode === "compact" ? 0.24 : selectedMode === "left" ? 0.16 : 0.13;
+      const rightX = selectedMode === "compact" ? 0.76 : selectedMode === "right" ? 0.84 : 0.87;
       left.forEach((item) => { next[item.code] = { x: leftX, y: leftY.get(item.code) ?? 0.5 }; });
       right.forEach((item) => { next[item.code] = { x: rightX, y: rightY.get(item.code) ?? 0.5 }; });
       draft = next;
       renderDraft();
+    }
+
+    function connectorStart(item, point) {
+      const bounds = pdfBounds();
+      if (!bounds) return point;
+      const halfW = Math.max(0.001, item.width / bounds.width / 2);
+      const halfH = Math.max(0.001, item.height / bounds.height / 2);
+      const dx = item.anchor.x - point.x;
+      const dy = item.anchor.y - point.y;
+      if (!dx && !dy) return point;
+      const tx = dx ? halfW / Math.abs(dx) : Number.POSITIVE_INFINITY;
+      const ty = dy ? halfH / Math.abs(dy) : Number.POSITIVE_INFINITY;
+      const t = Math.min(tx, ty);
+      return {
+        x: clamp(point.x + dx * t, 0, 1),
+        y: clamp(point.y + dy * t, 0, 1),
+      };
     }
 
     function renderDraft() {
@@ -159,9 +199,13 @@ export default function OverviewArrangeModesRuntime() {
       });
       canvas.querySelectorAll(".pf-arrange-preview-lines line").forEach((line) => {
         const point = draft[line.dataset.code];
-        if (!point) return;
-        line.setAttribute("x1", String(point.x * 100));
-        line.setAttribute("y1", String(point.y * 100));
+        const item = items.find((entry) => entry.code === line.dataset.code);
+        if (!point || !item) return;
+        const start = connectorStart(item, point);
+        line.setAttribute("x1", String(start.x * 100));
+        line.setAttribute("y1", String(start.y * 100));
+        line.setAttribute("x2", String(item.anchor.x * 100));
+        line.setAttribute("y2", String(item.anchor.y * 100));
       });
       overlay?.querySelectorAll("[data-arrange-mode]").forEach((button) => {
         button.classList.toggle("active", button.dataset.arrangeMode === mode);
@@ -172,6 +216,8 @@ export default function OverviewArrangeModesRuntime() {
 
     function buildCanvas() {
       if (!canvas) return;
+      const bounds = pdfBounds();
+      if (!bounds) return;
       canvas.innerHTML = "";
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", "0 0 100 100");
@@ -188,8 +234,6 @@ export default function OverviewArrangeModesRuntime() {
 
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         line.dataset.code = item.code;
-        line.setAttribute("x2", String(item.anchor.x * 100));
-        line.setAttribute("y2", String(item.anchor.y * 100));
         if (!item.anchor.resolved) line.classList.add("is-unresolved");
         svg.appendChild(line);
 
@@ -198,6 +242,8 @@ export default function OverviewArrangeModesRuntime() {
         chip.className = "pf-arrange-preview-chip";
         chip.dataset.code = item.code;
         chip.textContent = item.code;
+        chip.style.setProperty("--pf-preview-card-w", `${clamp(item.width / bounds.width * 100, 5.5, 18)}%`);
+        chip.style.setProperty("--pf-preview-card-h", `${clamp(item.height / bounds.height * 100, 4, 18)}%`);
         chip.title = `${item.code} · drag to refine preview`;
         chip.addEventListener("pointerdown", (event) => {
           if (event.button !== 0) return;
@@ -231,7 +277,7 @@ export default function OverviewArrangeModesRuntime() {
         delete layout[item.code].height;
       });
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: `preview-${mode}`, count: items.length } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: `preview-${mode}`, count: items.length, gap: ui.gap } }));
       window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
       closePreview();
     }
@@ -257,10 +303,11 @@ export default function OverviewArrangeModesRuntime() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>Drag cards directly in this minimap to refine the draft. Nothing changes on the real layout until Apply.</small>
+              <small>Card, connector and lot point use the same geometry as the real layout. Drag a card to refine the draft before Apply.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>
+              <label class="pf-arrange-gap-control"><span>Gap</span><input data-arrange-gap type="number" min="0" max="120" step="1" value="${ui.gap}"><b>px</b></label>
               <button type="button" data-arrange-mode="smart"><strong>Smart L/R</strong><small>Follow lot side and lot height</small></button>
               <button type="button" data-arrange-mode="balanced"><strong>Balanced</strong><small>Even card count on both sides</small></button>
               <button type="button" data-arrange-mode="compact"><strong>Compact</strong><small>Tighter centered columns</small></button>
@@ -268,13 +315,21 @@ export default function OverviewArrangeModesRuntime() {
               <button type="button" data-arrange-mode="right"><strong>All right</strong><small>One right-side column</small></button>
             </aside>
           </div>
-          <footer><span>${items.length} cards · preview only</span><div><button type="button" data-arrange-cancel>Cancel</button><button type="button" class="primary" data-arrange-apply>Apply layout</button></div></footer>
+          <footer><span>${items.length} cards · ${ui.gap}px gap · preview only</span><div><button type="button" data-arrange-cancel>Cancel</button><button type="button" class="primary" data-arrange-apply>Apply layout</button></div></footer>
         </section>`;
       document.body.appendChild(overlay);
       canvas = overlay.querySelector(".pf-arrange-preview-map");
       buildCanvas();
       buildDraft("smart");
 
+      overlay.addEventListener("input", (event) => {
+        if (!event.target.matches("[data-arrange-gap]")) return;
+        ui.gap = clamp(event.target.value, 0, 120);
+        saveArrangeUi();
+        const footer = overlay.querySelector("footer>span");
+        if (footer) footer.textContent = `${items.length} cards · ${ui.gap}px gap · preview only`;
+        buildDraft(mode);
+      });
       overlay.addEventListener("click", (event) => {
         const modeButton = event.target.closest("[data-arrange-mode]");
         if (modeButton) { buildDraft(modeButton.dataset.arrangeMode); return; }
