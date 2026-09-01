@@ -51,6 +51,11 @@ function numStyle(node, prop, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function objectScale(card) {
+  const value = Number(card?.dataset?.pfObjectScale || card?.style?.scale || 1);
+  return Number.isFinite(value) ? Math.max(0.34, Math.min(2.2, value)) : 1;
+}
+
 export default function OverviewV2Runtime() {
   useEffect(() => {
     let disposed = false;
@@ -107,11 +112,12 @@ export default function OverviewV2Runtime() {
         const code = codeFor(card);
         if (!code) return;
         layout[code] = {
+          ...(layout[code] || {}),
           left: numStyle(card, "left", card.offsetLeft),
           top: numStyle(card, "top", card.offsetTop),
-          width: numStyle(card, "width", card.offsetWidth),
-          height: numStyle(card, "height", card.offsetHeight),
         };
+        delete layout[code].width;
+        delete layout[code].height;
       });
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
     }
@@ -125,11 +131,15 @@ export default function OverviewV2Runtime() {
         const line = lineFor(stage, code);
         const anchor = anchorFor(stage, code);
         if (!line || !anchor) return;
-        const left = numStyle(card, "left", card.offsetLeft);
-        const top = numStyle(card, "top", card.offsetTop);
-        const width = numStyle(card, "width", card.offsetWidth);
-        const height = numStyle(card, "height", card.offsetHeight);
-        line.setAttribute("x1", String(((left + width / 2) / w) * 100));
+        const left = card.offsetLeft;
+        const top = card.offsetTop;
+        const scale = objectScale(card);
+        const width = card.offsetWidth * scale;
+        const height = card.offsetHeight * scale;
+        const anchorX = Number.parseFloat(anchor.style.left || "50") / 100 * w;
+        const centerX = left + width / 2;
+        const edgeX = anchorX >= centerX ? left + width : left;
+        line.setAttribute("x1", String((edgeX / w) * 100));
         line.setAttribute("y1", String(((top + height / 2) / h) * 100));
         line.setAttribute("x2", String(Number.parseFloat(anchor.style.left || "50")));
         line.setAttribute("y2", String(Number.parseFloat(anchor.style.top || "50")));
@@ -137,39 +147,26 @@ export default function OverviewV2Runtime() {
       });
     }
 
-    function sameSize(cards) {
-      if (!cards.length) return;
-      const width = Math.max(...cards.map((card) => card.offsetWidth || 238));
-      const height = Math.max(...cards.map((card) => card.offsetHeight || 286));
-      cards.forEach((card) => {
-        card.style.width = `${width}px`;
-        card.style.height = `${height}px`;
-        card.style.minHeight = `${height}px`;
-      });
-      persistLayout(cards);
-      updateLineStarts(cards);
-    }
-
     function autoArrange() {
       if (!stage) return;
       const cards = Array.from(stage.querySelectorAll(".pf-live-sales-callout"));
       if (cards.length < 2) return;
 
-      sameSize(cards);
       const w = stage.clientWidth;
       const h = stage.clientHeight;
       const marginX = Math.max(12, Math.round(w * 0.015));
       const marginY = Math.max(10, Math.round(h * 0.02));
-      const cardW = cards[0].offsetWidth || 238;
-      const cardH = cards[0].offsetHeight || 286;
 
       const items = cards.map((card) => {
         const code = codeFor(card);
         const anchor = anchorFor(stage, code);
+        const scale = objectScale(card);
         return {
           card,
           code,
           anchor,
+          width: card.offsetWidth * scale,
+          height: card.offsetHeight * scale,
           x: Number.parseFloat(anchor?.style.left || "50"),
           y: Number.parseFloat(anchor?.style.top || "50"),
         };
@@ -190,19 +187,17 @@ export default function OverviewV2Runtime() {
 
       function placeSide(list, side) {
         if (!list.length) return;
-        const available = Math.max(0, h - marginY * 2 - cardH * list.length);
+        const totalHeight = list.reduce((sum, item) => sum + item.height, 0);
+        const available = Math.max(0, h - marginY * 2 - totalHeight);
         const gap = list.length > 1 ? Math.max(5, available / (list.length - 1)) : 0;
-        let top = list.length === 1 ? (h - cardH) / 2 : marginY;
-        list.forEach(({ card }) => {
-          const leftPx = side === "left" ? marginX : w - marginX - cardW;
+        let top = list.length === 1 ? (h - list[0].height) / 2 : marginY;
+        list.forEach(({ card, width, height }) => {
+          const leftPx = side === "left" ? marginX : w - marginX - width;
           card.style.left = `${leftPx}px`;
           card.style.right = "auto";
           card.style.top = `${top}px`;
-          card.style.width = `${cardW}px`;
-          card.style.height = `${cardH}px`;
-          card.style.minHeight = `${cardH}px`;
           card.dataset.pfAutoSide = side;
-          top += cardH + gap;
+          top += height + gap;
         });
       }
 
@@ -239,8 +234,7 @@ export default function OverviewV2Runtime() {
         <div class="pf-v2-group pf-v2-arrange">
           <span>Arrange</span>
           <select data-v2="left" title="Number of cards on the left"><option value="auto">Auto L/R</option></select>
-          <button type="button" data-v2-action="arrange" title="Auto arrange cards and reduce connector crossings">Auto Arrange</button>
-          <button type="button" data-v2-action="same" title="Make all cards the same size">Same size</button>
+          <button type="button" data-v2-action="arrange" title="Arrange card positions without changing card size">Auto Arrange</button>
         </div>
         <details class="pf-v2-style">
           <summary>Style</summary>
@@ -310,7 +304,6 @@ export default function OverviewV2Runtime() {
         const action = event.target.closest("button[data-v2-action]")?.dataset?.v2Action;
         if (!action) return;
         if (action === "arrange") autoArrange();
-        if (action === "same") sameSize(Array.from(stage.querySelectorAll(".pf-live-sales-callout")));
         if (action === "apply-style") { saveSettings(settings); applyStyleVars(); panel.querySelector("details")?.removeAttribute("open"); }
         if (action === "reset-style") {
           settings = { ...DEFAULTS };
