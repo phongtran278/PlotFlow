@@ -30,8 +30,7 @@ function readCardLayout() {
 
 export default function WindowsOverviewViewportRuntime() {
   useEffect(() => {
-    if (!isWindows()) return undefined;
-
+    const windows = isWindows();
     let stage = null;
     let observer = null;
     let drag = null;
@@ -43,7 +42,7 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function clearWorldTransforms() {
-      if (!stage) return;
+      if (!windows || !stage) return;
       stage.querySelectorAll(".pf-callout-layer,.pf-overview-coming,.pf-overview-markup-layer").forEach((node) => {
         node.style.transform = "none";
         node.style.willChange = "auto";
@@ -52,8 +51,31 @@ export default function WindowsOverviewViewportRuntime() {
       });
     }
 
+    function worldAnchorPoint(anchor) {
+      if (!anchor) return { x: 50, y: 50 };
+      const storedX = Number.parseFloat(anchor.dataset.pfWorldLeft || "");
+      const storedY = Number.parseFloat(anchor.dataset.pfWorldTop || "");
+      if (Number.isFinite(storedX) && Number.isFinite(storedY)) return { x: storedX, y: storedY };
+      const x = Number.parseFloat(anchor.style.left || "50");
+      const y = Number.parseFloat(anchor.style.top || "50");
+      anchor.dataset.pfWorldLeft = String(Number.isFinite(x) ? x : 50);
+      anchor.dataset.pfWorldTop = String(Number.isFinite(y) ? y : 50);
+      return { x: Number.isFinite(x) ? x : 50, y: Number.isFinite(y) ? y : 50 };
+    }
+
+    function positionAnchors(scale, tx, ty) {
+      if (!windows || !stage) return;
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+      stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor").forEach((anchor) => {
+        const point = worldAnchorPoint(anchor);
+        anchor.style.left = `${percentToViewport(point.x, w, tx, scale)}%`;
+        anchor.style.top = `${percentToViewport(point.y, h, ty, scale)}%`;
+      });
+    }
+
     function positionCards(scale, tx, ty) {
-      if (!stage) return;
+      if (!windows || !stage) return;
       stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").forEach((card) => {
         const left = card.offsetLeft;
         const top = card.offsetTop;
@@ -65,7 +87,7 @@ export default function WindowsOverviewViewportRuntime() {
       });
     }
 
-    function positionConnectors(scale, tx, ty) {
+    function positionConnectorsWorld() {
       if (!stage) return;
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
@@ -79,27 +101,43 @@ export default function WindowsOverviewViewportRuntime() {
         const line = lines.find((item) => item.dataset?.unitCode === code);
         const anchor = anchors.find((item) => (item.dataset?.unitCode || item.textContent?.trim()) === code);
         if (!line || !anchor) return;
-
-        const ax = Number.parseFloat(anchor.style.left || "50");
-        const ay = Number.parseFloat(anchor.style.top || "50");
-        const anchorWorldX = ax / 100 * w;
+        const point = windows ? worldAnchorPoint(anchor) : {
+          x: Number.parseFloat(anchor.style.left || "50"),
+          y: Number.parseFloat(anchor.style.top || "50"),
+        };
+        const anchorWorldX = point.x / 100 * w;
         const cardCenterX = card.offsetLeft + card.offsetWidth / 2;
         const cardEdgeX = anchorWorldX >= cardCenterX
           ? card.offsetLeft + card.offsetWidth
           : card.offsetLeft;
         const cardCenterY = card.offsetTop + card.offsetHeight / 2;
-        const x1 = cardEdgeX / w * 100;
-        const y1 = cardCenterY / h * 100;
+        line.setAttribute("x1", String(cardEdgeX / w * 100));
+        line.setAttribute("y1", String(cardCenterY / h * 100));
+        line.setAttribute("x2", String(point.x));
+        line.setAttribute("y2", String(point.y));
+      });
+    }
 
+    function positionConnectors(scale, tx, ty) {
+      if (!windows || !stage) return;
+      positionConnectorsWorld();
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+      stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => {
+        const x1 = Number(line.getAttribute("x1"));
+        const y1 = Number(line.getAttribute("y1"));
+        const x2 = Number(line.getAttribute("x2"));
+        const y2 = Number(line.getAttribute("y2"));
+        if (![x1, y1, x2, y2].every(Number.isFinite)) return;
         line.setAttribute("x1", String(percentToViewport(x1, w, tx, scale)));
         line.setAttribute("y1", String(percentToViewport(y1, h, ty, scale)));
-        line.setAttribute("x2", String(percentToViewport(ax, w, tx, scale)));
-        line.setAttribute("y2", String(percentToViewport(ay, h, ty, scale)));
+        line.setAttribute("x2", String(percentToViewport(x2, w, tx, scale)));
+        line.setAttribute("y2", String(percentToViewport(y2, h, ty, scale)));
       });
     }
 
     function positionMarkup(scale, tx, ty) {
-      if (!stage) return;
+      if (!windows || !stage) return;
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
       const nx = tx / w * 1000;
@@ -110,13 +148,14 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function applyCamera(detail = {}) {
-      if (!syncStage()) return;
       const scale = Number(detail.scale) || 1;
       const tx = Number(detail.tx) || 0;
       const ty = Number(detail.ty) || 0;
       lastCamera = { scale, tx, ty };
+      if (!windows || !syncStage()) return;
       clearWorldTransforms();
       positionCards(scale, tx, ty);
+      positionAnchors(scale, tx, ty);
       positionConnectors(scale, tx, ty);
       positionMarkup(scale, tx, ty);
       window.__plotflowWindowsViewportOverlay = {
@@ -148,8 +187,6 @@ export default function WindowsOverviewViewportRuntime() {
       const card = event.target?.closest?.(".pf-live-sales-callout,.pf-sales-callout");
       if (!card || !stage.contains(card)) return;
 
-      event.preventDefault();
-      event.stopPropagation();
       drag = {
         card,
         pointerId: event.pointerId,
@@ -158,7 +195,6 @@ export default function WindowsOverviewViewportRuntime() {
         startLeft: card.offsetLeft,
         startTop: card.offsetTop,
       };
-      card.classList.add("pf-card-selected");
     }
 
     function onCardPointerMove(event) {
@@ -171,29 +207,48 @@ export default function WindowsOverviewViewportRuntime() {
       drag.card.style.left = `${left}px`;
       drag.card.style.top = `${top}px`;
       drag.card.style.right = "auto";
-      positionCards(lastCamera.scale, lastCamera.tx, lastCamera.ty);
-      positionConnectors(lastCamera.scale, lastCamera.tx, lastCamera.ty);
+      if (windows) {
+        positionCards(lastCamera.scale, lastCamera.tx, lastCamera.ty);
+        positionAnchors(lastCamera.scale, lastCamera.tx, lastCamera.ty);
+        positionConnectors(lastCamera.scale, lastCamera.tx, lastCamera.ty);
+      } else {
+        positionConnectorsWorld();
+      }
     }
 
     function finishCardDrag(event) {
       if (!drag || (event?.pointerId != null && event.pointerId !== drag.pointerId)) return;
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
       const card = drag.card;
       drag = null;
       persistCard(card);
-      positionCards(lastCamera.scale, lastCamera.tx, lastCamera.ty);
-      positionConnectors(lastCamera.scale, lastCamera.tx, lastCamera.ty);
+      if (windows) {
+        positionCards(lastCamera.scale, lastCamera.tx, lastCamera.ty);
+        positionAnchors(lastCamera.scale, lastCamera.tx, lastCamera.ty);
+        positionConnectors(lastCamera.scale, lastCamera.tx, lastCamera.ty);
+      } else {
+        positionConnectorsWorld();
+      }
       window.dispatchEvent(new CustomEvent("pf-overview-card-position-changed", {
         detail: { code: codeForCard(card), left: card.offsetLeft, top: card.offsetTop },
       }));
     }
 
     function onCamera(event) {
-      applyCamera(event.detail || {});
+      const detail = event.detail || {};
+      lastCamera = {
+        scale: Number(detail.scale) || 1,
+        tx: Number(detail.tx) || 0,
+        ty: Number(detail.ty) || 0,
+      };
+      if (windows) applyCamera(detail);
     }
 
     function onLayoutChanged() {
+      if (!windows) return;
+      stage?.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor").forEach((anchor) => {
+        delete anchor.dataset.pfWorldLeft;
+        delete anchor.dataset.pfWorldTop;
+      });
       window.requestAnimationFrame(() => applyCamera(lastCamera));
     }
 
@@ -205,13 +260,15 @@ export default function WindowsOverviewViewportRuntime() {
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-auto-arranged", onLayoutChanged);
     window.addEventListener("pf-overview-card-size-changed", onLayoutChanged);
-    observer = new MutationObserver(() => {
-      if (!stage?.isConnected) syncStage();
-      clearWorldTransforms();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
 
-    window.__plotflowWindowsViewportOverlay = { active: true, scale: 1, cards: 0, giantWorldScale: false };
+    if (windows) {
+      observer = new MutationObserver(() => {
+        if (!stage?.isConnected) syncStage();
+        clearWorldTransforms();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      window.__plotflowWindowsViewportOverlay = { active: true, scale: 1, cards: 0, giantWorldScale: false };
+    }
 
     return () => {
       drag = null;
@@ -223,7 +280,7 @@ export default function WindowsOverviewViewportRuntime() {
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-auto-arranged", onLayoutChanged);
       window.removeEventListener("pf-overview-card-size-changed", onLayoutChanged);
-      delete window.__plotflowWindowsViewportOverlay;
+      if (windows) delete window.__plotflowWindowsViewportOverlay;
     };
   }, []);
 
