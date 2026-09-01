@@ -9,7 +9,7 @@ function canonicalOverviewGroup(value = "") {
   const normalized = raw.toLowerCase();
   if (normalized.includes("hoàn thiện") || normalized.includes("hoan thien")) return "Hoàn thiện";
   if (normalized.includes("giãn xây") || normalized.includes("gian xay")) return "Giãn xây";
-  if (normalized.includes("xây thô") || normalized.includes("xay tho") || normalized.includes("bàn giao thô") || normalized.includes("ban giao thô")) return "Xây thô";
+  if (normalized.includes("xây thô") || normalized.includes("xay tho") || normalized.includes("bàn giao thô") || normalized.includes("ban giao tho")) return "Xây thô";
   return raw;
 }
 
@@ -97,24 +97,7 @@ export default function OverviewLiveUnitsRuntime() {
     }
 
     function syncConnectorStarts() {
-      if (!stage || !layer) return;
-      const w = stage.clientWidth || 1;
-      const h = stage.clientHeight || 1;
-      Array.from(layer.querySelectorAll(".pf-live-sales-callout")).forEach((card) => {
-        const code = card.dataset.unitCode || "";
-        const line = Array.from(layer.querySelectorAll(".pf-live-callout-lines line")).find((node) => node.dataset.unitCode === code);
-        const anchor = Array.from(layer.querySelectorAll(".pf-live-map-anchor")).find((node) => node.dataset.unitCode === code);
-        if (!line || !anchor) return;
-        const scale = objectScale(card);
-        const visualWidth = card.offsetWidth * scale;
-        const visualHeight = card.offsetHeight * scale;
-        const anchorX = Number.parseFloat(anchor.style.left || "50") / 100 * w;
-        const cardCenter = card.offsetLeft + visualWidth / 2;
-        const startX = anchorX >= cardCenter ? card.offsetLeft + visualWidth : card.offsetLeft;
-        const startY = card.offsetTop + visualHeight / 2;
-        line.setAttribute("x1", String(startX / w * 100));
-        line.setAttribute("y1", String(startY / h * 100));
-      });
+      window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
     }
 
     function clampCardsInsidePdf({ arrangeUnsaved = true } = {}) {
