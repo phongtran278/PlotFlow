@@ -196,9 +196,9 @@ export default function OverviewRasterRuntime() {
       }
       jobs.sort((a, b) => a.distance - b.distance);
 
-      const fitTileCount = info.cols * info.rows;
-      const fitView = isFitCamera() && level === LEVEL_WIDTHS[0];
-      currentTileLimit = fitView ? Math.max(maxVisibleTiles, fitTileCount) : maxVisibleTiles;
+      const baseTileCount = info.cols * info.rows;
+      const lowZoomBase = level === LEVEL_WIDTHS[0] && camera.scale <= 1.05;
+      currentTileLimit = lowZoomBase ? Math.max(maxVisibleTiles, baseTileCount) : maxVisibleTiles;
       return jobs.slice(0, currentTileLimit);
     }
 
@@ -268,6 +268,7 @@ export default function OverviewRasterRuntime() {
       const jobs = visibleJobs(nextLevel);
       const keep = new Set(jobs.map((job) => tileKey(nextLevel, job.col, job.row)));
       const fitView = isFitCamera() && nextLevel === LEVEL_WIDTHS[0];
+      const lowZoomBase = nextLevel === LEVEL_WIDTHS[0] && camera.scale <= 1.05;
 
       if (nextLevel !== currentLevel) {
         releaseAllTiles();
@@ -313,7 +314,7 @@ export default function OverviewRasterRuntime() {
 
       const parallelLoads = windowsFixedLevel
         ? Math.min(maxParallelLoads, Math.max(1, missing.length))
-        : fitView
+        : (fitView || lowZoomBase)
           ? Math.min(4, Math.max(1, missing.length))
           : Math.min(maxParallelLoads, Math.max(1, missing.length));
       await Promise.all(Array.from({ length: parallelLoads }, () => worker()));
