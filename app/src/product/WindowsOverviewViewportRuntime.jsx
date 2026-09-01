@@ -38,7 +38,7 @@ export default function WindowsOverviewViewportRuntime() {
       if (!stage) return;
       stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").forEach((card) => {
         card.style.transform = "";
-        card.style.transformOrigin = "";
+        card.style.transformOrigin = "0 0";
         card.style.willChange = "";
       });
       stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor").forEach((anchor) => {
