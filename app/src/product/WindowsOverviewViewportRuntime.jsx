@@ -140,7 +140,7 @@ export default function WindowsOverviewViewportRuntime() {
         const resolved = anchor && (anchor.dataset.located === "1" || anchor.dataset.saved === "1");
         const active = Boolean(code) && lineCode === code;
         line.classList.toggle("pf-linked-active", active);
-        line.style.opacity = resolved ? (code ? (active ? "1" : "0.08") : "0.28") : "0";
+        line.style.opacity = resolved ? (active ? "1" : "0.28") : "0";
       });
       anchors.forEach((anchor) => {
         const anchorCode = anchor.dataset.unitCode || anchor.textContent?.trim() || "";
