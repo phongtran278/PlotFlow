@@ -24,6 +24,7 @@ export default function OverviewPrecisionArrangeRuntime() {
   useEffect(() => {
     let disposed = false;
     let panel = null;
+    let quickScale = null;
     let stage = null;
     let rail = null;
     let frame = 0;
@@ -33,6 +34,7 @@ export default function OverviewPrecisionArrangeRuntime() {
     const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
     const selected = () => cards().filter((card) => card.classList.contains("pf-card-selected"));
     const keyCard = (list) => list.find((card) => card.classList.contains("pf-card-key")) || list[0] || null;
+    const targetCards = () => selected().length ? selected() : cards();
 
     function persist() {
       const layout = {};
@@ -97,11 +99,25 @@ export default function OverviewPrecisionArrangeRuntime() {
       cards().forEach((card) => syncCardVisualScale(card));
     }
 
-    function applyProportionalWidth(list, width) {
+    function applyProportionalWidth(list, width, { save = true } = {}) {
       if (!list.length) return;
       list.forEach((card) => setProportionalCardWidth(card, width));
       requestAnimationFrame(() => {
-        persist();
+        if (save) persist();
+        updateConnectors();
+        syncPanelFromSelection();
+      });
+    }
+
+    function applyAbsoluteScale(list, percent, { save = true } = {}) {
+      if (!list.length) return;
+      const next = clamp(percent, 34, 220);
+      const nextWidth = BASE_CARD_WIDTH * next / 100;
+      list.forEach((card) => setProportionalCardWidth(card, nextWidth));
+      ui.scale = next;
+      if (save) saveUi(ui);
+      requestAnimationFrame(() => {
+        if (save) persist();
         updateConnectors();
         syncPanelFromSelection();
       });
@@ -188,14 +204,44 @@ export default function OverviewPrecisionArrangeRuntime() {
     }
 
     function syncPanelFromSelection() {
-      if (!panel?.isConnected) return;
       const list = selected();
       const key = keyCard(list);
-      if (!key) return;
-      const width = panel.querySelector("[data-precision-width]");
-      const height = panel.querySelector("[data-precision-height]");
-      if (width && document.activeElement !== width) width.value = String(Math.round(key.offsetWidth));
-      if (height && document.activeElement !== height) height.value = String(Math.round(key.offsetHeight));
+      if (panel?.isConnected && key) {
+        const width = panel.querySelector("[data-precision-width]");
+        const height = panel.querySelector("[data-precision-height]");
+        if (width && document.activeElement !== width) width.value = String(Math.round(key.offsetWidth));
+        if (height && document.activeElement !== height) height.value = String(Math.round(key.offsetHeight));
+      }
+      if (quickScale?.isConnected && key) {
+        const pct = clamp((key.offsetWidth || BASE_CARD_WIDTH) / BASE_CARD_WIDTH * 100, 34, 220);
+        const range = quickScale.querySelector("[data-quick-scale-range]");
+        const number = quickScale.querySelector("[data-quick-scale-number]");
+        if (range && document.activeElement !== range) range.value = String(Math.round(pct));
+        if (number && document.activeElement !== number) number.value = String(Math.round(pct));
+      }
+    }
+
+    function installQuickScale() {
+      if (!rail || quickScale?.isConnected) return;
+      quickScale = document.createElement("div");
+      quickScale.className = "pf-card-quick-scale";
+      quickScale.innerHTML = `
+        <span>Scale</span>
+        <input data-quick-scale-range type="range" min="34" max="220" step="1" value="100" aria-label="Card scale percent">
+        <label><input data-quick-scale-number type="number" min="34" max="220" step="1" value="100" aria-label="Card scale percent"><b>%</b></label>`;
+      const range = quickScale.querySelector("[data-quick-scale-range]");
+      const number = quickScale.querySelector("[data-quick-scale-number]");
+      const applyLive = (value) => {
+        const next = clamp(value, 34, 220);
+        range.value = String(next);
+        number.value = String(Math.round(next));
+        applyAbsoluteScale(targetCards(), next, { save: false });
+      };
+      range.addEventListener("input", () => applyLive(range.value));
+      range.addEventListener("change", () => applyAbsoluteScale(targetCards(), range.value, { save: true }));
+      number.addEventListener("input", () => applyLive(number.value));
+      number.addEventListener("change", () => applyAbsoluteScale(targetCards(), number.value, { save: true }));
+      rail.appendChild(quickScale);
     }
 
     function install() {
@@ -205,10 +251,12 @@ export default function OverviewPrecisionArrangeRuntime() {
       hideLegacySizing();
       syncQuickArrangeGap(ui.gap);
       syncAllCardVisualScales();
+      installQuickScale();
       if (!railObserver) {
         railObserver = new MutationObserver(() => {
           hideLegacySizing();
           syncAllCardVisualScales();
+          installQuickScale();
         });
         railObserver.observe(rail, { childList: true, subtree: true });
       }
@@ -218,12 +266,12 @@ export default function OverviewPrecisionArrangeRuntime() {
         panel.innerHTML = `
           <summary>Transform</summary>
           <div class="pf-precision-popover">
-            <header><strong>Card transform</strong><small>Resize selected cards, lock proportions, or apply one size to every card.</small></header>
+            <header><strong>Card transform</strong><small>Scale is available directly on the toolbar. Width and Height are advanced reflow controls.</small></header>
             <label><span>Width</span><input data-precision-width type="number" min="64" max="420" step="1"><b>px</b></label>
             <label><span>Height</span><input data-precision-height type="number" min="56" max="420" step="1"><b>px</b></label>
             <label class="pf-precision-ratio"><span>Constrain</span><input data-precision-constrain type="checkbox"><b>W:H</b></label>
             <div class="pf-precision-distribute-row"><button data-precision-all-size>Apply size to all cards</button></div>
-            <label><span>Scale</span><input data-precision-scale type="number" min="10" max="300" step="1"><b>%</b></label>
+            <label><span>Scale</span><input data-precision-scale type="number" min="34" max="220" step="1"><b>%</b></label>
             <label><span>Gap</span><input data-precision-gap type="number" min="0" max="120" step="1"><b>px</b></label>
             <div class="pf-precision-group"><span>Align to key object</span><div><button data-align="left">L</button><button data-align="center">C</button><button data-align="right">R</button><button data-align="top">T</button><button data-align="middle">M</button><button data-align="bottom">B</button></div></div>
             <div class="pf-precision-distribute-row"><button data-distribute="vertical">Distribute V</button><button data-distribute="horizontal">Distribute H</button></div>
@@ -237,7 +285,7 @@ export default function OverviewPrecisionArrangeRuntime() {
         width.value = String(clamp(ui.cardWidth || DEFAULT_CARD_WIDTH, 64, 420));
         height.value = String(clamp(ui.cardHeight || DEFAULT_CARD_HEIGHT, 56, 420));
         constrain.checked = ui.constrain !== false;
-        ui.scale = clamp(ui.scale || 100, 10, 300);
+        ui.scale = clamp(ui.scale || 100, 34, 220);
         scale.value = String(ui.scale);
         gap.value = String(clamp(ui.gap, 0, 120));
 
@@ -282,12 +330,13 @@ export default function OverviewPrecisionArrangeRuntime() {
           applySizeToAll(ui.cardWidth, ui.cardHeight);
         });
         scale.addEventListener("change", () => {
-          const next = clamp(scale.value, 10, 300);
-          const previous = clamp(ui.scale || 100, 10, 300);
-          ui.scale = next;
-          saveUi(ui);
+          const next = clamp(scale.value, 34, 220);
           scale.value = String(next);
-          scaleCards(selected(), next / Math.max(10, previous));
+          applyAbsoluteScale(targetCards(), next, { save: true });
+          if (quickScale?.isConnected) {
+            quickScale.querySelector("[data-quick-scale-range]").value = String(next);
+            quickScale.querySelector("[data-quick-scale-number]").value = String(next);
+          }
         });
         gap.addEventListener("change", () => { ui.gap = Number(gap.value) || 0; saveUi(ui); syncQuickArrangeGap(ui.gap); });
         panel.querySelectorAll("[data-align]").forEach((button) => button.addEventListener("click", (event) => { event.preventDefault(); align(button.dataset.align); }));
@@ -313,6 +362,7 @@ export default function OverviewPrecisionArrangeRuntime() {
       railObserver?.disconnect();
       window.removeEventListener("pf-overview-live-units-ready", onUnitsReady);
       document.removeEventListener("pointerup", onSelectionChange, true);
+      quickScale?.remove();
       panel?.remove();
     };
   }, []);
