@@ -67,7 +67,7 @@ function makeNode(tag, className = "") { const node = document.createElement(tag
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function objectScale(card) {
   const value = Number(card?.dataset?.pfObjectScale || card?.style?.scale || 1);
-  return Number.isFinite(value) ? clamp(value, 0.34, 2.2) : 1;
+  return Number.isFinite(value) ? clamp(value, 0.2, 2.2) : 1;
 }
 
 export default function OverviewLiveUnitsRuntime() {
@@ -114,6 +114,7 @@ export default function OverviewLiveUnitsRuntime() {
       const leftCards = cards.filter((card) => card.classList.contains("side-left"));
       const rightCards = cards.filter((card) => card.classList.contains("side-right"));
       let changed = false;
+      let layoutDirty = false;
 
       function targetTop(index, count, cardHeight) {
         const minTop = pdfY + inset;
@@ -157,15 +158,19 @@ export default function OverviewLiveUnitsRuntime() {
           card.style.left = `${nextLeft}px`;
           card.style.right = "auto";
           card.style.top = `${nextTop}px`;
-          if (code) savedLayout[code] = { left: nextLeft, top: nextTop };
+
+          if (code && !saved) {
+            savedLayout[code] = { left: nextLeft, top: nextTop };
+            layoutDirty = true;
+          }
         });
       }
 
       place(leftCards, "left");
       place(rightCards, "right");
-      if (changed) saveCardLayout(savedLayout);
+      if (layoutDirty) saveCardLayout(savedLayout);
       syncConnectorStarts();
-      return true;
+      return changed;
     }
 
     function enforcePdfBoundsSoon() {
