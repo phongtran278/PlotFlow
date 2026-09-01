@@ -6,7 +6,7 @@ const LEGACY_MARKUP_KEY = "phongflow-overview-markup-v2";
 const PEN_KEY = "phongflow-overview-pen-shapes-v1";
 const CARD_SIZE_KEY = "plotflow-overview-card-size-v2";
 const LEGACY_CARD_SIZE_KEY = "plotflow-overview-card-size-v1";
-const BASE_CARD_WIDTH = 176;
+const BASE_CARD_WIDTH = 192;
 const DEFAULT_CARD_WIDTH = 148;
 const MIN_CARD_WIDTH = 80;
 const MAX_CARD_WIDTH = 260;
@@ -34,7 +34,7 @@ function applyConnector(stage, width, color, opacity) {
   stage.style.setProperty("--pf-connector-width", String(width));
   stage.style.setProperty("--pf-connector-color", color);
   stage.style.setProperty("--pf-connector-opacity", String(opacity));
-  stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => {
+  stage.querySelectorAll(".pf-live-callout-lines line").forEach((line) => {
     line.style.setProperty("stroke", color, "important");
     line.style.setProperty("stroke-width", String(width), "important");
     line.style.setProperty("stroke-opacity", String(opacity), "important");
@@ -67,9 +67,9 @@ function legacyWidth(stage) {
   try {
     const values = JSON.parse(localStorage.getItem(LEGACY_CARD_SIZE_KEY) || "{}");
     const preset = values?.[groupKey(stage)];
-    if (preset === "compact") return 148;
+    if (preset === "compact") return 168;
     if (preset === "large") return 220;
-    if (preset === "standard") return 176;
+    if (preset === "standard") return 192;
   } catch { /* noop */ }
   return DEFAULT_CARD_WIDTH;
 }
@@ -85,28 +85,17 @@ function saveCardWidth(stage, width) {
   localStorage.setItem(CARD_SIZE_KEY, JSON.stringify(next));
 }
 
-function applyCardWidth(stage, width = DEFAULT_CARD_WIDTH) {
-  if (!stage) return;
-  const resolved = clamp(width, MIN_CARD_WIDTH, MAX_CARD_WIDTH);
-  const scale = clamp(resolved / BASE_CARD_WIDTH, MIN_CARD_WIDTH / BASE_CARD_WIDTH, MAX_CARD_WIDTH / BASE_CARD_WIDTH);
-  stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").forEach((card) => {
-    card.style.setProperty("--pf-card-width", `${resolved}px`);
-    card.style.setProperty("--pf-card-scale", String(scale));
-    card.style.setProperty("--pf-card-content-scale", String(scale));
-    card.style.setProperty("--pf-card-height", "auto");
-    card.style.removeProperty("min-height");
+function ensureCardScaleShell(card) {
+  let shell = card.querySelector(":scope > .pf-card-scale-shell");
+  if (shell) return shell;
+  shell = document.createElement("div");
+  shell.className = "pf-card-scale-shell";
+  Array.from(card.children).forEach((child) => {
+    if (child.classList.contains("pf-sales-callout-hit")) return;
+    shell.appendChild(child);
   });
-  window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", {
-    detail: { width: resolved, scale },
-  }));
-  window.dispatchEvent(new CustomEvent("pf-overview-card-size-changed", {
-    detail: { width: resolved, scale },
-  }));
-}
-
-function triggerAutoArrange() {
-  const button = document.querySelector('.pf-overview-v2-controls [data-v2-action="arrange"]');
-  button?.click();
+  card.appendChild(shell);
+  return shell;
 }
 
 export default function OverviewSimplifiedRuntime() {
@@ -114,6 +103,66 @@ export default function OverviewSimplifiedRuntime() {
     let observer = null;
     let stage = null;
     let control = null;
+    const shellObservers = new Map();
+
+    function measureScaledCard(card) {
+      const shell = card?.querySelector(":scope > .pf-card-scale-shell");
+      if (!shell) return;
+      const scale = Number(card.dataset.pfCardScale) || 1;
+      const baseHeight = Math.max(1, shell.scrollHeight || shell.offsetHeight || 1);
+      card.style.setProperty("--pf-card-width", `${BASE_CARD_WIDTH * scale}px`);
+      card.style.setProperty("--pf-card-height", `${baseHeight * scale}px`);
+      card.style.width = `${BASE_CARD_WIDTH * scale}px`;
+      card.style.height = `${baseHeight * scale}px`;
+      card.style.minHeight = "0";
+    }
+
+    function observeShell(card, shell) {
+      if (shellObservers.has(card)) return;
+      const resizeObserver = new ResizeObserver(() => {
+        if (!card.isConnected) return;
+        measureScaledCard(card);
+        window.dispatchEvent(new CustomEvent("pf-overview-card-size-changed", {
+          detail: { code: card.dataset.unitCode || "", autoLayout: true },
+        }));
+      });
+      resizeObserver.observe(shell);
+      shellObservers.set(card, resizeObserver);
+    }
+
+    function releaseStaleShellObservers() {
+      for (const [card, resizeObserver] of shellObservers) {
+        if (card.isConnected) continue;
+        resizeObserver.disconnect();
+        shellObservers.delete(card);
+      }
+    }
+
+    function applyCardWidth(targetStage, width = DEFAULT_CARD_WIDTH) {
+      if (!targetStage) return;
+      const resolved = clamp(width, MIN_CARD_WIDTH, MAX_CARD_WIDTH);
+      const scale = resolved / BASE_CARD_WIDTH;
+      targetStage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
+        const shell = ensureCardScaleShell(card);
+        card.dataset.pfCardScale = String(scale);
+        card.style.setProperty("--pf-card-scale", String(scale));
+        shell.style.setProperty("--pf-card-scale", String(scale));
+        observeShell(card, shell);
+        measureScaledCard(card);
+      });
+      releaseStaleShellObservers();
+      window.dispatchEvent(new CustomEvent("pf-overview-all-card-size", {
+        detail: { width: resolved, scale },
+      }));
+      window.dispatchEvent(new CustomEvent("pf-overview-card-size-changed", {
+        detail: { width: resolved, scale },
+      }));
+    }
+
+    function triggerAutoArrange() {
+      const button = document.querySelector('.pf-overview-v2-controls [data-v2-action="arrange"]');
+      button?.click();
+    }
 
     function syncCardWidth() {
       if (!stage) return;
@@ -149,11 +198,11 @@ export default function OverviewSimplifiedRuntime() {
         control.className = "pf-connector-control";
         control.innerHTML = `
           <div class="pf-card-layout-control">
-            <span>Card</span>
+            <span>Card W</span>
             <label class="pf-card-width-slider" title="Scale every card proportionally in this group">
               <input data-card-size="range" type="range" min="${MIN_CARD_WIDTH}" max="${MAX_CARD_WIDTH}" step="2" value="${cardWidth}">
             </label>
-            <label class="pf-card-width-number" title="Visual card width in pixels">
+            <label class="pf-card-width-number" title="Scaled card width in pixels">
               <input data-card-size="number" type="number" min="${MIN_CARD_WIDTH}" max="${MAX_CARD_WIDTH}" step="2" value="${cardWidth}">
               <em>px</em>
             </label>
@@ -247,6 +296,8 @@ export default function OverviewSimplifiedRuntime() {
       observer?.disconnect();
       window.removeEventListener("pf-overview-live-units-ready", onUnitsReady);
       window.removeEventListener("pf-overview-group-changed", onGroupChanged);
+      for (const resizeObserver of shellObservers.values()) resizeObserver.disconnect();
+      shellObservers.clear();
       control?.remove();
     };
   }, []);
