@@ -256,15 +256,17 @@ export default function OverviewArrangeModesRuntime() {
         const cardCenterY = (cardTop + cardBottom) / 2;
         const anchorX = anchorRect.left + anchorRect.width / 2 - svgRect.left;
         const anchorY = anchorRect.top + anchorRect.height / 2 - svgRect.top;
-        const dx = cardCenterX - anchorX;
-        const dy = cardCenterY - anchorY;
 
         let startX = cardCenterX;
         let startY = cardCenterY;
-        if (Math.abs(dx) >= Math.abs(dy)) {
-          startX = dx < 0 ? cardRight : cardLeft;
-        } else {
-          startY = dy > 0 ? cardTop : cardBottom;
+        if (anchorX < cardLeft) {
+          startX = cardLeft;
+        } else if (anchorX > cardRight) {
+          startX = cardRight;
+        } else if (anchorY < cardTop) {
+          startY = cardTop;
+        } else if (anchorY > cardBottom) {
+          startY = cardBottom;
         }
 
         line.setAttribute("x1", String(startX));
