@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
+const CONNECTOR_CARD_OVERLAP_PX = 8;
 
 function codeForCard(card) {
   return card?.dataset?.unitCode
@@ -150,13 +151,19 @@ export default function WindowsOverviewViewportRuntime() {
       const halfW = Math.max(width / 2, 0.0001);
       const halfH = Math.max(height / 2, 0.0001);
       const denominator = Math.max(Math.abs(dx) / halfW, Math.abs(dy) / halfH, 0.0001);
-      const startX = centerX + dx / denominator;
-      const startY = centerY + dy / denominator;
+      const edgeX = Math.max(left, Math.min(right, centerX + dx / denominator));
+      const edgeY = Math.max(top, Math.min(bottom, centerY + dy / denominator));
+      const inwardX = centerX - edgeX;
+      const inwardY = centerY - edgeY;
+      const inwardDistance = Math.hypot(inwardX, inwardY);
+      const overlap = Math.min(CONNECTOR_CARD_OVERLAP_PX, inwardDistance * 0.75);
+      const startX = inwardDistance > 0.0001 ? edgeX + inwardX / inwardDistance * overlap : edgeX;
+      const startY = inwardDistance > 0.0001 ? edgeY + inwardY / inwardDistance * overlap : edgeY;
       const side = connectorSideFor(card, anchorWorldX, anchorWorldY);
 
       return {
-        x: Math.max(left, Math.min(right, startX)),
-        y: Math.max(top, Math.min(bottom, startY)),
+        x: startX,
+        y: startY,
         side,
       };
     }
