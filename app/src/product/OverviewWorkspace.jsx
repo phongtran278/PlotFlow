@@ -30,25 +30,25 @@ export default function OverviewWorkspace({
         </div>
       </header>
 
-      {project.masterplan && <div className="pf-overview-control-rail" aria-label="Overview editor controls" />}
+      {project.masterplan && (
+        <div className="pf-overview-control-rail" aria-label="Overview editor controls">
+          <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
+            {overviewGroups.map((group) => (
+              <button
+                key={group}
+                type="button"
+                className={overviewGroup === group ? "active" : ""}
+                onClick={() => onOverviewGroup(group)}
+              >
+                {group}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="pf-overview-layout pf-overview-layout-wide">
         <section className="pf-masterplan-card pf-masterplan-card-compact">
-          <div className="pf-overview-stage-controls">
-            <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
-              {overviewGroups.map((group) => (
-                <button
-                  key={group}
-                  type="button"
-                  className={overviewGroup === group ? "active" : ""}
-                  onClick={() => onOverviewGroup(group)}
-                >
-                  {group}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div
             className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}
             data-overview-group={overviewGroup}
