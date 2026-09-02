@@ -41,6 +41,41 @@ function ensureDisclosure(content, key, label) {
   return disclosure.querySelector(":scope > .pf-overview-disclosure-content");
 }
 
+function ensureToolbarSection(toolbar, key, label) {
+  let section = toolbar.querySelector(`:scope > [data-overview-toolbar-section="${key}"]`);
+  if (section) return section.querySelector(":scope > .pf-overview-toolbar-section-content");
+  section = document.createElement("section");
+  section.className = `pf-overview-toolbar-section pf-overview-toolbar-section-${key}`;
+  section.dataset.overviewToolbarSection = key;
+  const heading = document.createElement("span");
+  heading.className = "pf-overview-toolbar-section-label";
+  heading.textContent = label;
+  const content = document.createElement("div");
+  content.className = "pf-overview-toolbar-section-content";
+  section.append(heading, content);
+  toolbar.appendChild(section);
+  return content;
+}
+
+function organizeCanvasToolbar(toolbar) {
+  if (!toolbar) return;
+  const toolsContent = ensureToolbarSection(toolbar, "tools", "Tools");
+  const arrangeContent = ensureToolbarSection(toolbar, "arrange", "Arrange");
+  const viewContent = ensureToolbarSection(toolbar, "view", "View");
+  moveTo(toolbar.querySelector(":scope > .pf-editor-tools"), toolsContent);
+
+  let arrangeDisclosure = arrangeContent.querySelector(":scope > .pf-overview-arrange-disclosure");
+  if (!arrangeDisclosure) {
+    arrangeDisclosure = document.createElement("details");
+    arrangeDisclosure.className = "pf-overview-arrange-disclosure";
+    arrangeDisclosure.innerHTML = '<summary>Align & distribute<span aria-hidden="true">⌄</span></summary><div></div>';
+    arrangeContent.appendChild(arrangeDisclosure);
+  }
+  moveTo(toolbar.querySelector(":scope > .pf-editor-layout-tools"), arrangeDisclosure.querySelector(":scope > div"));
+  moveTo(toolbar.querySelector(":scope > .pf-editor-view-tools"), viewContent);
+  moveTo(toolbar.querySelector(":scope > .pf-export-menu"), viewContent);
+}
+
 function ensureConnectorEditProxy(connectorContent) {
   if (!connectorContent) return;
   let proxy = connectorContent.querySelector(":scope > [data-connector-edit-proxy]");
@@ -98,7 +133,10 @@ export default function OverviewControlRailRuntime() {
       ensureConnectorEditProxy(connectorContent);
       moveTo(document.querySelector(".pf-overview-guide-control"), guideContent);
       moveTo(document.querySelector(".pf-unit-navigator"), unitContent);
-      moveTo(document.querySelector(".pf-overview-zoom-toolbar"), viewContent);
+      const canvasToolbar = document.querySelector(".pf-overview-zoom-toolbar");
+      organizeCanvasToolbar(canvasToolbar);
+      moveTo(canvasToolbar, viewContent);
+      organizeCanvasToolbar(canvasToolbar);
 
       rail.querySelectorAll(".pf-overview-function-group").forEach((group) => {
         const content = groupContent(group); group.hidden = !content?.children.length;
