@@ -167,10 +167,22 @@ export default function OverviewPenRuntime() {
       if (draft.length) {
         draft.forEach((point, index) => {
           const pos = screenPoint(point);
-          const node = document.createElement("i");
-          node.className = `pf-pen-screen-anchor${index === 0 ? " is-first" : ""}`;
+          const closable = index === 0 && draft.length >= 3;
+          const node = document.createElement(closable ? "button" : "i");
+          if (closable) node.type = "button";
+          node.className = `pf-pen-screen-anchor${index === 0 ? " is-first" : ""}${closable ? " is-closable" : ""}`;
           node.style.left = `${pos.x}px`;
           node.style.top = `${pos.y}px`;
+          if (closable) {
+            node.title = "Close highlight";
+            node.setAttribute("aria-label", "Close highlight at first point");
+            node.addEventListener("pointerdown", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              event.stopImmediatePropagation?.();
+              finish();
+            });
+          }
           anchorLayer.appendChild(node);
         });
         return;
@@ -302,8 +314,7 @@ export default function OverviewPenRuntime() {
       const point = worldPoint(event);
       if (!point) return;
       draft.push(point);
-      if (draft.length >= 4) finish();
-      else renderAnchors();
+      renderAnchors();
     }
 
     function onDoubleClick(event) {
@@ -455,7 +466,7 @@ export default function OverviewPenRuntime() {
         button = document.createElement("button");
         button.type = "button";
         button.className = "pf-pen-tool-button";
-        button.title = "Highlight area (P) · click 4 corners to create a filled shape";
+        button.title = "Highlight area (P) · click corners, then click the first point to close";
         button.setAttribute("aria-label", "Highlight area polygon tool");
         button.innerHTML = `<span>✒</span><b>Highlight</b>`;
         button.addEventListener("click", (event) => {
@@ -471,7 +482,7 @@ export default function OverviewPenRuntime() {
       if (!styleMenu?.isConnected) {
         styleMenu = document.createElement("details");
         styleMenu.className = "pf-pen-style-menu";
-        styleMenu.innerHTML = `<summary title="Highlight appearance">Highlight style</summary><div class="pf-pen-style-popover"><header><strong>Highlight style</strong><span data-pen-selection>New shapes</span></header><label><span>Fill</span><input data-pen-style="fill" type="color"></label><label><span>Fill opacity</span><input data-pen-style="fillOpacity" type="range" min="0" max="1" step="0.01"></label><label title="Show an outline around the highlight"><span>Outline</span><input data-pen-style="outline" type="checkbox"></label><label><span>Outline color</span><input data-pen-style="stroke" type="color"></label><label><span>Outline width</span><input data-pen-style="strokeWidth" type="range" min="0.15" max="1" step="0.05"></label><label><span>Outline opacity</span><input data-pen-style="strokeOpacity" type="range" min="0.1" max="1" step="0.05"></label><small>Click four corners. The highlight closes automatically as a filled shape with no outline. Turn Outline on only when you need a border.</small></div>`;
+        styleMenu.innerHTML = `<summary title="Highlight appearance">Highlight style</summary><div class="pf-pen-style-popover"><header><strong>Highlight style</strong><span data-pen-selection>New shapes</span></header><label><span>Fill</span><input data-pen-style="fill" type="color"></label><label><span>Fill opacity</span><input data-pen-style="fillOpacity" type="range" min="0" max="1" step="0.01"></label><label title="Show an outline around the highlight"><span>Outline</span><input data-pen-style="outline" type="checkbox"></label><label><span>Outline color</span><input data-pen-style="stroke" type="color"></label><label><span>Outline width</span><input data-pen-style="strokeWidth" type="range" min="0.15" max="1" step="0.05"></label><label><span>Outline opacity</span><input data-pen-style="strokeOpacity" type="range" min="0.1" max="1" step="0.05"></label><small>Click any number of corners, then click the first anchor to close the filled shape. Outline stays off until you enable it.</small></div>`;
         styleMenu.addEventListener("input", (event) => {
           const key = event.target?.dataset?.penStyle;
           if (!key) return;
