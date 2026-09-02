@@ -266,13 +266,19 @@ export default function OverviewLiveUnitsRuntime() {
       if (!nextLayer.isConnected) stage.appendChild(nextLayer);
       layer = nextLayer;
       stage.classList.add("pf-live-overview-ready");
+
+      // Prepare every visible coordinate while the new group is still hidden.
+      // Reveal in this same task so the browser never paints an empty/intermediate frame.
       clampCardsInsidePdf({ arrangeUnsaved: true });
       window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: units.length, located: 0, group, source: "sell-sheet" } }));
+      clampCardsInsidePdf({ arrangeUnsaved: false });
+      syncConnectorStarts();
+      nextLayer.style.visibility = "";
+
       requestAnimationFrame(() => {
         if (disposed || layer !== nextLayer || !nextLayer.isConnected) return;
         clampCardsInsidePdf({ arrangeUnsaved: false });
         syncConnectorStarts();
-        nextLayer.style.visibility = "";
       });
     }
 
@@ -286,10 +292,13 @@ export default function OverviewLiveUnitsRuntime() {
       if (nextStage && nextStage !== stage) attach(nextStage); else if (stage) render(force);
     }
 
-    function schedule(force = false) { window.clearTimeout(timer); timer = window.setTimeout(() => sync(force), 80); }
+    function schedule(force = false, delay = 80) {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => sync(force), delay);
+    }
 
     const onSell = () => schedule(true);
-    const onGroup = () => schedule(true);
+    const onGroup = () => schedule(true, 0);
     const onPdfBounds = () => enforcePdfBoundsSoon();
     window.addEventListener("plotflow-overview-sell-units", onSell);
     window.addEventListener("pf-overview-group-changed", onGroup);
