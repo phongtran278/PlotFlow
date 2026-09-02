@@ -57,10 +57,39 @@ function currentToolbar() {
   return document.querySelector(".pf-overview-zoom-toolbar");
 }
 
+function groupPdfSource(group = "") {
+  const normalized = String(group).toLowerCase();
+  if (normalized.includes("giãn") || normalized.includes("gian")) return "/overview-masterplan/gian-xay.pdf";
+  if (normalized.includes("thô") || normalized.includes("tho")) return "/overview-masterplan/xay-tho.pdf";
+  return "/overview-masterplan/hoan-thien.pdf";
+}
+
 function currentPdfSource(stage) {
+  const group = stage?.dataset?.overviewGroup || "";
   return stage?.dataset?.overviewPdfUrl
+    || groupPdfSource(group)
     || stage?.querySelector?.(".pf-masterplan-pdf")?.getAttribute?.("src")
     || "";
+}
+
+async function downloadPdf(source, filename) {
+  const response = await fetch(source, { cache: "no-store" });
+  if (!response.ok) throw new Error(`PDF request failed (${response.status})`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const signature = new TextDecoder("ascii").decode(bytes.slice(0, 5));
+  if (signature !== "%PDF-") {
+    const preview = new TextDecoder().decode(bytes.slice(0, 80));
+    if (preview.includes("git-lfs.github.com/spec")) {
+      throw new Error("The deployed PDF is still a Git LFS pointer, not PDF bytes.");
+    }
+    throw new Error("The deployed file is not a valid PDF.");
+  }
+  const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  try {
+    download(blobUrl, filename);
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+  }
 }
 
 function installResolutionControl() {
@@ -100,7 +129,15 @@ export default function OverviewExportRuntime() {
         const sourcePdf = currentPdfSource(stage);
         if (!sourcePdf) return;
         const group = String(stage.dataset.overviewGroup || "Overview").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
-        download(sourcePdf, `PlotFlow-${group || "Overview"}-vector.pdf`);
+        button.disabled = true;
+        try {
+          await downloadPdf(sourcePdf, `PlotFlow-${group || "Overview"}-vector.pdf`);
+        } catch (error) {
+          console.error("Overview PDF export failed", error);
+          window.alert(`PDF export chưa thể hoàn tất: ${error.message}`);
+        } finally {
+          button.disabled = false;
+        }
         return;
       }
 
