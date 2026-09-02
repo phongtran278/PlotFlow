@@ -14,6 +14,12 @@ function imageFromDataUrl(dataUrl) {
   });
 }
 
+function exportPixelRatio(stage) {
+  const area = Math.max(1, stage.clientWidth * stage.clientHeight);
+  const ratioForBudget = Math.sqrt(18_000_000 / area);
+  return Math.max(2.5, Math.min(4, ratioForBudget));
+}
+
 async function cropToPdfBounds(stage, dataUrl) {
   const x = Number(stage.dataset.pfPdfX);
   const y = Number(stage.dataset.pfPdfY);
@@ -39,6 +45,14 @@ async function cropToPdfBounds(stage, dataUrl) {
   return canvas.toDataURL("image/png", 1);
 }
 
+function download(url, filename) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  link.click();
+}
+
 export default function OverviewExportRuntime() {
   useEffect(() => {
     async function onClick(event) {
@@ -50,6 +64,13 @@ export default function OverviewExportRuntime() {
       event.preventDefault();
       event.stopImmediatePropagation();
       const action = button.dataset.action;
+
+      if (action === "pdf") {
+        const sourcePdf = stage.dataset.overviewPdfUrl;
+        if (sourcePdf) download(sourcePdf, "PlotFlow-Overview-vector.pdf");
+        return;
+      }
+
       const toolbar = stage.querySelector(".pf-overview-editor-toolbar");
       const fit = toolbar?.querySelector("[data-action='fit']");
       fit?.click();
@@ -60,20 +81,13 @@ export default function OverviewExportRuntime() {
       stage.classList.add("is-exporting-overview");
 
       try {
-        const fullDataUrl = await toPng(stage, { pixelRatio: 2.5, cacheBust: true, backgroundColor: "#ffffff" });
+        const fullDataUrl = await toPng(stage, {
+          pixelRatio: exportPixelRatio(stage),
+          cacheBust: true,
+          backgroundColor: "#ffffff",
+        });
         const dataUrl = await cropToPdfBounds(stage, fullDataUrl);
-        if (action === "png") {
-          const link = document.createElement("a");
-          link.href = dataUrl;
-          link.download = "PlotFlow-Overview.png";
-          link.click();
-          return;
-        }
-        const popup = window.open("", "_blank");
-        if (!popup) return;
-        popup.opener = null;
-        popup.document.write(`<!doctype html><html><head><title>PlotFlow Overview</title><style>@page{size:landscape;margin:0}html,body{margin:0;width:100%;height:100%;background:#fff}body{display:grid;place-items:center}img{display:block;max-width:100vw;max-height:100vh;width:100%;height:100%;object-fit:contain}</style></head><body><img src="${dataUrl}" onload="setTimeout(()=>window.print(),180)"></body></html>`);
-        popup.document.close();
+        download(dataUrl, "PlotFlow-Overview.png");
       } finally {
         if (toolbar) toolbar.style.display = previous;
         stage.classList.remove("is-exporting-overview");
