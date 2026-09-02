@@ -1,5 +1,11 @@
 import { useEffect } from "react";
 import { toPng } from "html-to-image";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+
+const MAX_EXPORT_WIDTH = 7000;
 
 function wait(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -14,29 +20,10 @@ function imageFromDataUrl(dataUrl) {
   });
 }
 
-async function cropToPdfBounds(stage, dataUrl) {
-  const x = Number(stage.dataset.pfPdfX);
-  const y = Number(stage.dataset.pfPdfY);
-  const width = Number(stage.dataset.pfPdfWidth);
-  const height = Number(stage.dataset.pfPdfHeight);
-  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return dataUrl;
-  const image = await imageFromDataUrl(dataUrl);
-  const stageWidth = Math.max(1, stage.clientWidth);
-  const stageHeight = Math.max(1, stage.clientHeight);
-  const scaleX = image.naturalWidth / stageWidth;
-  const scaleY = image.naturalHeight / stageHeight;
-  const sx = Math.max(0, Math.round(x * scaleX));
-  const sy = Math.max(0, Math.round(y * scaleY));
-  const sw = Math.min(image.naturalWidth - sx, Math.max(1, Math.round(width * scaleX)));
-  const sh = Math.min(image.naturalHeight - sy, Math.max(1, Math.round(height * scaleY)));
-  const canvas = document.createElement("canvas");
-  canvas.width = sw;
-  canvas.height = sh;
-  const ctx = canvas.getContext("2d", { alpha: false });
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, sw, sh);
-  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
-  return canvas.toDataURL("image/png", 1);
+function canvasBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Export canvas could not be encoded.")), type, quality);
+  });
 }
 
 function download(url, filename) {
@@ -47,6 +34,15 @@ function download(url, filename) {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  try {
+    download(url, filename);
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(url), 1800);
+  }
 }
 
 function currentStage() {
@@ -72,24 +68,144 @@ function currentPdfSource(stage) {
     || "";
 }
 
-async function downloadPdf(source, filename) {
-  const response = await fetch(source, { cache: "no-store" });
-  if (!response.ok) throw new Error(`PDF request failed (${response.status})`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  const signature = new TextDecoder("ascii").decode(bytes.slice(0, 5));
-  if (signature !== "%PDF-") {
-    const preview = new TextDecoder().decode(bytes.slice(0, 80));
-    if (preview.includes("git-lfs.github.com/spec")) {
-      throw new Error("The deployed PDF is still a Git LFS pointer, not PDF bytes.");
-    }
-    throw new Error("The deployed file is not a valid PDF.");
-  }
-  const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+function exportBounds(stage) {
+  const x = Number(stage.dataset.pfPdfX);
+  const y = Number(stage.dataset.pfPdfY);
+  const width = Number(stage.dataset.pfPdfWidth);
+  const height = Number(stage.dataset.pfPdfHeight);
+  if ([x, y, width, height].every(Number.isFinite) && width > 0 && height > 0) return { x, y, width, height };
+  return { x: 0, y: 0, width: stage.clientWidth, height: stage.clientHeight };
+}
+
+async function cropTransparent(stage, dataUrl, bounds) {
+  const image = await imageFromDataUrl(dataUrl);
+  const scaleX = image.naturalWidth / Math.max(1, stage.clientWidth);
+  const scaleY = image.naturalHeight / Math.max(1, stage.clientHeight);
+  const sx = Math.max(0, Math.round(bounds.x * scaleX));
+  const sy = Math.max(0, Math.round(bounds.y * scaleY));
+  const sw = Math.min(image.naturalWidth - sx, Math.max(1, Math.round(bounds.width * scaleX)));
+  const sh = Math.min(image.naturalHeight - sy, Math.max(1, Math.round(bounds.height * scaleY)));
+  const canvas = document.createElement("canvas");
+  canvas.width = sw;
+  canvas.height = sh;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, sw, sh);
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
+  return canvas;
+}
+
+async function renderSourcePdf(source, targetWidth) {
+  const loadingTask = pdfjsLib.getDocument({ url: source, isEvalSupported: false, disableAutoFetch: true });
+  const pdf = await loadingTask.promise;
   try {
-    download(blobUrl, filename);
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const scale = targetWidth / Math.max(1, base.width);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(viewport.width));
+    canvas.height = Math.max(1, Math.round(viewport.height));
+    const ctx = canvas.getContext("2d", { alpha: false });
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport, background: "#fff", intent: "print" }).promise;
+    page.cleanup?.();
+    return canvas;
   } finally {
-    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+    await pdf.destroy?.();
   }
+}
+
+function isBackgroundNode(node) {
+  const element = node instanceof Element ? node : null;
+  if (!element) return false;
+  return Boolean(element.closest(
+    ".pf-overview-pdf-canvas,.pf-masterplan-pdf,.pf-overview-raster-viewport,.pf-overview-raster-tile-layer,.pf-overview-pdf-trim-frame,.pf-overview-guide-line"
+  ));
+}
+
+async function captureComposite(stage, ratio) {
+  const bounds = exportBounds(stage);
+  const targetWidth = Math.min(MAX_EXPORT_WIDTH, Math.max(3000, Math.round(bounds.width * ratio)));
+  const pixelRatio = targetWidth / Math.max(1, bounds.width);
+  const sourcePdf = currentPdfSource(stage);
+  if (!sourcePdf) throw new Error("Không tìm thấy PDF nguồn của view hiện tại.");
+
+  const baseCanvas = await renderSourcePdf(sourcePdf, targetWidth);
+  const overlayDataUrl = await toPng(stage, {
+    pixelRatio,
+    cacheBust: true,
+    backgroundColor: "transparent",
+    filter: (node) => !isBackgroundNode(node),
+    style: {
+      background: "transparent",
+      border: "0",
+      boxShadow: "none",
+    },
+  });
+  const overlayCanvas = await cropTransparent(stage, overlayDataUrl, bounds);
+
+  const composite = document.createElement("canvas");
+  composite.width = baseCanvas.width;
+  composite.height = baseCanvas.height;
+  const ctx = composite.getContext("2d", { alpha: false });
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, composite.width, composite.height);
+  ctx.drawImage(baseCanvas, 0, 0, composite.width, composite.height);
+  ctx.drawImage(overlayCanvas, 0, 0, composite.width, composite.height);
+  return composite;
+}
+
+function ascii(value) {
+  return new TextEncoder().encode(value);
+}
+
+function concatBytes(parts) {
+  const length = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(length);
+  let offset = 0;
+  parts.forEach((part) => {
+    output.set(part, offset);
+    offset += part.length;
+  });
+  return output;
+}
+
+function imagePdf(jpegBytes, pixelWidth, pixelHeight) {
+  const pageWidth = 841.89;
+  const pageHeight = pageWidth * (pixelHeight / Math.max(1, pixelWidth));
+  const content = `q\n${pageWidth.toFixed(2)} 0 0 ${pageHeight.toFixed(2)} 0 0 cm\n/Im0 Do\nQ\n`;
+  const contentBytes = ascii(content);
+  const objects = [
+    ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+    ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+    ascii(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth.toFixed(2)} ${pageHeight.toFixed(2)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`),
+    concatBytes([
+      ascii(`<< /Type /XObject /Subtype /Image /Width ${pixelWidth} /Height ${pixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`),
+      jpegBytes,
+      ascii("\nendstream"),
+    ]),
+    concatBytes([
+      ascii(`<< /Length ${contentBytes.length} >>\nstream\n`),
+      contentBytes,
+      ascii("endstream"),
+    ]),
+  ];
+
+  const parts = [ascii("%PDF-1.4\n%PlotFlow composite export\n")];
+  const offsets = [0];
+  let byteOffset = parts[0].length;
+  objects.forEach((object, index) => {
+    offsets.push(byteOffset);
+    const wrapped = concatBytes([ascii(`${index + 1} 0 obj\n`), object, ascii("\nendobj\n")]);
+    parts.push(wrapped);
+    byteOffset += wrapped.length;
+  });
+
+  const xrefOffset = byteOffset;
+  const xrefRows = offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  parts.push(ascii(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${xrefRows}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`));
+  return new Blob([concatBytes(parts)], { type: "application/pdf" });
 }
 
 function installResolutionControl() {
@@ -100,8 +216,8 @@ function installResolutionControl() {
 
   const label = document.createElement("label");
   label.className = "pf-png-resolution-control";
-  label.title = "PNG export resolution";
-  label.innerHTML = `<span>PNG res</span><select data-png-resolution aria-label="PNG export resolution"><option value="2">2×</option><option value="3">3×</option><option value="4" selected>4×</option></select>`;
+  label.title = "PNG/PDF export detail";
+  label.innerHTML = `<span>Export</span><select data-png-resolution aria-label="Export resolution"><option value="2">2×</option><option value="4" selected>4×</option><option value="6">6×</option></select>`;
   pngButton.after(label);
   return true;
 }
@@ -117,53 +233,40 @@ export default function OverviewExportRuntime() {
     async function onClick(event) {
       const button = event.target.closest?.(".pf-overview-editor-toolbar [data-action='pdf'],.pf-overview-editor-toolbar [data-action='png']");
       if (!button) return;
-
       const stage = currentStage();
       if (!stage) return;
 
       event.preventDefault();
       event.stopImmediatePropagation();
       const action = button.dataset.action;
-
-      if (action === "pdf") {
-        const sourcePdf = currentPdfSource(stage);
-        if (!sourcePdf) return;
-        const group = String(stage.dataset.overviewGroup || "Overview").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
-        button.disabled = true;
-        try {
-          await downloadPdf(sourcePdf, `PlotFlow-${group || "Overview"}-vector.pdf`);
-        } catch (error) {
-          console.error("Overview PDF export failed", error);
-          window.alert(`PDF export chưa thể hoàn tất: ${error.message}`);
-        } finally {
-          button.disabled = false;
-        }
-        return;
-      }
-
       const toolbar = currentToolbar();
       const fit = toolbar?.querySelector("[data-action='fit']");
-      fit?.click();
-      await wait(180);
+      const ratio = Math.max(2, Math.min(6, Number(toolbar?.querySelector("[data-png-resolution]")?.value || 4)));
+      const group = String(stage.dataset.overviewGroup || "Overview").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
 
-      const requestedRatio = Number(toolbar?.querySelector("[data-png-resolution]")?.value || 4);
-      const pixelRatio = Math.max(2, Math.min(4, requestedRatio));
+      button.disabled = true;
       stage.classList.add("is-exporting-overview");
-
       try {
-        const fullDataUrl = await toPng(stage, {
-          pixelRatio,
-          cacheBust: true,
-          backgroundColor: "#ffffff",
-        });
-        const dataUrl = await cropToPdfBounds(stage, fullDataUrl);
-        const boundsWidth = Number(stage.dataset.pfPdfWidth) || stage.clientWidth;
-        const boundsHeight = Number(stage.dataset.pfPdfHeight) || stage.clientHeight;
-        const width = Math.round(boundsWidth * pixelRatio);
-        const height = Math.round(boundsHeight * pixelRatio);
-        download(dataUrl, `PlotFlow-Overview-${width}x${height}.png`);
+        fit?.click();
+        await wait(240);
+        const composite = await captureComposite(stage, ratio);
+
+        if (action === "png") {
+          const blob = await canvasBlob(composite, "image/png");
+          downloadBlob(blob, `PlotFlow-${group || "Overview"}-${composite.width}x${composite.height}.png`);
+          return;
+        }
+
+        const jpegBlob = await canvasBlob(composite, "image/jpeg", 0.96);
+        const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
+        const pdfBlob = imagePdf(jpegBytes, composite.width, composite.height);
+        downloadBlob(pdfBlob, `PlotFlow-${group || "Overview"}-composite.pdf`);
+      } catch (error) {
+        console.error(`Overview ${action.toUpperCase()} export failed`, error);
+        window.alert(`${action.toUpperCase()} export chưa thể hoàn tất: ${error.message}`);
       } finally {
         stage.classList.remove("is-exporting-overview");
+        button.disabled = false;
       }
     }
 
