@@ -109,8 +109,9 @@ export default function OverviewRasterRuntime() {
       stats.currentLevel = currentLevel;
       stats.tileCeiling = currentTileLimit;
       stats.fitComplete = currentLevel === LEVEL_WIDTHS[0]
-        ? tiles.size >= levelInfo(LEVEL_WIDTHS[0]).cols * levelInfo(LEVEL_WIDTHS[0]).rows
+        ? Array.from(tiles.values()).filter((entry) => entry.level === LEVEL_WIDTHS[0]).length >= levelInfo(LEVEL_WIDTHS[0]).cols * levelInfo(LEVEL_WIDTHS[0]).rows
         : false;
+      stats.multiLevelOverlap = new Set(Array.from(tiles.values()).map((entry) => entry.level)).size > 1;
     }
 
     function ensureLayer() {
@@ -261,6 +262,17 @@ export default function OverviewRasterRuntime() {
       updateStats();
     }
 
+    function releaseOtherLevels(level) {
+      if (windowsFixedLevel) return;
+      for (const [key, entry] of tiles) {
+        if (entry.level === level) continue;
+        tiles.delete(key);
+        releaseImage(entry.image);
+        stats.releasedTiles += 1;
+      }
+      updateStats();
+    }
+
     async function refreshTiles() {
       if (!stage || !layer || !bounds || disposed) return;
       const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
@@ -269,10 +281,12 @@ export default function OverviewRasterRuntime() {
       const keep = new Set(jobs.map((job) => tileKey(nextLevel, job.col, job.row)));
       const fitView = isFitCamera() && nextLevel === LEVEL_WIDTHS[0];
       const lowZoomBase = nextLevel === LEVEL_WIDTHS[0] && camera.scale <= 1.05;
+      const changingLevel = nextLevel !== currentLevel;
+      const oldTileCount = changingLevel ? Array.from(tiles.values()).filter((entry) => entry.level !== nextLevel).length : 0;
 
-      if (nextLevel !== currentLevel) {
-        releaseAllTiles();
+      if (changingLevel) {
         currentLevel = nextLevel;
+        updateStats();
       } else {
         releaseExcept(keep);
       }
@@ -295,7 +309,8 @@ export default function OverviewRasterRuntime() {
               stats.releasedTiles += 1;
               continue;
             }
-            if (tiles.size >= currentTileLimit) {
+            const transitionLimit = currentTileLimit + oldTileCount;
+            if (tiles.size >= transitionLimit) {
               releaseImage(image);
               stats.releasedTiles += 1;
               continue;
@@ -319,6 +334,11 @@ export default function OverviewRasterRuntime() {
           : Math.min(maxParallelLoads, Math.max(1, missing.length));
       await Promise.all(Array.from({ length: parallelLoads }, () => worker()));
       if (disposed || epoch !== renderEpoch) return;
+
+      const nextLevelReady = Array.from(tiles.values()).some((entry) => entry.level === nextLevel);
+      if (changingLevel && nextLevelReady) releaseOtherLevels(nextLevel);
+      else if (!changingLevel) releaseExcept(keep);
+
       stats.pendingTiles = 0;
       repositionExistingTiles();
       updateStats();
