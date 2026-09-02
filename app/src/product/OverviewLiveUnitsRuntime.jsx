@@ -86,6 +86,7 @@ export default function OverviewLiveUnitsRuntime() {
     let observer = null;
     let timer = 0;
     let clampTimer = 0;
+    let handoffTimer = 0;
     let groupRaf = 0;
     let lastSignature = "";
     let disposed = false;
@@ -198,15 +199,20 @@ export default function OverviewLiveUnitsRuntime() {
       lastSignature = nextSignature;
 
       if (!units.length) {
-        layer?.remove(); layer = null; stage.classList.remove("pf-live-overview-ready");
+        window.clearTimeout(handoffTimer);
+        stage.querySelectorAll(".pf-live-overview-callouts").forEach((node) => node.remove());
+        layer = null;
+        stage.classList.remove("pf-live-overview-ready");
         window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: 0, located: 0, group } }));
         return;
       }
 
+      window.clearTimeout(handoffTimer);
+      stage.querySelectorAll(".pf-live-overview-callouts.pf-callouts-leaving").forEach((node) => node.remove());
       const savedLayout = readSavedCardLayout();
       const groupScale = readGroupScale(group);
       const previousLayer = layer;
-      const nextLayer = makeNode("div", "pf-callout-layer pf-live-overview-callouts");
+      const nextLayer = makeNode("div", "pf-callout-layer pf-live-overview-callouts pf-callouts-entering");
       nextLayer.style.visibility = "hidden";
       nextLayer.setAttribute("aria-label", `Overview sell cards · ${group || "all"}`);
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -279,20 +285,30 @@ export default function OverviewLiveUnitsRuntime() {
       clampCardsInsidePdf({ arrangeUnsaved: true });
       clampCardsInsidePdf({ arrangeUnsaved: false });
       nextLayer.style.visibility = "";
-      previousLayer?.remove();
+      previousLayer?.classList.add("pf-callouts-leaving");
       window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: units.length, located: 0, group, source: "sell-sheet" } }));
       syncConnectorStarts();
 
       requestAnimationFrame(() => {
         if (disposed || layer !== nextLayer || !nextLayer.isConnected) return;
+        nextLayer.classList.remove("pf-callouts-entering");
         clampCardsInsidePdf({ arrangeUnsaved: false });
         syncConnectorStarts();
       });
+
+      if (previousLayer?.isConnected) {
+        handoffTimer = window.setTimeout(() => {
+          previousLayer.remove();
+          handoffTimer = 0;
+        }, 170);
+      }
     }
 
     function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
-      layer?.remove();
+      window.clearTimeout(handoffTimer);
+      stage?.querySelectorAll(".pf-live-overview-callouts").forEach((node) => node.remove());
+      layer = null;
       stage = nextStage;
       lastSignature = "";
       render(true);
@@ -345,8 +361,10 @@ export default function OverviewLiveUnitsRuntime() {
       window.removeEventListener("pf-overview-pdf-bounds", onPdfBounds);
       window.clearTimeout(timer);
       window.clearTimeout(clampTimer);
+      window.clearTimeout(handoffTimer);
       if (groupRaf) window.cancelAnimationFrame(groupRaf);
-      layer?.remove();
+      stage?.querySelectorAll(".pf-live-overview-callouts").forEach((node) => node.remove());
+      layer = null;
       stage?.classList.remove("pf-live-overview-ready");
     };
   }, []);
