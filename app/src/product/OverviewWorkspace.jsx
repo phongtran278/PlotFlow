@@ -32,17 +32,27 @@ export default function OverviewWorkspace({
 
       {project.masterplan && (
         <div className="pf-overview-control-rail" aria-label="Overview editor controls">
-          <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
-            {overviewGroups.map((group) => (
-              <button
-                key={group}
-                type="button"
-                className={overviewGroup === group ? "active" : ""}
-                onClick={() => onOverviewGroup(group)}
-              >
-                {group}
-              </button>
-            ))}
+          <div className="pf-overview-control-row pf-overview-control-row-primary" data-overview-control-row="primary">
+            <div className="pf-overview-control-cluster pf-overview-view-cluster">
+              <span className="pf-overview-control-label">VIEW</span>
+              <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
+                {overviewGroups.map((group) => (
+                  <button
+                    key={group}
+                    type="button"
+                    className={overviewGroup === group ? "active" : ""}
+                    onClick={() => onOverviewGroup(group)}
+                  >
+                    {group}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="pf-overview-primary-tools" data-overview-primary-tools />
+          </div>
+          <div className="pf-overview-control-row pf-overview-control-row-canvas" data-overview-control-row="canvas">
+            <span className="pf-overview-control-label">CANVAS</span>
+            <div className="pf-overview-canvas-tools" data-overview-canvas-tools />
           </div>
         </div>
       )}
