@@ -205,6 +205,7 @@ export default function OverviewLiveUnitsRuntime() {
 
       const savedLayout = readSavedCardLayout();
       const groupScale = readGroupScale(group);
+      const previousLayer = layer;
       const nextLayer = makeNode("div", "pf-callout-layer pf-live-overview-callouts");
       nextLayer.style.visibility = "hidden";
       nextLayer.setAttribute("aria-label", `Overview sell cards · ${group || "all"}`);
@@ -272,16 +273,15 @@ export default function OverviewLiveUnitsRuntime() {
         nextLayer.appendChild(card);
       });
 
-      layer?.replaceWith(nextLayer);
-      if (!nextLayer.isConnected) stage.appendChild(nextLayer);
+      stage.appendChild(nextLayer);
       layer = nextLayer;
       stage.classList.add("pf-live-overview-ready");
-
       clampCardsInsidePdf({ arrangeUnsaved: true });
-      window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: units.length, located: 0, group, source: "sell-sheet" } }));
       clampCardsInsidePdf({ arrangeUnsaved: false });
-      syncConnectorStarts();
       nextLayer.style.visibility = "";
+      previousLayer?.remove();
+      window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: units.length, located: 0, group, source: "sell-sheet" } }));
+      syncConnectorStarts();
 
       requestAnimationFrame(() => {
         if (disposed || layer !== nextLayer || !nextLayer.isConnected) return;
