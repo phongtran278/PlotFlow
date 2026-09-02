@@ -124,9 +124,9 @@ function isBackgroundNode(node) {
   ));
 }
 
-async function captureComposite(stage, ratio) {
+async function captureComposite(stage, requestedWidth) {
   const bounds = exportBounds(stage);
-  const targetWidth = Math.min(MAX_EXPORT_WIDTH, Math.max(3000, Math.round(bounds.width * ratio)));
+  const targetWidth = Math.min(MAX_EXPORT_WIDTH, Math.max(1000, Math.round(Number(requestedWidth) || 4000)));
   const pixelRatio = targetWidth / Math.max(1, bounds.width);
   const sourcePdf = currentPdfSource(stage);
   if (!sourcePdf) throw new Error("Không tìm thấy PDF nguồn của view hiện tại.");
@@ -216,8 +216,8 @@ function installResolutionControl() {
 
   const label = document.createElement("label");
   label.className = "pf-png-resolution-control";
-  label.title = "PNG/PDF export detail";
-  label.innerHTML = `<span>Export</span><select data-png-resolution aria-label="Export resolution"><option value="2">2×</option><option value="4" selected>4×</option><option value="6">6×</option></select>`;
+  label.hidden = true;
+  label.innerHTML = `<input data-png-width type="hidden" value="4000">`;
   pngButton.after(label);
   return true;
 }
@@ -241,7 +241,7 @@ export default function OverviewExportRuntime() {
       const action = button.dataset.action;
       const toolbar = currentToolbar();
       const fit = toolbar?.querySelector("[data-action='fit']");
-      const ratio = Math.max(2, Math.min(6, Number(toolbar?.querySelector("[data-png-resolution]")?.value || 4)));
+      const targetWidth = Math.max(1000, Math.min(MAX_EXPORT_WIDTH, Number(toolbar?.querySelector("[data-png-width]")?.value || 4000)));
       const group = String(stage.dataset.overviewGroup || "Overview").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
 
       button.disabled = true;
@@ -249,7 +249,7 @@ export default function OverviewExportRuntime() {
       try {
         fit?.click();
         await wait(240);
-        const composite = await captureComposite(stage, ratio);
+        const composite = await captureComposite(stage, targetWidth);
 
         if (action === "png") {
           const blob = await canvasBlob(composite, "image/png");
@@ -278,7 +278,7 @@ export default function OverviewExportRuntime() {
     return () => {
       observer?.disconnect();
       document.removeEventListener("click", onClick, true);
-      document.querySelector("[data-png-resolution]")?.closest(".pf-png-resolution-control")?.remove();
+      document.querySelector("[data-png-width]")?.closest(".pf-png-resolution-control")?.remove();
     };
   }, []);
 

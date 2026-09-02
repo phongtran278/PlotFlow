@@ -87,6 +87,7 @@ export default function OverviewPenRuntime() {
     let disposed = false;
     let retryRaf = 0;
     let retryCount = 0;
+    let domObserver = null;
 
     removeLegacyRectangles();
     saveShapes(shapes);
@@ -519,7 +520,13 @@ export default function OverviewPenRuntime() {
     }
 
     syncWithRetry();
+    domObserver = new MutationObserver(() => {
+      if (!button?.isConnected || !styleMenu?.isConnected || !layer?.isConnected) syncWithRetry();
+    });
+    domObserver.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("pf-overview-live-units-ready", syncWithRetry);
+    window.addEventListener("pf-overview-group-changed", syncWithRetry);
+    window.addEventListener("plotflow-product-view-changed", syncWithRetry);
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-clear-highlights", onClearHighlights);
     window.addEventListener("pf-overview-select-highlight", onSelectHighlight);
@@ -529,7 +536,10 @@ export default function OverviewPenRuntime() {
     return () => {
       disposed = true;
       cancelAnimationFrame(retryRaf);
+      domObserver?.disconnect();
       window.removeEventListener("pf-overview-live-units-ready", syncWithRetry);
+      window.removeEventListener("pf-overview-group-changed", syncWithRetry);
+      window.removeEventListener("plotflow-product-view-changed", syncWithRetry);
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-clear-highlights", onClearHighlights);
       window.removeEventListener("pf-overview-select-highlight", onSelectHighlight);

@@ -29,6 +29,18 @@ function ensureGroup(parent, key, label) {
 function groupContent(group) { return group?.querySelector(":scope > .pf-overview-function-content") || group; }
 function moveTo(node, destination) { if (node && destination && node.parentElement !== destination) destination.appendChild(node); }
 
+function ensureDisclosure(content, key, label) {
+  if (!content) return null;
+  let disclosure = content.querySelector(`:scope > [data-overview-disclosure="${key}"]`);
+  if (disclosure) return disclosure.querySelector(":scope > .pf-overview-disclosure-content");
+  disclosure = document.createElement("details");
+  disclosure.className = `pf-overview-disclosure pf-overview-disclosure-${key}`;
+  disclosure.dataset.overviewDisclosure = key;
+  disclosure.innerHTML = `<summary>${label}<span aria-hidden="true">⌄</span></summary><div class="pf-overview-disclosure-content"></div>`;
+  content.appendChild(disclosure);
+  return disclosure.querySelector(":scope > .pf-overview-disclosure-content");
+}
+
 function ensureConnectorEditProxy(connectorContent) {
   if (!connectorContent) return;
   let proxy = connectorContent.querySelector(":scope > [data-connector-edit-proxy]");
@@ -81,7 +93,8 @@ export default function OverviewControlRailRuntime() {
       moveTo(document.querySelector(".pf-card-quick-scale"), objectContent);
       moveTo(document.querySelector(".pf-precision-arrange"), objectContent);
       moveTo(document.querySelector(".pf-overview-v2-controls"), objectContent);
-      moveTo(document.querySelector(".pf-connector-control"), connectorContent);
+      const connectorDetails = ensureDisclosure(connectorContent, "connector", "Connector settings");
+      moveTo(document.querySelector(".pf-connector-control"), connectorDetails);
       ensureConnectorEditProxy(connectorContent);
       moveTo(document.querySelector(".pf-overview-guide-control"), guideContent);
       moveTo(document.querySelector(".pf-unit-navigator"), unitContent);

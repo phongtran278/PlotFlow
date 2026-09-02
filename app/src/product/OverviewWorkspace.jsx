@@ -44,7 +44,6 @@ export default function OverviewWorkspace({
             <span>căn</span>
           </div>
         </div>
-        <div className="pf-overview-header-actions" data-overview-header-actions aria-label="Overview export actions" />
       </header>
 
       <div className="pf-overview-editor-shell">
