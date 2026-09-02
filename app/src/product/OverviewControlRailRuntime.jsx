@@ -15,6 +15,30 @@ const CANVAS_CONTROL_SELECTOR = [
   ".pf-export-menu",
 ].join(",");
 
+const ACTION_TITLES = {
+  undo: "Undo the last change",
+  redo: "Redo the last undone change",
+  fit: "Fit the PDF to the workspace",
+  "zoom-in": "Zoom in",
+  "zoom-out": "Zoom out",
+  hand: "Pan the PDF",
+  pan: "Pan the PDF",
+  select: "Select and move cards",
+  highlight: "Draw a highlight area",
+  underline: "Toggle highlight outline",
+  stroke: "Adjust outline thickness",
+  "stroke-width": "Adjust outline thickness",
+};
+
+function readableLabel(element) {
+  const action = String(element?.dataset?.action || "").trim().toLowerCase();
+  if (ACTION_TITLES[action]) return ACTION_TITLES[action];
+  const aria = element?.getAttribute?.("aria-label")?.trim();
+  if (aria) return aria;
+  const text = element?.textContent?.replace(/\s+/g, " ")?.trim();
+  return text && text.length <= 48 ? text : "";
+}
+
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
     let frame = 0;
@@ -71,6 +95,17 @@ export default function OverviewControlRailRuntime() {
       return primaryTools;
     }
 
+    function applyControlHints() {
+      if (!rail) return;
+      rail.querySelectorAll("button,[role='button'],input,select").forEach((control) => {
+        if (control.getAttribute("title")) return;
+        const label = readableLabel(control);
+        if (!label) return;
+        control.setAttribute("title", label);
+        if (!control.getAttribute("aria-label") && !control.textContent?.trim()) control.setAttribute("aria-label", label);
+      });
+    }
+
     function moveDynamicControlsIntoRail() {
       rail = document.querySelector(".pf-overview-control-rail");
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
@@ -91,6 +126,7 @@ export default function OverviewControlRailRuntime() {
         destination.appendChild(child);
       });
 
+      applyControlHints();
       ensureSpacer();
       if (!resizeObserver) {
         resizeObserver = new ResizeObserver(scheduleFixed);
