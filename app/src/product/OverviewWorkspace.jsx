@@ -2,6 +2,11 @@ import "./OverviewWorkspace.css";
 
 const OVERVIEW_RENDER_MODE = "raster";
 
+function uniqueUnitCount(list = []) {
+  const keys = list.map((item, index) => String(item?.code || item?.id || index)).filter(Boolean);
+  return new Set(keys).size;
+}
+
 export default function OverviewWorkspace({
   project,
   overviewGroups,
@@ -11,8 +16,8 @@ export default function OverviewWorkspace({
   units,
   visibleSellUnits,
 }) {
-  const liveUnitCount = sellUnits.length || units.length;
-  const groupUnitCount = sellUnits.length ? visibleSellUnits.length : liveUnitCount;
+  const liveUnitCount = sellUnits.length ? uniqueUnitCount(sellUnits) : uniqueUnitCount(units);
+  const groupUnitCount = sellUnits.length ? uniqueUnitCount(visibleSellUnits) : liveUnitCount;
 
   return (
     <main className="pf-overview">
@@ -39,6 +44,7 @@ export default function OverviewWorkspace({
             <span>căn</span>
           </div>
         </div>
+        <div className="pf-overview-header-actions" data-overview-header-actions aria-label="Overview export actions" />
       </header>
 
       <div className="pf-overview-editor-shell">
