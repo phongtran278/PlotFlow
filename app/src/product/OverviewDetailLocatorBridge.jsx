@@ -1,17 +1,8 @@
 import { useEffect } from "react";
+import { normalizeUnitCode, resolveUnitsAgainstIndex } from "../floorplan/unitCodeCompat.js";
 
 const MANIFEST_URL = "/masterplan/generated/manifest.json";
 const FLOORPLAN_OVERRIDE_KEY = "plotflow-floorplan-overrides-v6";
-
-function normalizeUnitCode(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[Đđ]/g, "D")
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .trim();
-}
 
 function readJson(key, fallback = {}) {
   try {
@@ -38,6 +29,7 @@ function lineFor(stage, code) {
 
 function markUnresolved(anchor, line, rawCode) {
   if (!anchor) return;
+  if (anchor.dataset.saved === "1") return;
   anchor.dataset.located = "0";
   anchor.dataset.anchorMode = "needs-placement";
   anchor.title = `${rawCode} · Needs placement`;
@@ -93,19 +85,26 @@ export default function OverviewDetailLocatorBridge() {
         const index = manifest?.index || {};
         if (!(pageWidth > 0 && pageHeight > 0)) throw new Error("Overview manifest page geometry missing");
 
+        const resolutions = resolveUnitsAgainstIndex(codes.map((unitCode) => ({ unitCode })), index);
         let located = 0;
         let ambiguous = 0;
         let unresolved = 0;
 
         for (const rawCode of codes) {
           const code = normalizeUnitCode(rawCode);
-          const matches = index[code] || [];
+          const resolution = resolutions[code];
+          const matches = Array.isArray(resolution?.matches) ? resolution.matches : [];
           const override = overrides[code] || {};
           const requestedIndex = Math.max(0, Number(override.selectedMatchIndex) || 0);
           const selectedIndex = matches.length ? Math.min(requestedIndex, matches.length - 1) : -1;
           const match = selectedIndex >= 0 ? matches[selectedIndex] : null;
           const anchor = anchorFor(stage, rawCode);
           const line = lineFor(stage, rawCode);
+
+          if (anchor?.dataset.saved === "1") {
+            located += 1;
+            continue;
+          }
 
           if (!anchor || !match) {
             markUnresolved(anchor, line, rawCode);
@@ -138,10 +137,10 @@ export default function OverviewDetailLocatorBridge() {
         }
 
         stage.dataset.pfDetailLocatorBridge = "1";
-        stage.dataset.pfLocatorSource = "prepared-manifest";
+        stage.dataset.pfLocatorSource = "prepared-manifest-compatible";
         lastSignature = signature;
         window.__plotflowOverviewLocator = {
-          mode: "prepared-manifest-only",
+          mode: "prepared-manifest-compatible",
           pdfOpened: false,
           count: codes.length,
           located,
@@ -149,7 +148,7 @@ export default function OverviewDetailLocatorBridge() {
           unresolved,
         };
         window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", {
-          detail: { count: codes.length, located, ambiguous, unresolved, source: "prepared-manifest", anchorMode: "prepared-manifest" },
+          detail: { count: codes.length, located, ambiguous, unresolved, source: "prepared-manifest-compatible", anchorMode: "prepared-manifest" },
         }));
       } catch (error) {
         console.warn("Overview prepared locator unavailable", error);
