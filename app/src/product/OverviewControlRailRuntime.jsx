@@ -2,12 +2,6 @@ import { useEffect } from "react";
 import "./OverviewControlRailRuntime.css";
 import "./OverviewControlRailTwoRows.css";
 
-function topOffset() {
-  if (window.innerWidth <= 680) return 66;
-  if (window.innerWidth <= 1180) return 72;
-  return 78;
-}
-
 const CANVAS_CONTROL_SELECTOR = [
   ".pf-overview-zoom-toolbar",
   ".pf-editor-tools",
@@ -67,51 +61,7 @@ export default function OverviewControlRailRuntime() {
     let frame = 0;
     let rail = null;
     let stage = null;
-    let spacer = null;
-    let resizeObserver = null;
     let mutationObserver = null;
-
-    function ensureSpacer() {
-      if (!rail) return null;
-      if (!spacer?.isConnected) {
-        spacer = document.createElement("div");
-        spacer.className = "pf-overview-control-rail-spacer";
-        rail.before(spacer);
-      }
-      return spacer;
-    }
-
-    function releaseFixed() {
-      rail?.classList.remove("is-fixed-toolbar");
-      rail?.style.removeProperty("--pf-fixed-rail-left");
-      rail?.style.removeProperty("--pf-fixed-rail-width");
-      if (spacer) spacer.style.height = "0px";
-    }
-
-    function updateFixed() {
-      if (!rail?.isConnected || !spacer?.isConnected) return;
-      if (!document.body.classList.contains("pf-product-overview")) {
-        releaseFixed();
-        return;
-      }
-      const rect = spacer.getBoundingClientRect();
-      const top = topOffset();
-      const shouldFix = rect.top <= top;
-      if (!shouldFix) {
-        releaseFixed();
-        return;
-      }
-      const width = Math.max(1, rect.width || rail.getBoundingClientRect().width);
-      rail.style.setProperty("--pf-fixed-rail-left", `${rect.left}px`);
-      rail.style.setProperty("--pf-fixed-rail-width", `${width}px`);
-      rail.classList.add("is-fixed-toolbar");
-      spacer.style.height = `${rail.offsetHeight + 6}px`;
-    }
-
-    function scheduleFixed() {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(updateFixed);
-    }
 
     function destinationFor(element, primaryTools, canvasTools) {
       if (element?.matches?.(CANVAS_CONTROL_SELECTOR)) return canvasTools;
@@ -133,6 +83,12 @@ export default function OverviewControlRailRuntime() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!rail || !stage) return false;
 
+      // The rail deliberately stays in normal document flow. Making it fixed or
+      // inserting a spacer on scroll changes the available stage height, which
+      // causes ResizeObserver -> PDF/raster rerenders and produces visible jumps.
+      rail.classList.remove("is-fixed-toolbar");
+      document.querySelectorAll(".pf-overview-control-rail-spacer").forEach((node) => node.remove());
+
       const primaryTools = rail.querySelector("[data-overview-primary-tools]");
       const canvasTools = rail.querySelector("[data-overview-canvas-tools]");
       if (!primaryTools || !canvasTools) return false;
@@ -149,12 +105,6 @@ export default function OverviewControlRailRuntime() {
       });
 
       applyControlHints();
-      ensureSpacer();
-      if (!resizeObserver) {
-        resizeObserver = new ResizeObserver(scheduleFixed);
-        resizeObserver.observe(rail);
-      }
-      scheduleFixed();
       return true;
     }
 
@@ -176,30 +126,21 @@ export default function OverviewControlRailRuntime() {
       if (event.detail?.screen === "project" && event.detail?.mode === "overview") {
         scheduleSync();
         watchDynamicControls();
-      } else {
-        releaseFixed();
       }
     }
 
     window.addEventListener("plotflow-product-view-changed", onViewChange);
     window.addEventListener("pf-overview-group-changed", scheduleSync);
     window.addEventListener("pf-overview-live-units-ready", scheduleSync);
-    window.addEventListener("resize", scheduleFixed);
-    document.addEventListener("scroll", scheduleFixed, true);
     watchDynamicControls();
     scheduleSync();
 
     return () => {
       cancelAnimationFrame(frame);
-      resizeObserver?.disconnect();
       mutationObserver?.disconnect();
-      releaseFixed();
-      spacer?.remove();
       window.removeEventListener("plotflow-product-view-changed", onViewChange);
       window.removeEventListener("pf-overview-group-changed", scheduleSync);
       window.removeEventListener("pf-overview-live-units-ready", scheduleSync);
-      window.removeEventListener("resize", scheduleFixed);
-      document.removeEventListener("scroll", scheduleFixed, true);
     };
   }, []);
 
