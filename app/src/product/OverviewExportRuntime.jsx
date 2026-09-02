@@ -14,12 +14,6 @@ function imageFromDataUrl(dataUrl) {
   });
 }
 
-function exportPixelRatio(stage) {
-  const area = Math.max(1, stage.clientWidth * stage.clientHeight);
-  const ratioForBudget = Math.sqrt(18_000_000 / area);
-  return Math.max(2.5, Math.min(4, ratioForBudget));
-}
-
 async function cropToPdfBounds(stage, dataUrl) {
   const x = Number(stage.dataset.pfPdfX);
   const y = Number(stage.dataset.pfPdfY);
@@ -50,15 +44,52 @@ function download(url, filename) {
   link.href = url;
   link.download = filename;
   link.rel = "noopener";
+  document.body.appendChild(link);
   link.click();
+  link.remove();
+}
+
+function currentStage() {
+  return document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
+}
+
+function currentToolbar() {
+  return document.querySelector(".pf-overview-zoom-toolbar");
+}
+
+function currentPdfSource(stage) {
+  return stage?.dataset?.overviewPdfUrl
+    || stage?.querySelector?.(".pf-masterplan-pdf")?.getAttribute?.("src")
+    || "";
+}
+
+function installResolutionControl() {
+  const toolbar = currentToolbar();
+  const pngButton = toolbar?.querySelector?.("[data-action='png']");
+  if (!toolbar || !pngButton) return false;
+  if (toolbar.querySelector("[data-png-resolution]")) return true;
+
+  const label = document.createElement("label");
+  label.className = "pf-png-resolution-control";
+  label.title = "PNG export resolution";
+  label.innerHTML = `<span>PNG res</span><select data-png-resolution aria-label="PNG export resolution"><option value="2">2×</option><option value="3">3×</option><option value="4" selected>4×</option></select>`;
+  pngButton.after(label);
+  return true;
 }
 
 export default function OverviewExportRuntime() {
   useEffect(() => {
+    let observer = null;
+
+    function syncResolutionControl() {
+      installResolutionControl();
+    }
+
     async function onClick(event) {
       const button = event.target.closest?.(".pf-overview-editor-toolbar [data-action='pdf'],.pf-overview-editor-toolbar [data-action='png']");
       if (!button) return;
-      const stage = button.closest(".pf-masterplan-stage");
+
+      const stage = currentStage();
       if (!stage) return;
 
       event.preventDefault();
@@ -66,36 +97,49 @@ export default function OverviewExportRuntime() {
       const action = button.dataset.action;
 
       if (action === "pdf") {
-        const sourcePdf = stage.dataset.overviewPdfUrl;
-        if (sourcePdf) download(sourcePdf, "PlotFlow-Overview-vector.pdf");
+        const sourcePdf = currentPdfSource(stage);
+        if (!sourcePdf) return;
+        const group = String(stage.dataset.overviewGroup || "Overview").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
+        download(sourcePdf, `PlotFlow-${group || "Overview"}-vector.pdf`);
         return;
       }
 
-      const toolbar = stage.querySelector(".pf-overview-editor-toolbar");
+      const toolbar = currentToolbar();
       const fit = toolbar?.querySelector("[data-action='fit']");
       fit?.click();
       await wait(180);
 
-      const previous = toolbar?.style.display || "";
-      if (toolbar) toolbar.style.display = "none";
+      const requestedRatio = Number(toolbar?.querySelector("[data-png-resolution]")?.value || 4);
+      const pixelRatio = Math.max(2, Math.min(4, requestedRatio));
       stage.classList.add("is-exporting-overview");
 
       try {
         const fullDataUrl = await toPng(stage, {
-          pixelRatio: exportPixelRatio(stage),
+          pixelRatio,
           cacheBust: true,
           backgroundColor: "#ffffff",
         });
         const dataUrl = await cropToPdfBounds(stage, fullDataUrl);
-        download(dataUrl, "PlotFlow-Overview.png");
+        const boundsWidth = Number(stage.dataset.pfPdfWidth) || stage.clientWidth;
+        const boundsHeight = Number(stage.dataset.pfPdfHeight) || stage.clientHeight;
+        const width = Math.round(boundsWidth * pixelRatio);
+        const height = Math.round(boundsHeight * pixelRatio);
+        download(dataUrl, `PlotFlow-Overview-${width}x${height}.png`);
       } finally {
-        if (toolbar) toolbar.style.display = previous;
         stage.classList.remove("is-exporting-overview");
       }
     }
 
+    syncResolutionControl();
+    observer = new MutationObserver(syncResolutionControl);
+    observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
+
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener("click", onClick, true);
+      document.querySelector("[data-png-resolution]")?.closest(".pf-png-resolution-control")?.remove();
+    };
   }, []);
 
   return null;
