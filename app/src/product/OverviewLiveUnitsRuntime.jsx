@@ -86,8 +86,7 @@ export default function OverviewLiveUnitsRuntime() {
     let observer = null;
     let timer = 0;
     let clampTimer = 0;
-    let groupFallbackTimer = 0;
-    let groupSwitchPending = false;
+    let groupRaf = 0;
     let lastSignature = "";
     let disposed = false;
 
@@ -185,14 +184,9 @@ export default function OverviewLiveUnitsRuntime() {
     }
 
     function enforcePdfBoundsSoon() {
-      if (groupSwitchPending) return;
       window.clearTimeout(clampTimer);
-      requestAnimationFrame(() => {
-        if (!groupSwitchPending) clampCardsInsidePdf({ arrangeUnsaved: true });
-      });
-      clampTimer = window.setTimeout(() => {
-        if (!groupSwitchPending) clampCardsInsidePdf({ arrangeUnsaved: false });
-      }, 220);
+      requestAnimationFrame(() => clampCardsInsidePdf({ arrangeUnsaved: true }));
+      clampTimer = window.setTimeout(() => clampCardsInsidePdf({ arrangeUnsaved: false }), 220);
     }
 
     function render(force = false) {
@@ -311,34 +305,25 @@ export default function OverviewLiveUnitsRuntime() {
     }
 
     function schedule(force = false, delay = 80) {
-      if (groupSwitchPending) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => sync(force), delay);
     }
 
     const onSell = () => schedule(true);
     const onGroup = () => {
-      groupSwitchPending = true;
       window.clearTimeout(timer);
       window.clearTimeout(clampTimer);
-      window.clearTimeout(groupFallbackTimer);
-      groupFallbackTimer = window.setTimeout(() => {
-        if (!groupSwitchPending || disposed) return;
-        groupSwitchPending = false;
+      if (groupRaf) window.cancelAnimationFrame(groupRaf);
+      groupRaf = window.requestAnimationFrame(() => {
+        groupRaf = 0;
+        if (disposed) return;
         sync(true);
-      }, 1200);
-    };
-    const onPdfFrameReady = () => {
-      if (!groupSwitchPending || disposed) return;
-      groupSwitchPending = false;
-      window.clearTimeout(groupFallbackTimer);
-      sync(true);
+      });
     };
     const onPdfBounds = () => enforcePdfBoundsSoon();
 
     window.addEventListener("plotflow-overview-sell-units", onSell);
     window.addEventListener("pf-overview-group-changed", onGroup);
-    window.addEventListener("pf-overview-pdf-frame-ready", onPdfFrameReady);
     window.addEventListener("pf-overview-pdf-bounds", onPdfBounds);
 
     observer = new MutationObserver((records) => {
@@ -357,11 +342,10 @@ export default function OverviewLiveUnitsRuntime() {
       observer?.disconnect();
       window.removeEventListener("plotflow-overview-sell-units", onSell);
       window.removeEventListener("pf-overview-group-changed", onGroup);
-      window.removeEventListener("pf-overview-pdf-frame-ready", onPdfFrameReady);
       window.removeEventListener("pf-overview-pdf-bounds", onPdfBounds);
       window.clearTimeout(timer);
       window.clearTimeout(clampTimer);
-      window.clearTimeout(groupFallbackTimer);
+      if (groupRaf) window.cancelAnimationFrame(groupRaf);
       layer?.remove();
       stage?.classList.remove("pf-live-overview-ready");
     };
