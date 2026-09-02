@@ -3,6 +3,7 @@ import "./OverviewLiveUnitsRuntime.css";
 
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
+const GROUP_STYLE_KEY = "plotflow-overview-group-style-v1";
 
 function canonicalOverviewGroup(value = "") {
   const raw = String(value).trim();
@@ -26,6 +27,14 @@ function readSavedCardLayout() {
     const value = JSON.parse(localStorage.getItem(CARD_LAYOUT_KEY) || "{}");
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   } catch { return {}; }
+}
+
+function readGroupScale(group) {
+  try {
+    const styles = JSON.parse(localStorage.getItem(GROUP_STYLE_KEY) || "{}") || {};
+    const raw = Number(styles?.[group]?.scale);
+    return Number.isFinite(raw) ? clamp(raw / 100, 0.2, 2.2) : 1;
+  } catch { return 1; }
 }
 
 function saveCardLayout(value) {
@@ -193,7 +202,10 @@ export default function OverviewLiveUnitsRuntime() {
         return;
       }
 
+      const savedLayout = readSavedCardLayout();
+      const groupScale = readGroupScale(group);
       const nextLayer = makeNode("div", "pf-callout-layer pf-live-overview-callouts");
+      nextLayer.style.visibility = "hidden";
       nextLayer.setAttribute("aria-label", `Overview sell cards · ${group || "all"}`);
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("class", "pf-callout-lines pf-live-callout-lines");
@@ -220,10 +232,20 @@ export default function OverviewLiveUnitsRuntime() {
         nextLayer.appendChild(anchor);
 
         const card = makeNode("article", `pf-sales-callout pf-live-sales-callout pf-sell-reference-card side-${side}`);
+        const saved = savedLayout[unit.code];
         card.dataset.unitCode = unit.code;
         card.dataset.handover = canonicalOverviewGroup(unit.handover || "");
-        card.style.top = `${topPct}%`;
-        if (side === "left") card.style.left = "5.5%"; else card.style.right = "5.5%";
+        card.dataset.pfObjectScale = String(groupScale);
+        card.style.transformOrigin = "0 0";
+        card.style.scale = String(groupScale);
+        if (saved) {
+          card.style.left = `${Number(saved.left) || 0}px`;
+          card.style.right = "auto";
+          card.style.top = `${Number(saved.top) || 0}px`;
+        } else {
+          card.style.top = `${topPct}%`;
+          if (side === "left") card.style.left = "5.5%"; else card.style.right = "5.5%";
+        }
         card.innerHTML = `
           <button type="button" class="pf-sales-callout-hit" aria-label="Chọn ${escapeHtml(unit.code)}"></button>
           <div class="pf-sell-card-code">${escapeHtml(unit.code)}</div>
@@ -244,8 +266,14 @@ export default function OverviewLiveUnitsRuntime() {
       if (!nextLayer.isConnected) stage.appendChild(nextLayer);
       layer = nextLayer;
       stage.classList.add("pf-live-overview-ready");
-      enforcePdfBoundsSoon();
+      clampCardsInsidePdf({ arrangeUnsaved: true });
       window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: units.length, located: 0, group, source: "sell-sheet" } }));
+      requestAnimationFrame(() => {
+        if (disposed || layer !== nextLayer || !nextLayer.isConnected) return;
+        clampCardsInsidePdf({ arrangeUnsaved: false });
+        syncConnectorStarts();
+        nextLayer.style.visibility = "";
+      });
     }
 
     function attach(nextStage) {
@@ -261,7 +289,7 @@ export default function OverviewLiveUnitsRuntime() {
     function schedule(force = false) { window.clearTimeout(timer); timer = window.setTimeout(() => sync(force), 80); }
 
     const onSell = () => schedule(true);
-    const onGroup = () => { schedule(true); window.setTimeout(enforcePdfBoundsSoon, 120); };
+    const onGroup = () => schedule(true);
     const onPdfBounds = () => enforcePdfBoundsSoon();
     window.addEventListener("plotflow-overview-sell-units", onSell);
     window.addEventListener("pf-overview-group-changed", onGroup);
