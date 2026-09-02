@@ -50,14 +50,17 @@ export default function OverviewPdfRuntime() {
       }
     }
 
-    function publishPdfBounds(rect, baseViewport, fit) {
-      if (!stage) return;
-      const bounds = {
+    function pdfBounds(rect, baseViewport, fit) {
+      return {
         x: (rect.width - baseViewport.width * fit) / 2,
         y: (rect.height - baseViewport.height * fit) / 2,
         width: baseViewport.width * fit,
         height: baseViewport.height * fit,
       };
+    }
+
+    function publishPdfBounds(bounds) {
+      if (!stage || !bounds) return;
       stage.dataset.pfPdfX = String(bounds.x);
       stage.dataset.pfPdfY = String(bounds.y);
       stage.dataset.pfPdfWidth = String(bounds.width);
@@ -128,7 +131,7 @@ export default function OverviewPdfRuntime() {
       const fit = Math.min(rect.width / baseViewport.width, rect.height / baseViewport.height);
       const baseX = (rect.width - baseViewport.width * fit) / 2;
       const baseY = (rect.height - baseViewport.height * fit) / 2;
-      publishPdfBounds(rect, baseViewport, fit);
+      const nextBounds = pdfBounds(rect, baseViewport, fit);
       const viewport = page.getViewport({ scale: fit * camera.scale * dpr });
       const translateX = (camera.tx + camera.scale * baseX) * dpr;
       const translateY = (camera.ty + camera.scale * baseY) * dpr;
@@ -156,9 +159,13 @@ export default function OverviewPdfRuntime() {
         renderedCamera = { ...camera };
         hasRenderedFrame = true;
         canvas.style.transform = "none";
+        publishPdfBounds(nextBounds);
         stage.classList.remove("pf-pdf-preview-transform", "pf-pdf-rendering-deep");
         stage.classList.add("pf-pdf-crisp-ready");
         releaseBrowserFallback();
+        window.dispatchEvent(new CustomEvent("pf-overview-pdf-frame-ready", {
+          detail: { url: currentPdfUrl, bounds: nextBounds },
+        }));
       } catch (error) {
         stage?.classList.remove("pf-pdf-rendering-deep");
         if (error?.name !== "RenderingCancelledException") {
@@ -224,8 +231,8 @@ export default function OverviewPdfRuntime() {
       page = null;
       pdf = null;
 
-      // When switching handover groups, keep the last rendered bitmap visible.
-      // Do not drop crisp-ready until the new PDF has a complete frame ready to swap in.
+      // Keep the previous complete frame, bounds and trim mask untouched until
+      // the new PDF has finished rendering. This makes the group switch atomic.
       stage?.classList.remove("pf-pdf-preview-transform", "pf-pdf-rendering-deep");
       if (!hasRenderedFrame) stage?.classList.remove("pf-pdf-crisp-ready");
 
