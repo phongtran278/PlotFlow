@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import "./OverviewControlRailRuntime.css";
+import "./OverviewControlRailTwoRows.css";
 
 function topOffset() {
   if (window.innerWidth <= 680) return 66;
