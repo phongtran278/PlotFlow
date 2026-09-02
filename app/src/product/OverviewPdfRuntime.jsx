@@ -29,6 +29,7 @@ export default function OverviewPdfRuntime() {
     let iframe = null;
     let iframeSrc = "";
     let hasRenderedFrame = false;
+    let lastStageSize = { width: 0, height: 0 };
     let renderedCamera = { scale: 1, tx: 0, ty: 0 };
     let pendingCamera = { scale: 1, tx: 0, ty: 0 };
 
@@ -50,7 +51,7 @@ export default function OverviewPdfRuntime() {
       }
     }
 
-    function pdfBounds(rect, baseViewport, fit) {
+    function computeBounds(rect, baseViewport, fit) {
       return {
         x: (rect.width - baseViewport.width * fit) / 2,
         y: (rect.height - baseViewport.height * fit) / 2,
@@ -122,8 +123,10 @@ export default function OverviewPdfRuntime() {
         snapshotTransform(camera);
         return;
       }
+
       const rect = stage.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return;
+      lastStageSize = { width: rect.width, height: rect.height };
       const generation = ++renderGeneration;
       const dpr = Math.min(camera.scale > 12 ? 1.15 : MAX_DPR, window.devicePixelRatio || 1);
       ensureCanvasSize(rect, dpr);
@@ -131,7 +134,7 @@ export default function OverviewPdfRuntime() {
       const fit = Math.min(rect.width / baseViewport.width, rect.height / baseViewport.height);
       const baseX = (rect.width - baseViewport.width * fit) / 2;
       const baseY = (rect.height - baseViewport.height * fit) / 2;
-      const nextBounds = pdfBounds(rect, baseViewport, fit);
+      const nextBounds = computeBounds(rect, baseViewport, fit);
       const viewport = page.getViewport({ scale: fit * camera.scale * dpr });
       const translateX = (camera.tx + camera.scale * baseX) * dpr;
       const translateY = (camera.ty + camera.scale * baseY) * dpr;
@@ -231,9 +234,9 @@ export default function OverviewPdfRuntime() {
       page = null;
       pdf = null;
 
-      // Keep the previous complete frame, bounds and trim mask untouched until
-      // the new PDF has finished rendering. This makes the group switch atomic.
-      stage?.classList.remove("pf-pdf-preview-transform", "pf-pdf-rendering-deep");
+      // Keep the previous complete frame, bounds and camera untouched until the
+      // next group has a fully rendered frame ready to swap in.
+      stage?.classList.remove("pf-pdf-rendering-deep");
       if (!hasRenderedFrame) stage?.classList.remove("pf-pdf-crisp-ready");
 
       try {
@@ -268,7 +271,8 @@ export default function OverviewPdfRuntime() {
     }
 
     function onGroupChanged() {
-      pendingCamera = { scale: 1, tx: 0, ty: 0 };
+      // All three overview PDFs share the same artboard. Do not reset zoom/pan
+      // or viewport on a handover-tab switch; only replace the rendered content.
       requestAnimationFrame(() => {
         const next = overviewPdfUrl();
         if (next !== currentPdfUrl) loadPdf(next);
@@ -293,7 +297,12 @@ export default function OverviewPdfRuntime() {
       bufferCtx = bufferCanvas.getContext("2d", { alpha: false });
       window.addEventListener("pf-overview-camera", onCamera);
       window.addEventListener("pf-overview-group-changed", onGroupChanged);
-      resizeObserver = new ResizeObserver(() => scheduleRender(pendingCamera, 80));
+      resizeObserver = new ResizeObserver(() => {
+        const rect = stage?.getBoundingClientRect();
+        if (!rect) return;
+        const changed = Math.abs(rect.width - lastStageSize.width) > 1 || Math.abs(rect.height - lastStageSize.height) > 1;
+        if (changed) scheduleRender(pendingCamera, 80);
+      });
       resizeObserver.observe(stage);
       await loadPdf(overviewPdfUrl());
     }
