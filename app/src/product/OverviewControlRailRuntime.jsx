@@ -18,21 +18,44 @@ const CANVAS_CONTROL_SELECTOR = [
 const ACTION_TITLES = {
   undo: "Undo the last change",
   redo: "Redo the last undone change",
-  fit: "Fit the PDF to the workspace",
-  "zoom-in": "Zoom in",
-  "zoom-out": "Zoom out",
-  hand: "Pan the PDF",
-  pan: "Pan the PDF",
+  fit: "Fit PDF to workspace",
+  in: "Zoom in",
+  out: "Zoom out",
+  png: "Export high-resolution PNG",
+  pdf: "Export PDF",
+};
+
+const TOOL_TITLES = {
   select: "Select and move cards",
-  highlight: "Draw a highlight area",
-  underline: "Toggle highlight outline",
-  stroke: "Adjust outline thickness",
-  "stroke-width": "Adjust outline thickness",
+  hand: "Pan the PDF",
+  zoom: "Zoom tool",
+  line: "Draw line",
+  rect: "Draw rectangle",
+  highlight: "Draw highlight area",
+};
+
+const LAYOUT_TITLES = {
+  same: "Match size to key object",
+  left: "Align left",
+  hcenter: "Align horizontal center",
+  right: "Align right",
+  top: "Align top",
+  vcenter: "Align vertical center",
+  bottom: "Align bottom",
+  "space-v": "Distribute vertically",
 };
 
 function readableLabel(element) {
   const action = String(element?.dataset?.action || "").trim().toLowerCase();
   if (ACTION_TITLES[action]) return ACTION_TITLES[action];
+  const tool = String(element?.dataset?.tool || "").trim().toLowerCase();
+  if (TOOL_TITLES[tool]) return TOOL_TITLES[tool];
+  const layout = String(element?.dataset?.layout || "").trim().toLowerCase();
+  if (LAYOUT_TITLES[layout]) return LAYOUT_TITLES[layout];
+  const align = String(element?.dataset?.align || "").trim().toLowerCase();
+  if (align) return element.getAttribute("aria-label") || `Align ${align}`;
+  const distribute = String(element?.dataset?.distribute || "").trim().toLowerCase();
+  if (distribute) return element.getAttribute("aria-label") || `Distribute ${distribute}`;
   const aria = element?.getAttribute?.("aria-label")?.trim();
   if (aria) return aria;
   const text = element?.textContent?.replace(/\s+/g, " ")?.trim();
@@ -97,11 +120,10 @@ export default function OverviewControlRailRuntime() {
 
     function applyControlHints() {
       if (!rail) return;
-      rail.querySelectorAll("button,[role='button'],input,select").forEach((control) => {
-        if (control.getAttribute("title")) return;
+      rail.querySelectorAll("button,[role='button'],input,select,summary").forEach((control) => {
         const label = readableLabel(control);
         if (!label) return;
-        control.setAttribute("title", label);
+        if (!control.getAttribute("title") || /^[LCRTMBS]$/.test(control.getAttribute("title") || "")) control.setAttribute("title", label);
         if (!control.getAttribute("aria-label") && !control.textContent?.trim()) control.setAttribute("aria-label", label);
       });
     }
