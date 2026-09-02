@@ -86,6 +86,8 @@ export default function OverviewLiveUnitsRuntime() {
     let observer = null;
     let timer = 0;
     let clampTimer = 0;
+    let groupFallbackTimer = 0;
+    let groupSwitchPending = false;
     let lastSignature = "";
     let disposed = false;
 
@@ -183,9 +185,14 @@ export default function OverviewLiveUnitsRuntime() {
     }
 
     function enforcePdfBoundsSoon() {
+      if (groupSwitchPending) return;
       window.clearTimeout(clampTimer);
-      requestAnimationFrame(() => clampCardsInsidePdf({ arrangeUnsaved: true }));
-      clampTimer = window.setTimeout(() => clampCardsInsidePdf({ arrangeUnsaved: false }), 220);
+      requestAnimationFrame(() => {
+        if (!groupSwitchPending) clampCardsInsidePdf({ arrangeUnsaved: true });
+      });
+      clampTimer = window.setTimeout(() => {
+        if (!groupSwitchPending) clampCardsInsidePdf({ arrangeUnsaved: false });
+      }, 220);
     }
 
     function render(force = false) {
@@ -224,11 +231,19 @@ export default function OverviewLiveUnitsRuntime() {
         line.dataset.unitCode = unit.code;
         line.setAttribute("x1", side === "left" ? "16" : "84");
         line.setAttribute("y1", String(topPct + 5));
-        line.setAttribute("x2", "50"); line.setAttribute("y2", "50"); line.style.opacity = "0";
+        line.setAttribute("x2", "50");
+        line.setAttribute("y2", "50");
+        line.style.opacity = "0";
         svg.appendChild(line);
 
         const anchor = makeNode("button", "pf-map-anchor pf-live-map-anchor");
-        anchor.type = "button"; anchor.dataset.unitCode = unit.code; anchor.dataset.located = "0"; anchor.dataset.anchorMode = "detail-pending"; anchor.textContent = unit.code; anchor.style.left = "50%"; anchor.style.top = "50%";
+        anchor.type = "button";
+        anchor.dataset.unitCode = unit.code;
+        anchor.dataset.located = "0";
+        anchor.dataset.anchorMode = "detail-pending";
+        anchor.textContent = unit.code;
+        anchor.style.left = "50%";
+        anchor.style.top = "50%";
         nextLayer.appendChild(anchor);
 
         const card = makeNode("article", `pf-sales-callout pf-live-sales-callout pf-sell-reference-card side-${side}`);
@@ -244,7 +259,8 @@ export default function OverviewLiveUnitsRuntime() {
           card.style.top = `${Number(saved.top) || 0}px`;
         } else {
           card.style.top = `${topPct}%`;
-          if (side === "left") card.style.left = "5.5%"; else card.style.right = "5.5%";
+          if (side === "left") card.style.left = "5.5%";
+          else card.style.right = "5.5%";
         }
         card.innerHTML = `
           <button type="button" class="pf-sales-callout-hit" aria-label="Chọn ${escapeHtml(unit.code)}"></button>
@@ -267,8 +283,6 @@ export default function OverviewLiveUnitsRuntime() {
       layer = nextLayer;
       stage.classList.add("pf-live-overview-ready");
 
-      // Prepare every visible coordinate while the new group is still hidden.
-      // Reveal in this same task so the browser never paints an empty/intermediate frame.
       clampCardsInsidePdf({ arrangeUnsaved: true });
       window.dispatchEvent(new CustomEvent("pf-overview-live-units-ready", { detail: { count: units.length, located: 0, group, source: "sell-sheet" } }));
       clampCardsInsidePdf({ arrangeUnsaved: false });
@@ -284,24 +298,47 @@ export default function OverviewLiveUnitsRuntime() {
 
     function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
-      layer?.remove(); stage = nextStage; lastSignature = ""; render(true);
+      layer?.remove();
+      stage = nextStage;
+      lastSignature = "";
+      render(true);
     }
 
     function sync(force = false) {
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      if (nextStage && nextStage !== stage) attach(nextStage); else if (stage) render(force);
+      if (nextStage && nextStage !== stage) attach(nextStage);
+      else if (stage) render(force);
     }
 
     function schedule(force = false, delay = 80) {
+      if (groupSwitchPending) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => sync(force), delay);
     }
 
     const onSell = () => schedule(true);
-    const onGroup = () => schedule(true, 0);
+    const onGroup = () => {
+      groupSwitchPending = true;
+      window.clearTimeout(timer);
+      window.clearTimeout(clampTimer);
+      window.clearTimeout(groupFallbackTimer);
+      groupFallbackTimer = window.setTimeout(() => {
+        if (!groupSwitchPending || disposed) return;
+        groupSwitchPending = false;
+        sync(true);
+      }, 1200);
+    };
+    const onPdfFrameReady = () => {
+      if (!groupSwitchPending || disposed) return;
+      groupSwitchPending = false;
+      window.clearTimeout(groupFallbackTimer);
+      sync(true);
+    };
     const onPdfBounds = () => enforcePdfBoundsSoon();
+
     window.addEventListener("plotflow-overview-sell-units", onSell);
     window.addEventListener("pf-overview-group-changed", onGroup);
+    window.addEventListener("pf-overview-pdf-frame-ready", onPdfFrameReady);
     window.addEventListener("pf-overview-pdf-bounds", onPdfBounds);
 
     observer = new MutationObserver((records) => {
@@ -320,9 +357,13 @@ export default function OverviewLiveUnitsRuntime() {
       observer?.disconnect();
       window.removeEventListener("plotflow-overview-sell-units", onSell);
       window.removeEventListener("pf-overview-group-changed", onGroup);
+      window.removeEventListener("pf-overview-pdf-frame-ready", onPdfFrameReady);
       window.removeEventListener("pf-overview-pdf-bounds", onPdfBounds);
-      window.clearTimeout(timer); window.clearTimeout(clampTimer);
-      layer?.remove(); stage?.classList.remove("pf-live-overview-ready");
+      window.clearTimeout(timer);
+      window.clearTimeout(clampTimer);
+      window.clearTimeout(groupFallbackTimer);
+      layer?.remove();
+      stage?.classList.remove("pf-live-overview-ready");
     };
   }, []);
 
