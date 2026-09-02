@@ -7,6 +7,13 @@ function topOffset() {
   return 78;
 }
 
+const CANVAS_CONTROL_SELECTOR = [
+  ".pf-overview-zoom-toolbar",
+  ".pf-editor-tools",
+  ".pf-editor-view-tools",
+  ".pf-export-menu",
+].join(",");
+
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
     let frame = 0;
@@ -58,15 +65,30 @@ export default function OverviewControlRailRuntime() {
       frame = requestAnimationFrame(updateFixed);
     }
 
+    function destinationFor(element, primaryTools, canvasTools) {
+      if (element?.matches?.(CANVAS_CONTROL_SELECTOR)) return canvasTools;
+      return primaryTools;
+    }
+
     function moveDynamicControlsIntoRail() {
       rail = document.querySelector(".pf-overview-control-rail");
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!rail || !stage) return false;
 
+      const primaryTools = rail.querySelector("[data-overview-primary-tools]");
+      const canvasTools = rail.querySelector("[data-overview-canvas-tools]");
+      if (!primaryTools || !canvasTools) return false;
+
       const navigator = document.querySelector(".pf-unit-navigator");
       const toolbar = document.querySelector(".pf-overview-zoom-toolbar");
-      if (navigator && navigator.parentElement !== rail) rail.appendChild(navigator);
-      if (toolbar && toolbar.parentElement !== rail) rail.appendChild(toolbar);
+      if (navigator && navigator.parentElement !== primaryTools) primaryTools.appendChild(navigator);
+      if (toolbar && toolbar.parentElement !== canvasTools) canvasTools.appendChild(toolbar);
+
+      Array.from(rail.children).forEach((child) => {
+        if (child.matches?.("[data-overview-control-row]")) return;
+        const destination = destinationFor(child, primaryTools, canvasTools);
+        destination.appendChild(child);
+      });
 
       ensureSpacer();
       if (!resizeObserver) {
