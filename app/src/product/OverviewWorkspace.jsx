@@ -1,4 +1,7 @@
 import "./OverviewWorkspace.css";
+import { getMemoryProfile } from "../runtime/memoryProfile.js";
+
+const OVERVIEW_RENDER_MODE = getMemoryProfile().windows ? "raster" : "pdf";
 
 export default function OverviewWorkspace({
   project,
@@ -36,7 +39,7 @@ export default function OverviewWorkspace({
           </div>
           <div className="pf-overview-view-status" aria-label="Current overview inventory">
             <strong>{groupUnitCount}</strong>
-            <span>{groupUnitCount === 1 ? "căn" : "căn"}</span>
+            <span>căn</span>
             <i aria-hidden="true" />
             <small>{overviewGroup}</small>
           </div>
@@ -61,7 +64,7 @@ export default function OverviewWorkspace({
           <div
             className={`pf-masterplan-stage ${project.masterplan ? "has-real-pdf has-callouts" : ""}`}
             data-overview-group={overviewGroup}
-            data-overview-render-mode="raster"
+            data-overview-render-mode={OVERVIEW_RENDER_MODE}
             data-overview-raster-source="prepared-masterplan-page-1"
           >
             {!project.masterplan && (
