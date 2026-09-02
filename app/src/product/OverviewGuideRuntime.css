@@ -2,7 +2,12 @@
 .pf-overview-guide-control button{height:26px;padding:0 9px;border:1px solid var(--pf-line);border-radius:var(--pf-radius-pill);background:var(--pf-surface-raised);color:var(--pf-muted);font-size:8px;font-weight:700;cursor:pointer;white-space:nowrap}
 .pf-overview-guide-control button:hover{color:var(--pf-ink)}
 .pf-overview-guide-control button.active{background:var(--pf-ink);color:#fff;border-color:var(--pf-ink)}
-.pf-overview-guide-line{position:absolute;z-index:48;width:9px;transform:translateX(-4px);pointer-events:auto;cursor:ew-resize;box-sizing:border-box}
-.pf-overview-guide-line::before{content:"";position:absolute;left:4px;top:0;width:1px;height:100%;border-left:1px solid #00a6ff;pointer-events:none}
-.pf-overview-guide-line>span{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:grid;place-items:center;min-width:22px;height:20px;padding:0 5px;border:1px solid rgba(0,122,204,.28);border-radius:999px;background:rgba(255,255,255,.94);color:#007acc;font-size:10px;line-height:1;box-shadow:0 3px 10px rgba(20,24,30,.10);user-select:none;cursor:ew-resize}
+.pf-overview-guide-line{position:absolute;z-index:48;pointer-events:auto;box-sizing:border-box}
+.pf-overview-guide-line.is-vertical{width:9px;transform:translateX(-4px);cursor:ew-resize}
+.pf-overview-guide-line.is-vertical::before{content:"";position:absolute;left:4px;top:0;width:1px;height:100%;border-left:1px solid #00a6ff;pointer-events:none}
+.pf-overview-guide-line.is-horizontal{height:9px;transform:translateY(-4px);cursor:ns-resize}
+.pf-overview-guide-line.is-horizontal::before{content:"";position:absolute;left:0;top:4px;width:100%;height:1px;border-top:1px solid #00a6ff;pointer-events:none}
+.pf-overview-guide-line>span{position:absolute;display:grid;place-items:center;min-width:22px;height:20px;padding:0 5px;border:1px solid rgba(0,122,204,.28);border-radius:999px;background:rgba(255,255,255,.94);color:#007acc;font-size:10px;line-height:1;box-shadow:0 3px 10px rgba(20,24,30,.10);user-select:none}
+.pf-overview-guide-line.is-vertical>span{top:8px;left:50%;transform:translateX(-50%);cursor:ew-resize}
+.pf-overview-guide-line.is-horizontal>span{left:8px;top:50%;transform:translateY(-50%);cursor:ns-resize}
 .pf-masterplan-stage.is-exporting-overview .pf-overview-guide-line{display:none!important}
