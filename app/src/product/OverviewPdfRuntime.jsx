@@ -281,8 +281,8 @@ export default function OverviewPdfRuntime() {
     }
 
     async function attach(nextStage) {
+      if (!nextStage || nextStage.dataset.overviewRenderMode !== "pdf" || nextStage.dataset.pfPdfViewportReady === "1") return;
       stage = nextStage;
-      if (!stage || stage.dataset.pfPdfViewportReady === "1") return;
       stage.dataset.pfPdfViewportReady = "1";
       iframe = stage.querySelector(".pf-masterplan-pdf");
       if (iframe) {
@@ -308,13 +308,13 @@ export default function OverviewPdfRuntime() {
     }
 
     function sync() {
-      const next = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
+      const next = document.querySelector('.pf-masterplan-stage[data-overview-render-mode="pdf"].has-real-pdf.has-callouts');
       if (next && next.dataset.pfPdfViewportReady !== "1") attach(next);
     }
 
     sync();
     const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "data-overview-render-mode"] });
     window.addEventListener("pf-memory-visibility", onMemoryVisibility);
 
     return () => {
