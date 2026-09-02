@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const CONNECTOR_CARD_OVERLAP_PX = 8;
+const CARD_HISTORY_LIMIT = 60;
 
 function codeForCard(card) {
   return card?.dataset?.unitCode
@@ -29,6 +30,9 @@ export default function WindowsOverviewViewportRuntime() {
     let drag = null;
     let activeCode = "";
     let lastCamera = { scale: 1, tx: 0, ty: 0 };
+    let cardHistory = [];
+    let cardFuture = [];
+    let lastStableSnapshot = null;
 
     function syncStage() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts") || null;
@@ -41,6 +45,88 @@ export default function WindowsOverviewViewportRuntime() {
 
     function selectedCards() {
       return overviewCards().filter((card) => card.classList.contains("pf-card-selected"));
+    }
+
+    function snapshotCards() {
+      const snapshot = {};
+      overviewCards().forEach((card) => {
+        const code = codeForCard(card);
+        if (!code) return;
+        snapshot[code] = {
+          left: +card.offsetLeft.toFixed(2),
+          top: +card.offsetTop.toFixed(2),
+        };
+      });
+      return snapshot;
+    }
+
+    function snapshotsEqual(a, b) {
+      const aKeys = Object.keys(a || {}).sort();
+      const bKeys = Object.keys(b || {}).sort();
+      if (aKeys.length !== bKeys.length) return false;
+      return aKeys.every((code, index) => {
+        if (code !== bKeys[index]) return false;
+        return Math.abs(Number(a[code]?.left) - Number(b[code]?.left)) < 0.01
+          && Math.abs(Number(a[code]?.top) - Number(b[code]?.top)) < 0.01;
+      });
+    }
+
+    function pushCardHistory(snapshot) {
+      if (!snapshot || !Object.keys(snapshot).length) return;
+      const latest = cardHistory[cardHistory.length - 1];
+      if (latest && snapshotsEqual(latest, snapshot)) return;
+      cardHistory.push(snapshot);
+      if (cardHistory.length > CARD_HISTORY_LIMIT) cardHistory.shift();
+      cardFuture = [];
+    }
+
+    function restoreCardSnapshot(snapshot) {
+      if (!snapshot || !syncStage()) return false;
+      const layout = readCardLayout();
+      let restored = false;
+      overviewCards().forEach((card) => {
+        const code = codeForCard(card);
+        const saved = snapshot[code];
+        if (!code || !saved) return;
+        const left = Number(saved.left);
+        const top = Number(saved.top);
+        if (!Number.isFinite(left) || !Number.isFinite(top)) return;
+        card.style.left = `${left}px`;
+        card.style.top = `${top}px`;
+        card.style.right = "auto";
+        layout[code] = { ...(layout[code] || {}), left, top };
+        delete layout[code].width;
+        delete layout[code].height;
+        restored = true;
+      });
+      if (!restored) return false;
+      localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
+      positionConnectorsWorld();
+      syncLinkedSelection();
+      lastStableSnapshot = snapshotCards();
+      window.dispatchEvent(new CustomEvent("pf-overview-card-position-changed", {
+        detail: { source: "history", codes: Object.keys(snapshot) },
+      }));
+      return true;
+    }
+
+    function undoCardLayout() {
+      if (!cardHistory.length || !syncStage()) return false;
+      const current = snapshotCards();
+      const previous = cardHistory.pop();
+      if (!previous) return false;
+      cardFuture.push(current);
+      return restoreCardSnapshot(previous);
+    }
+
+    function redoCardLayout() {
+      if (!cardFuture.length || !syncStage()) return false;
+      const current = snapshotCards();
+      const next = cardFuture.pop();
+      if (!next) return false;
+      cardHistory.push(current);
+      if (cardHistory.length > CARD_HISTORY_LIMIT) cardHistory.shift();
+      return restoreCardSnapshot(next);
     }
 
     function clearKeyCard() {
@@ -215,7 +301,7 @@ export default function WindowsOverviewViewportRuntime() {
         const resolved = anchor && (anchor.dataset.located === "1" || anchor.dataset.saved === "1");
         const active = Boolean(code) && lineCode === code;
         line.classList.toggle("pf-linked-active", active);
-        line.style.opacity = resolved ? (active ? "1" : "0.28") : "0";
+        line.style.opacity = resolved ? "1" : "0";
       });
       anchors.forEach((anchor) => {
         const anchorCode = anchor.dataset.unitCode || anchor.textContent?.trim() || "";
@@ -259,6 +345,7 @@ export default function WindowsOverviewViewportRuntime() {
         startY: event.clientY,
         startLeft: card.offsetLeft,
         startTop: card.offsetTop,
+        before: snapshotCards(),
       };
     }
 
@@ -278,14 +365,40 @@ export default function WindowsOverviewViewportRuntime() {
 
     function finishCardDrag(event) {
       if (!drag || (event?.pointerId != null && event.pointerId !== drag.pointerId)) return;
-      const card = drag.card;
+      const currentDrag = drag;
+      const card = currentDrag.card;
       drag = null;
+      const moved = Math.abs(card.offsetLeft - currentDrag.startLeft) >= 0.01
+        || Math.abs(card.offsetTop - currentDrag.startTop) >= 0.01;
+      if (moved) pushCardHistory(currentDrag.before);
       persistCard(card);
       positionConnectorsWorld();
       syncLinkedSelection(card);
+      lastStableSnapshot = snapshotCards();
       window.dispatchEvent(new CustomEvent("pf-overview-card-position-changed", {
         detail: { code: codeForCard(card), left: card.offsetLeft, top: card.offsetTop },
       }));
+    }
+
+    function onHistoryControl(event) {
+      const button = event.target?.closest?.('.pf-overview-zoom-toolbar [data-action="undo"],.pf-overview-zoom-toolbar [data-action="redo"]');
+      if (!button) return;
+      const action = button.dataset.action;
+      const handled = action === "undo" ? undoCardLayout() : redoCardLayout();
+      if (!handled) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+
+    function onHistoryKey(event) {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      const key = String(event.key || "").toLowerCase();
+      let handled = false;
+      if (key === "z") handled = event.shiftKey ? redoCardLayout() : undoCardLayout();
+      else if (key === "y") handled = redoCardLayout();
+      if (!handled) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
     }
 
     function onCamera(event) {
@@ -310,6 +423,20 @@ export default function WindowsOverviewViewportRuntime() {
       });
     }
 
+    function onAutoArranged() {
+      window.requestAnimationFrame(() => {
+        if (!syncStage()) return;
+        const current = snapshotCards();
+        if (lastStableSnapshot && !snapshotsEqual(lastStableSnapshot, current)) {
+          pushCardHistory(lastStableSnapshot);
+        }
+        lastStableSnapshot = current;
+        normalizeOverlayOwnership();
+        positionConnectorsWorld();
+        syncLinkedSelection();
+      });
+    }
+
     function onPointerUpSelection(event) {
       const card = event.target?.closest?.(".pf-live-sales-callout,.pf-sales-callout");
       if (card && stage?.contains(card)) {
@@ -321,22 +448,32 @@ export default function WindowsOverviewViewportRuntime() {
     function onGroupChanged() {
       activeCode = "";
       drag = null;
+      cardHistory = [];
+      cardFuture = [];
+      lastStableSnapshot = null;
       overviewCards().forEach((card) => card.classList.remove("pf-card-selected", "pf-card-key"));
       emitSelectionChanged();
       onLayoutChanged();
+      window.requestAnimationFrame(() => {
+        if (!syncStage()) return;
+        lastStableSnapshot = snapshotCards();
+      });
     }
 
     syncStage();
     normalizeOverlayOwnership();
     positionConnectorsWorld();
     syncLinkedSelection();
+    lastStableSnapshot = snapshotCards();
     document.addEventListener("pointerdown", onCardPointerDown, true);
     document.addEventListener("pointerup", onPointerUpSelection, true);
+    document.addEventListener("click", onHistoryControl, true);
+    window.addEventListener("keydown", onHistoryKey, true);
     window.addEventListener("pointermove", onCardPointerMove, true);
     window.addEventListener("pointerup", finishCardDrag, true);
     window.addEventListener("pointercancel", finishCardDrag, true);
     window.addEventListener("pf-overview-camera", onCamera);
-    window.addEventListener("pf-overview-auto-arranged", onLayoutChanged);
+    window.addEventListener("pf-overview-auto-arranged", onAutoArranged);
     window.addEventListener("pf-overview-card-size-changed", onLayoutChanged);
     window.addEventListener("pf-overview-anchor-changed", onLayoutChanged);
     window.addEventListener("pf-overview-live-units-ready", onLayoutChanged);
@@ -347,11 +484,13 @@ export default function WindowsOverviewViewportRuntime() {
       drag = null;
       document.removeEventListener("pointerdown", onCardPointerDown, true);
       document.removeEventListener("pointerup", onPointerUpSelection, true);
+      document.removeEventListener("click", onHistoryControl, true);
+      window.removeEventListener("keydown", onHistoryKey, true);
       window.removeEventListener("pointermove", onCardPointerMove, true);
       window.removeEventListener("pointerup", finishCardDrag, true);
       window.removeEventListener("pointercancel", finishCardDrag, true);
       window.removeEventListener("pf-overview-camera", onCamera);
-      window.removeEventListener("pf-overview-auto-arranged", onLayoutChanged);
+      window.removeEventListener("pf-overview-auto-arranged", onAutoArranged);
       window.removeEventListener("pf-overview-card-size-changed", onLayoutChanged);
       window.removeEventListener("pf-overview-anchor-changed", onLayoutChanged);
       window.removeEventListener("pf-overview-live-units-ready", onLayoutChanged);
