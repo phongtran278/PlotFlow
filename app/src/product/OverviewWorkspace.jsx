@@ -23,31 +23,31 @@ export default function OverviewWorkspace({
           <h1>{project.name}</h1>
           <p>{project.developer} · {project.location}</p>
         </div>
-        <div className="pf-overview-summary" aria-label="Overview project summary">
-          <div><span>STATUS</span><strong>{project.status}</strong></div>
-          <div><span>LIVE INVENTORY</span><strong>{groupUnitCount}</strong><small>{overviewGroup} in current view</small></div>
-          <div><span>VIEW</span><strong>{overviewGroup}</strong><small>{groupUnitCount} units in scope</small></div>
+        <div className="pf-overview-intro-actions">
+          <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
+            {overviewGroups.map((group) => (
+              <button
+                key={group}
+                type="button"
+                className={overviewGroup === group ? "active" : ""}
+                onClick={() => onOverviewGroup(group)}
+              >
+                {group}
+              </button>
+            ))}
+          </div>
+          <div className="pf-overview-summary" aria-label="Overview project summary">
+            <div><span>STATUS</span><strong>{project.status}</strong></div>
+            <div><span>LIVE INVENTORY</span><strong>{groupUnitCount}</strong><small>{overviewGroup} in current view</small></div>
+            <div><span>VIEW</span><strong>{overviewGroup}</strong><small>{groupUnitCount} units in scope</small></div>
+          </div>
         </div>
       </header>
 
       {project.masterplan && (
         <div className="pf-overview-control-rail" aria-label="Overview editor controls">
           <div className="pf-overview-control-row pf-overview-control-row-primary" data-overview-control-row="primary">
-            <div className="pf-overview-control-cluster pf-overview-view-cluster">
-              <span className="pf-overview-control-label">VIEW</span>
-              <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
-                {overviewGroups.map((group) => (
-                  <button
-                    key={group}
-                    type="button"
-                    className={overviewGroup === group ? "active" : ""}
-                    onClick={() => onOverviewGroup(group)}
-                  >
-                    {group}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <span className="pf-overview-control-label">CARD</span>
             <div className="pf-overview-primary-tools" data-overview-primary-tools />
           </div>
           <div className="pf-overview-control-row pf-overview-control-row-canvas" data-overview-control-row="canvas">
