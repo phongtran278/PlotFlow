@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import "./OverviewControlRailRuntime.css";
-import "./OverviewControlRailTwoRows.css";
 
 const CANVAS_CONTROL_SELECTOR = [
   ".pf-overview-zoom-toolbar",
@@ -83,9 +82,6 @@ export default function OverviewControlRailRuntime() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!rail || !stage) return false;
 
-      // The rail deliberately stays in normal document flow. Making it fixed or
-      // inserting a spacer on scroll changes the available stage height, which
-      // causes ResizeObserver -> PDF/raster rerenders and produces visible jumps.
       rail.classList.remove("is-fixed-toolbar");
       document.querySelectorAll(".pf-overview-control-rail-spacer").forEach((node) => node.remove());
 
