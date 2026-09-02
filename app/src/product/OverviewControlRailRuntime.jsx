@@ -54,21 +54,22 @@ function ensureGroup(parent, key, label) {
   group = document.createElement("section");
   group.className = `pf-overview-function-group pf-overview-function-${key}`;
   group.dataset.overviewFunctionGroup = key;
-  if (label) {
-    const heading = document.createElement("span");
-    heading.className = "pf-overview-function-label";
-    heading.textContent = label;
-    group.appendChild(heading);
-  }
+  const heading = document.createElement("span");
+  heading.className = "pf-overview-function-label";
+  heading.textContent = label;
   const content = document.createElement("div");
   content.className = "pf-overview-function-content";
-  group.appendChild(content);
+  group.append(heading, content);
   parent.appendChild(group);
   return group;
 }
 
 function groupContent(group) {
   return group?.querySelector(":scope > .pf-overview-function-content") || group;
+}
+
+function moveTo(node, destination) {
+  if (node && destination && node.parentElement !== destination) destination.appendChild(node);
 }
 
 function buttonWithText(root, text) {
@@ -80,7 +81,6 @@ export default function OverviewControlRailRuntime() {
   useEffect(() => {
     let frame = 0;
     let rail = null;
-    let stage = null;
     let mutationObserver = null;
 
     function applyControlHints() {
@@ -93,19 +93,9 @@ export default function OverviewControlRailRuntime() {
       });
     }
 
-    function resetFunctionGroups(primaryTools, canvasTools) {
-      [primaryTools, canvasTools].forEach((root) => {
-        root.querySelectorAll(":scope > .pf-overview-function-group").forEach((group) => {
-          const content = groupContent(group);
-          Array.from(content?.children || []).forEach((child) => root.appendChild(child));
-          group.remove();
-        });
-      });
-    }
-
-    function moveDynamicControlsIntoRail() {
+    function groupControls() {
       rail = document.querySelector(".pf-overview-control-rail");
-      stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
+      const stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!rail || !stage) return false;
 
       rail.classList.remove("is-fixed-toolbar");
@@ -121,67 +111,50 @@ export default function OverviewControlRailRuntime() {
       if (toolbar && !rail.contains(toolbar)) canvasTools.appendChild(toolbar);
 
       Array.from(rail.children).forEach((child) => {
-        if (child.matches?.("[data-overview-control-row]")) return;
-        primaryTools.appendChild(child);
+        if (!child.matches?.("[data-overview-control-row]")) primaryTools.appendChild(child);
       });
 
-      resetFunctionGroups(primaryTools, canvasTools);
+      const objectContent = groupContent(ensureGroup(primaryTools, "object", "Object"));
+      const connectorContent = groupContent(ensureGroup(primaryTools, "connector", "Connector"));
+      const guideContent = groupContent(ensureGroup(primaryTools, "guides", "Guides"));
+      const unitContent = groupContent(ensureGroup(primaryTools, "unit", "Unit"));
+      const viewContent = groupContent(ensureGroup(canvasTools, "view", "View"));
+      const alignContent = groupContent(ensureGroup(canvasTools, "align", "Align"));
 
-      const objectGroup = ensureGroup(primaryTools, "object", "Object");
-      const connectorGroup = ensureGroup(primaryTools, "connector", "Connector");
-      const guideGroup = ensureGroup(primaryTools, "guides", "Guides");
-      const unitGroup = ensureGroup(primaryTools, "unit", "Unit");
-      const viewGroup = ensureGroup(canvasTools, "view", "View");
-      const layoutGroup = ensureGroup(canvasTools, "align", "Align");
+      const quickScale = rail.querySelector(".pf-card-quick-scale");
+      const precision = rail.querySelector(".pf-precision-arrange");
+      const style = rail.querySelector(".pf-v2-style");
+      const arrangeButton = rail.querySelector('[data-card-action="arrange"]');
+      [quickScale, precision, style, arrangeButton].forEach((node) => moveTo(node, objectContent));
 
-      const objectContent = groupContent(objectGroup);
-      const connectorContent = groupContent(connectorGroup);
-      const guideContent = groupContent(guideGroup);
-      const unitContent = groupContent(unitGroup);
-      const viewContent = groupContent(viewGroup);
-      const layoutContent = groupContent(layoutGroup);
+      const connectorStyle = rail.querySelector(".pf-connector-style-control");
+      moveTo(connectorStyle, connectorContent);
+      const editConnector = buttonWithText(rail, "Edit connector");
+      moveTo(editConnector, connectorContent);
 
-      const precision = primaryTools.querySelector(".pf-precision-arrange");
-      const style = primaryTools.querySelector(".pf-v2-style");
-      const connectorControl = primaryTools.querySelector(".pf-connector-control");
-      const arrangeButton = connectorControl?.querySelector('[data-card-action="arrange"]');
-      const connectorStyle = connectorControl?.querySelector(".pf-connector-style-control");
-      const quickScale = primaryTools.querySelector(".pf-card-quick-scale");
+      ["Guides", "Snap", "Reset"].forEach((text) => moveTo(buttonWithText(rail, text), guideContent));
+      moveTo(navigator, unitContent);
 
-      [quickScale, precision, style, arrangeButton].filter(Boolean).forEach((node) => objectContent.appendChild(node));
-      if (connectorStyle) connectorContent.appendChild(connectorStyle);
+      moveTo(rail.querySelector(".pf-editor-tools"), viewContent);
+      moveTo(rail.querySelector(".pf-editor-view-tools"), viewContent);
+      moveTo(rail.querySelector(".pf-export-menu"), viewContent);
+      moveTo(rail.querySelector(".pf-editor-layout-tools"), alignContent);
 
-      const editConnector = buttonWithText(primaryTools, "Edit connector") || buttonWithText(navigator, "Edit connector");
-      if (editConnector) connectorContent.appendChild(editConnector);
-
-      const guideButtons = ["Guides", "Snap", "Reset"].map((text) => buttonWithText(primaryTools, text)).filter(Boolean);
-      guideButtons.forEach((button) => guideContent.appendChild(button));
-
-      if (navigator) unitContent.appendChild(navigator);
-
-      const editorTools = canvasTools.querySelector(".pf-editor-tools");
-      const editorViewTools = canvasTools.querySelector(".pf-editor-view-tools");
-      const exportMenu = canvasTools.querySelector(".pf-export-menu");
-      [editorTools, editorViewTools, exportMenu].filter(Boolean).forEach((node) => viewContent.appendChild(node));
-
-      const editorLayoutTools = canvasTools.querySelector(".pf-editor-layout-tools");
-      if (editorLayoutTools) layoutContent.appendChild(editorLayoutTools);
-
-      const leftovers = Array.from(primaryTools.children).filter((child) => !child.matches?.(".pf-overview-function-group"));
-      leftovers.forEach((child) => {
-        if (child === connectorControl && child.children.length === 0) child.remove();
-        else if (child.classList?.contains("pf-overview-v2-controls") && child.children.length === 0) child.remove();
-        else connectorContent.appendChild(child);
+      rail.querySelectorAll(".pf-card-layout-control,.pf-connector-control,.pf-overview-v2-controls,.pf-overview-zoom-toolbar").forEach((wrapper) => {
+        if (!wrapper.children.length) wrapper.remove();
       });
 
-      Array.from(canvasTools.children).filter((child) => !child.matches?.(".pf-overview-function-group")).forEach((child) => viewContent.appendChild(child));
+      Array.from(primaryTools.children).forEach((child) => {
+        if (!child.matches?.(".pf-overview-function-group")) moveTo(child, connectorContent);
+      });
+      Array.from(canvasTools.children).forEach((child) => {
+        if (!child.matches?.(".pf-overview-function-group")) moveTo(child, viewContent);
+      });
 
-      objectGroup.hidden = objectContent.children.length === 0;
-      connectorGroup.hidden = connectorContent.children.length === 0;
-      guideGroup.hidden = guideContent.children.length === 0;
-      unitGroup.hidden = unitContent.children.length === 0;
-      viewGroup.hidden = viewContent.children.length === 0;
-      layoutGroup.hidden = layoutContent.children.length === 0;
+      rail.querySelectorAll(".pf-overview-function-group").forEach((group) => {
+        const content = groupContent(group);
+        group.hidden = !content?.children.length;
+      });
 
       applyControlHints();
       return true;
@@ -189,13 +162,14 @@ export default function OverviewControlRailRuntime() {
 
     function scheduleSync() {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(moveDynamicControlsIntoRail);
+      frame = requestAnimationFrame(groupControls);
     }
 
     function watchDynamicControls() {
       mutationObserver?.disconnect();
-      mutationObserver = new MutationObserver(() => {
+      mutationObserver = new MutationObserver((records) => {
         if (!document.body.classList.contains("pf-product-overview")) return;
+        if (!records.some((record) => record.addedNodes?.length || record.removedNodes?.length)) return;
         scheduleSync();
       });
       mutationObserver.observe(document.body, { childList: true, subtree: true });
