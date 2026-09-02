@@ -41,6 +41,7 @@ export default function OverviewArrangeModesRuntime() {
     let items = [];
     let drag = null;
     let resolvedGapPx = 14;
+    let resolvedLaneCount = 0;
     const ui = readArrangeUi();
 
     const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
@@ -197,24 +198,83 @@ export default function OverviewArrangeModesRuntime() {
       return { centers: result };
     }
 
+    function partitionIntoLanes(list, bounds, gapPx) {
+      if (!list.length) return [];
+      const safe = safeArea(bounds);
+      const available = safe.height * bounds.height;
+      const sorted = [...list].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+      const lanes = [[]];
+      const loads = [0];
+
+      sorted.forEach((item) => {
+        let laneIndex = lanes.length - 1;
+        const lane = lanes[laneIndex];
+        const extra = item.height + (lane.length ? gapPx : 0);
+        if (lane.length && loads[laneIndex] + extra > available + 0.5) {
+          lanes.push([]);
+          loads.push(0);
+          laneIndex += 1;
+        }
+        const target = lanes[laneIndex];
+        loads[laneIndex] += item.height + (target.length ? gapPx : 0);
+        target.push(item);
+      });
+      return lanes;
+    }
+
+    function laneCentersX(lanes, side, selectedMode, bounds) {
+      if (!lanes.length) return [];
+      const widths = lanes.map((lane) => Math.max(...lane.map((item) => item.width), 1));
+      const compact = selectedMode === "compact";
+      const horizontalGap = compact ? 10 : 18;
+      const edgeInset = compact ? Math.min(64, Math.max(28, bounds.width * 0.07)) : 12;
+      const centers = [];
+
+      if (side === "left") {
+        let cursor = edgeInset;
+        widths.forEach((width) => {
+          centers.push(clamp((cursor + width / 2) / bounds.width, 0.02, 0.49));
+          cursor += width + horizontalGap;
+        });
+      } else {
+        let cursor = bounds.width - edgeInset;
+        widths.forEach((width) => {
+          centers.push(clamp((cursor - width / 2) / bounds.width, 0.51, 0.98));
+          cursor -= width + horizontalGap;
+        });
+      }
+      return centers;
+    }
+
+    function solveSide(list, side, selectedMode, next) {
+      const bounds = pdfBounds();
+      if (!bounds || !list.length) return 0;
+      const anchorAware = selectedMode === "smart";
+      const lanes = partitionIntoLanes(list, bounds, ui.gap);
+      const xs = laneCentersX(lanes, side, selectedMode, bounds);
+
+      lanes.forEach((lane, laneIndex) => {
+        const laneGap = Math.min(ui.gap, gapCapacityPx(lane, bounds));
+        resolvedGapPx = Math.min(resolvedGapPx, laneGap);
+        const solve = exactVerticalCenters(lane, { anchorAware, gapPx: laneGap });
+        lane.forEach((item) => {
+          next[item.code] = {
+            x: xs[laneIndex] ?? (side === "left" ? 0.13 : 0.87),
+            y: solve.centers.get(item.code) ?? 0.5,
+          };
+        });
+      });
+      return lanes.length;
+    }
+
     function buildDraft(selectedMode) {
       mode = selectedMode;
       const next = {};
       const { left, right } = split(items, selectedMode);
-      const bounds = pdfBounds();
-      const capacityCandidates = bounds
-        ? [left, right].filter((list) => list.length > 1).map((list) => gapCapacityPx(list, bounds))
-        : [];
-      resolvedGapPx = capacityCandidates.length
-        ? Math.min(ui.gap, ...capacityCandidates)
-        : ui.gap;
-      const anchorAware = selectedMode === "smart";
-      const leftSolve = exactVerticalCenters(left, { anchorAware, gapPx: resolvedGapPx });
-      const rightSolve = exactVerticalCenters(right, { anchorAware, gapPx: resolvedGapPx });
-      const leftX = selectedMode === "compact" ? 0.24 : selectedMode === "left" ? 0.16 : 0.13;
-      const rightX = selectedMode === "compact" ? 0.76 : selectedMode === "right" ? 0.84 : 0.87;
-      left.forEach((item) => { next[item.code] = { x: leftX, y: leftSolve.centers.get(item.code) ?? 0.5 }; });
-      right.forEach((item) => { next[item.code] = { x: rightX, y: rightSolve.centers.get(item.code) ?? 0.5 }; });
+      resolvedGapPx = ui.gap;
+      const leftLanes = solveSide(left, "left", selectedMode, next);
+      const rightLanes = solveSide(right, "right", selectedMode, next);
+      resolvedLaneCount = leftLanes + rightLanes;
       draft = next;
       renderDraft();
     }
@@ -223,9 +283,10 @@ export default function OverviewArrangeModesRuntime() {
       const footer = overlay?.querySelector("footer>span");
       if (!footer) return;
       const resolved = Math.round(resolvedGapPx * 10) / 10;
+      const lanes = resolvedLaneCount > 2 ? ` · ${resolvedLaneCount} lanes to prevent overlap` : "";
       footer.textContent = resolved + 0.05 < ui.gap
-        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px shared gap fits · preview only`
-        : `${items.length} cards · ${ui.gap}px shared gap · preview only`;
+        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px gap fits${lanes} · preview only`
+        : `${items.length} cards · ${ui.gap}px gap${lanes} · preview only`;
     }
 
     function syncPreviewConnectors() {
@@ -235,8 +296,6 @@ export default function OverviewArrangeModesRuntime() {
       const svgRect = svg.getBoundingClientRect();
       if (svgRect.width < 1 || svgRect.height < 1) return;
 
-      // Keep SVG user units identical to its rendered pixel box. Card chips and lot
-      // anchors are HTML elements, so this avoids any percentage/viewBox mismatch.
       svg.setAttribute("viewBox", `0 0 ${svgRect.width} ${svgRect.height}`);
       svg.setAttribute("preserveAspectRatio", "none");
 
@@ -256,21 +315,19 @@ export default function OverviewArrangeModesRuntime() {
         const cardCenterY = (cardTop + cardBottom) / 2;
         const anchorX = anchorRect.left + anchorRect.width / 2 - svgRect.left;
         const anchorY = anchorRect.top + anchorRect.height / 2 - svgRect.top;
+        const candidates = [
+          { x: cardLeft, y: cardCenterY },
+          { x: cardRight, y: cardCenterY },
+          { x: cardCenterX, y: cardTop },
+          { x: cardCenterX, y: cardBottom },
+        ];
+        const start = candidates.reduce((best, point) => {
+          const distance = Math.hypot(anchorX - point.x, anchorY - point.y);
+          return !best || distance < best.distance ? { ...point, distance } : best;
+        }, null);
 
-        let startX = cardCenterX;
-        let startY = cardCenterY;
-        if (anchorX < cardLeft) {
-          startX = cardLeft;
-        } else if (anchorX > cardRight) {
-          startX = cardRight;
-        } else if (anchorY < cardTop) {
-          startY = cardTop;
-        } else if (anchorY > cardBottom) {
-          startY = cardBottom;
-        }
-
-        line.setAttribute("x1", String(startX));
-        line.setAttribute("y1", String(startY));
+        line.setAttribute("x1", String(start?.x ?? cardCenterX));
+        line.setAttribute("y1", String(start?.y ?? cardCenterY));
         line.setAttribute("x2", String(anchorX));
         line.setAttribute("y2", String(anchorY));
       });
@@ -368,7 +425,7 @@ export default function OverviewArrangeModesRuntime() {
         delete layout[item.code].height;
       });
       localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(layout));
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: `preview-${mode}`, count: items.length, gap: resolvedGapPx, requestedGap: ui.gap } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: `preview-${mode}`, count: items.length, gap: resolvedGapPx, requestedGap: ui.gap, lanes: resolvedLaneCount } }));
       window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
       closePreview();
     }
@@ -394,16 +451,16 @@ export default function OverviewArrangeModesRuntime() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>The top banner area is reserved. Every connector is attached to the rendered card edge and its matching lot point.</small>
+              <small>The top banner area is reserved. Dense layouts automatically add lanes instead of overlapping cards.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>
               <label class="pf-arrange-gap-control"><span>Gap</span><input data-arrange-gap type="number" min="0" max="120" step="1" value="${ui.gap}"><b>px</b></label>
               <button type="button" data-arrange-mode="smart"><strong>Smart L/R</strong><small>Follow lot side; rebalance only when needed</small></button>
               <button type="button" data-arrange-mode="balanced"><strong>Balanced</strong><small>Balance visual card load across both sides</small></button>
-              <button type="button" data-arrange-mode="compact"><strong>Compact</strong><small>Balanced columns closer to the masterplan</small></button>
-              <button type="button" data-arrange-mode="left"><strong>All left</strong><small>One left-side column</small></button>
-              <button type="button" data-arrange-mode="right"><strong>All right</strong><small>One right-side column</small></button>
+              <button type="button" data-arrange-mode="compact"><strong>Compact</strong><small>Balanced lanes closer to the masterplan</small></button>
+              <button type="button" data-arrange-mode="left"><strong>All left</strong><small>Use as many left lanes as needed to avoid overlap</small></button>
+              <button type="button" data-arrange-mode="right"><strong>All right</strong><small>Use as many right lanes as needed to avoid overlap</small></button>
             </aside>
           </div>
           <footer><span>${items.length} cards · ${ui.gap}px gap · preview only</span><div><button type="button" data-arrange-cancel>Cancel</button><button type="button" class="primary" data-arrange-apply>Apply layout</button></div></footer>
