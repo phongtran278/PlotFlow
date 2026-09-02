@@ -28,6 +28,7 @@ import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
 import OverviewRasterRuntime from "./product/OverviewRasterRuntime.jsx";
 import OverviewWindowsFixedBitmapRuntime from "./product/OverviewWindowsFixedBitmapRuntime.jsx";
 import OverviewExportRuntime from "./product/OverviewExportRuntime.jsx";
+import OverviewHeaderExportRuntime from "./product/OverviewHeaderExportRuntime.jsx";
 import OverviewAnchorRuntime from "./product/OverviewAnchorRuntime.jsx";
 import OverviewLiveUnitsRuntime from "./product/OverviewLiveUnitsRuntime.jsx";
 import OverviewDetailLocatorBridge from "./product/OverviewDetailLocatorBridge.jsx";
@@ -44,6 +45,7 @@ import OverviewLayerRevealRuntime from "./product/OverviewLayerRevealRuntime.jsx
 import OverviewUnitBadgeRuntime from "./product/OverviewUnitBadgeRuntime.jsx";
 import WindowsOverviewViewportRuntime from "./product/WindowsOverviewViewportRuntime.jsx";
 import "./product/OverviewControlRailTwoRows.css";
+import "./product/OverviewFinalPolish.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
@@ -162,6 +164,7 @@ function OverviewRuntimes() {
       <WindowsOverviewViewportRuntime />
       <OverviewMasterplanEngine />
       <OverviewExportRuntime />
+      <OverviewHeaderExportRuntime />
       <OverviewAnchorRuntime />
       <OverviewLiveUnitsRuntime />
       <OverviewDetailLocatorBridge />
