@@ -11,9 +11,6 @@ export default function OverviewWorkspace({
 }) {
   const liveUnitCount = sellUnits.length || units.length;
   const groupUnitCount = sellUnits.length ? visibleSellUnits.length : liveUnitCount;
-  const scopedInventoryLabel = groupUnitCount
-    ? `${groupUnitCount} / ${groupUnitCount} units loaded for ${overviewGroup}`
-    : "Waiting for inventory in this view";
 
   return (
     <main className="pf-overview">
@@ -23,7 +20,8 @@ export default function OverviewWorkspace({
           <h1>{project.name}</h1>
           <p>{project.developer} · {project.location}</p>
         </div>
-        <div className="pf-overview-intro-actions">
+
+        <div className="pf-overview-header-tools">
           <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
             {overviewGroups.map((group) => (
               <button
@@ -36,10 +34,11 @@ export default function OverviewWorkspace({
               </button>
             ))}
           </div>
-          <div className="pf-overview-summary" aria-label="Overview project summary">
-            <div><span>STATUS</span><strong>{project.status}</strong></div>
-            <div><span>LIVE INVENTORY</span><strong>{groupUnitCount}</strong><small>{overviewGroup} in current view</small></div>
-            <div><span>VIEW</span><strong>{overviewGroup}</strong><small>{groupUnitCount} units in scope</small></div>
+          <div className="pf-overview-view-status" aria-label="Current overview inventory">
+            <strong>{groupUnitCount}</strong>
+            <span>{groupUnitCount === 1 ? "căn" : "căn"}</span>
+            <i aria-hidden="true" />
+            <small>{overviewGroup}</small>
           </div>
         </div>
       </header>
@@ -77,22 +76,6 @@ export default function OverviewWorkspace({
             )}
           </div>
         </section>
-
-        <aside className="pf-overview-side pf-overview-guide">
-          <section className="pf-overview-context-card pf-overview-context-primary">
-            <span>CURRENT VIEW</span>
-            <strong>{overviewGroup}</strong>
-            <p>{groupUnitCount} unit đang nằm trong đúng nhóm hiển thị hiện tại.</p>
-            <div className="pf-overview-context-meter"><i style={{ width: groupUnitCount ? "100%" : "8%" }} /></div>
-            <small>{scopedInventoryLabel}</small>
-          </section>
-
-          <section className="pf-overview-context-card pf-overview-context-note">
-            <span>DATA SOURCE</span>
-            <strong>{liveUnitCount ? "Connected" : "Not connected"}</strong>
-            <p>Overview reads the same sell data used by Detail, so the visual layer stays tied to one source of truth.</p>
-          </section>
-        </aside>
       </div>
     </main>
   );
