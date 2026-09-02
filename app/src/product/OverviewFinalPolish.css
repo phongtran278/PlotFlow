@@ -1,0 +1,42 @@
+.pf-overview-intro{grid-template-columns:minmax(150px,1fr) auto minmax(170px,1fr)!important}
+.pf-overview-header-actions{grid-column:3;justify-self:end;min-width:0;display:flex;align-items:center;justify-content:flex-end}
+.pf-overview-header-compact-actions{display:flex;align-items:center;gap:4px;height:32px;padding:3px;border:1px solid var(--pf-line);border-radius:10px;background:var(--pf-surface-raised);box-shadow:var(--pf-shadow-control)}
+.pf-overview-header-compact-actions button,.pf-overview-header-compact-actions select{height:24px;border:0;border-radius:7px;background:transparent;color:var(--pf-ink-2);font:650 8.5px/1 var(--pf-font-sans)}
+.pf-overview-header-compact-actions button{padding:0 8px;cursor:pointer}.pf-overview-header-compact-actions button:hover{background:var(--pf-surface-soft)}
+.pf-overview-header-compact-actions select{min-width:48px;padding:0 5px;background:var(--pf-surface-soft);outline:none}
+.pf-overview-header-action-divider{width:1px;height:15px;background:var(--pf-line-soft)}
+
+/* Unit: one label at section level is enough. Remove duplicate label/count and keep the row calm. */
+.pf-overview-function-unit .pf-unit-navigator{grid-template-columns:repeat(12,minmax(0,1fr))!important;gap:6px!important;overflow:visible!important}
+.pf-overview-function-unit .pf-unit-navigator-label,.pf-overview-function-unit .pf-unit-navigator>small{display:none!important}
+.pf-overview-function-unit [data-nav="prev"]{grid-column:span 1!important}.pf-overview-function-unit .pf-unit-navigator select{grid-column:span 6!important}.pf-overview-function-unit [data-nav="next"]{grid-column:span 1!important}.pf-overview-function-unit [data-nav="focus"]{grid-column:span 4!important}
+.pf-overview-function-unit [data-nav="adjust"]{display:none!important}
+.pf-overview-function-unit [data-nav="save-anchor"],.pf-overview-function-unit [data-nav="cancel-anchor"]{grid-column:span 6!important}
+
+/* Connector owns connector editing; keep all connector actions inside the panel width. */
+.pf-overview-function-connector .pf-overview-function-content{display:grid!important;grid-template-columns:repeat(12,minmax(0,1fr))!important;gap:7px!important;align-items:center!important}
+.pf-overview-function-connector .pf-connector-control{grid-column:span 9!important;min-width:0!important}
+.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 3!important;width:100%!important;min-width:0!important;height:32px!important;padding:0 6px!important;border:1px solid rgba(166,48,42,.18)!important;border-radius:var(--pf-radius-control)!important;background:#fff3f1!important;color:#9f302a!important;font:650 8px/1 var(--pf-font-sans)!important;white-space:normal!important;line-height:1.08!important;cursor:pointer!important}
+.pf-overview-function-connector .pf-connector-edit-proxy:hover{background:#fee9e6!important}
+
+/* View stays about navigation/zoom. Export and Fit live in the header. */
+.pf-overview-function-view [data-action="png"],.pf-overview-function-view [data-action="pdf"],.pf-overview-function-view [data-action="fit"],.pf-overview-function-view .pf-png-resolution-control{display:none!important}
+.pf-overview-function-view .pf-editor-view-tools{display:grid!important;grid-template-columns:32px minmax(58px,1fr) 32px!important;gap:6px!important;align-items:center!important}
+.pf-overview-function-view .pf-editor-view-tools .pf-overview-zoom-divider{display:none!important}
+.pf-overview-function-view .pf-editor-view-tools [data-action="out"],.pf-overview-function-view .pf-editor-view-tools [data-action="in"]{width:32px!important;min-width:32px!important}
+.pf-overview-function-view .pf-editor-view-tools output{width:100%!important;min-width:0!important;text-align:center!important}
+
+/* Layers: reduce nesting indentation and allow names/metadata to breathe. */
+.pf-overview-side .pf-overview-layer-panel{overflow:visible!important;max-height:410px!important}
+.pf-overview-side .pf-layer-panel-list{max-height:300px!important;padding:2px 0!important;overflow-y:auto!important;overflow-x:hidden!important}
+.pf-overview-side .pf-layer-unit{overflow:visible!important}
+.pf-overview-side .pf-layer-unit-body{min-width:0!important;overflow:visible!important}
+.pf-overview-side .pf-layer-row{grid-template-columns:22px minmax(0,1fr) 22px!important;gap:5px!important;padding:0 7px!important}
+.pf-overview-side .pf-layer-name{min-width:0!important;width:100%!important;line-height:1.4!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;display:block!important;-webkit-line-clamp:unset!important}
+.pf-overview-side .pf-layer-subrows{grid-template-columns:1fr!important;gap:5px!important;padding:0 7px 8px 12px!important}
+.pf-overview-side .pf-layer-subrows button{min-height:28px!important;height:auto!important;padding:6px 8px!important;line-height:1.25!important;white-space:normal!important;text-align:left!important}
+.pf-overview-side .pf-layer-unit-toggle{padding:0 8px!important;gap:8px!important}.pf-overview-side .pf-layer-unit-toggle small{max-width:48%!important;white-space:normal!important;line-height:1.35!important}
+.pf-overview-side .pf-layer-badge-row{grid-template-columns:54px minmax(0,1fr)!important;padding:6px 7px!important}
+
+@media(max-width:1180px) and (min-width:761px){.pf-overview-intro{grid-template-columns:minmax(120px,1fr) auto auto!important}.pf-overview-header-compact-actions button{padding-inline:6px}.pf-overview-function-connector .pf-connector-control{grid-column:span 8!important}.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 4!important}}
+@media(max-width:760px){.pf-overview-header-actions{grid-column:1;justify-self:start}.pf-overview-header-compact-actions{max-width:100%}.pf-overview-function-connector .pf-connector-control,.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:1/-1!important}}
