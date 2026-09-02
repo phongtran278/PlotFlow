@@ -50,7 +50,7 @@ export default function OverviewControlRailRuntime() {
       rail.style.setProperty("--pf-fixed-rail-left", `${rect.left}px`);
       rail.style.setProperty("--pf-fixed-rail-width", `${width}px`);
       rail.classList.add("is-fixed-toolbar");
-      spacer.style.height = `${rail.offsetHeight + 10}px`;
+      spacer.style.height = `${rail.offsetHeight + 6}px`;
     }
 
     function scheduleFixed() {
@@ -63,8 +63,10 @@ export default function OverviewControlRailRuntime() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!rail || !stage) return false;
 
+      const groups = document.querySelector(".pf-overview-groups");
       const navigator = stage.querySelector(":scope > .pf-unit-navigator");
       const toolbar = stage.querySelector(":scope > .pf-overview-zoom-toolbar");
+      if (groups && groups.parentElement !== rail) rail.prepend(groups);
       if (navigator && navigator.parentElement !== rail) rail.appendChild(navigator);
       if (toolbar && toolbar.parentElement !== rail) rail.appendChild(toolbar);
       ensureSpacer();
@@ -73,7 +75,7 @@ export default function OverviewControlRailRuntime() {
         resizeObserver.observe(rail);
       }
       scheduleFixed();
-      return Boolean(navigator || toolbar || rail.children.length);
+      return Boolean(groups || navigator || toolbar || rail.children.length);
     }
 
     function scheduleSync() {
@@ -93,6 +95,7 @@ export default function OverviewControlRailRuntime() {
     }
 
     window.addEventListener("plotflow-product-view-changed", onViewChange);
+    window.addEventListener("pf-overview-group-changed", scheduleSync);
     window.addEventListener("resize", scheduleFixed);
     document.addEventListener("scroll", scheduleFixed, true);
     scheduleSync();
@@ -102,6 +105,7 @@ export default function OverviewControlRailRuntime() {
       releaseFixed();
       spacer?.remove();
       window.removeEventListener("plotflow-product-view-changed", onViewChange);
+      window.removeEventListener("pf-overview-group-changed", scheduleSync);
       window.removeEventListener("resize", scheduleFixed);
       document.removeEventListener("scroll", scheduleFixed, true);
     };
