@@ -32,6 +32,7 @@ export default function OverviewAnchorRuntime() {
     let activeCode = "";
     let anchors = readAnchors();
     let drag = null;
+    let pendingDraft = null;
     let navigator = null;
     let navSelect = null;
     let navStatus = null;
@@ -52,10 +53,13 @@ export default function OverviewAnchorRuntime() {
     function applySavedAnchor(code) {
       const anchor = anchorForCode(code);
       const saved = anchors[code];
-      if (!anchor || !saved) return;
+      if (!anchor || !saved || pendingDraft?.code === code) return;
       anchor.style.left = `${saved.x}%`;
       anchor.style.top = `${saved.y}%`;
       anchor.dataset.saved = "1";
+      anchor.dataset.pfCommittedX = String(saved.x);
+      anchor.dataset.pfCommittedY = String(saved.y);
+      delete anchor.dataset.pfAnchorDraft;
       const line = lineForCode(code);
       if (line) {
         line.classList.remove("pf-connector-needs-placement");
@@ -71,11 +75,79 @@ export default function OverviewAnchorRuntime() {
       navStatus.hidden = !message;
     }
 
+    function setDraftUi(active) {
+      navigator?.classList.toggle("has-anchor-draft", Boolean(active));
+      navigator?.querySelectorAll("[data-nav='save-anchor'],[data-nav='cancel-anchor']").forEach((button) => {
+        button.hidden = !active;
+      });
+    }
+
+    function syncLineToPoint(code, x, y) {
+      const line = lineForCode(code);
+      if (!line) return;
+      line.classList.remove("pf-connector-needs-placement");
+      line.style.opacity = "";
+      line.setAttribute("x2", String(x));
+      line.setAttribute("y2", String(y));
+      window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code, x, y, live: true, draft: true } }));
+    }
+
+    function restoreDraftOrigin() {
+      if (!pendingDraft) return;
+      const { code, originX, originY, wasSaved } = pendingDraft;
+      const anchor = anchorForCode(code);
+      if (anchor) {
+        anchor.style.left = `${originX}%`;
+        anchor.style.top = `${originY}%`;
+        delete anchor.dataset.pfAnchorDraft;
+        if (wasSaved) anchor.dataset.saved = "1";
+        else delete anchor.dataset.saved;
+      }
+      const line = lineForCode(code);
+      if (line) {
+        line.setAttribute("x2", String(originX));
+        line.setAttribute("y2", String(originY));
+      }
+      pendingDraft = null;
+      setDraftUi(false);
+      window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code, x: originX, y: originY, cancelled: true } }));
+    }
+
+    function saveDraft() {
+      if (!pendingDraft) return;
+      const { code, x, y } = pendingDraft;
+      anchors[code] = { x: Number(x.toFixed(5)), y: Number(y.toFixed(5)) };
+      saveAnchors(anchors);
+      const anchor = anchorForCode(code);
+      if (anchor) {
+        anchor.dataset.saved = "1";
+        anchor.dataset.pfCommittedX = String(anchors[code].x);
+        anchor.dataset.pfCommittedY = String(anchors[code].y);
+        delete anchor.dataset.pfAnchorDraft;
+      }
+      pendingDraft = null;
+      setDraftUi(false);
+      setStatus("Position saved · Auto Arrange will use this PDF anchor");
+      window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code, ...anchors[code], saved: true } }));
+    }
+
+    function cancelDraft() {
+      if (!pendingDraft) return;
+      restoreDraftOrigin();
+      setStatus("Manual adjustment cancelled");
+    }
+
     function refreshAnchorVisuals() {
       if (!stage) return;
       Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor")).forEach((anchor) => {
         const code = anchor.dataset?.unitCode || anchor.textContent?.trim() || "";
         applySavedAnchor(code);
+        if (!pendingDraft || pendingDraft.code !== code) {
+          const x = Number.parseFloat(anchor.style.left || "50");
+          const y = Number.parseFloat(anchor.style.top || "50");
+          if (Number.isFinite(x)) anchor.dataset.pfCommittedX = String(x);
+          if (Number.isFinite(y)) anchor.dataset.pfCommittedY = String(y);
+        }
         const active = code === activeCode;
         anchor.classList.toggle("pf-anchor-dot-active", active);
         anchor.setAttribute("aria-label", active ? `Connector endpoint ${code}. Drag to refine.` : `Connector endpoint ${code}`);
@@ -90,6 +162,7 @@ export default function OverviewAnchorRuntime() {
     }
 
     function setActive(code) {
+      if (pendingDraft && pendingDraft.code !== code) cancelDraft();
       activeCode = code;
       refreshAnchorVisuals();
       stage?.classList.toggle("pf-has-active-anchor", Boolean(activeCode));
@@ -114,6 +187,7 @@ export default function OverviewAnchorRuntime() {
 
     function editConnector(code) {
       if (!code || !stage) return;
+      if (pendingDraft && pendingDraft.code !== code) cancelDraft();
       applySavedAnchor(code);
       const anchor = anchorForCode(code);
       if (!anchor) {
@@ -121,10 +195,11 @@ export default function OverviewAnchorRuntime() {
         return;
       }
       setActive(code);
-      setStatus("Drag the red endpoint directly on the map");
+      setStatus("Drag endpoint to adjust · Save position to override PDF anchor");
     }
 
     function stepNavigator(delta) {
+      if (pendingDraft) cancelDraft();
       const list = codes();
       if (!list.length) return;
       const current = navSelect?.value || activeCode || list[0];
@@ -149,6 +224,8 @@ export default function OverviewAnchorRuntime() {
         <button type="button" data-nav="next" title="Next unit">›</button>
         <button type="button" class="pf-unit-focus-button" data-nav="focus">Focus</button>
         <button type="button" class="pf-unit-adjust-button" data-nav="adjust">Edit connector</button>
+        <button type="button" class="pf-unit-save-anchor" data-nav="save-anchor" hidden>Save position</button>
+        <button type="button" class="pf-unit-cancel-anchor" data-nav="cancel-anchor" hidden>Cancel</button>
         <small>${list.length} căn</small>
         <em class="pf-unit-focus-status" hidden></em>`;
       navSelect = navigator.querySelector("select");
@@ -170,9 +247,16 @@ export default function OverviewAnchorRuntime() {
         if (button.dataset.nav === "next") stepNavigator(1);
         if (button.dataset.nav === "focus") focusCode(code);
         if (button.dataset.nav === "adjust") editConnector(code);
+        if (button.dataset.nav === "save-anchor") saveDraft();
+        if (button.dataset.nav === "cancel-anchor") cancelDraft();
       });
-      navSelect.addEventListener("change", () => { setStatus(""); setActive(navSelect.value); });
+      navSelect.addEventListener("change", () => {
+        if (pendingDraft) cancelDraft();
+        setStatus("");
+        setActive(navSelect.value);
+      });
       document.querySelector(".pf-overview-control-rail")?.appendChild(navigator);
+      setDraftUi(Boolean(pendingDraft));
     }
 
     function onCamera(event) {
@@ -189,17 +273,31 @@ export default function OverviewAnchorRuntime() {
       event.preventDefault();
       event.stopPropagation();
       const code = anchor.dataset?.unitCode || anchor.textContent?.trim() || activeCode;
+      if (pendingDraft && pendingDraft.code !== code) cancelDraft();
+      const startX = Number.parseFloat(anchor.style.left || "50");
+      const startY = Number.parseFloat(anchor.style.top || "50");
+      const committed = anchors[code];
+      pendingDraft = {
+        code,
+        originX: Number.isFinite(committed?.x) ? committed.x : startX,
+        originY: Number.isFinite(committed?.y) ? committed.y : startY,
+        x: startX,
+        y: startY,
+        wasSaved: Boolean(committed || anchor.dataset.saved === "1"),
+      };
       drag = {
         anchor,
         code,
         pointerId: event.pointerId,
         clientX: event.clientX,
         clientY: event.clientY,
-        startX: Number.parseFloat(anchor.style.left || "50"),
-        startY: Number.parseFloat(anchor.style.top || "50"),
+        startX,
+        startY,
       };
+      anchor.dataset.pfAnchorDraft = "1";
       anchor.classList.add("is-dragging");
       anchor.setPointerCapture?.(event.pointerId);
+      setDraftUi(false);
     }
 
     function onAnchorPointerMove(event) {
@@ -211,26 +309,18 @@ export default function OverviewAnchorRuntime() {
       const y = Math.max(-20, Math.min(120, drag.startY + ((event.clientY - drag.clientY) / (rect.height * scale)) * 100));
       drag.anchor.style.left = `${x}%`;
       drag.anchor.style.top = `${y}%`;
-      drag.anchor.dataset.saved = "1";
-      const line = lineForCode(drag.code);
-      if (line) {
-        line.classList.remove("pf-connector-needs-placement");
-        line.style.opacity = "";
-        line.setAttribute("x2", String(x));
-        line.setAttribute("y2", String(y));
-      }
-      anchors[drag.code] = { x: Number(x.toFixed(5)), y: Number(y.toFixed(5)) };
-      window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code: drag.code, ...anchors[drag.code], live: true } }));
+      drag.anchor.dataset.pfAnchorDraft = "1";
+      pendingDraft = { ...pendingDraft, x, y };
+      syncLineToPoint(drag.code, x, y);
     }
 
     function finishAnchorDrag(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
       drag.anchor.classList.remove("is-dragging");
       drag.anchor.releasePointerCapture?.(event.pointerId);
-      saveAnchors(anchors);
-      setStatus("Connector endpoint saved");
-      window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code: drag.code, ...anchors[drag.code] } }));
       drag = null;
+      setDraftUi(true);
+      setStatus("Unsaved adjustment · Save position to use it as the PDF anchor, or Cancel");
     }
 
     function onDoubleClick(event) {
@@ -255,6 +345,7 @@ export default function OverviewAnchorRuntime() {
     }
 
     function detachStage() {
+      if (pendingDraft) restoreDraftOrigin();
       stage?.removeEventListener("dblclick", onDoubleClick, true);
       stage?.removeEventListener("click", onCardClick, true);
       stage?.removeEventListener("pointerdown", onAnchorPointerDown, true);
