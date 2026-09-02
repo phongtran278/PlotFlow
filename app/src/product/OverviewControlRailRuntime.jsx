@@ -10,11 +10,11 @@ function topOffset() {
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
     let frame = 0;
-    let attempts = 0;
     let rail = null;
     let stage = null;
     let spacer = null;
     let resizeObserver = null;
+    let mutationObserver = null;
 
     function ensureSpacer() {
       if (!rail) return null;
@@ -58,54 +58,65 @@ export default function OverviewControlRailRuntime() {
       frame = requestAnimationFrame(updateFixed);
     }
 
-    function sync() {
+    function moveDynamicControlsIntoRail() {
       rail = document.querySelector(".pf-overview-control-rail");
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!rail || !stage) return false;
 
-      const groups = document.querySelector(".pf-overview-groups");
-      const navigator = stage.querySelector(":scope > .pf-unit-navigator");
-      const toolbar = stage.querySelector(":scope > .pf-overview-zoom-toolbar");
-      if (groups && groups.parentElement !== rail) rail.prepend(groups);
+      const navigator = document.querySelector(".pf-unit-navigator");
+      const toolbar = document.querySelector(".pf-overview-zoom-toolbar");
       if (navigator && navigator.parentElement !== rail) rail.appendChild(navigator);
       if (toolbar && toolbar.parentElement !== rail) rail.appendChild(toolbar);
+
       ensureSpacer();
       if (!resizeObserver) {
         resizeObserver = new ResizeObserver(scheduleFixed);
         resizeObserver.observe(rail);
       }
       scheduleFixed();
-      return Boolean(groups || navigator || toolbar || rail.children.length);
+      return true;
     }
 
     function scheduleSync() {
       cancelAnimationFrame(frame);
-      attempts = 0;
-      const run = () => {
-        attempts += 1;
-        if (sync() || attempts >= 12) return;
-        frame = requestAnimationFrame(run);
-      };
-      frame = requestAnimationFrame(run);
+      frame = requestAnimationFrame(moveDynamicControlsIntoRail);
+    }
+
+    function watchDynamicControls() {
+      mutationObserver?.disconnect();
+      mutationObserver = new MutationObserver(() => {
+        if (!document.body.classList.contains("pf-product-overview")) return;
+        scheduleSync();
+      });
+      mutationObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     function onViewChange(event) {
-      if (event.detail?.screen === "project" && event.detail?.mode === "overview") scheduleSync();
-      else releaseFixed();
+      if (event.detail?.screen === "project" && event.detail?.mode === "overview") {
+        scheduleSync();
+        watchDynamicControls();
+      } else {
+        releaseFixed();
+      }
     }
 
     window.addEventListener("plotflow-product-view-changed", onViewChange);
     window.addEventListener("pf-overview-group-changed", scheduleSync);
+    window.addEventListener("pf-overview-live-units-ready", scheduleSync);
     window.addEventListener("resize", scheduleFixed);
     document.addEventListener("scroll", scheduleFixed, true);
+    watchDynamicControls();
     scheduleSync();
+
     return () => {
       cancelAnimationFrame(frame);
       resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
       releaseFixed();
       spacer?.remove();
       window.removeEventListener("plotflow-product-view-changed", onViewChange);
       window.removeEventListener("pf-overview-group-changed", scheduleSync);
+      window.removeEventListener("pf-overview-live-units-ready", scheduleSync);
       window.removeEventListener("resize", scheduleFixed);
       document.removeEventListener("scroll", scheduleFixed, true);
     };
