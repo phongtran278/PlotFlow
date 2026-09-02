@@ -18,9 +18,7 @@ export default function OverviewWorkspace({
     <main className="pf-overview">
       <header className="pf-overview-intro">
         <div className="pf-overview-intro-copy">
-          <span>PROJECT OVERVIEW</span>
           <h1>{project.name}</h1>
-          <p>{project.developer} · {project.location}</p>
         </div>
 
         <div className="pf-overview-header-tools">
@@ -47,13 +45,12 @@ export default function OverviewWorkspace({
         {project.masterplan && (
           <aside className="pf-overview-control-rail" aria-label="Overview editor controls">
             <div className="pf-overview-control-row pf-overview-control-row-primary" data-overview-control-row="primary">
-              <span className="pf-overview-control-label">OBJECT</span>
               <div className="pf-overview-primary-tools" data-overview-primary-tools />
             </div>
             <div className="pf-overview-control-row pf-overview-control-row-canvas" data-overview-control-row="canvas">
-              <span className="pf-overview-control-label">VIEW</span>
               <div className="pf-overview-canvas-tools" data-overview-canvas-tools />
             </div>
+            <div className="pf-overview-side" aria-label="Overview layers" />
           </aside>
         )}
 
