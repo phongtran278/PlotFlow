@@ -29,6 +29,24 @@ function ensureGroup(parent, key, label) {
 function groupContent(group) { return group?.querySelector(":scope > .pf-overview-function-content") || group; }
 function moveTo(node, destination) { if (node && destination && node.parentElement !== destination) destination.appendChild(node); }
 
+function ensureConnectorEditProxy(connectorContent) {
+  if (!connectorContent) return;
+  let proxy = connectorContent.querySelector(":scope > [data-connector-edit-proxy]");
+  if (!proxy) {
+    proxy = document.createElement("button");
+    proxy.type = "button";
+    proxy.className = "pf-connector-edit-proxy";
+    proxy.dataset.connectorEditProxy = "1";
+    proxy.textContent = "Edit connector";
+    proxy.title = "Edit the selected unit connector endpoint";
+    proxy.addEventListener("click", () => {
+      const source = document.querySelector('.pf-unit-navigator [data-nav="adjust"]');
+      source?.click();
+    });
+    connectorContent.appendChild(proxy);
+  }
+}
+
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
     let frame = 0; let rail = null; let mutationObserver = null;
@@ -64,10 +82,10 @@ export default function OverviewControlRailRuntime() {
       moveTo(document.querySelector(".pf-precision-arrange"), objectContent);
       moveTo(document.querySelector(".pf-overview-v2-controls"), objectContent);
       moveTo(document.querySelector(".pf-connector-control"), connectorContent);
+      ensureConnectorEditProxy(connectorContent);
       moveTo(document.querySelector(".pf-overview-guide-control"), guideContent);
       moveTo(document.querySelector(".pf-unit-navigator"), unitContent);
       moveTo(document.querySelector(".pf-overview-zoom-toolbar"), viewContent);
-      moveTo(document.querySelector(".pf-export-menu"), viewContent);
 
       rail.querySelectorAll(".pf-overview-function-group").forEach((group) => {
         const content = groupContent(group); group.hidden = !content?.children.length;
