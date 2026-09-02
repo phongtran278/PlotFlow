@@ -43,6 +43,7 @@ import OverviewInteractionRuntime from "./product/OverviewInteractionRuntime.jsx
 import OverviewLayerRevealRuntime from "./product/OverviewLayerRevealRuntime.jsx";
 import OverviewUnitBadgeRuntime from "./product/OverviewUnitBadgeRuntime.jsx";
 import WindowsOverviewViewportRuntime from "./product/WindowsOverviewViewportRuntime.jsx";
+import "./product/OverviewControlRailTwoRows.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 
@@ -133,10 +134,7 @@ function OverviewMasterplanEngine() {
   useEffect(() => {
     function sync() {
       const stage = document.querySelector('.pf-masterplan-stage[data-overview-render-mode="raster"]');
-      const next = [
-        stage?.dataset?.overviewGroup || "",
-        stage?.dataset?.overviewRasterSource || "",
-      ].join("::");
+      const next = stage?.dataset?.overviewRasterSource || "";
       setSourceKey((current) => current === next ? current : next);
     }
 
