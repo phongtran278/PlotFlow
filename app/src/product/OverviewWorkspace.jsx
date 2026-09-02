@@ -1,7 +1,6 @@
 import "./OverviewWorkspace.css";
-import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
-const OVERVIEW_RENDER_MODE = getMemoryProfile().windows ? "raster" : "pdf";
+const OVERVIEW_RENDER_MODE = "raster";
 
 export default function OverviewWorkspace({
   project,
