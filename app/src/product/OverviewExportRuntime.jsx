@@ -212,7 +212,7 @@ function installResolutionControl() {
   const toolbar = currentToolbar();
   const pngButton = toolbar?.querySelector?.("[data-action='png']");
   if (!toolbar || !pngButton) return false;
-  if (toolbar.querySelector("[data-png-resolution]")) return true;
+  if (toolbar.querySelector("[data-png-width]")) return true;
 
   const label = document.createElement("label");
   label.className = "pf-png-resolution-control";
