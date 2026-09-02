@@ -27,13 +27,15 @@ export default function OverviewGuideRuntime() {
     let disposed = false;
     let stage = null;
     let panel = null;
-    let guide = null;
+    let verticalGuide = null;
+    let horizontalGuide = null;
     let observer = null;
     let drag = null;
     let state = {
       visible: true,
       snap: true,
       x: 0.08,
+      y: 0.08,
       ...readJson(GUIDE_KEY, {}),
     };
 
@@ -70,37 +72,62 @@ export default function OverviewGuideRuntime() {
 
     function guideX() {
       const bounds = pdfBounds();
-      if (!bounds) return null;
-      return bounds.x + clamp(state.x, 0, 1) * bounds.width;
+      return bounds ? bounds.x + clamp(state.x, 0, 1) * bounds.width : null;
     }
 
-    function renderGuide() {
+    function guideY() {
+      const bounds = pdfBounds();
+      return bounds ? bounds.y + clamp(state.y, 0, 1) * bounds.height : null;
+    }
+
+    function ensureGuides() {
+      if (!stage) return;
+      if (!verticalGuide?.isConnected) {
+        verticalGuide = document.createElement("div");
+        verticalGuide.className = "pf-overview-guide-line is-vertical";
+        verticalGuide.dataset.guideAxis = "x";
+        verticalGuide.innerHTML = '<span title="Drag vertical guide">↔</span>';
+        stage.appendChild(verticalGuide);
+      }
+      if (!horizontalGuide?.isConnected) {
+        horizontalGuide = document.createElement("div");
+        horizontalGuide.className = "pf-overview-guide-line is-horizontal";
+        horizontalGuide.dataset.guideAxis = "y";
+        horizontalGuide.innerHTML = '<span title="Drag horizontal guide">↕</span>';
+        stage.appendChild(horizontalGuide);
+      }
+    }
+
+    function renderGuides() {
       if (!stage) return;
       const bounds = pdfBounds();
       const x = guideX();
-      if (!bounds || !Number.isFinite(x)) return;
+      const y = guideY();
+      if (!bounds || !Number.isFinite(x) || !Number.isFinite(y)) return;
+      ensureGuides();
 
-      if (!guide?.isConnected) {
-        guide = document.createElement("div");
-        guide.className = "pf-overview-guide-line is-vertical";
-        guide.innerHTML = '<span title="Drag guide">↔</span>';
-        stage.appendChild(guide);
-      }
+      verticalGuide.hidden = !state.visible;
+      verticalGuide.style.left = `${x}px`;
+      verticalGuide.style.top = `${bounds.y}px`;
+      verticalGuide.style.height = `${bounds.height}px`;
 
-      guide.hidden = !state.visible;
-      guide.style.left = `${x}px`;
-      guide.style.top = `${bounds.y}px`;
-      guide.style.height = `${bounds.height}px`;
+      horizontalGuide.hidden = !state.visible;
+      horizontalGuide.style.left = `${bounds.x}px`;
+      horizontalGuide.style.top = `${y}px`;
+      horizontalGuide.style.width = `${bounds.width}px`;
+
       panel?.querySelector("[data-guide-toggle]")?.classList.toggle("active", state.visible);
       panel?.querySelector("[data-guide-snap]")?.classList.toggle("active", state.snap);
     }
 
     function onGuidePointerDown(event) {
       const line = event.target.closest?.(".pf-overview-guide-line");
-      if (!line || line !== guide || event.button !== 0) return;
+      if (!line || !stage?.contains(line) || event.button !== 0) return;
+      const axis = line.dataset.guideAxis;
+      if (axis !== "x" && axis !== "y") return;
       event.preventDefault();
       event.stopPropagation();
-      drag = { pointerId: event.pointerId };
+      drag = { pointerId: event.pointerId, axis, line };
       line.setPointerCapture?.(event.pointerId);
     }
 
@@ -109,14 +136,19 @@ export default function OverviewGuideRuntime() {
       const bounds = pdfBounds();
       if (!bounds) return;
       const rect = stage.getBoundingClientRect();
-      const localX = event.clientX - rect.left;
-      state.x = clamp((localX - bounds.x) / bounds.width, 0, 1);
-      renderGuide();
+      if (drag.axis === "x") {
+        const localX = event.clientX - rect.left;
+        state.x = clamp((localX - bounds.x) / bounds.width, 0, 1);
+      } else {
+        const localY = event.clientY - rect.top;
+        state.y = clamp((localY - bounds.y) / bounds.height, 0, 1);
+      }
+      renderGuides();
     }
 
     function finishGuideDrag(event) {
       if (!drag || event.pointerId !== drag.pointerId) return;
-      try { guide?.releasePointerCapture?.(event.pointerId); } catch {}
+      try { drag.line?.releasePointerCapture?.(event.pointerId); } catch {}
       drag = null;
       saveState();
     }
@@ -126,32 +158,47 @@ export default function OverviewGuideRuntime() {
       const target = event.target.closest?.(".pf-live-sales-callout");
       if (!target || !stage.contains(target)) return;
       const x = guideX();
+      const y = guideY();
       const bounds = pdfBounds();
-      if (!Number.isFinite(x) || !bounds) return;
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !bounds) return;
 
-      const candidates = [
+      const dxCandidates = [
         x - target.offsetLeft,
         x - (target.offsetLeft + target.offsetWidth / 2),
         x - (target.offsetLeft + target.offsetWidth),
       ];
-      const dx = candidates.sort((a, b) => Math.abs(a) - Math.abs(b))[0];
-      if (Math.abs(dx) > SNAP_PX) return;
+      const dyCandidates = [
+        y - target.offsetTop,
+        y - (target.offsetTop + target.offsetHeight / 2),
+        y - (target.offsetTop + target.offsetHeight),
+      ];
+      const dx = dxCandidates.sort((a, b) => Math.abs(a) - Math.abs(b))[0];
+      const dy = dyCandidates.sort((a, b) => Math.abs(a) - Math.abs(b))[0];
+      const snapX = Math.abs(dx) <= SNAP_PX;
+      const snapY = Math.abs(dy) <= SNAP_PX;
+      if (!snapX && !snapY) return;
 
       const selected = cards().filter((card) => card.classList.contains("pf-card-selected"));
       const list = selected.length ? selected : [target];
       list.forEach((card) => {
-        const nextLeft = clamp(card.offsetLeft + dx, bounds.x, bounds.x + bounds.width - card.offsetWidth);
-        card.style.left = `${nextLeft}px`;
-        card.style.right = "auto";
+        if (snapX) {
+          const nextLeft = clamp(card.offsetLeft + dx, bounds.x, bounds.x + bounds.width - card.offsetWidth);
+          card.style.left = `${nextLeft}px`;
+          card.style.right = "auto";
+        }
+        if (snapY) {
+          const nextTop = clamp(card.offsetTop + dy, bounds.y, bounds.y + bounds.height - card.offsetHeight);
+          card.style.top = `${nextTop}px`;
+        }
       });
       persistCards(list);
-      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: "guide-snap" } }));
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-arranged", { detail: { mode: "guide-snap", axes: { x: snapX, y: snapY } } }));
     }
 
     function resetGuide() {
-      state = { visible: true, snap: true, x: 0.08 };
+      state = { visible: true, snap: true, x: 0.08, y: 0.08 };
       saveState();
-      renderGuide();
+      renderGuides();
     }
 
     function installPanel() {
@@ -161,23 +208,23 @@ export default function OverviewGuideRuntime() {
         panel = document.createElement("div");
         panel.className = "pf-overview-guide-control";
         panel.innerHTML = `
-          <button type="button" data-guide-toggle title="Show or hide guide">Guide</button>
-          <button type="button" data-guide-snap title="Snap cards to guide">Snap</button>
-          <button type="button" data-guide-reset title="Reset guide position">Reset guide</button>`;
+          <button type="button" data-guide-toggle title="Show or hide vertical and horizontal guides">Guides</button>
+          <button type="button" data-guide-snap title="Snap cards to either guide">Snap</button>
+          <button type="button" data-guide-reset title="Reset both guide positions">Reset</button>`;
         panel.querySelector("[data-guide-toggle]").addEventListener("click", () => {
           state.visible = !state.visible;
           saveState();
-          renderGuide();
+          renderGuides();
         });
         panel.querySelector("[data-guide-snap]").addEventListener("click", () => {
           state.snap = !state.snap;
           saveState();
-          renderGuide();
+          renderGuides();
         });
         panel.querySelector("[data-guide-reset]").addEventListener("click", resetGuide);
         rail.appendChild(panel);
       }
-      renderGuide();
+      renderGuides();
     }
 
     function detachStage() {
@@ -187,8 +234,10 @@ export default function OverviewGuideRuntime() {
       stage.removeEventListener("pointerup", finishGuideDrag, true);
       stage.removeEventListener("pointercancel", finishGuideDrag, true);
       stage.removeEventListener("pointerup", snapCardsAfterDrag);
-      guide?.remove();
-      guide = null;
+      verticalGuide?.remove();
+      horizontalGuide?.remove();
+      verticalGuide = null;
+      horizontalGuide = null;
       stage = null;
     }
 
@@ -201,7 +250,7 @@ export default function OverviewGuideRuntime() {
       stage.addEventListener("pointerup", finishGuideDrag, true);
       stage.addEventListener("pointercancel", finishGuideDrag, true);
       stage.addEventListener("pointerup", snapCardsAfterDrag);
-      renderGuide();
+      renderGuides();
     }
 
     function sync() {
@@ -209,7 +258,7 @@ export default function OverviewGuideRuntime() {
       installPanel();
       const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (nextStage && nextStage !== stage) attach(nextStage);
-      else renderGuide();
+      else renderGuides();
     }
 
     window.addEventListener("pf-overview-pdf-bounds", sync);
