@@ -135,9 +135,19 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   }, [overviewGroups, overviewGroup, exclusiveEditor]);
 
   useEffect(() => {
-    if (exclusiveEditor) return;
-    window.dispatchEvent(new CustomEvent("pf-overview-group-changed", { detail: { group: overviewGroup } }));
-  }, [overviewGroup, exclusiveEditor]);
+    if (exclusiveEditor || screen !== "project" || mode !== "overview") return undefined;
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent("pf-overview-group-changed", { detail: { group: overviewGroup, source: "overview-entry-sync" } }));
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+    };
+  }, [screen, mode, overviewGroup, exclusiveEditor]);
 
   const detailVisible = screen === "project" && mode === "detail";
 
