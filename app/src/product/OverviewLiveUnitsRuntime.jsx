@@ -191,28 +191,26 @@ export default function OverviewLiveUnitsRuntime() {
       clampTimer = window.setTimeout(() => clampCardsInsidePdf({ arrangeUnsaved: false }), 220);
     }
 
-    function scheduleInitialIntegrityCheck() {
+    function scheduleInitialIntegrityCheck(attempt = 0) {
       window.clearTimeout(integrityTimer);
       integrityTimer = window.setTimeout(() => {
         if (disposed || !stage || !layer?.isConnected) return;
+
+        // First-load card percentages can be calculated before raster/PDF bounds exist.
+        // Always reconcile against real bounds once they are available instead of only
+        // fixing cards that are completely outside the stage.
+        const bounded = clampCardsInsidePdf({ arrangeUnsaved: true });
+        if (!bounded && attempt < 5) {
+          scheduleInitialIntegrityCheck(attempt + 1);
+          return;
+        }
+        if (bounded) clampCardsInsidePdf({ arrangeUnsaved: false });
+
         const expected = visibleUnits().map((unit) => String(unit.code || "").trim()).filter(Boolean);
         if (!expected.length) return;
         const actual = new Set(Array.from(layer.querySelectorAll(".pf-live-sales-callout")).map((card) => String(card.dataset.unitCode || "").trim()));
-        const stageRect = stage.getBoundingClientRect();
-        const missing = expected.some((code) => !actual.has(code));
-        const outOfStage = Array.from(layer.querySelectorAll(".pf-live-sales-callout")).some((card) => {
-          const rect = card.getBoundingClientRect();
-          return rect.width < 1 || rect.height < 1 || rect.right <= stageRect.left || rect.left >= stageRect.right || rect.bottom <= stageRect.top || rect.top >= stageRect.bottom;
-        });
-        if (missing) {
-          render(true);
-          return;
-        }
-        if (outOfStage) {
-          clampCardsInsidePdf({ arrangeUnsaved: true });
-          clampCardsInsidePdf({ arrangeUnsaved: false });
-        }
-      }, 260);
+        if (expected.some((code) => !actual.has(code))) render(true);
+      }, attempt ? 120 : 260);
     }
 
     function render(force = false) {
