@@ -88,6 +88,7 @@ export default function OverviewLiveUnitsRuntime() {
     let clampTimer = 0;
     let handoffTimer = 0;
     let groupRaf = 0;
+    let integrityTimer = 0;
     let lastSignature = "";
     let disposed = false;
 
@@ -188,6 +189,30 @@ export default function OverviewLiveUnitsRuntime() {
       window.clearTimeout(clampTimer);
       requestAnimationFrame(() => clampCardsInsidePdf({ arrangeUnsaved: true }));
       clampTimer = window.setTimeout(() => clampCardsInsidePdf({ arrangeUnsaved: false }), 220);
+    }
+
+    function scheduleInitialIntegrityCheck() {
+      window.clearTimeout(integrityTimer);
+      integrityTimer = window.setTimeout(() => {
+        if (disposed || !stage || !layer?.isConnected) return;
+        const expected = visibleUnits().map((unit) => String(unit.code || "").trim()).filter(Boolean);
+        if (!expected.length) return;
+        const actual = new Set(Array.from(layer.querySelectorAll(".pf-live-sales-callout")).map((card) => String(card.dataset.unitCode || "").trim()));
+        const stageRect = stage.getBoundingClientRect();
+        const missing = expected.some((code) => !actual.has(code));
+        const outOfStage = Array.from(layer.querySelectorAll(".pf-live-sales-callout")).some((card) => {
+          const rect = card.getBoundingClientRect();
+          return rect.width < 1 || rect.height < 1 || rect.right <= stageRect.left || rect.left >= stageRect.right || rect.bottom <= stageRect.top || rect.top >= stageRect.bottom;
+        });
+        if (missing) {
+          render(true);
+          return;
+        }
+        if (outOfStage) {
+          clampCardsInsidePdf({ arrangeUnsaved: true });
+          clampCardsInsidePdf({ arrangeUnsaved: false });
+        }
+      }, 260);
     }
 
     function render(force = false) {
@@ -294,6 +319,7 @@ export default function OverviewLiveUnitsRuntime() {
         nextLayer.classList.remove("pf-callouts-entering");
         clampCardsInsidePdf({ arrangeUnsaved: false });
         syncConnectorStarts();
+        scheduleInitialIntegrityCheck();
       });
 
       if (previousLayer?.isConnected) {
@@ -307,6 +333,7 @@ export default function OverviewLiveUnitsRuntime() {
     function attach(nextStage) {
       if (!nextStage || nextStage === stage) return;
       window.clearTimeout(handoffTimer);
+      window.clearTimeout(integrityTimer);
       stage?.querySelectorAll(".pf-live-overview-callouts").forEach((node) => node.remove());
       layer = null;
       stage = nextStage;
@@ -362,6 +389,7 @@ export default function OverviewLiveUnitsRuntime() {
       window.clearTimeout(timer);
       window.clearTimeout(clampTimer);
       window.clearTimeout(handoffTimer);
+      window.clearTimeout(integrityTimer);
       if (groupRaf) window.cancelAnimationFrame(groupRaf);
       stage?.querySelectorAll(".pf-live-overview-callouts").forEach((node) => node.remove());
       layer = null;
