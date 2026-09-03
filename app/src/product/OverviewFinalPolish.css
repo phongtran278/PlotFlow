@@ -64,7 +64,7 @@
 .pf-overview-function-connector .pf-overview-disclosure-content{padding:10px!important}
 .pf-overview-function-connector .pf-connector-control{display:block!important}
 .pf-overview-function-connector .pf-connector-control>.pf-card-layout-control{display:none!important}
-.pf-overview-function-connector .pf-connector-style-control{display:grid!important;grid-template-columns:minmax(68px,1fr) 42px!important;gap:9px!important}
+.pf-overview-function-connector .pf-connector-style-control{display:grid!important;grid-template-columns:minmax(68px,1fr) 42px!important;grid-auto-rows:auto!important;gap:9px!important;height:auto!important;min-height:0!important;overflow:visible!important}
 .pf-overview-function-connector .pf-connector-opacity{grid-column:1/-1!important;display:grid!important;grid-template-columns:48px minmax(0,1fr)!important}
 .pf-overview-function-connector .pf-connector-opacity>span{display:block!important}
 .pf-overview-function-connector [data-connector-action="clear"]{grid-column:1/-1!important;min-height:30px!important;white-space:nowrap!important}
