@@ -20,6 +20,8 @@
 
 /* Highlight is a first-class View tool. Never let rail grouping or responsive wrapping hide it. */
 .pf-overview-function-view>.pf-overview-function-label{display:none!important}
+.pf-overview-function-guides{display:none!important}
+.pf-overview-function-view .pf-overview-toolbar-section-view{display:none!important}
 .pf-overview-function-view .pf-editor-tools{overflow:visible!important}
 .pf-overview-toolbar-section-tools .pf-overview-zoom-divider{display:none!important}
 .pf-overview-toolbar-section-tools .pf-pen-tool-button{width:100%!important;min-width:0!important}
@@ -45,6 +47,10 @@
 .pf-overview-side .pf-layer-subrows button{min-height:28px!important;height:auto!important;padding:6px 8px!important;line-height:1.25!important;white-space:normal!important;text-align:left!important}
 .pf-overview-side .pf-layer-unit-toggle{padding:0 8px!important;gap:8px!important}.pf-overview-side .pf-layer-unit-toggle small{max-width:48%!important;white-space:normal!important;line-height:1.35!important}
 .pf-overview-side .pf-layer-badge-row{grid-template-columns:54px minmax(0,1fr)!important;padding:6px 7px!important}
+
+/* Text sits optically centered in every compact control shape. */
+.pf-overview-control-rail button,.pf-overview-control-rail summary,.pf-overview-header-tools button,.pf-overview-header-tools summary{align-items:center!important;justify-content:center!important;text-align:center!important;line-height:1.15!important}
+.pf-overview-header-tools .pf-export-menu{width:auto!important;margin:0!important;border:0!important;background:transparent!important;overflow:visible!important}.pf-overview-header-tools .pf-export-menu>summary{height:30px!important;padding:0 11px!important;border:1px solid rgba(15,122,100,.18)!important;background:var(--pf-brand-accent)!important;color:#fff!important}.pf-overview-header-tools .pf-export-popover{width:286px!important;right:0!important;top:35px!important}
 
 @media(max-width:1180px) and (min-width:761px){.pf-overview-intro{grid-template-columns:minmax(120px,1fr) auto minmax(120px,1fr)!important}.pf-overview-function-connector .pf-overview-disclosure{grid-column:span 9!important}.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 3!important}}
 @media(max-width:760px){.pf-overview-function-connector .pf-overview-disclosure,.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:1/-1!important}}

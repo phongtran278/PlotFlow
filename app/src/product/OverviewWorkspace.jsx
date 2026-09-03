@@ -27,22 +27,17 @@ export default function OverviewWorkspace({
         </div>
 
         <div className="pf-overview-header-tools">
-          <div className="pf-overview-groups" role="group" aria-label="Tiêu chuẩn bàn giao">
-            {overviewGroups.map((group) => (
-              <button
-                key={group}
-                type="button"
-                className={overviewGroup === group ? "active" : ""}
-                onClick={() => onOverviewGroup(group)}
-              >
-                {group}
-              </button>
-            ))}
-          </div>
+          <label className="pf-overview-groups pf-overview-group-picker">
+            <span>Sản phẩm</span>
+            <select value={overviewGroup} onChange={(event) => onOverviewGroup(event.target.value)} aria-label="Tiêu chuẩn bàn giao">
+              {overviewGroups.map((group) => <option key={group} value={group}>{group}</option>)}
+            </select>
+          </label>
           <div className="pf-overview-view-status" aria-label="Current overview inventory">
             <strong>{groupUnitCount}</strong>
             <span>căn</span>
           </div>
+          <div className="pf-overview-header-actions" aria-label="Overview view controls" />
         </div>
       </header>
 

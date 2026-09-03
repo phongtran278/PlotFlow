@@ -94,6 +94,49 @@ function ensureConnectorEditProxy(connectorContent) {
   }
 }
 
+function ensureAutoArrangeProxy(objectContent) {
+  if (!objectContent) return;
+  let proxy = objectContent.querySelector(":scope > [data-auto-arrange-proxy]");
+  if (!proxy) {
+    proxy = document.createElement("button");
+    proxy.type = "button";
+    proxy.className = "pf-auto-arrange-proxy";
+    proxy.dataset.autoArrangeProxy = "1";
+    proxy.innerHTML = '<span aria-hidden="true">✦</span><b>Auto Arrange</b>';
+    proxy.title = "Arrange visible cards by their lot positions";
+    proxy.addEventListener("click", () => document.querySelector('[data-v2-action="arrange"]')?.click());
+    objectContent.appendChild(proxy);
+  }
+}
+
+function organizeHeaderControls(header, toolbar, guideControl) {
+  if (!header || !toolbar) return;
+  let guides = header.querySelector(":scope > .pf-overview-header-guides");
+  if (!guides) {
+    guides = document.createElement("details");
+    guides.className = "pf-overview-header-guides";
+    guides.innerHTML = '<summary>Guides<span aria-hidden="true">⌄</span></summary><div></div>';
+    header.appendChild(guides);
+  }
+  moveTo(guideControl, guides.querySelector(":scope > div"));
+
+  let view = header.querySelector(":scope > .pf-overview-header-view");
+  if (!view) {
+    view = document.createElement("div");
+    view.className = "pf-overview-header-view";
+    view.innerHTML = '<button type="button" data-header-view="out" aria-label="Zoom out">−</button><output>100%</output><button type="button" data-header-view="in" aria-label="Zoom in">+</button><button type="button" data-header-view="fit">Fit</button>';
+    view.addEventListener("click", (event) => {
+      const action = event.target.closest?.("[data-header-view]")?.dataset?.headerView;
+      if (action) toolbar.querySelector(`[data-action="${action}"]`)?.click();
+    });
+    header.appendChild(view);
+  }
+  const sourceOutput = toolbar.querySelector(".pf-editor-view-tools output");
+  const output = view.querySelector("output");
+  if (sourceOutput && output) output.textContent = sourceOutput.textContent || "100%";
+  moveTo(document.querySelector(".pf-export-menu"), header);
+}
+
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
     let frame = 0; let rail = null; let mutationObserver = null;
@@ -128,15 +171,17 @@ export default function OverviewControlRailRuntime() {
       moveTo(document.querySelector(".pf-card-quick-scale"), objectContent);
       moveTo(document.querySelector(".pf-precision-arrange"), objectContent);
       moveTo(document.querySelector(".pf-overview-v2-controls"), objectContent);
+      ensureAutoArrangeProxy(objectContent);
       const connectorDetails = ensureDisclosure(connectorContent, "connector", "Connector settings");
       moveTo(document.querySelector(".pf-connector-control"), connectorDetails);
       ensureConnectorEditProxy(connectorContent);
-      moveTo(document.querySelector(".pf-overview-guide-control"), guideContent);
+      const guideControl = document.querySelector(".pf-overview-guide-control");
       moveTo(document.querySelector(".pf-unit-navigator"), unitContent);
       const canvasToolbar = document.querySelector(".pf-overview-zoom-toolbar");
       organizeCanvasToolbar(canvasToolbar);
       moveTo(canvasToolbar, viewContent);
       organizeCanvasToolbar(canvasToolbar);
+      organizeHeaderControls(document.querySelector(".pf-overview-header-actions"), canvasToolbar, guideControl);
 
       rail.querySelectorAll(".pf-overview-function-group").forEach((group) => {
         const content = groupContent(group); group.hidden = !content?.children.length;

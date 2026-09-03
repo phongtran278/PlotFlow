@@ -28,8 +28,12 @@ export default function OverviewInteractionRuntime() {
     const highlightOwners = readJson(HIGHLIGHT_OWNER_KEY, {});
     let badges = readJson(BADGE_KEY, {});
 
-    const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
-    const codes = () => cards().map(codeFor).filter(Boolean);
+    const cards = () => {
+      if (!stage) return [];
+      const group = String(stage.dataset.overviewGroup || "").trim();
+      return Array.from(stage.querySelectorAll(".pf-live-sales-callout")).filter((card) => !group || !card.dataset.handover || card.dataset.handover === group);
+    };
+    const codes = () => Array.from(new Set(cards().map(codeFor).filter(Boolean)));
 
     function unitNodes(code) {
       if (!stage) return {};
