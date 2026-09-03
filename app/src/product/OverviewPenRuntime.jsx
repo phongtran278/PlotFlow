@@ -494,6 +494,20 @@ export default function OverviewPenRuntime() {
           const numeric = ["fillOpacity", "strokeWidth", "strokeOpacity"].includes(key);
           applyStylePatch({ [key]: numeric ? Number(event.target.value) : event.target.value });
         });
+        styleMenu.addEventListener("toggle", () => {
+          if (!styleMenu.open) return;
+          requestAnimationFrame(() => {
+            const summary = styleMenu.querySelector(":scope > summary");
+            const popover = styleMenu.querySelector(".pf-pen-style-popover");
+            if (!summary || !popover) return;
+            const trigger = summary.getBoundingClientRect();
+            const panel = popover.getBoundingClientRect();
+            const left = Math.max(12, Math.min(window.innerWidth - panel.width - 12, trigger.right - panel.width));
+            const top = Math.max(12, Math.min(window.innerHeight - panel.height - 12, trigger.bottom + 8));
+            popover.style.setProperty("--pf-pen-popover-left", `${left}px`);
+            popover.style.setProperty("--pf-pen-popover-top", `${top}px`);
+          });
+        });
         button.after(styleMenu);
         syncStyleControls();
         styleMenu.classList.toggle("is-contextual", active || Boolean(selectedShape()));

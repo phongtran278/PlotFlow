@@ -94,19 +94,14 @@ function ensureConnectorEditProxy(connectorContent) {
   }
 }
 
-function ensureAutoArrangeProxy(objectContent) {
+function exposeAutoArrange(objectContent) {
   if (!objectContent) return;
-  let proxy = objectContent.querySelector(":scope > [data-auto-arrange-proxy]");
-  if (!proxy) {
-    proxy = document.createElement("button");
-    proxy.type = "button";
-    proxy.className = "pf-auto-arrange-proxy";
-    proxy.dataset.autoArrangeProxy = "1";
-    proxy.innerHTML = '<span aria-hidden="true">✦</span><b>Auto Arrange</b>';
-    proxy.title = "Arrange visible cards by their lot positions";
-    proxy.addEventListener("click", () => document.querySelector('[data-v2-action="arrange"]')?.click());
-    objectContent.appendChild(proxy);
-  }
+  objectContent.querySelector(":scope > [data-auto-arrange-proxy]")?.remove();
+  const menu = document.querySelector(".pf-layout-map-menu");
+  const control = menu?.closest(".pf-card-layout-control");
+  const summary = menu?.querySelector(":scope > summary");
+  if (summary) summary.textContent = "Auto Arrange";
+  moveTo(control, objectContent);
 }
 
 function organizeHeaderControls(header, toolbar, guideControl) {
@@ -171,7 +166,7 @@ export default function OverviewControlRailRuntime() {
       moveTo(document.querySelector(".pf-card-quick-scale"), objectContent);
       moveTo(document.querySelector(".pf-precision-arrange"), objectContent);
       moveTo(document.querySelector(".pf-overview-v2-controls"), objectContent);
-      ensureAutoArrangeProxy(objectContent);
+      exposeAutoArrange(objectContent);
       const connectorDetails = ensureDisclosure(connectorContent, "connector", "Connector settings");
       moveTo(document.querySelector(".pf-connector-control"), connectorDetails);
       ensureConnectorEditProxy(connectorContent);

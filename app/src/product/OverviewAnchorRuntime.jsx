@@ -37,9 +37,15 @@ export default function OverviewAnchorRuntime() {
     let navSelect = null;
     let navStatus = null;
 
-    const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout")) : [];
+    const cards = () => {
+      if (!stage) return [];
+      const group = String(stage.dataset.overviewGroup || "").trim();
+      return Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout"))
+        .filter((card) => !card.closest(".pf-callouts-leaving"))
+        .filter((card) => !group || !card.dataset.handover || card.dataset.handover === group);
+    };
     const codeForCard = (card) => card?.dataset?.unitCode || card?.querySelector(".pf-sell-card-code,header strong")?.textContent?.trim() || "";
-    const codes = () => cards().map(codeForCard).filter(Boolean);
+    const codes = () => Array.from(new Set(cards().map(codeForCard).filter(Boolean)));
     const anchorForCode = (code) => stage ? Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor")).find((node) => (node.dataset?.unitCode || node.textContent?.trim()) === code) || null : null;
     const lineForCode = (code) => {
       if (!stage) return null;
@@ -213,8 +219,11 @@ export default function OverviewAnchorRuntime() {
     function buildNavigator() {
       if (!stage) return;
       const list = codes();
-      if (!list.length) return;
       navigator?.remove();
+      navigator = null;
+      navSelect = null;
+      navStatus = null;
+      if (!list.length) return;
       navigator = document.createElement("div");
       navigator.className = "pf-unit-navigator";
       navigator.innerHTML = `
@@ -382,11 +391,13 @@ export default function OverviewAnchorRuntime() {
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
+    window.addEventListener("pf-overview-group-changed", onLiveUnitsReady);
 
     return () => {
       observer?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
+      window.removeEventListener("pf-overview-group-changed", onLiveUnitsReady);
       detachStage();
     };
   }, []);

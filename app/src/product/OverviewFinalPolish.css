@@ -54,3 +54,25 @@
 
 @media(max-width:1180px) and (min-width:761px){.pf-overview-intro{grid-template-columns:minmax(120px,1fr) auto minmax(120px,1fr)!important}.pf-overview-function-connector .pf-overview-disclosure{grid-column:span 9!important}.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 3!important}}
 @media(max-width:760px){.pf-overview-function-connector .pf-overview-disclosure,.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:1/-1!important}}
+
+/* Regression pass: preserve the original live Arrange map as the progressive entry point. */
+.pf-overview-function-object .pf-card-layout-control{grid-column:1/-1!important;width:100%!important;min-width:0!important;height:auto!important;padding:0!important;border:0!important;background:transparent!important}
+.pf-overview-function-object .pf-layout-map-menu>summary{width:100%!important;height:34px!important;justify-content:center!important;border-color:rgba(15,122,100,.18)!important;background:var(--pf-brand-accent-soft)!important;color:var(--pf-brand-accent)!important;font:650 9px/1 var(--pf-font-sans)!important}
+
+/* Connector settings opens as a readable two-column panel instead of one compressed row. */
+.pf-overview-function-connector .pf-overview-disclosure{grid-column:span 8!important;overflow:visible!important}
+.pf-overview-function-connector .pf-overview-disclosure-content{padding:10px!important}
+.pf-overview-function-connector .pf-connector-control{display:block!important}
+.pf-overview-function-connector .pf-connector-control>.pf-card-layout-control{display:none!important}
+.pf-overview-function-connector .pf-connector-style-control{display:grid!important;grid-template-columns:minmax(68px,1fr) 42px!important;gap:9px!important}
+.pf-overview-function-connector .pf-connector-opacity{grid-column:1/-1!important;display:grid!important;grid-template-columns:48px minmax(0,1fr)!important}
+.pf-overview-function-connector .pf-connector-opacity>span{display:block!important}
+.pf-overview-function-connector [data-connector-action="clear"]{grid-column:1/-1!important;min-height:30px!important;white-space:nowrap!important}
+.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 4!important;height:34px!important}
+
+/* Seven tools need seven explicit columns; the style panel floats above the scroll rail. */
+.pf-overview-toolbar-section-tools .pf-editor-tools{grid-template-columns:32px 32px 32px minmax(82px,1fr) 76px 32px 32px!important}
+.pf-overview-function-view .pf-pen-style-menu>summary{width:76px!important;height:31px!important;padding:0 7px!important;justify-content:center!important;white-space:nowrap!important}
+.pf-overview-function-view .pf-pen-style-popover{position:fixed!important;left:var(--pf-pen-popover-left,12px)!important;right:auto!important;top:var(--pf-pen-popover-top,96px)!important;width:250px!important;max-height:calc(100dvh - 24px)!important;overflow:auto!important;z-index:10000!important}
+
+@media(max-width:1180px) and (min-width:761px){.pf-overview-function-connector .pf-overview-disclosure{grid-column:span 8!important}.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 4!important}}
