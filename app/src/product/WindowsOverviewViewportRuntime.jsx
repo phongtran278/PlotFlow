@@ -39,8 +39,16 @@ export default function WindowsOverviewViewportRuntime() {
       return stage;
     }
 
+    function activeOverlayRoot() {
+      if (!stage) return null;
+      return stage.querySelector(".pf-live-overview-callouts:not(.pf-callouts-leaving)")
+        || stage.querySelector(".pf-live-overview-callouts")
+        || stage;
+    }
+
     function overviewCards() {
-      return stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout")) : [];
+      const root = activeOverlayRoot();
+      return root ? Array.from(root.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout")) : [];
     }
 
     function selectedCards() {
@@ -256,11 +264,13 @@ export default function WindowsOverviewViewportRuntime() {
 
     function positionConnectorsWorld() {
       if (!stage) return;
+      const root = activeOverlayRoot();
+      if (!root) return;
       const w = stage.clientWidth || 1;
       const h = stage.clientHeight || 1;
-      const cards = Array.from(stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout"));
-      const anchors = Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor"));
-      const lines = Array.from(stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line"));
+      const cards = Array.from(root.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout"));
+      const anchors = Array.from(root.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor"));
+      const lines = Array.from(root.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line"));
 
       cards.forEach((card) => {
         const code = codeForCard(card);
@@ -285,17 +295,19 @@ export default function WindowsOverviewViewportRuntime() {
 
     function syncLinkedSelection(preferredCard = null) {
       if (!stage) return;
-      const selected = preferredCard
-        || stage.querySelector(".pf-live-sales-callout.pf-card-key,.pf-live-sales-callout.pf-card-selected,.pf-live-sales-callout.pf-focus-card-active");
+      const root = activeOverlayRoot();
+      if (!root) return;
+      const selected = (preferredCard && root.contains(preferredCard) ? preferredCard : null)
+        || root.querySelector(".pf-live-sales-callout.pf-card-key,.pf-live-sales-callout.pf-card-selected,.pf-live-sales-callout.pf-focus-card-active");
       if (selected) activeCode = codeForCard(selected);
       const code = activeCode;
       stage.classList.toggle("pf-has-linked-selection", Boolean(code));
 
-      const anchors = Array.from(stage.querySelectorAll(".pf-live-map-anchor"));
-      stage.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
+      const anchors = Array.from(root.querySelectorAll(".pf-live-map-anchor"));
+      root.querySelectorAll(".pf-live-sales-callout").forEach((card) => {
         card.classList.toggle("pf-linked-active", Boolean(code) && codeForCard(card) === code);
       });
-      stage.querySelectorAll(".pf-live-callout-lines line").forEach((line) => {
+      root.querySelectorAll(".pf-live-callout-lines line").forEach((line) => {
         const lineCode = line.dataset.unitCode || "";
         const anchor = anchors.find((item) => (item.dataset.unitCode || item.textContent?.trim()) === lineCode);
         const resolved = anchor && (anchor.dataset.located === "1" || anchor.dataset.saved === "1");
