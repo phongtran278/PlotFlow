@@ -42,6 +42,7 @@ export default function OverviewArrangeModesRuntime() {
     let drag = null;
     let resolvedGapPx = 14;
     let resolvedLaneCount = 0;
+    let previewConnectorRaf = 0;
     const ui = readArrangeUi();
 
     function activeLayer() {
@@ -325,19 +326,19 @@ export default function OverviewArrangeModesRuntime() {
         const cardCenterY = (cardTop + cardBottom) / 2;
         const anchorX = anchorRect.left + anchorRect.width / 2 - svgRect.left;
         const anchorY = anchorRect.top + anchorRect.height / 2 - svgRect.top;
-        const candidates = [
-          { x: cardLeft, y: cardCenterY },
-          { x: cardRight, y: cardCenterY },
-          { x: cardCenterX, y: cardTop },
-          { x: cardCenterX, y: cardBottom },
-        ];
-        const start = candidates.reduce((best, point) => {
-          const distance = Math.hypot(anchorX - point.x, anchorY - point.y);
-          return !best || distance < best.distance ? { ...point, distance } : best;
-        }, null);
+        const dx = cardCenterX - anchorX;
+        const dy = cardCenterY - anchorY;
 
-        line.setAttribute("x1", String(start?.x ?? cardCenterX));
-        line.setAttribute("y1", String(start?.y ?? cardCenterY));
+        let startX = cardCenterX;
+        let startY = cardCenterY;
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          startX = dx < 0 ? cardRight : cardLeft;
+        } else {
+          startY = dy > 0 ? cardTop : cardBottom;
+        }
+
+        line.setAttribute("x1", String(startX));
+        line.setAttribute("y1", String(startY));
         line.setAttribute("x2", String(anchorX));
         line.setAttribute("y2", String(anchorY));
       });
@@ -352,6 +353,11 @@ export default function OverviewArrangeModesRuntime() {
         chip.style.top = `${point.y * 100}%`;
       });
       syncPreviewConnectors();
+      if (previewConnectorRaf) window.cancelAnimationFrame(previewConnectorRaf);
+      previewConnectorRaf = window.requestAnimationFrame(() => {
+        previewConnectorRaf = 0;
+        syncPreviewConnectors();
+      });
       overlay?.querySelectorAll("[data-arrange-mode]").forEach((button) => {
         button.classList.toggle("active", button.dataset.arrangeMode === mode);
       });
@@ -442,6 +448,10 @@ export default function OverviewArrangeModesRuntime() {
 
     function closePreview() {
       drag = null;
+      if (previewConnectorRaf) {
+        window.cancelAnimationFrame(previewConnectorRaf);
+        previewConnectorRaf = 0;
+      }
       overlay?.remove();
       overlay = null;
       canvas = null;
