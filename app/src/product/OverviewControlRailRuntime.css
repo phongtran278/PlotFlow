@@ -1,0 +1,6 @@
+.pf-overview-control-rail-spacer{display:none!important}
+.pf-overview-control-rail.is-fixed-toolbar{position:relative!important;top:auto!important;left:auto!important;right:auto!important;width:auto!important;margin:0!important;box-shadow:none!important}
+.pf-overview-control-rail .pf-editor-layout-tools{display:none!important}
+.pf-product-overview:has(.pf-masterplan-stage .pf-card-selected) .pf-overview-control-rail .pf-editor-layout-tools,.pf-product-overview:has(.pf-masterplan-stage .pf-sales-callout.pf-card-selected) .pf-overview-control-rail .pf-editor-layout-tools{display:flex!important}
+.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:100%}
+@media(max-width:1180px){.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:auto}}

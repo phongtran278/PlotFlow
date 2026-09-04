@@ -8,7 +8,16 @@ app/dist/
 
 # Generated runtime copies
 app/public/assets/
-app/public/masterplan/
+app/public/masterplan/*
+!app/public/masterplan/generated/
+app/public/masterplan/generated/*
+!app/public/masterplan/generated/manifest.json
+!app/public/masterplan/generated/page-tiles/
+!app/public/masterplan/generated/page-tiles/**
+
+# Overview PDF optimizer scratch/backups
+app/public/overview-masterplan/*.source-backup.pdf
+app/public/overview-masterplan/*.tmp.pdf
 
 # Exports
 exports/
@@ -18,6 +27,8 @@ exports/
 *.bak
 *.backup
 PlotFlow_ROUND1_PATCH_*/
+PlotFlow_DEMO_READY_PATCH_*/
+PlotFlow_ROUND1_FINAL_RECOVERY_*/
 
 # OS / Editor
 .DS_Store
@@ -32,13 +43,10 @@ npm-debug.log*
 *.mp4
 *.mov
 
-# Old merged patch workspace
+# Old merged patch workspaces
 round1_final_merge/
 app/.plotflow_backup_*/
 app/.plotflow_backups/
 app/_backup_before_recovery_*/
 app/_patch_backups/
 backups/
-round1_final_merge/
-*.mp4
-*.mov

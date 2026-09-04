@@ -1,0 +1,78 @@
+.pf-overview-intro{grid-template-columns:minmax(150px,1fr) auto minmax(150px,1fr)!important}
+
+/* Detail is the visual owner: one quiet entry, green primary action, progressive disclosure. */
+.pf-overview-function-view .pf-export-menu{position:relative!important;width:100%!important;margin:0!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;overflow:visible!important;background:#fff!important}
+.pf-overview-function-view .pf-export-menu>summary,.pf-overview-disclosure>summary{height:34px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;padding:0 10px!important;list-style:none!important;border:0!important;background:#fff!important;color:var(--pf-ink-2)!important;font:650 9px/1 var(--pf-font-sans)!important;cursor:pointer!important}.pf-overview-function-view .pf-export-menu>summary::-webkit-details-marker,.pf-overview-disclosure>summary::-webkit-details-marker{display:none}.pf-overview-function-view .pf-export-menu[open]>summary,.pf-overview-disclosure[open]>summary{color:var(--pf-brand-accent)!important;background:var(--pf-brand-accent-soft)!important}
+.pf-export-popover{display:grid!important;gap:10px!important;padding:11px!important;border-top:1px solid var(--pf-line-soft)!important;background:var(--pf-surface-raised)!important}.pf-export-popover header,.pf-export-pdf-row{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}.pf-export-popover header strong{font-size:10px!important}.pf-export-popover small{color:var(--pf-muted)!important;font-size:8px!important}.pf-export-popover section{display:grid!important;gap:7px!important}.pf-export-format-label{color:var(--pf-ink-2)!important;font-size:9px!important;font-weight:700!important}.pf-export-width-presets{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:5px!important}.pf-export-width-presets button{min-width:0!important;padding:0 4px!important;background:var(--pf-surface)!important}.pf-export-width-presets button.active{background:var(--pf-brand-accent-soft)!important;color:var(--pf-brand-accent)!important}.pf-export-width-input{height:31px!important;display:grid!important;grid-template-columns:auto 1fr auto!important;align-items:center!important;gap:6px!important;padding:0 8px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface)!important;color:var(--pf-muted)!important;font-size:8px!important}.pf-export-width-input input{min-width:0!important;width:100%!important;border:0!important;background:transparent!important;color:var(--pf-ink)!important;text-align:right!important;outline:0!important}.pf-export-width-input b{font-size:8px!important}.pf-export-primary{width:100%!important;background:var(--pf-brand-accent)!important;color:#fff!important;border-color:var(--pf-brand-accent)!important}.pf-export-pdf-row{grid-template-columns:1fr auto!important;padding-top:9px!important;border-top:1px solid var(--pf-line-soft)!important}.pf-export-pdf-row>div{display:grid!important;gap:3px!important}.pf-export-pdf-row button{background:#fff!important;color:var(--pf-ink-2)!important;border:1px solid var(--pf-line)!important}
+
+/* Unit: one label at section level is enough. Remove duplicate label/count and keep the row calm. */
+.pf-overview-function-unit .pf-unit-navigator{grid-template-columns:repeat(12,minmax(0,1fr))!important;gap:6px!important;overflow:visible!important}
+.pf-overview-function-unit .pf-unit-navigator-label,.pf-overview-function-unit .pf-unit-navigator>small{display:none!important}
+.pf-overview-function-unit [data-nav="prev"]{grid-column:span 1!important}.pf-overview-function-unit .pf-unit-navigator select{grid-column:span 6!important}.pf-overview-function-unit [data-nav="next"]{grid-column:span 1!important}.pf-overview-function-unit [data-nav="focus"]{grid-column:span 4!important}
+.pf-overview-function-unit [data-nav="adjust"]{display:none!important}
+.pf-overview-function-unit [data-nav="save-anchor"],.pf-overview-function-unit [data-nav="cancel-anchor"]{grid-column:span 6!important}
+
+/* Connector owns connector editing; use the extra rail width instead of squeezing actions. */
+.pf-overview-function-connector .pf-overview-function-content{display:grid!important;grid-template-columns:repeat(12,minmax(0,1fr))!important;gap:8px!important;align-items:center!important}
+.pf-overview-function-connector .pf-overview-disclosure{grid-column:span 9!important;min-width:0!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:#fff!important;overflow:hidden!important}.pf-overview-function-connector .pf-overview-disclosure-content{padding:8px!important;border-top:1px solid var(--pf-line-soft)!important}.pf-overview-function-connector .pf-connector-control{width:100%!important;min-width:0!important}
+.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 3!important;width:100%!important;min-width:0!important;height:32px!important;padding:0 7px!important;border:1px solid rgba(19,22,26,.09)!important;border-radius:8px!important;background:#fff!important;color:#4f565c!important;font:650 8px/1 "IBM Plex Sans",var(--pf-font-sans)!important;white-space:normal!important;line-height:1.08!important;cursor:pointer!important}
+.pf-overview-function-connector .pf-connector-edit-proxy:hover{color:#0f7a64!important;border-color:rgba(15,122,100,.18)!important;background:#f8fbfa!important}
+
+/* Highlight is a first-class View tool. Never let rail grouping or responsive wrapping hide it. */
+.pf-overview-function-view>.pf-overview-function-label{display:none!important}
+.pf-overview-function-guides{display:none!important}
+.pf-overview-function-view .pf-overview-toolbar-section-view{display:none!important}
+.pf-overview-function-view .pf-editor-tools{overflow:visible!important}
+.pf-overview-toolbar-section-tools .pf-overview-zoom-divider{display:none!important}
+.pf-overview-toolbar-section-tools .pf-pen-tool-button{width:100%!important;min-width:0!important}
+.pf-overview-function-view .pf-pen-tool-button{display:inline-flex!important;visibility:visible!important;opacity:1!important;align-items:center!important;justify-content:center!important;gap:5px!important;min-width:82px!important;height:31px!important;padding:0 9px!important;border:1px solid rgba(19,22,26,.08)!important;border-radius:8px!important;background:#fff!important;color:#5f666c!important;cursor:pointer!important}
+.pf-overview-function-view .pf-pen-tool-button b{display:inline!important;font:650 8.5px/1 "IBM Plex Sans",var(--pf-font-sans)!important}.pf-overview-function-view .pf-pen-tool-button span{font-size:11px!important}
+.pf-overview-function-view .pf-pen-tool-button:hover,.pf-overview-function-view .pf-pen-tool-button.active{background:#eaf3ef!important;color:#0f7a64!important;border-color:rgba(15,122,100,.16)!important}
+
+/* View owns camera and export; native export buttons stay as delegated action targets. */
+.pf-overview-function-view [data-action="png"],.pf-overview-function-view [data-action="pdf"],.pf-overview-function-view .pf-png-resolution-control{display:none!important}
+.pf-overview-function-view .pf-editor-view-tools{display:grid!important;grid-template-columns:32px minmax(58px,1fr) 32px minmax(48px,auto)!important;gap:6px!important;align-items:center!important;padding:8px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface)!important}
+.pf-overview-function-view .pf-editor-view-tools .pf-overview-zoom-divider{display:none!important}
+.pf-overview-function-view .pf-editor-view-tools [data-action="out"],.pf-overview-function-view .pf-editor-view-tools [data-action="in"]{width:32px!important;min-width:32px!important}.pf-overview-function-view .pf-editor-view-tools [data-action="fit"]{display:inline-flex!important;justify-content:center!important;min-width:48px!important}
+.pf-overview-function-view .pf-editor-view-tools output{width:100%!important;min-width:0!important;text-align:center!important}
+
+/* Layers: reduce nesting indentation and allow names/metadata to breathe. */
+.pf-overview-side .pf-overview-layer-panel{overflow:visible!important;max-height:410px!important}
+.pf-overview-side .pf-layer-panel-list{max-height:300px!important;padding:2px 0!important;overflow-y:auto!important;overflow-x:hidden!important}
+.pf-overview-side .pf-layer-unit{overflow:visible!important}
+.pf-overview-side .pf-layer-unit-body{min-width:0!important;overflow:visible!important}
+.pf-overview-side .pf-layer-row{grid-template-columns:22px minmax(0,1fr) 22px!important;gap:5px!important;padding:0 7px!important}
+.pf-overview-side .pf-layer-name{min-width:0!important;width:100%!important;line-height:1.4!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;display:block!important;-webkit-line-clamp:unset!important}
+.pf-overview-side .pf-layer-subrows{grid-template-columns:1fr!important;gap:5px!important;padding:0 7px 8px 12px!important}
+.pf-overview-side .pf-layer-subrows button{min-height:28px!important;height:auto!important;padding:6px 8px!important;line-height:1.25!important;white-space:normal!important;text-align:left!important}
+.pf-overview-side .pf-layer-unit-toggle{padding:0 8px!important;gap:8px!important}.pf-overview-side .pf-layer-unit-toggle small{max-width:48%!important;white-space:normal!important;line-height:1.35!important}
+.pf-overview-side .pf-layer-badge-row{grid-template-columns:54px minmax(0,1fr)!important;padding:6px 7px!important}
+
+/* Text sits optically centered in every compact control shape. */
+.pf-overview-control-rail button,.pf-overview-control-rail summary,.pf-overview-header-tools button,.pf-overview-header-tools summary{align-items:center!important;justify-content:center!important;text-align:center!important;line-height:1.15!important}
+.pf-overview-header-tools .pf-export-menu{width:auto!important;margin:0!important;border:0!important;background:transparent!important;overflow:visible!important}.pf-overview-header-tools .pf-export-menu>summary{height:30px!important;padding:0 11px!important;border:1px solid rgba(15,122,100,.18)!important;background:var(--pf-brand-accent)!important;color:#fff!important}.pf-overview-header-tools .pf-export-popover{width:286px!important;right:0!important;top:35px!important}
+
+@media(max-width:1180px) and (min-width:761px){.pf-overview-intro{grid-template-columns:minmax(120px,1fr) auto minmax(120px,1fr)!important}.pf-overview-function-connector .pf-overview-disclosure{grid-column:span 9!important}.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 3!important}}
+@media(max-width:760px){.pf-overview-function-connector .pf-overview-disclosure,.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:1/-1!important}}
+
+/* Regression pass: preserve the original live Arrange map as the progressive entry point. */
+.pf-overview-function-object .pf-card-layout-control{grid-column:1/-1!important;width:100%!important;min-width:0!important;height:auto!important;padding:0!important;border:0!important;background:transparent!important}
+.pf-overview-function-object .pf-layout-map-menu>summary{width:100%!important;height:34px!important;justify-content:center!important;border-color:rgba(15,122,100,.18)!important;background:var(--pf-brand-accent-soft)!important;color:var(--pf-brand-accent)!important;font:650 9px/1 var(--pf-font-sans)!important}
+
+/* Connector settings opens as a readable two-column panel instead of one compressed row. */
+.pf-overview-function-connector .pf-overview-disclosure{grid-column:span 8!important;overflow:visible!important}
+.pf-overview-function-connector .pf-overview-disclosure-content{padding:10px!important}
+.pf-overview-function-connector .pf-connector-control{display:block!important}
+.pf-overview-function-connector .pf-connector-control>.pf-card-layout-control{display:none!important}
+.pf-overview-function-connector .pf-connector-style-control{display:grid!important;grid-template-columns:minmax(68px,1fr) 42px!important;grid-auto-rows:auto!important;gap:9px!important;height:auto!important;min-height:0!important;overflow:visible!important}
+.pf-overview-function-connector .pf-connector-opacity{grid-column:1/-1!important;display:grid!important;grid-template-columns:48px minmax(0,1fr)!important}
+.pf-overview-function-connector .pf-connector-opacity>span{display:block!important}
+.pf-overview-function-connector [data-connector-action="clear"]{grid-column:1/-1!important;min-height:30px!important;white-space:nowrap!important}
+.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 4!important;height:34px!important}
+
+/* Seven tools need seven explicit columns; the style panel floats above the scroll rail. */
+.pf-overview-toolbar-section-tools .pf-editor-tools{grid-template-columns:32px 32px 32px minmax(82px,1fr) 76px 32px 32px!important}
+.pf-overview-function-view .pf-pen-style-menu>summary{width:76px!important;height:31px!important;padding:0 7px!important;justify-content:center!important;white-space:nowrap!important}
+.pf-overview-function-view .pf-pen-style-popover{position:fixed!important;left:var(--pf-pen-popover-left,12px)!important;right:auto!important;top:var(--pf-pen-popover-top,96px)!important;width:250px!important;max-height:calc(100dvh - 24px)!important;overflow:auto!important;z-index:10000!important}
+
+@media(max-width:1180px) and (min-width:761px){.pf-overview-function-connector .pf-overview-disclosure{grid-column:span 8!important}.pf-overview-function-connector .pf-connector-edit-proxy{grid-column:span 4!important}}

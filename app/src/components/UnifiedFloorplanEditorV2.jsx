@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PosterCanvas from "./PosterCanvas";
 import { detectLotShape } from "../floorplan/autoLotShape";
+import { getMemoryProfile } from "../runtime/memoryProfile";
 import {
   calculateCropRect,
   FLOORPLAN_FRAME_ASPECT,
   FLOORPLAN_ZOOM_MAX,
   FLOORPLAN_ZOOM_MIN,
+  releasePreparedDetailRaster,
 } from "../floorplan/pdfLocator";
 import "./UnifiedFloorplanEditor.css";
 import "./UnifiedFloorplanEditorV2.css";
@@ -26,6 +28,9 @@ const DEFAULT_STYLE = {
 
 const PIN_SCALE_MIN = 0.25;
 const PIN_SCALE_MAX = 6;
+const CAMERA_SETTLE_MS = 260;
+const HQ_RENDER_DELAY_MS = 120;
+const LOW_MEMORY_EDITOR = getMemoryProfile().lowMemory;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -127,6 +132,7 @@ export default function UnifiedFloorplanEditorV2({
   const stageRef = useRef(null);
   const renderSequence = useRef(0);
   const autoRanRef = useRef(false);
+  const cameraIdleTimerRef = useRef(null);
 
   const initialViewValue = useMemo(
     () => ({ ...DEFAULT_FLOORPLAN_VIEW, ...(initialView || {}) }),
@@ -158,6 +164,7 @@ export default function UnifiedFloorplanEditorV2({
   const [pathDraft, setPathDraft] = useState([]);
   const [spaceDown, setSpaceDown] = useState(false);
   const [liveCrop, setLiveCrop] = useState(null);
+  const [cameraSettled, setCameraSettled] = useState(true);
   const [renderState, setRenderState] = useState("idle");
   const [detectState, setDetectState] = useState({ state: "idle", message: "" });
 
@@ -181,11 +188,16 @@ export default function UnifiedFloorplanEditorV2({
 
   useEffect(() => {
     document.body.classList.add("plotflow-floorplan-editing");
-    return () => document.body.classList.remove("plotflow-floorplan-editing");
+    return () => {
+      document.body.classList.remove("plotflow-floorplan-editing");
+      renderSequence.current += 1;
+      if (cameraIdleTimerRef.current) window.clearTimeout(cameraIdleTimerRef.current);
+      releasePreparedDetailRaster();
+    };
   }, []);
 
   useEffect(() => {
-    if (!pageRender || !onRenderVectorPreview || drag?.type === "pan") return undefined;
+    if (!pageRender || !onRenderVectorPreview || !cameraSettled) return undefined;
     const sequence = ++renderSequence.current;
     const timer = window.setTimeout(async () => {
       try {
@@ -199,9 +211,9 @@ export default function UnifiedFloorplanEditorV2({
         console.error(error);
         setRenderState("error");
       }
-    }, 110);
+    }, HQ_RENDER_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [pageRender, view.zoom, view.offsetX, view.offsetY, drag?.type, onRenderVectorPreview]);
+  }, [pageRender, view.zoom, view.offsetX, view.offsetY, cameraSettled, onRenderVectorPreview]);
 
   useEffect(() => {
     if (!liveCrop?.dataUrl || initialOverlay?.shape?.points?.length || autoRanRef.current) return;
@@ -268,6 +280,17 @@ export default function UnifiedFloorplanEditorV2({
   }, [pathDraft, rectStart, selectedObject, crop, pageOverlay]);
 
   function patchView(patch) {
+    renderSequence.current += 1;
+    setRenderState("preview");
+    setLiveCrop(null);
+    releasePreparedDetailRaster();
+    setCameraSettled(false);
+    if (cameraIdleTimerRef.current) window.clearTimeout(cameraIdleTimerRef.current);
+    cameraIdleTimerRef.current = window.setTimeout(() => {
+      cameraIdleTimerRef.current = null;
+      setCameraSettled(true);
+    }, CAMERA_SETTLE_MS);
+
     setView((current) => {
       const next = { ...current, ...patch };
       next.zoom = clamp(next.zoom, FLOORPLAN_ZOOM_MIN, FLOORPLAN_ZOOM_MAX) || 100;
@@ -534,7 +557,9 @@ export default function UnifiedFloorplanEditorV2({
 
   function saveAndDone() {
     if (!crop) return;
-    onSave?.(view, { ...overlayToCropSpace(pageOverlay, crop), stale: false });
+    const pendingSave = onSave?.(view, { ...overlayToCropSpace(pageOverlay, crop), stale: false });
+    onCancel?.();
+    pendingSave?.catch?.((error) => console.error(error));
   }
 
   if (!locatorResult || !pageRender || !crop) {
@@ -553,17 +578,11 @@ export default function UnifiedFloorplanEditorV2({
   const style = { ...DEFAULT_STYLE, ...(overlay.style || {}) };
   const previewAssets = {
     ...(posterAssets || {}),
-    floorplanImage: liveCrop?.dataUrl || posterAssets?.floorplanImage || null,
-  };
-  const fastImageStyle = {
-    width: `${(pageRender.width / crop.w) * 100}%`,
-    height: `${(pageRender.height / crop.h) * 100}%`,
-    left: `${(-crop.x / crop.w) * 100}%`,
-    top: `${(-crop.y / crop.h) * 100}%`,
+    floorplanImage: liveCrop?.dataUrl || pageRender.dataUrl || posterAssets?.floorplanImage || null,
   };
 
   return (
-    <div className="unified-floorplan unified-floorplan-v2">
+    <div className={`unified-floorplan unified-floorplan-v2 ${LOW_MEMORY_EDITOR ? "memory-editor" : ""}`}>
       <header className="unified-floorplan-topbar">
         <button type="button" className="unified-back" onClick={onCancel}>← Back</button>
         <div>
@@ -712,12 +731,12 @@ export default function UnifiedFloorplanEditorV2({
               <label><span>X</span><input type="number" value={Math.round(view.offsetX)} onChange={(event) => patchView({ offsetX: event.target.value })} /></label>
               <label><span>Y</span><input type="number" value={Math.round(view.offsetY)} onChange={(event) => patchView({ offsetY: event.target.value })} /></label>
             </div>
-            <button type="button" className="unified-reset-view" onClick={() => setView(DEFAULT_FLOORPLAN_VIEW)}>Reset View</button>
+            <button type="button" className="unified-reset-view" onClick={() => patchView(DEFAULT_FLOORPLAN_VIEW)}>Reset View</button>
           </div>
 
           {locatorResult.matches.length > 1 && (
             <div className="unified-section">
-              <span className="unified-label">PDF CANDIDATE</span>
+              <span className="unified-label">LOCATOR CANDIDATE</span>
               <div className="unified-candidates">
                 {locatorResult.matches.map((match, index) => (
                   <button type="button" key={`${match.pageNumber}-${index}`} className={locatorResult.selectedMatchIndex === index ? "active" : ""} onClick={() => onCandidateChange?.(index)}>
@@ -732,7 +751,7 @@ export default function UnifiedFloorplanEditorV2({
         <main className="unified-canvas-column">
           <div className="unified-canvas-head">
             <div><span>MASTERPLAN CROP</span><strong>Select objects directly · drag to move · Space to pan</strong></div>
-            <em className={renderState}>{renderState === "rendering" ? "Rendering vector…" : renderState === "ready" ? "Vector HQ" : "Fast preview"}</em>
+            <em className={renderState}>{renderState === "rendering" ? "Loading raster tiles…" : renderState === "ready" ? "Raster detail" : "Viewport preview"}</em>
           </div>
 
           <div
@@ -743,8 +762,7 @@ export default function UnifiedFloorplanEditorV2({
             onMouseUp={endStage}
             onMouseLeave={endStage}
           >
-            <img src={pageRender.dataUrl} alt={`PDF page ${pageRender.pageNumber}`} className="unified-fast-image" style={fastImageStyle} draggable="false" />
-            {liveCrop?.dataUrl && <img src={liveCrop.dataUrl} alt={`Vector crop ${unit?.unitCode}`} className="unified-hq-image" draggable="false" />}
+            {cameraSettled && liveCrop?.dataUrl && <img src={liveCrop.dataUrl} alt={`Raster crop ${unit?.unitCode}`} className="unified-hq-image" draggable="false" />}
 
             <svg className="unified-overlay-svg unified-overlay-svg-v2" viewBox="0 0 100 100" preserveAspectRatio="none">
               {hasShape && (
@@ -798,26 +816,28 @@ export default function UnifiedFloorplanEditorV2({
           </div>
         </main>
 
-        <aside className="unified-live-panel unified-live-panel-v2">
-          <div className="unified-live-head">
-            <span>LIVE POSTER</span>
-            <strong>Đúng layout thật · cập nhật cùng composition</strong>
-          </div>
-          <div className="unified-poster-frame">
-            <PosterCanvas
-              unit={unit}
-              assets={previewAssets}
-              isEditing={false}
-              lotOverlay={{ ...overlay, stale: false }}
-              preferLotOverlay
-              previewZoom={1}
-            />
-          </div>
-          <div className="unified-live-note">
-            <strong>{hasShape ? "Highlight synced" : "Locator only"}</strong>
-            <span>Poster này dùng đúng crop, highlight và pin đang chỉnh — không scale hai lần.</span>
-          </div>
-        </aside>
+        {!LOW_MEMORY_EDITOR && (
+          <aside className="unified-live-panel unified-live-panel-v2">
+            <div className="unified-live-head">
+              <span>LIVE POSTER</span>
+              <strong>Đúng layout thật · cập nhật cùng composition</strong>
+            </div>
+            <div className="unified-poster-frame">
+              <PosterCanvas
+                unit={unit}
+                assets={previewAssets}
+                isEditing={false}
+                lotOverlay={{ ...overlay, stale: false }}
+                preferLotOverlay
+                previewZoom={1}
+              />
+            </div>
+            <div className="unified-live-note">
+              <strong>{hasShape ? "Highlight synced" : "Locator only"}</strong>
+              <span>Poster này dùng đúng crop, highlight và pin đang chỉnh — không scale hai lần.</span>
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );

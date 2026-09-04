@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,600;0,700;1,600&family=IBM+Plex+Serif:ital,wght@1,600&display=swap');
+
+:root {
+  /* PlotFlow visual source of truth, extracted from the approved Home experience. */
+  --pf-brand-accent: #0f7a64;
+  --pf-brand-accent-soft: #e6f1ed;
+
+  --pf-bg-canvas: #f5f4f1;
+  --pf-surface: #f8f9f7;
+  --pf-surface-raised: #ffffff;
+  --pf-surface-soft: #eeefeb;
+  --pf-ink: #15171a;
+  --pf-ink-2: #2b3035;
+  --pf-muted: #737980;
+  --pf-muted-soft: #969ba0;
+  --pf-line: rgba(19, 22, 26, 0.085);
+  --pf-line-soft: rgba(19, 22, 26, 0.05);
+
+  --pf-font-sans: "IBM Plex Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --pf-font-serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+
+  /* Shared spacing rhythm. Prefer these before introducing one-off values. */
+  --pf-space-1: 4px;
+  --pf-space-2: 8px;
+  --pf-space-3: 12px;
+  --pf-space-4: 16px;
+  --pf-space-6: 24px;
+  --pf-space-8: 32px;
+  --pf-space-12: 48px;
+  --pf-space-16: 64px;
+  --pf-space-24: 96px;
+
+  /* Radius language derived from Home controls, cards and Liquid Glass surfaces. */
+  --pf-radius-control: 10px;
+  --pf-radius-button: 12px;
+  --pf-radius-card: 18px;
+  --pf-radius-panel: 22px;
+  --pf-radius-pill: 999px;
+
+  /* Reusable elevation. Keep product pages on these before inventing local shadows. */
+  --pf-shadow-card: 0 16px 42px rgba(25, 31, 38, 0.06);
+  --pf-shadow-floating: 0 24px 70px rgba(20, 25, 30, 0.08);
+
+  /* Liquid Glass: controlled, not a default treatment for every surface. */
+  --pf-glass-fill: linear-gradient(138deg, rgba(255, 255, 255, 0.70), rgba(248, 250, 249, 0.42));
+  --pf-glass-fill-strong: linear-gradient(138deg, rgba(255, 255, 255, 0.80), rgba(246, 249, 247, 0.52));
+  --pf-glass-border: rgba(255, 255, 255, 0.86);
+  --pf-glass-shadow: 0 16px 42px rgba(25, 31, 38, 0.075), inset 0 1px 0 rgba(255, 255, 255, 0.98), inset 0 -1px 0 rgba(25, 31, 38, 0.035);
+  --pf-glass-blur: blur(24px) saturate(155%);
+
+  /* Motion should feel calm, precise and spatial rather than game-like. */
+  --pf-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --pf-duration-fast: 120ms;
+  --pf-duration-control: 240ms;
+  --pf-duration-standard: 300ms;
+  --pf-duration-slow: 420ms;
+
+  /* Typography roles derived from Home hierarchy. */
+  --pf-text-body: 15px;
+  --pf-text-body-lg: 17px;
+  --pf-text-meta: 12px;
+  --pf-text-label: 9px;
+  --pf-leading-body: 1.78;
+  --pf-leading-heading: 1.08;
+  --pf-tracking-heading: -0.016em;
+  --pf-tracking-display: -0.024em;
+}

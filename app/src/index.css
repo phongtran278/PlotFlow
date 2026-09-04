@@ -1,3 +1,35 @@
+@font-face {
+  font-family: "PlotFlowBrand";
+  src: url("/assets/font/SVN-Gilroy-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "PlotFlowBrand";
+  src: url("/assets/font/SVN-Gilroy-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "PlotFlowBrand";
+  src: url("/assets/font/SVN-Gilroy-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "PlotFlowBrand";
+  src: url("/assets/font/SVN-Gilroy-Bold.otf") format("opentype");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: block;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -11,8 +43,40 @@ body,
   min-height: 100%;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+}
+
 body {
   min-height: 100vh;
+  overflow-x: hidden;
+  font-family: "PlotFlowBrand", Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+button,
+input,
+select {
+  line-height: 1.2;
+}
+
+img,
+canvas,
+svg {
+  max-width: 100%;
 }
 
 #root {

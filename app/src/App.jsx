@@ -17,6 +17,7 @@ import {
   pinAssets,
 } from "./data/assetCatalog";
 import { brandFont, buildBrandFontCss } from "./data/brandConfig";
+import { getMemoryProfile } from "./runtime/memoryProfile";
 import {
   attachMatchToPageRender,
   buildFloorplanIndex,
@@ -24,14 +25,16 @@ import {
   FLOORPLAN_FRAME_ASPECT,
   normalizeUnitCode,
   openVectorPdf,
+  releasePreparedDetailRaster,
   renderPdfPageBase,
   renderPdfRegion,
   resolvePdfSourceUrl,
   resolveUnitsAgainstIndex,
 } from "./floorplan/pdfLocator";
 
-const PREVIEW_CACHE_LIMIT = 12;
-const PAGE_CACHE_LIMIT = 4;
+const MEMORY_PROFILE = getMemoryProfile();
+const PREVIEW_CACHE_LIMIT = Math.max(1, Number(MEMORY_PROFILE.previewCacheTarget) || 2);
+const PAGE_CACHE_LIMIT = Math.max(1, Number(MEMORY_PROFILE.pageCacheTarget) || (MEMORY_PROFILE.lowMemory ? 2 : 4));
 const DEFAULT_MASTER_PDF_URL = "/masterplan/masterplan.pdf";
 const DEFAULT_MASTER_PDF_LABEL = "Masterplan mặc định";
 const SHEET_HISTORY_KEY = "plotflow-sheet-history-r1";
@@ -440,7 +443,7 @@ function App() {
       y: Math.max(0, Math.min(1, (pageRender.anchorY - crop.y) / crop.h)),
     };
     const clean = await renderPdfRegion(pdfDocRef.current, pageRender, view, {
-      outputWidth: 2168,
+      outputWidth: MEMORY_PROFILE.lotEditorWidth,
       aspect: FLOORPLAN_FRAME_ASPECT,
       includeHighlight: false,
       maxRenderScale: 128,
@@ -452,12 +455,17 @@ function App() {
     setLotEditorCode(code);
   }
 
+  function closeLotEditor() {
+    setLotEditorCode(null);
+    setLotEditorData(null);
+    releasePreparedDetailRaster();
+  }
+
   function saveLotOverlay(overlay) {
     const next = { ...lotOverlays, [lotEditorCode]: { ...overlay, stale: false } };
     setLotOverlays(next);
     localStorage.setItem("plotflow-lot-overlays-r1-v9", JSON.stringify(next));
-    setLotEditorCode(null);
-    setLotEditorData(null);
+    closeLotEditor();
   }
 
   function saveSheetHistoryEntry(url, suggestedName) {
@@ -644,7 +652,7 @@ function App() {
 
     renderFloorplanPreview(selectedCode, locatorResults)
       .then(() => {
-        if (cancelled) return;
+        if (cancelled || !MEMORY_PROFILE.preloadNextUnit) return;
         const selectedIndex = units.findIndex((unit) => normalizeUnitCode(unit.unitCode) === selectedCode);
         if (selectedIndex < 0) return;
         const nextUnit = units[selectedIndex + 1];
@@ -987,7 +995,7 @@ function App() {
 
       <main className={`component-stage ${isLayoutEditing ? "layout-studio-mode" : ""} ${fineTuneUnitCode ? "finetune-mode" : ""}`}>
         {lotEditorCode ? (
-          <LotHighlightEditor unit={units.find((item) => normalizeUnitCode(item.unitCode) === lotEditorCode)} imageSrc={lotEditorData?.imageSrc} initialOverlay={lotEditorData?.initialOverlay} autoAnchor={lotEditorData?.autoAnchor} viewSignature={lotEditorData?.viewSignature} pinSrc={pinAssets.pin2D} onCancel={() => { setLotEditorCode(null); setLotEditorData(null); }} onSave={saveLotOverlay} />
+          <LotHighlightEditor unit={units.find((item) => normalizeUnitCode(item.unitCode) === lotEditorCode)} imageSrc={lotEditorData?.imageSrc} initialOverlay={lotEditorData?.initialOverlay} autoAnchor={lotEditorData?.autoAnchor} viewSignature={lotEditorData?.viewSignature} pinSrc={pinAssets.pin2D} onCancel={closeLotEditor} onSave={saveLotOverlay} />
         ) : fineTuneUnitCode ? (
           fineTuneLoading ? <div className="finetune-loading">Rendering PDF page…</div> : (
             <FloorplanFineTune key={`${fineTuneUnitCode}-${fineTuneResult?.selectedMatchIndex || 0}`} unit={fineTuneUnit} locatorResult={fineTuneResult} pageRender={fineTunePageRender} initialView={fineTuneInitialView} onCancel={() => { setFineTuneUnitCode(null); setFineTunePageRender(null); }} onSave={saveFineTune} onCandidateChange={changeFineTuneCandidate} onRenderVectorPreview={renderFineTuneVectorPreview} />
