@@ -36,7 +36,6 @@ import OverviewControlRailRuntime from "./product/OverviewControlRailRuntime.jsx
 import OverviewPrecisionArrangeRuntime from "./product/OverviewPrecisionArrangeRuntime.jsx";
 import OverviewV2Runtime from "./product/OverviewV2Runtime.jsx";
 import OverviewArrangeModesRuntime from "./product/OverviewArrangeModesRuntime.jsx";
-import OverviewLayoutPresetRuntime from "./product/OverviewLayoutPresetRuntime.jsx";
 import OverviewSellDataRuntime from "./product/OverviewSellDataRuntime.jsx";
 import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
@@ -173,7 +172,6 @@ function OverviewRuntimes() {
       <OverviewPrecisionArrangeRuntime />
       <OverviewV2Runtime />
       <OverviewArrangeModesRuntime />
-      <OverviewLayoutPresetRuntime />
       <OverviewPenRuntime />
       <OverviewSimplifiedRuntime />
       <OverviewGuideRuntime />
