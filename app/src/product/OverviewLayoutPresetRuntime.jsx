@@ -84,22 +84,7 @@ export default function OverviewLayoutPresetRuntime() {
     }
 
     function updateConnectors() {
-      if (!stage) return;
-      const w = stage.clientWidth || 1;
-      const h = stage.clientHeight || 1;
-      cards().forEach((card) => {
-        const code = codeFor(card);
-        const line = lineFor(stage, code);
-        const anchor = anchorFor(stage, code);
-        if (!line || !anchor) return;
-        const side = cardSide(card, w);
-        const x = side === "left" ? card.offsetLeft + card.offsetWidth : card.offsetLeft;
-        const y = card.offsetTop + card.offsetHeight / 2;
-        line.setAttribute("x1", String((x / w) * 100));
-        line.setAttribute("y1", String((y / h) * 100));
-        line.setAttribute("x2", String(Number.parseFloat(anchor.style.left || "50")));
-        line.setAttribute("y2", String(Number.parseFloat(anchor.style.top || "50")));
-      });
+      window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
     }
 
     function captureMapFromCanvas(force = false) {
@@ -138,6 +123,7 @@ export default function OverviewLayoutPresetRuntime() {
 
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", "0 0 100 100");
+      svg.setAttribute("preserveAspectRatio", "none");
       svg.classList.add("pf-layout-map-lines");
       mapCanvas.appendChild(svg);
 
