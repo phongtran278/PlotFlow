@@ -44,7 +44,16 @@ export default function OverviewArrangeModesRuntime() {
     let resolvedLaneCount = 0;
     const ui = readArrangeUi();
 
-    const cards = () => stage ? Array.from(stage.querySelectorAll(".pf-live-sales-callout")) : [];
+    function activeLayer() {
+      if (!stage) return null;
+      return stage.querySelector(".pf-live-overview-callouts:not(.pf-callouts-leaving)")
+        || stage.querySelector(".pf-live-overview-callouts");
+    }
+
+    const cards = () => {
+      const layer = activeLayer();
+      return layer ? Array.from(layer.querySelectorAll(".pf-live-sales-callout")) : [];
+    };
 
     function saveArrangeUi() {
       localStorage.setItem(ARRANGE_UI_KEY, JSON.stringify(ui));
@@ -72,7 +81,8 @@ export default function OverviewArrangeModesRuntime() {
     }
 
     function anchorFor(code, bounds) {
-      const anchor = Array.from(stage?.querySelectorAll(".pf-live-map-anchor") || [])
+      const layer = activeLayer();
+      const anchor = Array.from(layer?.querySelectorAll(".pf-live-map-anchor") || [])
         .find((node) => (node.dataset.unitCode || node.textContent?.trim()) === code);
       if (!anchor || !bounds) return { x: 0.5, y: 0.5, resolved: false };
       const stageW = stage.clientWidth || 1;
