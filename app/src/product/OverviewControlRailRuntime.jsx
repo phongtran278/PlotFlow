@@ -94,14 +94,21 @@ function ensureConnectorEditProxy(connectorContent) {
   }
 }
 
-function exposeAutoArrange(objectContent) {
+function ensureAutoArrangeProxy(objectContent) {
   if (!objectContent) return;
-  objectContent.querySelector(":scope > [data-auto-arrange-proxy]")?.remove();
-  const menu = document.querySelector(".pf-layout-map-menu");
-  const control = menu?.closest(".pf-card-layout-control");
-  const summary = menu?.querySelector(":scope > summary");
-  if (summary) summary.textContent = "Auto Arrange";
-  moveTo(control, objectContent);
+  let proxy = objectContent.querySelector(":scope > [data-auto-arrange-proxy]");
+  if (!proxy) {
+    proxy = document.createElement("button");
+    proxy.type = "button";
+    proxy.className = "pf-auto-arrange-proxy";
+    proxy.dataset.autoArrangeProxy = "1";
+    proxy.innerHTML = '<span aria-hidden="true">✦</span><b>Auto Arrange</b>';
+    proxy.title = "Preview and arrange visible cards by their lot positions";
+    proxy.addEventListener("click", () => {
+      window.dispatchEvent(new CustomEvent("pf-overview-arrange-preview-request"));
+    });
+    objectContent.appendChild(proxy);
+  }
 }
 
 function organizeHeaderControls(header, toolbar, guideControl) {
@@ -166,7 +173,7 @@ export default function OverviewControlRailRuntime() {
       moveTo(document.querySelector(".pf-card-quick-scale"), objectContent);
       moveTo(document.querySelector(".pf-precision-arrange"), objectContent);
       moveTo(document.querySelector(".pf-overview-v2-controls"), objectContent);
-      exposeAutoArrange(objectContent);
+      ensureAutoArrangeProxy(objectContent);
       const connectorDetails = ensureDisclosure(connectorContent, "connector", "Connector settings");
       moveTo(document.querySelector(".pf-connector-control"), connectorDetails);
       ensureConnectorEditProxy(connectorContent);
