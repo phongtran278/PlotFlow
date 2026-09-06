@@ -1,38 +1,46 @@
 .pf-overview-control-rail-spacer{display:none!important}
 .pf-overview-control-rail.is-fixed-toolbar{position:relative!important;top:auto!important;left:auto!important;right:auto!important;width:auto!important;margin:0!important;box-shadow:none!important}
-.pf-overview-control-rail .pf-editor-layout-tools{display:none!important}
-.pf-product-overview:has(.pf-masterplan-stage .pf-card-selected) .pf-overview-control-rail .pf-editor-layout-tools,.pf-product-overview:has(.pf-masterplan-stage .pf-sales-callout.pf-card-selected) .pf-overview-control-rail .pf-editor-layout-tools{display:flex!important}
 .pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:100%}
 @media(max-width:1180px){.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:auto}}
 
-/* Product-density pass: keep Object useful without spending a full row per action. */
+/* Object-aware inspector: only the selected object's controls are visible. */
+body.pf-product-overview .pf-overview-function-object,body.pf-product-overview .pf-overview-function-connector,body.pf-product-overview .pf-overview-function-unit{display:none!important}
+body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-object,body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-unit{display:grid!important}
+body.pf-product-overview .pf-overview-control-rail[data-inspector-object="connector"] .pf-overview-function-connector{display:grid!important}
+body.pf-product-overview .pf-overview-control-rail[data-inspector-object="highlight"] .pf-overview-function-view{display:grid!important}
+body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label{display:block!important}
+body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label::after{content:"Canvas"}
+body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label{font-size:0!important}
+body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label::after{font-size:8px!important}
+
+/* Card owns card scale, transform, arrange and unit navigation. */
 body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:span 7!important;margin:0!important;padding-bottom:0!important;border-bottom:0!important;align-self:end!important}
 body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:span 5!important;align-self:end!important;min-width:0!important;padding-inline:7px!important;white-space:nowrap!important}
-
-/* One connector editor only. The older Connector style surface duplicates these same controls. */
 body.pf-product-overview .pf-overview-function-object .pf-overview-v2-controls{display:none!important}
+
+/* Connector has one editor surface only. */
 body.pf-product-overview .pf-overview-function-connector .pf-connector-edit-proxy{display:none!important}
 body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure{grid-column:1/-1!important;position:relative!important;overflow:visible!important}
-
-/* Connector settings stays inside its functional owner, but opens over the control rail rather than the PDF. */
-body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content{position:fixed!important;left:12px!important;top:clamp(150px,31vh,290px)!important;z-index:20020!important;width:300px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 174px)!important;overflow:auto!important;padding:12px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
+body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content{position:fixed!important;left:12px!important;top:118px!important;z-index:20020!important;width:300px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 142px)!important;overflow:auto!important;padding:12px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
 body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content .pf-connector-style-control{grid-template-columns:minmax(92px,1fr) 48px!important;gap:10px!important}
 
-/* Transform is contextual: keep the useful size/align controls, drop the advanced radius block, and cover the rail instead of the PDF. */
+/* Transform belongs to Card and stays off the PDF. */
 body.pf-product-overview .pf-precision-popover{position:fixed!important;left:12px!important;right:auto!important;top:118px!important;width:300px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 142px)!important;overflow:auto!important;z-index:20025!important;transform:none!important}
 body.pf-product-overview .pf-precision-popover .pf-style-system-grid{display:none!important}
 
-/* Align lives in Transform. Keep the older toolbar owner mounted but never expose a second Align surface. */
+/* Align lives in Transform; do not expose a second copy in the canvas toolbar. */
 body.pf-product-overview .pf-overview-toolbar-section-arrange,body.pf-product-overview .pf-overview-control-rail .pf-editor-layout-tools{display:none!important}
 
-/* Put the everyday tools first in the rail without moving them out of their functional owner. */
+/* Canvas tools stay globally available and visually first. */
 body.pf-product-overview .pf-overview-canvas-tools{order:-1!important}
+body.pf-product-overview .pf-overview-toolbar-section-view{display:grid!important}
+body.pf-product-overview .pf-overview-function-view .pf-editor-view-tools{display:grid!important}
 
-/* Undo and Redo are different actions, but visually read as one compact history control. */
+/* Undo and Redo remain distinct actions but read as one history control. */
 body.pf-product-overview .pf-editor-tools [data-action="undo"]{border-radius:8px 0 0 8px!important;margin-right:-3px!important}
 body.pf-product-overview .pf-editor-tools [data-action="redo"]{border-radius:0 8px 8px 0!important;margin-left:-3px!important}
 
-/* Header disclosures must sit above the PDF/canvas instead of falling behind it. */
+/* Header disclosures always sit above the PDF/canvas. */
 body.pf-product-overview .pf-overview-intro,body.pf-product-overview .pf-overview-header-actions,body.pf-product-overview .pf-overview-header-tools{position:relative!important;z-index:20010!important;overflow:visible!important}
 body.pf-product-overview .pf-overview-header-guides{position:relative!important;z-index:20030!important;overflow:visible!important}
 body.pf-product-overview .pf-overview-header-guides>div{position:absolute!important;top:calc(100% + 7px)!important;right:0!important;z-index:20031!important;min-width:220px!important;padding:10px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
