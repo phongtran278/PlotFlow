@@ -3,20 +3,24 @@
 .pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:100%}
 @media(max-width:1180px){.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:auto}}
 
-/* Object-aware inspector: selected-object controls are contextual; shared controls remain visible. */
+/* Object-aware inspector: selected-object controls are contextual. */
 body.pf-product-overview .pf-overview-function-object,body.pf-product-overview .pf-overview-function-connector,body.pf-product-overview .pf-overview-function-unit{display:none!important}
 body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-object,body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-unit{display:grid!important}
 body.pf-product-overview .pf-overview-control-rail[data-inspector-object="connector"] .pf-overview-function-connector{display:grid!important}
-body.pf-product-overview .pf-overview-function-view{display:grid!important}
-body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label{display:block!important;font-size:0!important}
-body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label::after{content:"Shared";font-size:8px!important}
+body.pf-product-overview .pf-overview-function-view{display:none!important}
 
-/* Card owns card scale, transform, corner radius, arrange and unit navigation. */
+/* Card owns scale, transform, corner radius and arrange. */
 body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:span 7!important;margin:0!important;padding-bottom:0!important;border-bottom:0!important;align-self:end!important}
 body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:span 5!important;align-self:end!important;min-width:0!important;padding-inline:7px!important;white-space:nowrap!important}
 body.pf-product-overview .pf-overview-function-object .pf-overview-v2-controls{display:none!important}
 body.pf-product-overview .pf-card-selection-summary{grid-column:1/-1;padding:7px 9px;border:1px dashed var(--pf-line);border-radius:8px;font-size:10px;line-height:1.35;color:var(--pf-text-muted);background:var(--pf-surface-soft)}
 body.pf-product-overview .pf-card-selection-summary[data-multi="1"]{border-style:solid;color:var(--pf-text);font-weight:650}
+
+/* Multi-card selection is a direct action state: show only Gap + Align + Distribute immediately. */
+body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"]{grid-column:1/-1!important;display:block!important}
+body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"]>summary{display:none!important}
+body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"]>.pf-precision-popover{position:static!important;left:auto!important;right:auto!important;top:auto!important;width:auto!important;max-width:none!important;max-height:none!important;overflow:visible!important;transform:none!important;box-shadow:none!important;margin:0!important;border:1px solid var(--pf-line)!important;background:var(--pf-surface-raised)!important}
+body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"]>.pf-precision-popover>header,body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"] .pf-style-system-grid,body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"] .pf-precision-section-label,body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"] .pf-size-lock-row{display:none!important}
 
 /* Connector has one editor surface only. */
 body.pf-product-overview .pf-overview-function-connector .pf-connector-edit-proxy{display:none!important}
@@ -26,27 +30,22 @@ body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure
 body.pf-product-overview .pf-live-callout-lines line,body.pf-product-overview .pf-callout-lines line{cursor:pointer}
 body.pf-product-overview .pf-live-callout-lines line[data-pf-connector-selected="1"],body.pf-product-overview .pf-callout-lines line[data-pf-connector-selected="1"]{filter:drop-shadow(0 0 2px rgba(15,122,100,.6))}
 
-/* Transform belongs to Card and stays off the PDF. Keep card radius controls available here. */
+/* Single-card Transform stays contextual and keeps radius controls. */
 body.pf-product-overview .pf-precision-popover{position:fixed!important;left:12px!important;right:auto!important;top:118px!important;width:300px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 142px)!important;overflow:auto!important;z-index:20025!important;transform:none!important}
 body.pf-product-overview .pf-precision-popover .pf-style-system-grid{display:grid!important}
-
-/* Align lives in Transform; do not expose a second copy in the canvas toolbar. */
 body.pf-product-overview .pf-overview-toolbar-section-arrange,body.pf-product-overview .pf-overview-control-rail .pf-editor-layout-tools{display:none!important}
 
-/* Shared tools are always available. Header is the single owner for Fit and zoom percentage. */
-body.pf-product-overview .pf-overview-canvas-tools{order:-1!important}
-body.pf-product-overview .pf-overview-toolbar-section-tools>.pf-overview-toolbar-section-label{font-size:0!important}
-body.pf-product-overview .pf-overview-toolbar-section-tools>.pf-overview-toolbar-section-label::after{content:"Common";font-size:7px!important}
-body.pf-product-overview .pf-overview-toolbar-section-view{display:none!important}
-body.pf-product-overview .pf-overview-function-view .pf-editor-view-tools{display:none!important}
-
-/* Undo and Redo remain distinct actions but read as one history control. */
+/* Shared/Common tools live in the header next to Guides / Export and no longer consume rail space. */
+body.pf-product-overview .pf-overview-header-actions>.pf-editor-tools{display:flex!important;align-items:center!important;justify-content:center!important;gap:3px!important;order:1!important;margin-inline:auto!important;padding:0!important;border:0!important;background:transparent!important}
+body.pf-product-overview .pf-overview-header-actions>.pf-editor-tools .pf-editor-divider{height:18px!important}
+body.pf-product-overview .pf-overview-header-actions>.pf-editor-tools button{min-width:30px!important;height:30px!important}
+body.pf-product-overview .pf-overview-toolbar-section-tools,body.pf-product-overview .pf-overview-toolbar-section-view{display:none!important}
 body.pf-product-overview .pf-editor-tools [data-action="undo"]{border-radius:8px 0 0 8px!important;margin-right:-3px!important}
 body.pf-product-overview .pf-editor-tools [data-action="redo"]{border-radius:0 8px 8px 0!important;margin-left:-3px!important}
 
-/* Object audit is type-based: compare Card / Connector / Highlight counts without mixing their meaning. */
-body.pf-product-overview .pf-object-audit-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px 10px;border-bottom:1px solid var(--pf-line)}
-body.pf-product-overview .pf-object-audit-chip{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:5px;min-width:0;padding:7px 8px;border:1px solid var(--pf-line);border-radius:8px;background:var(--pf-surface-soft);font-size:9px}
+/* Object audit stays compact even for groups with many units. */
+body.pf-product-overview .pf-object-audit-counts{display:grid;grid-template-columns:repeat(3,minmax(72px,1fr));gap:6px;padding:8px 10px;border-bottom:1px solid var(--pf-line)}
+body.pf-product-overview .pf-object-audit-chip{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:5px;min-width:0;padding:7px 8px;border:1px solid var(--pf-line);border-radius:8px;background:var(--pf-surface-soft);font-size:9px}
 body.pf-product-overview .pf-object-audit-chip>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--pf-text-muted)}
 body.pf-product-overview .pf-object-audit-chip>strong{font-size:11px;color:var(--pf-text)}
 body.pf-product-overview .pf-object-audit-chip>i{display:grid;place-items:center;width:15px;height:15px;border-radius:999px;font-style:normal;font-weight:800;background:var(--pf-surface-raised);border:1px solid currentColor}
@@ -54,7 +53,9 @@ body.pf-product-overview .pf-object-audit-chip.is-mismatch{font-weight:700}
 
 /* Header disclosures always sit above the PDF/canvas. */
 body.pf-product-overview .pf-overview-intro,body.pf-product-overview .pf-overview-header-actions,body.pf-product-overview .pf-overview-header-tools{position:relative!important;z-index:20010!important;overflow:visible!important}
+body.pf-product-overview .pf-overview-header-actions{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important}
 body.pf-product-overview .pf-overview-header-guides{position:relative!important;z-index:20030!important;overflow:visible!important}
 body.pf-product-overview .pf-overview-header-guides>div{position:absolute!important;top:calc(100% + 7px)!important;right:0!important;z-index:20031!important;min-width:220px!important;padding:10px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
 
+@media(max-width:900px){body.pf-product-overview .pf-overview-header-actions>.pf-editor-tools{order:10!important;width:100%!important;margin-inline:0!important;justify-content:flex-start!important;overflow-x:auto!important}}
 @media(max-width:760px){body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale,body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:1/-1!important}body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content,body.pf-product-overview .pf-precision-popover{left:12px!important;right:12px!important;top:96px!important;width:auto!important;max-width:none!important}body.pf-product-overview .pf-object-audit-counts{grid-template-columns:1fr}}
