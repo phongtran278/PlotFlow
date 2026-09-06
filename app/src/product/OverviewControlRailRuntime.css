@@ -15,6 +15,8 @@ body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label:
 body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:span 7!important;margin:0!important;padding-bottom:0!important;border-bottom:0!important;align-self:end!important}
 body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:span 5!important;align-self:end!important;min-width:0!important;padding-inline:7px!important;white-space:nowrap!important}
 body.pf-product-overview .pf-overview-function-object .pf-overview-v2-controls{display:none!important}
+body.pf-product-overview .pf-card-selection-summary{grid-column:1/-1;padding:7px 9px;border:1px dashed var(--pf-line);border-radius:8px;font-size:10px;line-height:1.35;color:var(--pf-text-muted);background:var(--pf-surface-soft)}
+body.pf-product-overview .pf-card-selection-summary[data-multi="1"]{border-style:solid;color:var(--pf-text);font-weight:650}
 
 /* Connector has one editor surface only. */
 body.pf-product-overview .pf-overview-function-connector .pf-connector-edit-proxy{display:none!important}
@@ -31,22 +33,28 @@ body.pf-product-overview .pf-precision-popover .pf-style-system-grid{display:gri
 /* Align lives in Transform; do not expose a second copy in the canvas toolbar. */
 body.pf-product-overview .pf-overview-toolbar-section-arrange,body.pf-product-overview .pf-overview-control-rail .pf-editor-layout-tools{display:none!important}
 
-/* Shared tools are always available and visually first. */
+/* Shared tools are always available. Header is the single owner for Fit and zoom percentage. */
 body.pf-product-overview .pf-overview-canvas-tools{order:-1!important}
 body.pf-product-overview .pf-overview-toolbar-section-tools>.pf-overview-toolbar-section-label{font-size:0!important}
 body.pf-product-overview .pf-overview-toolbar-section-tools>.pf-overview-toolbar-section-label::after{content:"Common";font-size:7px!important}
-body.pf-product-overview .pf-overview-toolbar-section-view>.pf-overview-toolbar-section-label{font-size:0!important}
-body.pf-product-overview .pf-overview-toolbar-section-view>.pf-overview-toolbar-section-label::after{content:"Canvas";font-size:7px!important}
-body.pf-product-overview .pf-overview-toolbar-section-view{display:grid!important}
-body.pf-product-overview .pf-overview-function-view .pf-editor-view-tools{display:grid!important}
+body.pf-product-overview .pf-overview-toolbar-section-view{display:none!important}
+body.pf-product-overview .pf-overview-function-view .pf-editor-view-tools{display:none!important}
 
 /* Undo and Redo remain distinct actions but read as one history control. */
 body.pf-product-overview .pf-editor-tools [data-action="undo"]{border-radius:8px 0 0 8px!important;margin-right:-3px!important}
 body.pf-product-overview .pf-editor-tools [data-action="redo"]{border-radius:0 8px 8px 0!important;margin-left:-3px!important}
+
+/* Object audit is type-based: compare Card / Connector / Highlight counts without mixing their meaning. */
+body.pf-product-overview .pf-object-audit-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px 10px;border-bottom:1px solid var(--pf-line)}
+body.pf-product-overview .pf-object-audit-chip{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:5px;min-width:0;padding:7px 8px;border:1px solid var(--pf-line);border-radius:8px;background:var(--pf-surface-soft);font-size:9px}
+body.pf-product-overview .pf-object-audit-chip>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--pf-text-muted)}
+body.pf-product-overview .pf-object-audit-chip>strong{font-size:11px;color:var(--pf-text)}
+body.pf-product-overview .pf-object-audit-chip>i{display:grid;place-items:center;width:15px;height:15px;border-radius:999px;font-style:normal;font-weight:800;background:var(--pf-surface-raised);border:1px solid currentColor}
+body.pf-product-overview .pf-object-audit-chip.is-mismatch{font-weight:700}
 
 /* Header disclosures always sit above the PDF/canvas. */
 body.pf-product-overview .pf-overview-intro,body.pf-product-overview .pf-overview-header-actions,body.pf-product-overview .pf-overview-header-tools{position:relative!important;z-index:20010!important;overflow:visible!important}
 body.pf-product-overview .pf-overview-header-guides{position:relative!important;z-index:20030!important;overflow:visible!important}
 body.pf-product-overview .pf-overview-header-guides>div{position:absolute!important;top:calc(100% + 7px)!important;right:0!important;z-index:20031!important;min-width:220px!important;padding:10px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
 
-@media(max-width:760px){body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale,body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:1/-1!important}body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content,body.pf-product-overview .pf-precision-popover{left:12px!important;right:12px!important;top:96px!important;width:auto!important;max-width:none!important}}
+@media(max-width:760px){body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale,body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:1/-1!important}body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content,body.pf-product-overview .pf-precision-popover{left:12px!important;right:12px!important;top:96px!important;width:auto!important;max-width:none!important}body.pf-product-overview .pf-object-audit-counts{grid-template-columns:1fr}}
