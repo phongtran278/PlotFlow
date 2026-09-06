@@ -3,17 +3,15 @@
 .pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:100%}
 @media(max-width:1180px){.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:auto}}
 
-/* Object-aware inspector: only the selected object's controls are visible. */
+/* Object-aware inspector: selected-object controls are contextual; shared controls remain visible. */
 body.pf-product-overview .pf-overview-function-object,body.pf-product-overview .pf-overview-function-connector,body.pf-product-overview .pf-overview-function-unit{display:none!important}
 body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-object,body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-unit{display:grid!important}
 body.pf-product-overview .pf-overview-control-rail[data-inspector-object="connector"] .pf-overview-function-connector{display:grid!important}
-body.pf-product-overview .pf-overview-control-rail[data-inspector-object="highlight"] .pf-overview-function-view{display:grid!important}
-body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label{display:block!important}
-body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label::after{content:"Canvas"}
-body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label{font-size:0!important}
-body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label::after{font-size:8px!important}
+body.pf-product-overview .pf-overview-function-view{display:grid!important}
+body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label{display:block!important;font-size:0!important}
+body.pf-product-overview .pf-overview-function-view>.pf-overview-function-label::after{content:"Shared";font-size:8px!important}
 
-/* Card owns card scale, transform, arrange and unit navigation. */
+/* Card owns card scale, transform, corner radius, arrange and unit navigation. */
 body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:span 7!important;margin:0!important;padding-bottom:0!important;border-bottom:0!important;align-self:end!important}
 body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:span 5!important;align-self:end!important;min-width:0!important;padding-inline:7px!important;white-space:nowrap!important}
 body.pf-product-overview .pf-overview-function-object .pf-overview-v2-controls{display:none!important}
@@ -23,16 +21,22 @@ body.pf-product-overview .pf-overview-function-connector .pf-connector-edit-prox
 body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure{grid-column:1/-1!important;position:relative!important;overflow:visible!important}
 body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content{position:fixed!important;left:12px!important;top:118px!important;z-index:20020!important;width:300px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 142px)!important;overflow:auto!important;padding:12px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
 body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content .pf-connector-style-control{grid-template-columns:minmax(92px,1fr) 48px!important;gap:10px!important}
+body.pf-product-overview .pf-live-callout-lines line,body.pf-product-overview .pf-callout-lines line{cursor:pointer}
+body.pf-product-overview .pf-live-callout-lines line[data-pf-connector-selected="1"],body.pf-product-overview .pf-callout-lines line[data-pf-connector-selected="1"]{filter:drop-shadow(0 0 2px rgba(15,122,100,.6))}
 
-/* Transform belongs to Card and stays off the PDF. */
+/* Transform belongs to Card and stays off the PDF. Keep card radius controls available here. */
 body.pf-product-overview .pf-precision-popover{position:fixed!important;left:12px!important;right:auto!important;top:118px!important;width:300px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 142px)!important;overflow:auto!important;z-index:20025!important;transform:none!important}
-body.pf-product-overview .pf-precision-popover .pf-style-system-grid{display:none!important}
+body.pf-product-overview .pf-precision-popover .pf-style-system-grid{display:grid!important}
 
 /* Align lives in Transform; do not expose a second copy in the canvas toolbar. */
 body.pf-product-overview .pf-overview-toolbar-section-arrange,body.pf-product-overview .pf-overview-control-rail .pf-editor-layout-tools{display:none!important}
 
-/* Canvas tools stay globally available and visually first. */
+/* Shared tools are always available and visually first. */
 body.pf-product-overview .pf-overview-canvas-tools{order:-1!important}
+body.pf-product-overview .pf-overview-toolbar-section-tools>.pf-overview-toolbar-section-label{font-size:0!important}
+body.pf-product-overview .pf-overview-toolbar-section-tools>.pf-overview-toolbar-section-label::after{content:"Common";font-size:7px!important}
+body.pf-product-overview .pf-overview-toolbar-section-view>.pf-overview-toolbar-section-label{font-size:0!important}
+body.pf-product-overview .pf-overview-toolbar-section-view>.pf-overview-toolbar-section-label::after{content:"Canvas";font-size:7px!important}
 body.pf-product-overview .pf-overview-toolbar-section-view{display:grid!important}
 body.pf-product-overview .pf-overview-function-view .pf-editor-view-tools{display:grid!important}
 
