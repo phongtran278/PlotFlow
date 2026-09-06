@@ -34,12 +34,22 @@ export default function OverviewInteractionRuntime() {
       return Array.from(stage.querySelectorAll(".pf-live-sales-callout")).filter((card) => !group || !card.dataset.handover || card.dataset.handover === group);
     };
     const codes = () => Array.from(new Set(cards().map(codeFor).filter(Boolean)));
+    const currentLines = () => {
+      if (!stage) return [];
+      const validCodes = new Set(codes());
+      return Array.from(stage.querySelectorAll(".pf-live-callout-lines line")).filter((line) => validCodes.has(line.dataset.unitCode || ""));
+    };
+    const currentShapes = () => {
+      if (!stage) return [];
+      const validCodes = new Set(codes());
+      return Array.from(stage.querySelectorAll(".pf-pen-shape")).filter((shape) => validCodes.has(highlightOwners[shape.dataset.penShapeId || ""] || ""));
+    };
 
     function unitNodes(code) {
       if (!stage) return {};
       const cardList = cards();
       const anchors = Array.from(stage.querySelectorAll(".pf-live-map-anchor"));
-      const lines = Array.from(stage.querySelectorAll(".pf-live-callout-lines line"));
+      const lines = currentLines();
       return {
         card: cardList.find((node) => codeFor(node) === code) || null,
         connector: lines.find((node) => node.dataset.unitCode === code) || null,
@@ -69,6 +79,7 @@ export default function OverviewInteractionRuntime() {
       stage.querySelectorAll(".pf-pen-shape").forEach((shape) => {
         const id = String(shape.dataset.penShapeId || "");
         if (!id || (highlightOwners[id] && validCodes.has(highlightOwners[id]))) return;
+        if (highlightOwners[id] && !validCodes.has(highlightOwners[id])) return;
         if (id === String(selectedId) && activeCode && validCodes.has(activeCode)) {
           highlightOwners[id] = activeCode; changed = true; return;
         }
@@ -172,18 +183,17 @@ export default function OverviewInteractionRuntime() {
       associateUnownedHighlights();
       const unitCodes = codes();
       const validCodes = new Set(unitCodes);
-      const shapes = Array.from(stage.querySelectorAll(".pf-pen-shape"));
-      const lines = Array.from(stage.querySelectorAll(".pf-live-callout-lines line"));
+      const shapes = currentShapes();
+      const lines = currentLines();
       const orphanLines = lines.filter((line, index) => {
         const code = line.dataset.unitCode || "";
-        if (!code || !validCodes.has(code)) return true;
-        return lines.findIndex((item) => item.dataset.unitCode === code) !== index;
+        return code && validCodes.has(code) && lines.findIndex((item) => item.dataset.unitCode === code) !== index;
       });
-      const orphanShapes = shapes.filter((shape) => !validCodes.has(highlightOwners[shape.dataset.penShapeId || ""]));
+      const orphanShapes = [];
       badges = readJson(BADGE_KEY, {});
       if (openUnit && !validCodes.has(openUnit)) openUnit = "";
 
-      panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>LAYERS</span><strong>Visual objects</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div><div class="pf-layer-panel-foot"><button type="button" data-layer-action="show-all">Show all</button></div>`;
+      panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>AUDIT</span><strong>Object audit</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div><div class="pf-layer-panel-foot"><button type="button" data-layer-action="show-all">Show all</button></div>`;
       const list = panel.querySelector(".pf-layer-panel-list");
 
       unitCodes.forEach((code) => {
@@ -211,14 +221,9 @@ export default function OverviewInteractionRuntime() {
         exceptions.innerHTML = `<div class="pf-layer-unit-toggle"><span>Exceptions</span><small>${orphanLines.length + orphanShapes.length} objects</small></div><div class="pf-layer-unit-body"></div>`;
         const body = exceptions.querySelector(".pf-layer-unit-body");
         orphanLines.forEach((line, index) => {
-          const label = line.dataset.unitCode ? `Extra connector · ${line.dataset.unitCode}` : `Unassigned connector ${index + 1}`;
+          const label = `Extra connector · ${line.dataset.unitCode}`;
           const item = document.createElement("div"); item.className = "pf-layer-row";
           item.innerHTML = `<span class="pf-layer-warning">!</span><button type="button" class="pf-layer-name" data-exception-line="${index}">${label}</button><button type="button" class="pf-layer-remove" data-exception-remove-line="${index}">×</button>`; body.appendChild(item);
-        });
-        orphanShapes.forEach((shape, index) => {
-          const id = shape.dataset.penShapeId || "";
-          const item = document.createElement("div"); item.className = "pf-layer-row";
-          item.innerHTML = `<span class="pf-layer-warning">!</span><button type="button" class="pf-layer-name" data-highlight-focus="${id}">Unassigned highlight ${index + 1}</button><button type="button" class="pf-layer-remove" data-highlight-remove="${id}">×</button>`; body.appendChild(item);
         });
         list.appendChild(exceptions);
       }
@@ -270,7 +275,15 @@ export default function OverviewInteractionRuntime() {
       if (remove && code) setLayerVisible(code, remove.dataset.layerRemove, false);
       if (highlightFocus) window.dispatchEvent(new CustomEvent("pf-overview-select-highlight", { detail: { id: highlightFocus.dataset.highlightFocus } }));
       if (highlightRemove) window.dispatchEvent(new CustomEvent("pf-overview-delete-highlight", { detail: { id: highlightRemove.dataset.highlightRemove } }));
-      if (exceptionRemove) { const lines = Array.from(stage.querySelectorAll(".pf-live-callout-lines line")); lines[Number(exceptionRemove.dataset.exceptionRemoveLine)]?.remove(); renderPanel(); }
+      if (exceptionRemove) {
+        const lines = currentLines();
+        const duplicates = lines.filter((line, index) => {
+          const code = line.dataset.unitCode || "";
+          return code && lines.findIndex((item) => item.dataset.unitCode === code) !== index;
+        });
+        duplicates[Number(exceptionRemove.dataset.exceptionRemoveLine)]?.remove();
+        renderPanel();
+      }
       if (action?.dataset.layerAction === "show-all") { Object.keys(hidden).forEach((key) => delete hidden[key]); saveJson(HIDDEN_KEY, hidden); applyHidden(); renderPanel(); }
       if (action?.dataset.layerAction === "edit-label") window.dispatchEvent(new CustomEvent("pf-overview-edit-map-label"));
     }
