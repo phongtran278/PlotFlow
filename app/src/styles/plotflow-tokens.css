@@ -19,27 +19,50 @@
   --pf-font-sans: "IBM Plex Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --pf-font-serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
 
-  /* Shared spacing rhythm. Prefer these before introducing one-off values. */
+  /* Shared spacing rhythm. Product UI must use this scale before inventing local values. */
   --pf-space-1: 4px;
   --pf-space-2: 8px;
   --pf-space-3: 12px;
   --pf-space-4: 16px;
+  --pf-space-5: 20px;
   --pf-space-6: 24px;
   --pf-space-8: 32px;
+  --pf-space-10: 40px;
   --pf-space-12: 48px;
   --pf-space-16: 64px;
   --pf-space-24: 96px;
 
-  /* Radius language derived from Home controls, cards and Liquid Glass surfaces. */
+  /* Radius language. */
+  --pf-radius-xs: 6px;
+  --pf-radius-sm: 8px;
   --pf-radius-control: 10px;
   --pf-radius-button: 12px;
   --pf-radius-card: 18px;
   --pf-radius-panel: 22px;
   --pf-radius-pill: 999px;
 
+  /* Standard control geometry. macOS guidance is the baseline; web accessibility can grow targets when needed. */
+  --pf-control-h-compact: 28px;
+  --pf-control-h: 32px;
+  --pf-control-h-comfortable: 36px;
+  --pf-control-icon: 16px;
+  --pf-control-gap: 6px;
+  --pf-control-padding-x: 10px;
+  --pf-hit-target: 32px;
+
+  /* Semantic interaction states. Accent means selected/primary, not decoration. */
+  --pf-state-hover: rgba(19, 22, 26, 0.055);
+  --pf-state-pressed: rgba(19, 22, 26, 0.095);
+  --pf-state-selected: var(--pf-brand-accent-soft);
+  --pf-state-focus: rgba(15, 122, 100, 0.28);
+  --pf-state-disabled-opacity: 0.42;
+  --pf-danger: #b42318;
+  --pf-danger-soft: #fce8e6;
+
   /* Reusable elevation. Keep product pages on these before inventing local shadows. */
   --pf-shadow-card: 0 16px 42px rgba(25, 31, 38, 0.06);
   --pf-shadow-floating: 0 24px 70px rgba(20, 25, 30, 0.08);
+  --pf-shadow-popover: 0 18px 48px rgba(20, 25, 30, 0.14);
 
   /* Liquid Glass: controlled, not a default treatment for every surface. */
   --pf-glass-fill: linear-gradient(138deg, rgba(255, 255, 255, 0.70), rgba(248, 250, 249, 0.42));
@@ -51,7 +74,7 @@
   /* Motion should feel calm, precise and spatial rather than game-like. */
   --pf-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
   --pf-duration-fast: 120ms;
-  --pf-duration-control: 240ms;
+  --pf-duration-control: 180ms;
   --pf-duration-standard: 300ms;
   --pf-duration-slow: 420ms;
 
@@ -60,6 +83,7 @@
   --pf-text-body-lg: 17px;
   --pf-text-meta: 12px;
   --pf-text-label: 9px;
+  --pf-text-control: 12px;
   --pf-leading-body: 1.78;
   --pf-leading-heading: 1.08;
   --pf-tracking-heading: -0.016em;
