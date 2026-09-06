@@ -88,10 +88,10 @@ export default function OverviewControlRailRuntime() {
       let controls = content.querySelector(":scope > .pf-connector-endpoint-actions");
       if (!controls) {
         controls = document.createElement("div"); controls.className = "pf-connector-endpoint-actions";
-        controls.innerHTML = '<button type="button" data-connector-proxy="edit">Edit endpoint</button><button type="button" data-connector-proxy="save">Save position</button><button type="button" data-connector-proxy="cancel">Cancel</button><small data-connector-draft-status>Endpoint changes require Save position.</small>';
+        controls.innerHTML = '<button type="button" data-connector-proxy="edit">Edit endpoint</button><button type="button" data-connector-proxy="save">Save position</button><button type="button" data-connector-proxy="reset">Reset position</button><button type="button" data-connector-proxy="cancel">Cancel</button><small data-connector-draft-status>Endpoint changes require Save position.</small>';
         controls.addEventListener("click", (event) => {
           const action = event.target.closest("[data-connector-proxy]")?.dataset?.connectorProxy; if (!action) return;
-          const map = { edit: "adjust", save: "save-anchor", cancel: "cancel-anchor" };
+          const map = { edit: "adjust", save: "save-anchor", reset: "reset-anchor", cancel: "cancel-anchor" };
           document.querySelector(`.pf-unit-navigator [data-nav="${map[action]}"]`)?.click(); requestAnimationFrame(scheduleSync);
         });
         content.prepend(controls);

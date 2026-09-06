@@ -299,6 +299,17 @@ export default function OverviewPenRuntime() {
       emitHighlightsChanged();
     }
 
+    function applyCurrentStyleToAll() {
+      const next = normalizeStyle(selectedShape()?.style || currentStyle);
+      currentStyle = next;
+      saveStyle(currentStyle);
+      shapes = shapes.map((shape) => ({ ...shape, style: { ...next } }));
+      saveShapes(shapes);
+      render();
+      syncStyleControls();
+      emitHighlightsChanged();
+    }
+
     function onPointerDown(event) {
       if (!active || event.button !== 0 || !stage?.contains(event.target)) return;
       if (event.target.closest?.(".pf-overview-control-rail,.pf-overview-zoom-toolbar,.pf-unit-navigator,.pf-overview-v2-controls,.pf-pen-style-menu,.pf-pen-screen-anchor-layer")) return;
@@ -483,7 +494,7 @@ export default function OverviewPenRuntime() {
       if (!styleMenu?.isConnected) {
         styleMenu = document.createElement("details");
         styleMenu.className = "pf-pen-style-menu";
-        styleMenu.innerHTML = `<summary title="Highlight appearance">Highlight style</summary><div class="pf-pen-style-popover"><header><strong>Highlight style</strong><span data-pen-selection>New shapes</span></header><label><span>Fill</span><input data-pen-style="fill" type="color"></label><label><span>Fill opacity</span><input data-pen-style="fillOpacity" type="range" min="0" max="1" step="0.01"></label><label title="Show an outline around the highlight"><span>Outline</span><input data-pen-style="outline" type="checkbox"></label><label><span>Outline color</span><input data-pen-style="stroke" type="color"></label><label><span>Outline width</span><input data-pen-style="strokeWidth" type="range" min="0.15" max="1" step="0.05"></label><label><span>Outline opacity</span><input data-pen-style="strokeOpacity" type="range" min="0.1" max="1" step="0.05"></label><small>Click any number of corners, then click the first anchor to close the filled shape. Outline stays off until you enable it.</small></div>`;
+        styleMenu.innerHTML = `<summary title="Highlight appearance">Highlight style</summary><div class="pf-pen-style-popover"><header><strong>Highlight style</strong><span data-pen-selection>New shapes</span></header><label><span>Fill</span><input data-pen-style="fill" type="color"></label><label><span>Fill opacity</span><input data-pen-style="fillOpacity" type="range" min="0" max="1" step="0.01"></label><label title="Show an outline around the highlight"><span>Outline</span><input data-pen-style="outline" type="checkbox"></label><label><span>Outline color</span><input data-pen-style="stroke" type="color"></label><label><span>Outline width</span><input data-pen-style="strokeWidth" type="range" min="0.15" max="1" step="0.05"></label><label><span>Outline opacity</span><input data-pen-style="strokeOpacity" type="range" min="0.1" max="1" step="0.05"></label><div class="pf-pen-style-actions"><button type="button" data-pen-style-action="apply-all">Apply to all</button></div><small>Apply to all also becomes the default style for highlights drawn next.</small></div>`;
         styleMenu.addEventListener("input", (event) => {
           const key = event.target?.dataset?.penStyle;
           if (!key) return;
@@ -493,6 +504,13 @@ export default function OverviewPenRuntime() {
           }
           const numeric = ["fillOpacity", "strokeWidth", "strokeOpacity"].includes(key);
           applyStylePatch({ [key]: numeric ? Number(event.target.value) : event.target.value });
+        });
+        styleMenu.addEventListener("click", (event) => {
+          const action = event.target.closest?.("[data-pen-style-action]")?.dataset?.penStyleAction;
+          if (action === "apply-all") {
+            event.preventDefault();
+            applyCurrentStyleToAll();
+          }
         });
         styleMenu.addEventListener("toggle", () => {
           if (!styleMenu.open) return;

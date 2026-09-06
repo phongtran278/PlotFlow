@@ -56,7 +56,19 @@ export default function OverviewAnchorRuntime() {
       return index >= 0 ? lines[index] || null : null;
     };
 
+    function captureAutoAnchor(code) {
+      const anchor = anchorForCode(code);
+      if (!anchor || anchor.dataset.pfAutoAnchorCaptured === "1") return;
+      const x = Number.parseFloat(anchor.style.left || "50");
+      const y = Number.parseFloat(anchor.style.top || "50");
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      anchor.dataset.pfAutoX = String(x);
+      anchor.dataset.pfAutoY = String(y);
+      anchor.dataset.pfAutoAnchorCaptured = "1";
+    }
+
     function applySavedAnchor(code) {
+      captureAutoAnchor(code);
       const anchor = anchorForCode(code);
       const saved = anchors[code];
       if (!anchor || !saved || pendingDraft?.code === code) return;
@@ -119,6 +131,36 @@ export default function OverviewAnchorRuntime() {
       window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code, x: originX, y: originY, cancelled: true } }));
     }
 
+    function resetAnchor(code = pendingDraft?.code || navSelect?.value || activeCode) {
+      if (!code) return;
+      const anchor = anchorForCode(code);
+      if (!anchor) {
+        setStatus("No connector endpoint for this unit");
+        return;
+      }
+      captureAutoAnchor(code);
+      const autoX = Number(anchor.dataset.pfAutoX);
+      const autoY = Number(anchor.dataset.pfAutoY);
+      if (!Number.isFinite(autoX) || !Number.isFinite(autoY)) {
+        setStatus("Original PDF anchor is not available");
+        return;
+      }
+      delete anchors[code];
+      saveAnchors(anchors);
+      pendingDraft = null;
+      setDraftUi(false);
+      anchor.style.left = `${autoX}%`;
+      anchor.style.top = `${autoY}%`;
+      delete anchor.dataset.saved;
+      delete anchor.dataset.pfAnchorDraft;
+      anchor.dataset.pfCommittedX = String(autoX);
+      anchor.dataset.pfCommittedY = String(autoY);
+      syncLineToPoint(code, autoX, autoY);
+      setActive(code);
+      setStatus("Reset to auto-detected PDF anchor · drag again if needed");
+      window.dispatchEvent(new CustomEvent("pf-overview-anchor-changed", { detail: { code, x: autoX, y: autoY, reset: true, auto: true } }));
+    }
+
     function saveDraft() {
       if (!pendingDraft) return;
       const { code, x, y } = pendingDraft;
@@ -147,6 +189,7 @@ export default function OverviewAnchorRuntime() {
       if (!stage) return;
       Array.from(stage.querySelectorAll(".pf-live-map-anchor,.pf-map-anchor")).forEach((anchor) => {
         const code = anchor.dataset?.unitCode || anchor.textContent?.trim() || "";
+        captureAutoAnchor(code);
         applySavedAnchor(code);
         if (!pendingDraft || pendingDraft.code !== code) {
           const x = Number.parseFloat(anchor.style.left || "50");
@@ -234,6 +277,7 @@ export default function OverviewAnchorRuntime() {
         <button type="button" class="pf-unit-focus-button" data-nav="focus">Focus</button>
         <button type="button" class="pf-unit-adjust-button" data-nav="adjust">Edit connector</button>
         <button type="button" class="pf-unit-save-anchor" data-nav="save-anchor" hidden>Save position</button>
+        <button type="button" class="pf-unit-reset-anchor" data-nav="reset-anchor">Reset position</button>
         <button type="button" class="pf-unit-cancel-anchor" data-nav="cancel-anchor" hidden>Cancel</button>
         <small>${list.length} căn</small>
         <em class="pf-unit-focus-status" hidden></em>`;
@@ -257,6 +301,7 @@ export default function OverviewAnchorRuntime() {
         if (button.dataset.nav === "focus") focusCode(code);
         if (button.dataset.nav === "adjust") editConnector(code);
         if (button.dataset.nav === "save-anchor") saveDraft();
+        if (button.dataset.nav === "reset-anchor") resetAnchor(code);
         if (button.dataset.nav === "cancel-anchor") cancelDraft();
       });
       navSelect.addEventListener("change", () => {
