@@ -1,0 +1,15 @@
+/* Source-owned Overview navigation. Keep this simple: navigation, not a command toolbar. */
+.pf-overview-handover-tabs{display:inline-flex;align-items:stretch;gap:2px;padding:3px;border:1px solid var(--pf-line);border-radius:12px;background:rgba(245,245,243,.92);box-sizing:border-box;white-space:nowrap}
+.pf-overview-handover-tabs button{appearance:none;min-width:106px;height:34px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:var(--pf-muted);font-family:var(--pf-font-ui);cursor:pointer;box-sizing:border-box;transition:background var(--pf-duration-fast) var(--pf-ease-standard),color var(--pf-duration-fast) var(--pf-ease-standard),box-shadow var(--pf-duration-fast) var(--pf-ease-standard)}
+.pf-overview-handover-tabs button:hover{background:rgba(255,255,255,.72);color:var(--pf-ink-2)}
+.pf-overview-handover-tabs button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--pf-state-focus)}
+.pf-overview-handover-tabs button.is-active{background:var(--pf-surface-raised);color:var(--pf-ink);box-shadow:0 1px 4px rgba(19,22,26,.12)}
+.pf-overview-handover-tabs span{font-size:11px;font-weight:650;line-height:1}
+.pf-overview-handover-tabs small{color:var(--pf-muted);font-size:9px;font-weight:600;line-height:1}
+
+/* The canvas is already the primary surface. Do not place a second white card behind it. */
+.pf-overview .pf-masterplan-card{padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.pf-overview .pf-masterplan-card:has(.pf-masterplan-stage[data-overview-render-mode]){background:transparent}
+
+@media(max-width:1180px){.pf-overview-handover-tabs{max-width:100%;overflow-x:auto;scrollbar-width:none}.pf-overview-handover-tabs::-webkit-scrollbar{display:none}.pf-overview-handover-tabs button{min-width:96px}}
+@media(max-width:760px){.pf-overview-handover-tabs{width:100%}.pf-overview-handover-tabs button{flex:1 0 auto;min-width:92px}}
