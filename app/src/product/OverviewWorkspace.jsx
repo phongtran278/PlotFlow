@@ -7,6 +7,10 @@ function uniqueUnitCount(list = []) {
   return new Set(keys).size;
 }
 
+function normalizedGroup(value = "") {
+  return String(value).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export default function OverviewWorkspace({
   project,
   overviewGroups,
@@ -18,6 +22,11 @@ export default function OverviewWorkspace({
 }) {
   const liveUnitCount = sellUnits.length ? uniqueUnitCount(sellUnits) : uniqueUnitCount(units);
   const groupUnitCount = sellUnits.length ? uniqueUnitCount(visibleSellUnits) : liveUnitCount;
+  const countForGroup = (group) => {
+    if (!sellUnits.length) return group === overviewGroup ? groupUnitCount : 0;
+    const key = normalizedGroup(group);
+    return uniqueUnitCount(sellUnits.filter((item) => normalizedGroup(item?.handover) === key));
+  };
 
   return (
     <main className="pf-overview">
@@ -27,12 +36,23 @@ export default function OverviewWorkspace({
         </div>
 
         <div className="pf-overview-header-tools">
-          <label className="pf-overview-groups pf-overview-group-picker">
-            <span>Sản phẩm</span>
-            <select value={overviewGroup} onChange={(event) => onOverviewGroup(event.target.value)} aria-label="Tiêu chuẩn bàn giao">
-              {overviewGroups.map((group) => <option key={group} value={group}>{group}</option>)}
-            </select>
-          </label>
+          <nav className="pf-overview-handover-tabs" aria-label="Tiêu chuẩn bàn giao">
+            {overviewGroups.map((group) => {
+              const active = group === overviewGroup;
+              return (
+                <button
+                  key={group}
+                  type="button"
+                  className={active ? "is-active" : ""}
+                  aria-pressed={active}
+                  onClick={() => onOverviewGroup(group)}
+                >
+                  <span>{group}</span>
+                  <small>{countForGroup(group)} căn</small>
+                </button>
+              );
+            })}
+          </nav>
           <div className="pf-overview-view-status" aria-label="Current overview inventory">
             <strong>{groupUnitCount}</strong>
             <span>căn</span>
