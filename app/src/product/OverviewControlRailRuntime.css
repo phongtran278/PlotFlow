@@ -96,10 +96,32 @@ body.pf-product-overview .pf-overview-function-connector .pf-connector-style-act
 body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions [data-connector-action="apply-all"]{background:var(--pf-brand-accent)!important;color:#fff!important;border-color:var(--pf-brand-accent)!important}
 body.pf-product-overview .pf-overview-function-connector .pf-connector-endpoint-actions{order:-1!important}
 
-/* Compact connector utility after usability review. */
+/* Connector utility: compact but breathable two-row layout. */
 body.pf-product-overview .pf-overview-function-connector .pf-overview-function-content{display:block!important}
-body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control{display:flex!important;align-items:center!important;gap:6px!important;height:34px!important;min-height:34px!important;padding:3px 6px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;background:var(--pf-surface-raised)!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control{
+  display:grid!important;
+  grid-template-columns:minmax(88px,.75fr) minmax(150px,1.25fr)!important;
+  gap:8px 10px!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  padding:9px 10px!important;
+  overflow:visible!important;
+  white-space:normal!important;
+  background:var(--pf-surface-raised)!important;
+}
 body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control>span{display:none!important}
-body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields{display:flex!important;align-items:center!important;gap:6px!important;min-width:max-content!important}
-body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions{display:flex!important;align-items:center!important;margin-left:auto!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields{display:contents!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields>label{min-width:0!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields>label:has([data-connector="width"]){grid-column:1;grid-row:1}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color{grid-column:2;grid-row:1}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-opacity{grid-column:1;grid-row:2;justify-content:flex-start!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions{
+  grid-column:2;
+  grid-row:2;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  margin:0!important;
+}
 body.pf-product-overview .pf-overview-function-connector .pf-connector-endpoint-actions{display:none!important}

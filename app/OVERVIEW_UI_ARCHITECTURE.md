@@ -163,3 +163,19 @@ For groups up to 10 units, Auto Arrange deterministically searches side assignme
 - Endpoint editing has one clear entry point in Unit: **Edit lot point**. It focuses the current lot endpoint and keeps Save / Reset / Cancel with the anchor runtime.
 - Connector style remains a compact global row; endpoint actions are not duplicated inside Connector.
 - Auto Arrange keeps the meaning of Smart, Balanced, Compact, All left and All right while still ranking zero-conflict layouts first. Different layout buttons must remain visibly different when more than one zero-conflict solution exists.
+
+
+## Object Audit correction
+
+Object Audit remains part of Overview. It is used to inspect units and their linked card / connector / highlight structure, navigate to objects and surface exceptions.
+
+Only the global **Restore hidden** footer action is removed. The Audit itself is not removed.
+
+## Connector layout correction
+
+Connector Style uses a compact two-row layout rather than forcing every control into one crowded row:
+
+- Row 1: Width + Color.
+- Row 2: Opacity + Apply to all.
+
+The goal is balanced density, not minimum height at the expense of readability.

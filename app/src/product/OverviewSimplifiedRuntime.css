@@ -19,3 +19,13 @@ body.pf-product-overview .pf-overview-function-connector .pf-connector-color-swa
 body.pf-product-overview .pf-overview-function-connector .pf-connector-color input[type="color"]{left:0!important;top:0!important;width:28px!important;height:24px!important}
 body.pf-product-overview .pf-overview-function-connector .pf-connector-color code{min-width:54px!important}
 body.pf-product-overview .pf-overview-function-connector .pf-connector-opacity input{width:64px!important}
+
+/* Two-row connector layout sizing. */
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color{display:grid!important;grid-template-columns:auto 42px minmax(54px,auto)!important;align-items:center!important;gap:6px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color-label{display:inline!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color-swatch{width:42px!important;height:26px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color input[type="color"]{left:auto!important;right:58px!important;top:0!important;width:42px!important;height:26px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color code{min-width:54px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-opacity{display:grid!important;grid-template-columns:auto minmax(72px,1fr)!important;gap:7px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-opacity>span{display:inline!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-opacity input{width:100%!important;min-width:72px!important}

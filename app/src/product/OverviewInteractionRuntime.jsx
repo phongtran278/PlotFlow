@@ -25,8 +25,7 @@ export default function OverviewInteractionRuntime() {
     let stage = null;
     let openUnit = "";
     let selectedUnitCode = "";
-    localStorage.removeItem(HIDDEN_KEY);
-    const hidden = {};
+    const hidden = readJson(HIDDEN_KEY, {});
     const highlightOwners = readJson(HIGHLIGHT_OWNER_KEY, {});
     let badges = readJson(BADGE_KEY, {});
 
@@ -209,8 +208,7 @@ export default function OverviewInteractionRuntime() {
       badges = readJson(BADGE_KEY, {});
       if (openUnit && !validCodes.has(openUnit)) openUnit = "";
 
-      const hiddenCount = unitCodes.reduce((sum, code) => sum + ["card", "connector", "anchor"].filter((type) => hidden[code]?.[type]).length, 0);
-      panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>AUDIT</span><strong>Object audit</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div><div class="pf-layer-panel-foot"><button type="button" data-layer-action="restore-hidden" ${hiddenCount ? "" : "disabled"}>Restore hidden${hiddenCount ? ` · ${hiddenCount}` : ""}</button></div>`;
+      panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>AUDIT</span><strong>Object audit</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div>`;
       const list = panel.querySelector(".pf-layer-panel-list");
 
       unitCodes.forEach((code) => {
@@ -249,19 +247,18 @@ export default function OverviewInteractionRuntime() {
     }
 
     function installPanel() {
+      const side = document.querySelector(".pf-overview-side");
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      if (!stage) return false;
-      panel?.remove();
-      panel = null;
-      stage.querySelectorAll(".pf-live-sales-callout,.pf-live-callout-lines line,.pf-live-map-anchor").forEach((node) => { node.style.display = ""; });
+      if (!side || !stage) return false;
       if (!selectedUnitCode) {
-        const selectedCard = cards().find((card) => card.classList.contains("pf-card-key")) || cards().find((card) => card.classList.contains("pf-card-selected"));
+        const selectedCard = cards().find((card) => card.classList.contains("pf-card-key"))
+          || cards().find((card) => card.classList.contains("pf-card-selected"));
         selectedUnitCode = codeFor(selectedCard);
       }
-      associateUnownedHighlights();
-      syncLinkedUnitSelection();
-      return true;
+      if (!panel?.isConnected) { panel = document.createElement("section"); panel.className = "pf-overview-layer-panel pf-overview-context-card"; side.prepend(panel); }
+      applyHidden(); renderPanel(); return true;
     }
+
     function scheduleInstall() {
       cancelAnimationFrame(frame); attempts = 0;
       const run = () => { if (disposed || installPanel()) return; attempts += 1; if (attempts < 12) frame = requestAnimationFrame(run); };
@@ -309,12 +306,6 @@ export default function OverviewInteractionRuntime() {
         duplicates[Number(exceptionRemove.dataset.exceptionRemoveLine)]?.remove();
         renderPanel();
       }
-      if (action?.dataset.layerAction === "restore-hidden") {
-        Object.keys(hidden).forEach((key) => delete hidden[key]);
-        saveJson(HIDDEN_KEY, hidden);
-        applyHidden();
-        renderPanel();
-      }
       if (action?.dataset.layerAction === "edit-label") window.dispatchEvent(new CustomEvent("pf-overview-edit-map-label"));
     }
 
@@ -351,7 +342,7 @@ export default function OverviewInteractionRuntime() {
       openUnit = "";
       refreshPanel();
     }
-    function refreshPanel() { requestAnimationFrame(() => { if (!installPanel()) scheduleInstall(); }); }
+    function refreshPanel() { requestAnimationFrame(() => { if (!installPanel()) scheduleInstall(); else renderPanel(); }); }
 
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKeyDown, true);
