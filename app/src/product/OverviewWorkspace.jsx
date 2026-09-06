@@ -54,10 +54,6 @@ export default function OverviewWorkspace({
               );
             })}
           </nav>
-          <div className="pf-overview-view-status" aria-label="Current overview inventory">
-            <strong>{groupUnitCount}</strong>
-            <span>căn</span>
-          </div>
           <div className="pf-overview-header-actions" aria-label="Overview view controls" />
         </div>
       </header>

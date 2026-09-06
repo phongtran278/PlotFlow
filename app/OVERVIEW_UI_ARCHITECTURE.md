@@ -123,7 +123,7 @@ Connector editing no longer requires clicking the thin connector line.
 - Connector controls are a persistent Overview utility.
 - Edit endpoint acts on the currently selected / active unit and reveals that unit's endpoint handle.
 - Width, color and opacity are global connector style for the current Overview product, not per-line styling.
-- Style edits remain a draft until the user chooses **Apply to all**.
+- Connector style previews live and persists automatically when the control change is committed.
 - Clicking a connector line may visually select the line, but it must not open or relocate a floating inspector.
 - Reset position is idempotent and reads only the immutable auto-detected coordinates published by `OverviewDetailLocatorBridge`; repeated Reset actions must resolve to the exact same point.
 
@@ -131,7 +131,6 @@ Connector editing no longer requires clicking the thin connector line.
 ## Connector style preview and audit actions
 
 - Connector width, color and opacity preview live on the canvas while the controls are edited.
-- **Apply to all** persists the previewed connector style as the shared connector style.
 - The connector color control must show a readable rectangular swatch and the current hex value; it must not rely on an ambiguous native dot.
 - **Show all objects** in Object Audit reveals all hidden card/connector/anchor objects and expands every unit so the action has immediate visible feedback.
 
@@ -146,9 +145,7 @@ A candidate is not considered crossing-safe merely because its ideal, unclamped 
 
 - Connector style controls preview immediately and the preview remains active even while Overview runtimes mutate or redraw the connector DOM.
 - Width supports values through 10 so thick-line behavior can be evaluated before saving.
-- **Apply to all** persists the currently visible preview; it does not trigger the preview.
 - The color field uses an explicit rectangular swatch plus hex value instead of relying on the browser's native color-dot presentation.
-- Object Audit uses **Restore hidden** only when something is actually hidden. It restores visibility without expanding every unit.
 
 ## Auto Arrange minimum connector clearance
 
@@ -176,7 +173,7 @@ Only the global **Restore hidden** footer action is removed. The Audit itself is
 Connector Style uses a compact two-row layout rather than forcing every control into one crowded row:
 
 - Row 1: Width + Color.
-- Row 2: Opacity + Apply to all.
+- Row 2: Opacity.
 
 The goal is balanced density, not minimum height at the expense of readability.
 
@@ -202,3 +199,17 @@ Before visual polish, the left rail must be event-driven and visually stable.
 - Object Audit waits for `pf-overview-live-units-ready` before rebuilding for the incoming group.
 - `installPanel()` owns the Audit render; refresh must not render the full panel a second time.
 - Card selection changes linked-selection state without rebuilding the entire Audit tree.
+
+
+## Pass 3 visual system
+
+Pass 3 is presentation-only. Runtime owners, geometry, saved data and interaction semantics stay frozen unless a regression is found.
+
+- Overview editor controls use `--pf-font-ui`; brand/editorial fonts do not leak into toolbars, inspectors, Unit or Object Audit.
+- Handover tabs are the sole visible inventory navigation. Their embedded counts replace the duplicated standalone count.
+- Header commands share the same height, radius, hover, pressed and focus-visible language.
+- Context inspectors use one section rhythm: muted label, compact content, shared divider and surface grammar.
+- Connector and Unit are supporting utilities and carry less visual weight than object inspectors.
+- Connector Style keeps the tested two-row layout and auto-saves; there is no confirmation action.
+- Object Audit stays quiet in normal state. Mismatch and exceptions alone receive warning emphasis.
+- Pass 3 removes obsolete CSS blocks instead of adding another presentation architecture.
