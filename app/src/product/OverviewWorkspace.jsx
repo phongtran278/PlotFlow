@@ -1,4 +1,5 @@
 import "./OverviewWorkspace.css";
+import "./OverviewHandoverTabs.css";
 
 const OVERVIEW_RENDER_MODE = "raster";
 
