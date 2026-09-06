@@ -4,10 +4,11 @@ PlotFlow uses one design system across Home, Project Home, Overview, Detail, edi
 
 ## Source of truth
 
-- Home + Detail define PlotFlow's visual tone.
-- Apple Human Interface Guidelines inform interaction discipline, control hierarchy, state clarity and toolbar behavior.
+- Home + Detail define PlotFlow's visual identity.
+- Apple Human Interface Guidelines inform interaction discipline, control hierarchy, state clarity, typography roles and toolbar/layout behavior.
 - Production tokens and components are the implementation source of truth.
 - The Design System preview page renders the same production components; it is not a separate mockup.
+- PlotFlow adapts principles rather than cloning macOS visuals.
 
 ## Product principles
 
@@ -20,22 +21,51 @@ PlotFlow uses one design system across Home, Project Home, Overview, Detail, edi
 7. Accent color communicates selection or a primary action, never decoration.
 8. Preserve functional owner wrappers when runtimes depend on delegated events.
 9. macOS and Windows share the same interaction model; platform differences stay in the raster/performance layer.
+10. New UI must consume semantic tokens and primitives before introducing local geometry, type sizes, states or shadows.
+
+## Typography
+
+Product UI uses `--pf-font-ui`: the native system UI stack. On Apple platforms this resolves to the system UI typeface; on Windows it resolves to Segoe UI. PlotFlow does not bundle or redistribute Apple system fonts.
+
+Brand/editorial surfaces may continue using `--pf-font-sans` and `--pf-font-serif` when that visual role is intentional.
+
+Semantic roles are defined in `src/styles/plotflow-tokens.css`:
+
+- Display
+- Title 1 / Title 2 / Title 3
+- Headline
+- Body
+- Callout
+- Label
+- Caption
+- Micro metadata
+
+Do not introduce a new local font size when an existing semantic role fits.
 
 ## Foundations
 
-Use `src/styles/plotflow-tokens.css` for color, spacing, radius, control geometry, motion, typography and interaction states. Local one-off values require a product reason.
+Use `src/styles/plotflow-tokens.css` for color, spacing, radius, control geometry, layout dimensions, motion, typography and interaction states. Local one-off values require a product reason.
+
+Spacing follows the shared PlotFlow rhythm. Controls use standard compact/default/comfortable heights. Panels, popovers and cards use shared radius/elevation tokens.
 
 ## Core controls
 
 Reusable controls live under `src/design-system/PlotFlowControls.jsx` and `PlotFlowControls.css`.
 
-Initial production primitives:
+Production primitives include:
 
 - `PFButton`
 - `PFSelect`
+- `PFTextField`
+- `PFCheckbox`
+- `PFSwitch`
+- `PFSegmentedControl`
 - `PFToolbarGroup`
+- `PFToolbar`
 - `PFInspectorSection`
 - `PFControlRow`
+- `PFPanel`
+- `PFPopover`
 
 When a primitive already exists, product code should use it instead of inventing a visually similar replacement.
 
@@ -45,6 +75,18 @@ When a primitive already exists, product code should use it instead of inventing
 - Use buttons for immediate actions.
 - Use icon-only buttons only for familiar actions and always provide an accessible label/tooltip.
 - Use segmented controls only when all choices benefit from being visible simultaneously.
+- Use a checkbox for inclusion/selection and a switch for an immediate on/off setting.
+
+## Layout rules
+
+- Every screen has a clear primary content region and optional supporting regions.
+- Toolbars use leading / center / trailing zones rather than arbitrary button placement.
+- Inspectors use a shared width token and section rhythm.
+- Panels keep header/footer stable while the content region owns scrolling when content is long.
+- Popovers anchor to the invoking control and use shared width/radius/elevation behavior.
+- Prefer alignment to a common grid over local visual nudges.
+- Narrow layouts reflow or scroll controls; they must not overlap.
+- Reserved canvas/banner safe areas remain respected.
 
 ## Toolbar rules
 
@@ -62,10 +104,14 @@ When a primitive already exists, product code should use it instead of inventing
 - Highlight selected: highlight controls.
 - Audit is verification/navigation, not a second inspector.
 
+## Interaction states
+
+Every interactive primitive must account for default, hover, pressed, focus-visible, selected (when applicable), disabled and destructive (when applicable). State meaning must not rely on color alone when the distinction is important.
+
 ## Preview
 
-The visual Design System is available in-app using `?design-system=1`. It should stay lightweight and render production controls directly.
+The visual Design System is available in-app using `?design-system=1`. It renders production controls and demonstrates foundations, core controls, toolbar layout, panels, popovers and object-inspector patterns.
 
 ## Migration policy
 
-Do not rewrite stable product behavior solely to adopt the Design System. Migrate surface-by-surface while keeping runtime owners intact. New product UI should use the Design System by default.
+Do not rewrite stable product behavior solely to adopt the Design System. Migrate surface-by-surface while keeping runtime owners intact. New product UI uses the Design System by default. Existing Home, Project Home, Overview and Detail are migrated progressively after visual/runtime verification.
