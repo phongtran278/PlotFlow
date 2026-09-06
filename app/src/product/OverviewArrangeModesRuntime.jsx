@@ -315,7 +315,31 @@ export default function OverviewArrangeModesRuntime() {
         && p.y >= Math.min(a.y, b.y) - epsilon && p.y <= Math.max(a.y, b.y) + epsilon;
     }
 
-    function segmentsConflict(first, second) {
+    function pointSegmentDistancePx(point, a, b, bounds) {
+      const px = point.x * bounds.width;
+      const py = point.y * bounds.height;
+      const ax = a.x * bounds.width;
+      const ay = a.y * bounds.height;
+      const bx = b.x * bounds.width;
+      const by = b.y * bounds.height;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const length2 = dx * dx + dy * dy;
+      if (length2 <= 0.0001) return Math.hypot(px - ax, py - ay);
+      const t = clamp(((px - ax) * dx + (py - ay) * dy) / length2, 0, 1);
+      return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+    }
+
+    function segmentDistancePx(first, second, bounds) {
+      return Math.min(
+        pointSegmentDistancePx(first.a, second.a, second.b, bounds),
+        pointSegmentDistancePx(first.b, second.a, second.b, bounds),
+        pointSegmentDistancePx(second.a, first.a, first.b, bounds),
+        pointSegmentDistancePx(second.b, first.a, first.b, bounds),
+      );
+    }
+
+    function segmentsConflict(first, second, bounds) {
       if (!first || !second || first.code === second.code) return false;
       const a = first.a; const b = first.b; const c = second.a; const d = second.b;
       const o1 = segmentOrientation(a, b, c);
@@ -326,10 +350,12 @@ export default function OverviewArrangeModesRuntime() {
       const strictCross = ((o1 > epsilon && o2 < -epsilon) || (o1 < -epsilon && o2 > epsilon))
         && ((o3 > epsilon && o4 < -epsilon) || (o3 < -epsilon && o4 > epsilon));
       if (strictCross) return true;
-      return (Math.abs(o1) <= epsilon && pointOnSegment(a, b, c, epsilon))
+      const exactOverlap = (Math.abs(o1) <= epsilon && pointOnSegment(a, b, c, epsilon))
         || (Math.abs(o2) <= epsilon && pointOnSegment(a, b, d, epsilon))
         || (Math.abs(o3) <= epsilon && pointOnSegment(c, d, a, epsilon))
         || (Math.abs(o4) <= epsilon && pointOnSegment(c, d, b, epsilon));
+      if (exactOverlap) return true;
+      return bounds ? segmentDistancePx(first, second, bounds) < 7 : false;
     }
 
     function countConnectorCrossings(layout) {
@@ -339,7 +365,7 @@ export default function OverviewArrangeModesRuntime() {
       let count = 0;
       for (let i = 0; i < segments.length; i += 1) {
         for (let j = i + 1; j < segments.length; j += 1) {
-          if (segmentsConflict(segments[i], segments[j])) count += 1;
+          if (segmentsConflict(segments[i], segments[j], bounds)) count += 1;
         }
       }
       return count;
@@ -381,6 +407,37 @@ export default function OverviewArrangeModesRuntime() {
       };
     }
 
+    function exhaustiveConflictSafeCandidates(selectedMode) {
+      const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+      const n = sorted.length;
+      const candidates = [];
+      if (!n) return candidates;
+
+      const maxMasks = n <= 10 ? (1 << n) : 0;
+      if (maxMasks) {
+        for (let mask = 0; mask < maxMasks; mask += 1) {
+          const left = [];
+          const right = [];
+          sorted.forEach((item, index) => ((mask >> index) & 1 ? right : left).push(item));
+          candidates.push(solveCandidate({ left, right }, "balanced"));
+          if (candidates[candidates.length - 1].crossings === 0) break;
+        }
+      } else {
+        const patterns = [
+          (index) => index % 2,
+          (index) => (index + 1) % 2,
+          (_, item) => item.anchor.x > 0.5 ? 1 : 0,
+        ];
+        patterns.forEach((assign) => {
+          const left = [];
+          const right = [];
+          sorted.forEach((item, index) => (assign(index, item) ? right : left).push(item));
+          candidates.push(solveCandidate({ left, right }, "balanced"));
+        });
+      }
+      return candidates;
+    }
+
     function buildDraft(selectedMode) {
       mode = selectedMode;
       const primary = solveCandidate(split(items, selectedMode), selectedMode);
@@ -391,6 +448,7 @@ export default function OverviewArrangeModesRuntime() {
         const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
         candidates.push(solveCandidate({ left: sorted, right: [] }, "left"));
         candidates.push(solveCandidate({ left: [], right: sorted }, "right"));
+        candidates.push(...exhaustiveConflictSafeCandidates(selectedMode));
       }
 
       candidates.sort((a, b) => a.crossings - b.crossings || a.distance - b.distance || a.lanes - b.lanes);
@@ -408,8 +466,8 @@ export default function OverviewArrangeModesRuntime() {
       if (!apply) return;
       apply.disabled = resolvedCrossings > 0;
       apply.title = resolvedCrossings > 0
-        ? "Resolve connector crossings before applying this layout"
-        : "Apply crossing-safe layout";
+        ? "Resolve connector conflicts before applying this layout"
+        : "Apply conflict-safe layout";
     }
 
     function updateFooter() {
@@ -417,8 +475,8 @@ export default function OverviewArrangeModesRuntime() {
       if (!footer) return;
       const resolved = Math.round(resolvedGapPx * 10) / 10;
       const lanes = resolvedLaneCount > 2 ? ` · ${resolvedLaneCount} lanes` : "";
-      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector crossings after clamp" : ` · ${resolvedCrossings} crossing${resolvedCrossings === 1 ? "" : "s"} after clamp · fix required`;
-      const fallback = usedSafetyFallback ? " · crossing-safe fallback" : "";
+      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector conflicts after clamp" : ` · ${resolvedCrossings} crossing${resolvedCrossings === 1 ? "" : "s"} after clamp · fix required`;
+      const fallback = usedSafetyFallback ? " · conflict-safe fallback" : "";
       footer.textContent = resolved + 0.05 < ui.gap
         ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px gap fits${lanes}${crossingStatus}${fallback} · preview only`
         : `${items.length} cards · ${ui.gap}px gap${lanes}${crossingStatus}${fallback} · preview only`;
@@ -602,7 +660,7 @@ export default function OverviewArrangeModesRuntime() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>The top banner area is reserved. Connector crossings are treated as invalid; dense layouts add lanes or fall back to a crossing-safe side before Apply is enabled.</small>
+              <small>The top banner area is reserved. Connector crossings are treated as invalid; dense layouts add lanes or fall back to a conflict-safe side before Apply is enabled.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>

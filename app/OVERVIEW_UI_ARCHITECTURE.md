@@ -140,3 +140,18 @@ Connector editing no longer requires clicking the thin connector line.
 Auto Arrange validates connector crossings against the same clamped card-center geometry that production Apply uses.
 
 A candidate is not considered crossing-safe merely because its ideal, unclamped preview coordinates do not cross. Card bounds, reserved top area and final PDF-edge clamping are applied first, then connector crossings are counted. Manual preview dragging uses the same normalization.
+
+
+## Connector clearance and live preview
+
+- Connector style controls preview immediately and the preview remains active even while Overview runtimes mutate or redraw the connector DOM.
+- Width supports values through 10 so thick-line behavior can be evaluated before saving.
+- **Apply to all** persists the currently visible preview; it does not trigger the preview.
+- The color field uses an explicit rectangular swatch plus hex value instead of relying on the browser's native color-dot presentation.
+- Object Audit uses **Restore hidden** only when something is actually hidden. It restores visibility without expanding every unit.
+
+## Auto Arrange minimum connector clearance
+
+A connector layout is invalid not only when two segments geometrically cross, but also when separate connector segments run closer than the minimum visual clearance.
+
+For groups up to 10 units, Auto Arrange deterministically searches side assignments and prefers the first zero-conflict layout. This models the same kind of manual correction a user can make by moving cards to the opposite side, while keeping one canonical Arrange runtime.

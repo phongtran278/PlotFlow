@@ -185,7 +185,7 @@ export default function OverviewInteractionRuntime() {
     function applyOpenState() {
       if (!panel) return;
       panel.querySelectorAll(".pf-layer-unit[data-unit-code]").forEach((group) => {
-        const open = openUnit === "*" || group.dataset.unitCode === openUnit;
+        const open = group.dataset.unitCode === openUnit;
         group.classList.toggle("is-open", open);
         group.querySelector("[data-layer-toggle]")?.setAttribute("aria-expanded", String(open));
         const body = group.querySelector(".pf-layer-unit-body");
@@ -208,7 +208,8 @@ export default function OverviewInteractionRuntime() {
       badges = readJson(BADGE_KEY, {});
       if (openUnit && !validCodes.has(openUnit)) openUnit = "";
 
-      panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>AUDIT</span><strong>Object audit</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div><div class="pf-layer-panel-foot"><button type="button" data-layer-action="show-all">Show all objects</button></div>`;
+      const hiddenCount = unitCodes.reduce((sum, code) => sum + ["card", "connector", "anchor"].filter((type) => hidden[code]?.[type]).length, 0);
+      panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>AUDIT</span><strong>Object audit</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div><div class="pf-layer-panel-foot"><button type="button" data-layer-action="restore-hidden" ${hiddenCount ? "" : "disabled"}>Restore hidden${hiddenCount ? ` · ${hiddenCount}` : ""}</button></div>`;
       const list = panel.querySelector(".pf-layer-panel-list");
 
       unitCodes.forEach((code) => {
@@ -306,9 +307,8 @@ export default function OverviewInteractionRuntime() {
         duplicates[Number(exceptionRemove.dataset.exceptionRemoveLine)]?.remove();
         renderPanel();
       }
-      if (action?.dataset.layerAction === "show-all") {
+      if (action?.dataset.layerAction === "restore-hidden") {
         Object.keys(hidden).forEach((key) => delete hidden[key]);
-        openUnit = "*";
         saveJson(HIDDEN_KEY, hidden);
         applyHidden();
         renderPanel();

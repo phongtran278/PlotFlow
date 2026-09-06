@@ -8,3 +8,7 @@
 .pf-connector-color input[type="color"]::-moz-color-swatch{border:0!important;border-radius:4px!important}
 .pf-connector-color code{min-width:58px;color:var(--pf-ink-2);font:600 9px/1 var(--pf-font-mono);letter-spacing:.02em}
 .pf-connector-control[data-connector-dirty="1"] [data-connector-action="apply-all"]{box-shadow:0 0 0 2px var(--pf-state-focus)}
+
+.pf-connector-color{position:relative!important}
+.pf-connector-color-swatch{width:54px;height:28px;border:1px solid var(--pf-line);border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);cursor:pointer;box-sizing:border-box}
+.pf-connector-color input[type="color"]{position:absolute!important;left:34px!important;top:0!important;width:54px!important;height:28px!important;opacity:0!important;cursor:pointer!important}

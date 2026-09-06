@@ -34,6 +34,7 @@ export default function OverviewSimplifiedRuntime() {
     let observer = null;
     let stage = null;
     let control = null;
+    let previewStyle = null;
 
     function triggerAutoArrange() {
       window.dispatchEvent(new CustomEvent("pf-overview-arrange-preview-request"));
@@ -69,8 +70,9 @@ export default function OverviewSimplifiedRuntime() {
               <label title="Connector thickness"><select data-connector="width">
                 <option value="0.25">0.25</option><option value="0.5">0.5</option><option value="0.75">0.75</option>
                 <option value="1">1</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2</option><option value="3">3</option>
+                <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
               </select></label>
-              <label class="pf-connector-color" title="Connector color"><span class="pf-connector-color-label">Color</span><input data-connector="color" type="color"><code data-connector-color-value>#E00000</code></label>
+              <label class="pf-connector-color" title="Connector color"><span class="pf-connector-color-label">Color</span><span class="pf-connector-color-swatch" data-connector-color-swatch></span><input data-connector="color" type="color" aria-label="Connector color"><code data-connector-color-value>#E00000</code></label>
               <label class="pf-connector-opacity" title="Connector opacity"><span>Opacity</span><input data-connector="opacity" type="range" min="0.1" max="1" step="0.05"></label>
             </div>
             <div class="pf-connector-style-actions"><button type="button" data-connector-action="apply-all">Apply to all</button></div>
@@ -85,18 +87,20 @@ export default function OverviewSimplifiedRuntime() {
           const nextColor = control.querySelector('[data-connector="color"]').value || "#e00000";
           const nextOpacity = Number(control.querySelector('[data-connector="opacity"]').value) || 1;
           const value = control.querySelector("[data-connector-color-value]");
+          const swatch = control.querySelector("[data-connector-color-swatch]");
           if (value) value.textContent = nextColor.toUpperCase();
+          if (swatch) swatch.style.background = nextColor;
           return { width: nextWidth, color: nextColor, opacity: nextOpacity };
         };
         const previewConnector = () => {
-          const next = draftConnector();
-          applyConnector(stage, next.width, next.color, next.opacity);
+          previewStyle = draftConnector();
+          applyConnector(stage, previewStyle.width, previewStyle.color, previewStyle.opacity);
           control.dataset.connectorDirty = "1";
         };
         const commitConnector = () => {
-          const next = draftConnector();
-          saveConnector(next);
-          applyConnector(stage, next.width, next.color, next.opacity);
+          previewStyle = draftConnector();
+          saveConnector(previewStyle);
+          applyConnector(stage, previewStyle.width, previewStyle.color, previewStyle.opacity);
           delete control.dataset.connectorDirty;
         };
 
@@ -114,11 +118,19 @@ export default function OverviewSimplifiedRuntime() {
           if (event.target.closest('[data-connector-action="apply-all"]')) commitConnector();
         });
         rail.appendChild(control);
+        previewStyle = { width, color, opacity };
         draftConnector();
-        applyConnector(stage, width, color, opacity);
+        applyConnector(stage, previewStyle.width, previewStyle.color, previewStyle.opacity);
       } else {
-        const settings = readSettings();
-        applyConnector(stage, Number(settings.lineWidth) || 0.5, settings.lineColor || "#e00000", Number.isFinite(Number(settings.lineOpacity)) ? Number(settings.lineOpacity) : 1);
+        if (!previewStyle) {
+          const settings = readSettings();
+          previewStyle = {
+            width: Number(settings.lineWidth) || 0.5,
+            color: settings.lineColor || "#e00000",
+            opacity: Number.isFinite(Number(settings.lineOpacity)) ? Number(settings.lineOpacity) : 1,
+          };
+        }
+        applyConnector(stage, previewStyle.width, previewStyle.color, previewStyle.opacity);
       }
     }
 
