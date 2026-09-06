@@ -322,6 +322,18 @@ export default function WindowsOverviewViewportRuntime() {
       });
     }
 
+    function selectUnitByCode(code) {
+      if (!code || !syncStage()) return false;
+      const card = overviewCards().find((item) => codeForCard(item) === code);
+      if (!card) return false;
+      overviewCards().forEach((item) => item.classList.remove("pf-card-selected", "pf-card-key"));
+      card.classList.add("pf-card-selected");
+      activeCode = code;
+      syncLinkedSelection(card);
+      emitSelectionChanged();
+      return true;
+    }
+
     function persistCard(card) {
       const code = codeForCard(card);
       if (!code) return;
@@ -449,6 +461,12 @@ export default function WindowsOverviewViewportRuntime() {
       });
     }
 
+    function onSelectUnitRequest(event) {
+      const code = String(event.detail?.code || "");
+      if (!selectUnitByCode(code)) return;
+      window.requestAnimationFrame(() => syncLinkedSelection());
+    }
+
     function onPointerUpSelection(event) {
       const card = event.target?.closest?.(".pf-live-sales-callout,.pf-sales-callout");
       if (card && stage?.contains(card)) {
@@ -490,6 +508,7 @@ export default function WindowsOverviewViewportRuntime() {
     window.addEventListener("pf-overview-anchor-changed", onLayoutChanged);
     window.addEventListener("pf-overview-live-units-ready", onLayoutChanged);
     window.addEventListener("pf-overview-group-changed", onGroupChanged);
+    window.addEventListener("pf-overview-select-unit-request", onSelectUnitRequest);
     window.addEventListener("pf-overview-connector-geometry-request", onLayoutChanged);
 
     return () => {
@@ -507,6 +526,7 @@ export default function WindowsOverviewViewportRuntime() {
       window.removeEventListener("pf-overview-anchor-changed", onLayoutChanged);
       window.removeEventListener("pf-overview-live-units-ready", onLayoutChanged);
       window.removeEventListener("pf-overview-group-changed", onGroupChanged);
+      window.removeEventListener("pf-overview-select-unit-request", onSelectUnitRequest);
       window.removeEventListener("pf-overview-connector-geometry-request", onLayoutChanged);
     };
   }, []);

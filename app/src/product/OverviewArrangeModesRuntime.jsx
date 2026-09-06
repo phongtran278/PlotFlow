@@ -42,6 +42,8 @@ export default function OverviewArrangeModesRuntime() {
     let drag = null;
     let resolvedGapPx = 14;
     let resolvedLaneCount = 0;
+    let resolvedCrossings = 0;
+    let usedSafetyFallback = false;
     let previewConnectorRaf = 0;
     const ui = readArrangeUi();
 
@@ -278,26 +280,132 @@ export default function OverviewArrangeModesRuntime() {
       return lanes.length;
     }
 
+    function connectorSegment(item, point, bounds) {
+      if (!item?.anchor?.resolved || !point || !bounds) return null;
+      const halfW = Math.max(item.width / Math.max(1, bounds.width) / 2, 0.0001);
+      const halfH = Math.max(item.height / Math.max(1, bounds.height) / 2, 0.0001);
+      const dx = item.anchor.x - point.x;
+      const dy = item.anchor.y - point.y;
+      const denominator = Math.max(Math.abs(dx) / halfW, Math.abs(dy) / halfH, 0.0001);
+      return {
+        code: item.code,
+        a: { x: point.x + dx / denominator, y: point.y + dy / denominator },
+        b: { x: item.anchor.x, y: item.anchor.y },
+      };
+    }
+
+    function segmentOrientation(a, b, c) {
+      return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    }
+
+    function pointOnSegment(a, b, p, epsilon = 0.00001) {
+      return Math.abs(segmentOrientation(a, b, p)) <= epsilon
+        && p.x >= Math.min(a.x, b.x) - epsilon && p.x <= Math.max(a.x, b.x) + epsilon
+        && p.y >= Math.min(a.y, b.y) - epsilon && p.y <= Math.max(a.y, b.y) + epsilon;
+    }
+
+    function segmentsConflict(first, second) {
+      if (!first || !second || first.code === second.code) return false;
+      const a = first.a; const b = first.b; const c = second.a; const d = second.b;
+      const o1 = segmentOrientation(a, b, c);
+      const o2 = segmentOrientation(a, b, d);
+      const o3 = segmentOrientation(c, d, a);
+      const o4 = segmentOrientation(c, d, b);
+      const epsilon = 0.00001;
+      const strictCross = ((o1 > epsilon && o2 < -epsilon) || (o1 < -epsilon && o2 > epsilon))
+        && ((o3 > epsilon && o4 < -epsilon) || (o3 < -epsilon && o4 > epsilon));
+      if (strictCross) return true;
+      return (Math.abs(o1) <= epsilon && pointOnSegment(a, b, c, epsilon))
+        || (Math.abs(o2) <= epsilon && pointOnSegment(a, b, d, epsilon))
+        || (Math.abs(o3) <= epsilon && pointOnSegment(c, d, a, epsilon))
+        || (Math.abs(o4) <= epsilon && pointOnSegment(c, d, b, epsilon));
+    }
+
+    function countConnectorCrossings(layout) {
+      const bounds = pdfBounds();
+      if (!bounds) return 0;
+      const segments = items.map((item) => connectorSegment(item, layout[item.code], bounds)).filter(Boolean);
+      let count = 0;
+      for (let i = 0; i < segments.length; i += 1) {
+        for (let j = i + 1; j < segments.length; j += 1) {
+          if (segmentsConflict(segments[i], segments[j])) count += 1;
+        }
+      }
+      return count;
+    }
+
+    function layoutDistance(layout) {
+      return items.reduce((sum, item) => {
+        const point = layout[item.code];
+        if (!point) return sum;
+        return sum + Math.hypot(point.x - item.anchor.x, point.y - item.anchor.y);
+      }, 0);
+    }
+
+    function crossingSafeSplit(itemsForMode) {
+      const sorted = [...itemsForMode].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+      const left = [];
+      const right = [];
+      sorted.forEach((item) => (item.anchor.x <= 0.5 ? left : right).push(item));
+      return { left, right };
+    }
+
+    function solveCandidate(groups, selectedMode) {
+      const next = {};
+      resolvedGapPx = ui.gap;
+      const leftLanes = solveSide(groups.left || [], "left", selectedMode, next);
+      const rightLanes = solveSide(groups.right || [], "right", selectedMode, next);
+      return {
+        draft: next,
+        gap: resolvedGapPx,
+        lanes: leftLanes + rightLanes,
+        crossings: countConnectorCrossings(next),
+        distance: layoutDistance(next),
+      };
+    }
+
     function buildDraft(selectedMode) {
       mode = selectedMode;
-      const next = {};
-      const { left, right } = split(items, selectedMode);
-      resolvedGapPx = ui.gap;
-      const leftLanes = solveSide(left, "left", selectedMode, next);
-      const rightLanes = solveSide(right, "right", selectedMode, next);
-      resolvedLaneCount = leftLanes + rightLanes;
-      draft = next;
+      const primary = solveCandidate(split(items, selectedMode), selectedMode);
+      const candidates = [primary];
+
+      if (primary.crossings > 0) {
+        candidates.push(solveCandidate(crossingSafeSplit(items), selectedMode));
+        const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+        candidates.push(solveCandidate({ left: sorted, right: [] }, "left"));
+        candidates.push(solveCandidate({ left: [], right: sorted }, "right"));
+      }
+
+      candidates.sort((a, b) => a.crossings - b.crossings || a.distance - b.distance || a.lanes - b.lanes);
+      const chosen = candidates[0];
+      draft = chosen.draft;
+      resolvedGapPx = chosen.gap;
+      resolvedLaneCount = chosen.lanes;
+      resolvedCrossings = chosen.crossings;
+      usedSafetyFallback = chosen !== primary;
       renderDraft();
+    }
+
+    function updateApplyState() {
+      const apply = overlay?.querySelector("[data-arrange-apply]");
+      if (!apply) return;
+      apply.disabled = resolvedCrossings > 0;
+      apply.title = resolvedCrossings > 0
+        ? "Resolve connector crossings before applying this layout"
+        : "Apply crossing-safe layout";
     }
 
     function updateFooter() {
       const footer = overlay?.querySelector("footer>span");
       if (!footer) return;
       const resolved = Math.round(resolvedGapPx * 10) / 10;
-      const lanes = resolvedLaneCount > 2 ? ` · ${resolvedLaneCount} lanes to prevent overlap` : "";
+      const lanes = resolvedLaneCount > 2 ? ` · ${resolvedLaneCount} lanes` : "";
+      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector crossings" : ` · ${resolvedCrossings} crossing${resolvedCrossings === 1 ? "" : "s"} · fix required`;
+      const fallback = usedSafetyFallback ? " · crossing-safe fallback" : "";
       footer.textContent = resolved + 0.05 < ui.gap
-        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px gap fits${lanes} · preview only`
-        : `${items.length} cards · ${ui.gap}px gap${lanes} · preview only`;
+        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px gap fits${lanes}${crossingStatus}${fallback} · preview only`
+        : `${items.length} cards · ${ui.gap}px gap${lanes}${crossingStatus}${fallback} · preview only`;
+      updateApplyState();
     }
 
     function syncPreviewConnectors() {
@@ -346,6 +454,7 @@ export default function OverviewArrangeModesRuntime() {
 
     function renderDraft() {
       if (!canvas) return;
+      resolvedCrossings = countConnectorCrossings(draft);
       canvas.querySelectorAll(".pf-arrange-preview-chip").forEach((chip) => {
         const point = draft[chip.dataset.code];
         if (!point) return;
@@ -419,6 +528,9 @@ export default function OverviewArrangeModesRuntime() {
     }
 
     function applyDraft() {
+      resolvedCrossings = countConnectorCrossings(draft);
+      updateFooter();
+      if (resolvedCrossings > 0) return;
       const bounds = pdfBounds();
       if (!bounds) return;
       const safe = safeArea(bounds);
@@ -471,7 +583,7 @@ export default function OverviewArrangeModesRuntime() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>The top banner area is reserved. Dense layouts automatically add lanes instead of overlapping cards.</small>
+              <small>The top banner area is reserved. Connector crossings are treated as invalid; dense layouts add lanes or fall back to a crossing-safe side before Apply is enabled.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>

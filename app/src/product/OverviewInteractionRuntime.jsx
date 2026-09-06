@@ -24,6 +24,7 @@ export default function OverviewInteractionRuntime() {
     let panel = null;
     let stage = null;
     let openUnit = "";
+    let selectedUnitCode = "";
     const hidden = readJson(HIDDEN_KEY, {});
     const highlightOwners = readJson(HIGHLIGHT_OWNER_KEY, {});
     let badges = readJson(BADGE_KEY, {});
@@ -74,7 +75,9 @@ export default function OverviewInteractionRuntime() {
       if (!stage) return;
       const validCodes = new Set(codes());
       const anchors = Array.from(stage.querySelectorAll(".pf-live-map-anchor"));
-      const activeCode = String(stage.dataset.pfActiveAnchor || "");
+      const activeCode = validCodes.has(selectedUnitCode)
+        ? selectedUnitCode
+        : String(stage.dataset.pfActiveAnchor || "");
       let changed = false;
       stage.querySelectorAll(".pf-pen-shape").forEach((shape) => {
         const id = String(shape.dataset.penShapeId || "");
@@ -96,6 +99,18 @@ export default function OverviewInteractionRuntime() {
         if (nearest && nearestDistance <= 28) { highlightOwners[id] = nearest; changed = true; }
       });
       if (changed) saveJson(HIGHLIGHT_OWNER_KEY, highlightOwners);
+    }
+
+    function syncLinkedUnitSelection() {
+      if (!stage) return;
+      const code = selectedUnitCode;
+      stage.querySelectorAll(".pf-pen-shape").forEach((shape) => {
+        const id = shape.dataset.penShapeId || "";
+        shape.classList.toggle("pf-linked-active", Boolean(code) && highlightOwners[id] === code);
+      });
+      panel?.querySelectorAll(".pf-layer-unit[data-unit-code]").forEach((group) => {
+        group.classList.toggle("is-selected", Boolean(code) && group.dataset.unitCode === code);
+      });
     }
 
     function applyHidden() {
@@ -201,7 +216,7 @@ export default function OverviewInteractionRuntime() {
         const unitShapes = shapes.filter((shape) => highlightOwners[shape.dataset.penShapeId || ""] === code);
         const needsPlacement = nodes.anchor && nodes.anchor.dataset.located !== "1" && nodes.anchor.dataset.saved !== "1";
         const group = document.createElement("section");
-        group.className = `pf-layer-unit${needsPlacement ? " is-unresolved" : ""}`;
+        group.className = `pf-layer-unit${needsPlacement ? " is-unresolved" : ""}${selectedUnitCode === code ? " is-selected" : ""}`;
         group.dataset.unitCode = code;
         group.innerHTML = `<button type="button" class="pf-layer-unit-toggle" data-layer-toggle aria-expanded="${openUnit === code}" title="Click to expand · double-click to zoom ${code}"><span>${code}</span><small>${needsPlacement ? "Needs placement" : unitShapes.length ? `${unitShapes.length} highlight` : "card · connector"}</small></button><div class="pf-layer-unit-body" ${openUnit === code ? "" : "hidden"}></div>`;
         const body = group.querySelector(".pf-layer-unit-body");
@@ -228,12 +243,18 @@ export default function OverviewInteractionRuntime() {
         list.appendChild(exceptions);
       }
       applyOpenState();
+      syncLinkedUnitSelection();
     }
 
     function installPanel() {
       const side = document.querySelector(".pf-overview-side");
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
       if (!side || !stage) return false;
+      if (!selectedUnitCode) {
+        const selectedCard = cards().find((card) => card.classList.contains("pf-card-key"))
+          || cards().find((card) => card.classList.contains("pf-card-selected"));
+        selectedUnitCode = codeFor(selectedCard);
+      }
       if (!panel?.isConnected) { panel = document.createElement("section"); panel.className = "pf-overview-layer-panel pf-overview-context-card"; side.prepend(panel); }
       applyHidden(); renderPanel(); return true;
     }
@@ -267,6 +288,7 @@ export default function OverviewInteractionRuntime() {
       if (toggle && group && code) {
         event.preventDefault();
         openUnit = openUnit === code ? "" : code;
+        window.dispatchEvent(new CustomEvent("pf-overview-select-unit-request", { detail: { code, source: "layers" } }));
         applyOpenState();
         return;
       }
@@ -304,7 +326,23 @@ export default function OverviewInteractionRuntime() {
       window.dispatchEvent(new CustomEvent("pf-overview-unit-badge-set", { detail: { code, label } }));
     }
 
-    function onHighlightsChanged(event) { associateUnownedHighlights(event.detail?.selectedId || ""); requestAnimationFrame(renderPanel); }
+    function onHighlightsChanged(event) {
+      associateUnownedHighlights(event.detail?.selectedId || "");
+      syncLinkedUnitSelection();
+      requestAnimationFrame(renderPanel);
+    }
+    function onCardSelectionChanged(event) {
+      const selectedCodes = Array.isArray(event.detail?.codes) ? event.detail.codes.filter(Boolean) : [];
+      const preferred = String(event.detail?.key || (selectedCodes.length === 1 ? selectedCodes[0] : ""));
+      selectedUnitCode = codes().includes(preferred) ? preferred : "";
+      syncLinkedUnitSelection();
+      requestAnimationFrame(renderPanel);
+    }
+    function onGroupChanged() {
+      selectedUnitCode = "";
+      openUnit = "";
+      refreshPanel();
+    }
     function refreshPanel() { requestAnimationFrame(() => { if (!installPanel()) scheduleInstall(); else renderPanel(); }); }
 
     document.addEventListener("pointerdown", onPointerDown, true);
@@ -314,8 +352,9 @@ export default function OverviewInteractionRuntime() {
     document.addEventListener("change", onPanelChange);
     window.addEventListener("pf-overview-live-units-ready", refreshPanel);
     window.addEventListener("pf-overview-highlights-changed", onHighlightsChanged);
+    window.addEventListener("pf-overview-card-selection-changed", onCardSelectionChanged);
     window.addEventListener("pf-overview-annotations-changed", refreshPanel);
-    window.addEventListener("pf-overview-group-changed", refreshPanel);
+    window.addEventListener("pf-overview-group-changed", onGroupChanged);
     window.addEventListener("plotflow-product-view-changed", refreshPanel);
     scheduleInstall();
 
@@ -324,7 +363,8 @@ export default function OverviewInteractionRuntime() {
       document.removeEventListener("pointerdown", onPointerDown, true); document.removeEventListener("keydown", onKeyDown, true);
       document.removeEventListener("click", onPanelClick); document.removeEventListener("dblclick", onPanelDoubleClick); document.removeEventListener("change", onPanelChange);
       window.removeEventListener("pf-overview-live-units-ready", refreshPanel); window.removeEventListener("pf-overview-highlights-changed", onHighlightsChanged);
-      window.removeEventListener("pf-overview-annotations-changed", refreshPanel); window.removeEventListener("pf-overview-group-changed", refreshPanel); window.removeEventListener("plotflow-product-view-changed", refreshPanel);
+      window.removeEventListener("pf-overview-card-selection-changed", onCardSelectionChanged);
+      window.removeEventListener("pf-overview-annotations-changed", refreshPanel); window.removeEventListener("pf-overview-group-changed", onGroupChanged); window.removeEventListener("plotflow-product-view-changed", refreshPanel);
       panel?.remove();
     };
   }, []);

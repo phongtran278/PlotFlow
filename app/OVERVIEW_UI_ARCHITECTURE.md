@@ -76,3 +76,31 @@ When an Overview UI change is proposed, first identify:
 4. its single visible UI location.
 
 If any of those are ambiguous, resolve the architecture before adding CSS.
+
+
+## Highlight ownership and linked selection
+
+Highlights are unit-owned objects.
+
+- Selecting a unit in Layers selects that unit through the canonical card-selection owner.
+- Card, connector, anchor and highlights belonging to the selected unit share one linked-selection state.
+- A newly completed highlight first attaches to the currently selected unit.
+- If no unit is selected, ownership may fall back to the active lot anchor and then to the nearest resolved lot anchor.
+- Existing owned highlights are not silently reassigned by proximity.
+
+This keeps Layers, canvas selection and Highlight ownership consistent.
+
+## Auto Arrange connector constraint
+
+Connector crossing is a hard validity constraint for Auto Arrange.
+
+The Arrange preview must:
+
+1. solve the requested layout mode;
+2. count connector segment intersections;
+3. try a crossing-safe side split when needed;
+4. add lanes rather than overlap cards;
+5. fall back to an all-left or all-right ordered layout if that produces fewer crossings;
+6. disable Apply whenever any connector crossing remains.
+
+Manual preview dragging is subject to the same validation. A crossed layout is previewable but cannot be applied.
