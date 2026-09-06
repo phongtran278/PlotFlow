@@ -4,3 +4,19 @@
 .pf-product-overview:has(.pf-masterplan-stage .pf-card-selected) .pf-overview-control-rail .pf-editor-layout-tools,.pf-product-overview:has(.pf-masterplan-stage .pf-sales-callout.pf-card-selected) .pf-overview-control-rail .pf-editor-layout-tools{display:flex!important}
 .pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:100%}
 @media(max-width:1180px){.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:auto}}
+
+/* Product-density pass: keep Object useful without spending a full row per action. */
+body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:span 7!important;margin:0!important;padding-bottom:0!important;border-bottom:0!important;align-self:end!important}
+body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:span 5!important;align-self:end!important;min-width:0!important;padding-inline:7px!important;white-space:nowrap!important}
+
+/* Connector settings stays inside its functional owner, but opens as a floating panel. */
+body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure{position:relative!important;overflow:visible!important}
+body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content{position:fixed!important;left:min(330px,calc(100vw - 326px))!important;top:clamp(150px,31vh,290px)!important;z-index:20020!important;width:310px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 174px)!important;overflow:auto!important;padding:12px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
+body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content .pf-connector-style-control{grid-template-columns:minmax(92px,1fr) 48px!important;gap:10px!important}
+
+/* Header disclosures must sit above the PDF/canvas instead of falling behind it. */
+body.pf-product-overview .pf-overview-intro,body.pf-product-overview .pf-overview-header-actions,body.pf-product-overview .pf-overview-header-tools{position:relative!important;z-index:20010!important;overflow:visible!important}
+body.pf-product-overview .pf-overview-header-guides{position:relative!important;z-index:20030!important;overflow:visible!important}
+body.pf-product-overview .pf-overview-header-guides>div{position:absolute!important;top:calc(100% + 7px)!important;right:0!important;z-index:20031!important;min-width:220px!important;padding:10px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
+
+@media(max-width:760px){body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale,body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:1/-1!important}body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content{left:12px!important;right:12px!important;top:96px!important;width:auto!important;max-width:none!important}}
