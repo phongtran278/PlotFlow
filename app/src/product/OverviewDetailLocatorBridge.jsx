@@ -101,11 +101,6 @@ export default function OverviewDetailLocatorBridge() {
           const anchor = anchorFor(stage, rawCode);
           const line = lineFor(stage, rawCode);
 
-          if (anchor?.dataset.saved === "1") {
-            located += 1;
-            continue;
-          }
-
           if (!anchor || !match) {
             markUnresolved(anchor, line, rawCode);
             unresolved += 1;
@@ -116,6 +111,15 @@ export default function OverviewDetailLocatorBridge() {
           const centerYFromBottom = Number(match.y || 0) + Number(match.height || 0) / 2;
           const x = (centerX / pageWidth) * 100;
           const y = ((pageHeight - centerYFromBottom) / pageHeight) * 100;
+
+          anchor.dataset.pfAutoDetectedX = String(x);
+          anchor.dataset.pfAutoDetectedY = String(y);
+          anchor.dataset.pfAutoDetectedSource = "prepared-manifest";
+
+          if (anchor.dataset.saved === "1") {
+            located += 1;
+            continue;
+          }
 
           anchor.style.left = `${x}%`;
           anchor.style.top = `${y}%`;

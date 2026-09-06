@@ -2,8 +2,6 @@ import { useEffect } from "react";
 import "./OverviewSimplifiedRuntime.css";
 
 const SETTINGS_KEY = "phongflow-overview-v2-settings";
-const LEGACY_MARKUP_KEY = "phongflow-overview-markup-v2";
-const PEN_KEY = "phongflow-overview-pen-shapes-v1";
 
 function readSettings() {
   try {
@@ -31,15 +29,6 @@ function applyConnector(stage, width, color, opacity) {
   });
 }
 
-function clearLegacyFreehandLines() {
-  try {
-    const items = JSON.parse(localStorage.getItem(LEGACY_MARKUP_KEY) || "[]");
-    if (Array.isArray(items)) {
-      localStorage.setItem(LEGACY_MARKUP_KEY, JSON.stringify(items.filter((item) => item?.type !== "line")));
-    }
-  } catch { /* noop */ }
-}
-
 export default function OverviewSimplifiedRuntime() {
   useEffect(() => {
     let observer = null;
@@ -58,7 +47,6 @@ export default function OverviewSimplifiedRuntime() {
 
       toolbar.querySelector('[data-tool="line"]')?.remove();
       toolbar.querySelectorAll(".pf-overview-markup-layer line").forEach((node) => node.remove());
-      clearLegacyFreehandLines();
 
       const oldStroke = toolbar.querySelector(".pf-stroke-control");
       if (oldStroke) oldStroke.style.display = "none";
@@ -76,14 +64,16 @@ export default function OverviewSimplifiedRuntime() {
             <button type="button" data-card-action="arrange" title="Preview and arrange cards">Arrange</button>
           </div>
           <div class="pf-connector-style-control">
-            <span>Connector</span>
-            <label title="Connector thickness"><select data-connector="width">
-              <option value="0.25">0.25</option><option value="0.5">0.5</option><option value="0.75">0.75</option>
-              <option value="1">1</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2</option><option value="3">3</option>
-            </select></label>
-            <label class="pf-connector-color" title="Connector color"><input data-connector="color" type="color"></label>
-            <label class="pf-connector-opacity" title="Connector opacity"><span>Opacity</span><input data-connector="opacity" type="range" min="0.1" max="1" step="0.05"></label>
-            <button type="button" data-connector-action="clear" title="Remove every rectangle and pen highlight">Clear highlights</button>
+            <span>All connectors</span>
+            <div class="pf-connector-style-fields">
+              <label title="Connector thickness"><select data-connector="width">
+                <option value="0.25">0.25</option><option value="0.5">0.5</option><option value="0.75">0.75</option>
+                <option value="1">1</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2</option><option value="3">3</option>
+              </select></label>
+              <label class="pf-connector-color" title="Connector color"><input data-connector="color" type="color"></label>
+              <label class="pf-connector-opacity" title="Connector opacity"><span>Opacity</span><input data-connector="opacity" type="range" min="0.1" max="1" step="0.05"></label>
+            </div>
+            <div class="pf-connector-style-actions"><button type="button" data-connector-action="apply-all">Apply to all</button></div>
           </div>`;
 
         control.querySelector('[data-connector="width"]').value = String(width);
@@ -99,21 +89,20 @@ export default function OverviewSimplifiedRuntime() {
         };
 
         control.addEventListener("input", (event) => {
-          if (event.target.closest("[data-connector]")) syncConnector();
+          if (event.target.closest("[data-connector]")) control.dataset.connectorDirty = "1";
         });
         control.addEventListener("change", (event) => {
-          if (event.target.closest("[data-connector]")) syncConnector();
+          if (event.target.closest("[data-connector]")) control.dataset.connectorDirty = "1";
         });
         control.addEventListener("click", (event) => {
           if (event.target.closest('[data-card-action="arrange"]')) {
             triggerAutoArrange();
             return;
           }
-          if (!event.target.closest('[data-connector-action="clear"]')) return;
-          localStorage.setItem(LEGACY_MARKUP_KEY, "[]");
-          localStorage.setItem(PEN_KEY, "[]");
-          stage.querySelectorAll(".pf-overview-markup-layer rect,.pf-overview-markup-layer line,.pf-overview-pen-layer polygon,.pf-overview-pen-layer polyline,.pf-overview-pen-layer circle").forEach((node) => node.remove());
-          window.dispatchEvent(new CustomEvent("pf-overview-clear-highlights"));
+          if (event.target.closest('[data-connector-action="apply-all"]')) {
+            syncConnector();
+            delete control.dataset.connectorDirty;
+          }
         });
         rail.appendChild(control);
         syncConnector();

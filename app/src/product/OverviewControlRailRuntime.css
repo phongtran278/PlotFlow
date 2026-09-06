@@ -4,9 +4,9 @@
 @media(max-width:1180px){.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:auto}}
 
 /* Context inspector: exactly one object inspector at a time. Unit stays a utility below it. */
-body.pf-product-overview .pf-overview-function-object,body.pf-product-overview .pf-overview-function-connector,body.pf-product-overview .pf-overview-function-highlight{display:none!important}
+body.pf-product-overview .pf-overview-function-object,body.pf-product-overview .pf-overview-function-highlight{display:none!important}
 body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-object{display:grid!important}
-body.pf-product-overview .pf-overview-control-rail[data-inspector-object="connector"] .pf-overview-function-connector{display:grid!important}
+body.pf-product-overview .pf-overview-function-connector{display:grid!important}
 body.pf-product-overview .pf-overview-control-rail[data-inspector-object="highlight"] .pf-overview-function-highlight{display:grid!important}
 body.pf-product-overview .pf-overview-function-unit{display:grid!important}
 body.pf-product-overview .pf-overview-function-view{display:none!important}
@@ -85,3 +85,13 @@ body.pf-product-overview .pf-object-audit-chip.is-mismatch{font-weight:700}
 
 @media(max-width:1100px){body.pf-product-overview .pf-overview-header-commandbar{max-width:100%;overflow-x:auto;justify-content:flex-start;scrollbar-width:thin}body.pf-product-overview .pf-overview-group-band{grid-template-columns:1fr}body.pf-product-overview .pf-overview-group-band nav{grid-template-columns:repeat(3,minmax(120px,1fr));overflow-x:auto;padding-bottom:2px}}
 @media(max-width:760px){body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:1/-1!important}body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content,body.pf-product-overview .pf-precision-popover{left:12px!important;right:12px!important;top:96px!important;width:auto!important;max-width:none!important}body.pf-product-overview .pf-object-audit-counts{grid-template-columns:1fr}body.pf-product-overview .pf-connector-endpoint-actions{grid-template-columns:1fr 1fr}body.pf-product-overview .pf-connector-endpoint-actions [data-connector-proxy="edit"]{grid-column:1/-1}}
+
+/* Connector is a global Overview utility: no thin-line hunting and no floating inspector. */
+body.pf-product-overview .pf-overview-function-connector .pf-overview-function-content{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-control{width:100%!important;display:block!important;margin:0!important;padding:0!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control{width:100%!important;height:auto!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;padding:9px!important;border:1px solid var(--pf-line)!important;border-radius:10px!important;background:var(--pf-surface-soft)!important;box-sizing:border-box!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control>span{grid-column:1/-1!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields{grid-column:1/-1!important;display:grid!important;grid-template-columns:auto auto minmax(90px,1fr)!important;gap:8px!important;align-items:center!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions{grid-column:1/-1!important;display:flex!important;justify-content:flex-end!important;gap:7px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions [data-connector-action="apply-all"]{background:var(--pf-brand-accent)!important;color:#fff!important;border-color:var(--pf-brand-accent)!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-endpoint-actions{order:-1!important}

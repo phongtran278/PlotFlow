@@ -93,8 +93,12 @@ export default function OverviewControlRailRuntime() {
         controls.innerHTML = '<button type="button" data-connector-proxy="edit">Edit endpoint</button><button type="button" data-connector-proxy="save">Save position</button><button type="button" data-connector-proxy="reset">Reset position</button><button type="button" data-connector-proxy="cancel">Cancel</button><small data-connector-draft-status>Endpoint changes require Save position.</small>';
         controls.addEventListener("click", (event) => {
           const action = event.target.closest("[data-connector-proxy]")?.dataset?.connectorProxy; if (!action) return;
-          const map = { edit: "adjust", save: "save-anchor", reset: "reset-anchor", cancel: "cancel-anchor" };
-          document.querySelector(`.pf-unit-navigator [data-nav="${map[action]}"]`)?.click(); requestAnimationFrame(scheduleSync);
+          if (action === "edit") window.dispatchEvent(new CustomEvent("pf-overview-edit-endpoint-request"));
+          else {
+            const map = { save: "save-anchor", reset: "reset-anchor", cancel: "cancel-anchor" };
+            document.querySelector(`.pf-unit-navigator [data-nav="${map[action]}"]`)?.click();
+          }
+          requestAnimationFrame(scheduleSync);
         });
         content.prepend(controls);
       }
@@ -156,7 +160,7 @@ export default function OverviewControlRailRuntime() {
     }
     function distanceToSegment(px, py, x1, y1, x2, y2) { const dx = x2 - x1; const dy = y2 - y1; if (!dx && !dy) return Math.hypot(px - x1, py - y1); const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy))); return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy)); }
     function screenEndpoints(line) { try { const svg = line?.ownerSVGElement; const matrix = line?.getScreenCTM?.(); if (!svg || !matrix) return null; const a = svg.createSVGPoint(); const b = svg.createSVGPoint(); a.x = line.x1.baseVal.value; a.y = line.y1.baseVal.value; b.x = line.x2.baseVal.value; b.y = line.y2.baseVal.value; const p1 = a.matrixTransform(matrix); const p2 = b.matrixTransform(matrix); return { x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y }; } catch { return null; } }
-    function selectConnector(line) { if (!stage || !line) return false; stage.querySelectorAll('[data-pf-connector-selected="1"]').forEach((node) => delete node.dataset.pfConnectorSelected); line.dataset.pfConnectorSelected = "1"; setInspectorObject("connector"); requestAnimationFrame(scheduleSync); return true; }
+    function selectConnector(line) { if (!stage || !line) return false; stage.querySelectorAll('[data-pf-connector-selected="1"]').forEach((node) => delete node.dataset.pfConnectorSelected); line.dataset.pfConnectorSelected = "1"; requestAnimationFrame(scheduleSync); return true; }
     function nearestConnector(clientX, clientY, tolerance = 12) { if (!stage) return null; const valid = new Set(currentCards().map((card) => card.dataset.unitCode || "").filter(Boolean)); let best = null; let bestDistance = tolerance; stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => { if (line.dataset.unitCode && !valid.has(line.dataset.unitCode)) return; const points = screenEndpoints(line); if (!points) return; const distance = distanceToSegment(clientX, clientY, points.x1, points.y1, points.x2, points.y2); if (distance <= bestDistance) { best = line; bestDistance = distance; } }); return best; }
     function onStageClick(event) {
       if (!stage || !rail) return; const card = event.target.closest?.(".pf-live-sales-callout,.pf-sales-callout"); if (card) { setInspectorObject("card"); requestAnimationFrame(scheduleSync); return; }
@@ -175,7 +179,7 @@ export default function OverviewControlRailRuntime() {
       const unitContent = groupContent(ensureGroup(primary, "unit", "Unit"));
       const viewContent = groupContent(ensureGroup(canvas, "view", "Shared"));
       moveTo(document.querySelector(".pf-card-quick-scale"), cardContent); moveTo(document.querySelector(".pf-precision-arrange"), cardContent); moveTo(document.querySelector(".pf-overview-v2-controls"), cardContent);
-      const connectorDetails = ensureDisclosure(connectorContent, "connector", "Connector settings"); moveTo(document.querySelector(".pf-connector-control"), connectorDetails); ensureConnectorDraftControls(connectorContent);
+      moveTo(document.querySelector(".pf-connector-control"), connectorContent); ensureConnectorDraftControls(connectorContent);
       moveTo(document.querySelector(".pf-pen-style-menu"), highlightContent);
       moveTo(document.querySelector(".pf-unit-navigator"), unitContent);
       const toolbar = document.querySelector(".pf-overview-zoom-toolbar"); organizeCanvasToolbar(toolbar); moveTo(toolbar, viewContent); organizeCanvasToolbar(toolbar);
@@ -191,7 +195,7 @@ export default function OverviewControlRailRuntime() {
       else if (rail?.dataset.inspectorObject === "highlight") setInspectorObject("canvas");
       scheduleSync();
     }
-    function onConnectorEndpointSelected() { setInspectorObject("connector"); scheduleSync(); }
+    function onConnectorEndpointSelected() { scheduleSync(); }
     mutationObserver = new MutationObserver((records) => { if (document.body.classList.contains("pf-product-overview") && records.some((record) => record.addedNodes?.length || record.removedNodes?.length)) scheduleSync(); });
     mutationObserver.observe(document.body, { childList:true, subtree:true });
     window.addEventListener("plotflow-product-view-changed", scheduleSync);

@@ -114,3 +114,15 @@ Manual preview dragging is subject to the same validation. A crossed layout is p
 - Reset position always returns to the original auto-detected PDF endpoint captured before a manual override is applied.
 - Selection from Layers, cards and the Unit navigator keeps `OverviewAnchorRuntime` synchronized to the same unit code.
 - Contextual disclosures close on outside click or Escape and organizer sync must not immediately reopen them.
+
+
+## Connector utility contract
+
+Connector editing no longer requires clicking the thin connector line.
+
+- Connector controls are a persistent Overview utility.
+- Edit endpoint acts on the currently selected / active unit and reveals that unit's endpoint handle.
+- Width, color and opacity are global connector style for the current Overview product, not per-line styling.
+- Style edits remain a draft until the user chooses **Apply to all**.
+- Clicking a connector line may visually select the line, but it must not open or relocate a floating inspector.
+- Reset position is idempotent and reads only the immutable auto-detected coordinates published by `OverviewDetailLocatorBridge`; repeated Reset actions must resolve to the exact same point.
