@@ -179,3 +179,14 @@ Connector Style uses a compact two-row layout rather than forcing every control 
 - Row 2: Opacity + Apply to all.
 
 The goal is balanced density, not minimum height at the expense of readability.
+
+
+## Handover tab continuity
+
+Handover switching prioritizes visual continuity:
+
+- The historical double-`requestAnimationFrame` delay is preserved only for the first Overview entry, where runtimes need time to mount.
+- Subsequent handover tab changes dispatch after one frame.
+- `WindowsOverviewViewportRuntime` resets selection on group change but does not hydrate geometry against the outgoing layer; geometry waits for `pf-overview-live-units-ready` from the incoming layer.
+- Connector Style no longer observes every DOM mutation in `document.body`. It installs with a bounded startup retry and re-applies only when live units are ready.
+- Connector Style is global and auto-saved. Input events preview immediately; change events persist automatically. There is no **Apply to all** action.

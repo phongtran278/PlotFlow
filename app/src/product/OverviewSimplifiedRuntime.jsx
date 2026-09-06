@@ -31,8 +31,9 @@ function applyConnector(stage, width, color, opacity) {
 
 export default function OverviewSimplifiedRuntime() {
   useEffect(() => {
-    let observer = null;
     let stage = null;
+    let installRaf = 0;
+    let installAttempts = 0;
     let control = null;
     let previewStyle = null;
 
@@ -75,7 +76,6 @@ export default function OverviewSimplifiedRuntime() {
               <label class="pf-connector-color" title="Connector color"><span class="pf-connector-color-label">Color</span><span class="pf-connector-color-swatch" data-connector-color-swatch></span><input data-connector="color" type="color" aria-label="Connector color"><code data-connector-color-value>#E00000</code></label>
               <label class="pf-connector-opacity" title="Connector opacity"><span>Opacity</span><input data-connector="opacity" type="range" min="0.1" max="1" step="0.05"></label>
             </div>
-            <div class="pf-connector-style-actions"><button type="button" data-connector-action="apply-all">Apply to all</button></div>
           </div>`;
 
         control.querySelector('[data-connector="width"]').value = String(width);
@@ -95,27 +95,24 @@ export default function OverviewSimplifiedRuntime() {
         const previewConnector = () => {
           previewStyle = draftConnector();
           applyConnector(stage, previewStyle.width, previewStyle.color, previewStyle.opacity);
-          control.dataset.connectorDirty = "1";
         };
-        const commitConnector = () => {
+        const persistConnector = () => {
           previewStyle = draftConnector();
           saveConnector(previewStyle);
           applyConnector(stage, previewStyle.width, previewStyle.color, previewStyle.opacity);
-          delete control.dataset.connectorDirty;
         };
 
         control.addEventListener("input", (event) => {
           if (event.target.closest("[data-connector]")) previewConnector();
         });
         control.addEventListener("change", (event) => {
-          if (event.target.closest("[data-connector]")) previewConnector();
+          if (event.target.closest("[data-connector]")) persistConnector();
         });
         control.addEventListener("click", (event) => {
           if (event.target.closest('[data-card-action="arrange"]')) {
             triggerAutoArrange();
             return;
           }
-          if (event.target.closest('[data-connector-action="apply-all"]')) commitConnector();
         });
         rail.appendChild(control);
         previewStyle = { width, color, opacity };
@@ -134,17 +131,26 @@ export default function OverviewSimplifiedRuntime() {
       }
     }
 
-    const onOverviewChanged = () => window.setTimeout(install, 0);
+    function scheduleInitialInstall() {
+      window.cancelAnimationFrame(installRaf);
+      installAttempts = 0;
+      const run = () => {
+        if (control?.isConnected) return;
+        install();
+        if (control?.isConnected || installAttempts >= 11) return;
+        installAttempts += 1;
+        installRaf = window.requestAnimationFrame(run);
+      };
+      installRaf = window.requestAnimationFrame(run);
+    }
 
-    install();
-    observer = new MutationObserver(install);
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("pf-overview-live-units-ready", onOverviewChanged);
-    window.addEventListener("pf-overview-group-changed", onOverviewChanged);
+    const onLiveUnitsReady = () => window.requestAnimationFrame(install);
+
+    scheduleInitialInstall();
+    window.addEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
     return () => {
-      observer?.disconnect();
-      window.removeEventListener("pf-overview-live-units-ready", onOverviewChanged);
-      window.removeEventListener("pf-overview-group-changed", onOverviewChanged);
+      window.cancelAnimationFrame(installRaf);
+      window.removeEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
       control?.remove();
     };
   }, []);

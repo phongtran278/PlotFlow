@@ -86,6 +86,7 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   const [units, setUnits] = useState(readAvailableUnits);
   const [sellUnits, setSellUnits] = useState(readSellUnits);
   const workspaceRef = useRef(null);
+  const overviewSyncReadyRef = useRef(false);
 
   useEffect(() => {
     const fn = (event) => {
@@ -135,14 +136,29 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   }, [overviewGroups, overviewGroup, exclusiveEditor]);
 
   useEffect(() => {
-    if (exclusiveEditor || screen !== "project" || mode !== "overview") return undefined;
+    if (exclusiveEditor) return undefined;
+    if (screen !== "project" || mode !== "overview") {
+      overviewSyncReadyRef.current = false;
+      return undefined;
+    }
+
     let raf1 = 0;
     let raf2 = 0;
-    raf1 = window.requestAnimationFrame(() => {
-      raf2 = window.requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent("pf-overview-group-changed", { detail: { group: overviewGroup, source: "overview-entry-sync" } }));
+    const dispatchGroup = (source) => {
+      window.dispatchEvent(new CustomEvent("pf-overview-group-changed", { detail: { group: overviewGroup, source } }));
+    };
+
+    if (!overviewSyncReadyRef.current) {
+      raf1 = window.requestAnimationFrame(() => {
+        raf2 = window.requestAnimationFrame(() => {
+          overviewSyncReadyRef.current = true;
+          dispatchGroup("overview-entry-sync");
+        });
       });
-    });
+    } else {
+      raf1 = window.requestAnimationFrame(() => dispatchGroup("handover-tab"));
+    }
+
     return () => {
       window.cancelAnimationFrame(raf1);
       window.cancelAnimationFrame(raf2);

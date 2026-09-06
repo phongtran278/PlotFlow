@@ -500,7 +500,6 @@ export default function WindowsOverviewViewportRuntime() {
       lastStableSnapshot = null;
       overviewCards().forEach((card) => card.classList.remove("pf-card-selected", "pf-card-key"));
       emitSelectionChanged();
-      hydrateEntryGeometry();
       window.requestAnimationFrame(() => {
         if (!syncStage()) return;
         lastStableSnapshot = snapshotCards();
