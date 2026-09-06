@@ -213,3 +213,22 @@ Pass 3 is presentation-only. Runtime owners, geometry, saved data and interactio
 - Connector Style keeps the tested two-row layout and auto-saves; there is no confirmation action.
 - Object Audit stays quiet in normal state. Mismatch and exceptions alone receive warning emphasis.
 - Pass 3 removes obsolete CSS blocks instead of adding another presentation architecture.
+
+
+## Overview QA handover
+
+Overview is considered ready to hand over after the final toolbar re-home regression is verified in production.
+
+Final QA contract:
+
+- PDF/canvas continuity across handover tabs: user-verified.
+- Left rail continuity across handover tabs: user-verified.
+- Handover tabs, header hierarchy and Pass 3 visual cleanup: user-verified direction.
+- Zoom keyboard shortcut `Z`: user-verified.
+- Toolbar Select / Hand / Zoom buttons must remain functional after `.pf-editor-tools` is re-homed into the header. `OverviewZoomRuntime` therefore binds the functional tools node itself when it leaves the original toolbar wrapper.
+- Connector style remains live-preview + auto-save.
+- Auto Arrange must reject connector crossings / visual conflicts.
+- Unit lot-point editing keeps Focus / Save / Reset semantics established in the runtime contract.
+- CI proves build/lint only; exact production runtime remains the final acceptance gate.
+
+Once the toolbar click regression is confirmed on the exact live commit, Overview can leave active feature development and move to maintenance / regression-only status.
