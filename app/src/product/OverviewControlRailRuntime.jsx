@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import "./OverviewControlRailRuntime.css";
 
+// Presentation organizer only: controls may move, but functional runtimes keep behavior ownership.
+
 const ACTION_TITLES = { undo: "Undo the last change", redo: "Redo the last undone change", fit: "Fit PDF to workspace", in: "Zoom in", out: "Zoom out", png: "Export high-resolution PNG", pdf: "Export PDF" };
 const TOOL_TITLES = { select: "Select and move cards", hand: "Pan the PDF", zoom: "Zoom tool", line: "Draw line", rect: "Draw rectangle", highlight: "Draw highlight area" };
 const LAYOUT_TITLES = { same: "Match size to key object", left: "Align left", hcenter: "Align horizontal center", right: "Align right", top: "Align top", vcenter: "Align vertical center", bottom: "Align bottom", "space-v": "Distribute vertically" };
 const HIGHLIGHT_OWNER_KEY = "plotflow-overview-highlight-owners-v1";
-const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 
 function readableLabel(element) {
   const action = String(element?.dataset?.action || "").trim().toLowerCase(); if (ACTION_TITLES[action]) return ACTION_TITLES[action];
@@ -55,21 +56,6 @@ function ensureAutoArrangeProxy(content) {
   button.innerHTML = '<span aria-hidden="true">✦</span><b>Auto Arrange</b>'; button.title = "Preview and arrange visible cards by their lot positions";
   button.addEventListener("click", () => window.dispatchEvent(new CustomEvent("pf-overview-arrange-preview-request"))); content.appendChild(button);
 }
-function canonicalGroup(value = "") {
-  const text = String(value).trim().toLowerCase();
-  if (text.includes("hoàn thiện") || text.includes("hoan thien")) return "hoan thien";
-  if (text.includes("giãn xây") || text.includes("gian xay")) return "gian xay";
-  if (text.includes("xây thô") || text.includes("xay tho") || text.includes("bàn giao thô") || text.includes("ban giao tho")) return "xay tho";
-  return text.replace(/\s+/g, " ");
-}
-function groupCount(label) {
-  try {
-    const units = JSON.parse(localStorage.getItem(SELL_STORAGE_KEY) || "[]");
-    if (!Array.isArray(units)) return 0;
-    const key = canonicalGroup(label); return units.filter((unit) => canonicalGroup(unit?.handover) === key).length;
-  } catch { return 0; }
-}
-
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
     let frame = 0; let rail = null; let stage = null; let mutationObserver = null;
@@ -126,42 +112,6 @@ export default function OverviewControlRailRuntime() {
       const chip = (label, value, mismatch) => `<span class="pf-object-audit-chip${mismatch ? " is-mismatch" : ""}"><b>${label}</b><strong>${value}</strong>${mismatch ? '<i title="Count differs from cards">!</i>' : ""}</span>`;
       audit.innerHTML = chip("Cards", cardList.length, false) + chip("Connectors", lines.length, lines.length !== cardList.length) + chip("Highlights", shapes.length, shapes.length !== cardList.length);
     }
-    function syncGroupBand() {
-      const source = document.querySelector(".pf-overview-groups");
-      const select = source?.querySelector("select");
-      const overview = document.querySelector(".pf-overview");
-      if (!source || !select || !overview) return;
-
-      let band = overview.querySelector(":scope > .pf-overview-group-band");
-      if (!band) {
-        band = document.createElement("section");
-        band.className = "pf-overview-group-band";
-        band.innerHTML = '<div><span>HANDOVER TYPE</span><strong>Overview groups</strong></div><nav aria-label="Overview handover types"></nav>';
-        const intro = overview.querySelector(":scope > .pf-overview-intro");
-        intro?.insertAdjacentElement("afterend", band);
-        if (!band.isConnected) overview.prepend(band);
-      }
-
-      const nav = band.querySelector("nav");
-      const options = Array.from(select.options);
-      nav.innerHTML = "";
-      options.forEach((option) => {
-        const label = option.textContent?.trim() || option.value || "Group";
-        const proxy = document.createElement("button");
-        proxy.type = "button";
-        proxy.className = option.value === select.value ? "active" : "";
-        proxy.setAttribute("aria-pressed", String(option.value === select.value));
-        const count = groupCount(label);
-        proxy.innerHTML = `<b>${label}</b><small>${count || "—"} căn</small>`;
-        proxy.addEventListener("click", () => {
-          if (select.value === option.value) return;
-          select.value = option.value;
-          select.dispatchEvent(new Event("change", { bubbles: true }));
-        });
-        nav.appendChild(proxy);
-      });
-      source.classList.toggle("pf-overview-groups-source", options.length > 0);
-    }
     function organizeHeaderControls(header, toolbar, guideControl) {
       if (!header || !toolbar) return;
       let bar = header.querySelector(":scope > .pf-overview-header-commandbar"); if (!bar) { bar = document.createElement("div"); bar.className = "pf-overview-header-commandbar"; header.appendChild(bar); }
@@ -189,7 +139,7 @@ export default function OverviewControlRailRuntime() {
     function groupControls() {
       rail = document.querySelector(".pf-overview-control-rail"); const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts"); if (!rail || !nextStage) return false;
       if (stage !== nextStage) { stage?.removeEventListener("click", onStageClick); stage = nextStage; stage.addEventListener("click", onStageClick); }
-      if (!rail.dataset.inspectorObject) rail.dataset.inspectorObject = "canvas"; rail.classList.remove("is-fixed-toolbar"); document.querySelectorAll(".pf-overview-control-rail-spacer").forEach((node) => node.remove());
+      if (!rail.dataset.inspectorObject) rail.dataset.inspectorObject = "canvas"; rail.dataset.overviewUiOwner = "control-rail-runtime"; rail.classList.remove("is-fixed-toolbar"); document.querySelectorAll(".pf-overview-control-rail-spacer").forEach((node) => node.remove());
       const primary = rail.querySelector("[data-overview-primary-tools]"); const canvas = rail.querySelector("[data-overview-canvas-tools]"); if (!primary || !canvas) return false;
       const cardContent = groupContent(ensureGroup(primary, "object", "Card")); const connectorContent = groupContent(ensureGroup(primary, "connector", "Connector")); const unitContent = groupContent(ensureGroup(primary, "unit", "Unit")); const viewContent = groupContent(ensureGroup(canvas, "view", "Shared"));
       moveTo(document.querySelector(".pf-card-quick-scale"), cardContent); moveTo(document.querySelector(".pf-precision-arrange"), cardContent); moveTo(document.querySelector(".pf-overview-v2-controls"), cardContent); ensureAutoArrangeProxy(cardContent);
@@ -197,7 +147,7 @@ export default function OverviewControlRailRuntime() {
       moveTo(document.querySelector(".pf-unit-navigator"), unitContent);
       const toolbar = document.querySelector(".pf-overview-zoom-toolbar"); organizeCanvasToolbar(toolbar); moveTo(toolbar, viewContent); organizeCanvasToolbar(toolbar);
       organizeHeaderControls(document.querySelector(".pf-overview-header-actions"), toolbar, document.querySelector(".pf-overview-guide-control"));
-      syncCardSelectionSummary(cardContent); syncObjectAudit(); syncGroupBand(); ensureConnectorDraftControls(connectorContent);
+      syncCardSelectionSummary(cardContent); syncObjectAudit(); ensureConnectorDraftControls(connectorContent);
       rail.querySelectorAll(".pf-overview-function-group").forEach((group) => { group.hidden = !groupContent(group)?.children.length; }); applyControlHints(); return true;
     }
     function scheduleSync() { cancelAnimationFrame(frame); frame = requestAnimationFrame(groupControls); }
