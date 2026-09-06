@@ -32,15 +32,39 @@ Presentation code must delegate to these owners rather than duplicate their beha
 - Runtime-owned wrappers stay intact when delegated listeners depend on them.
 - Do not add a second connector geometry writer, drag owner, camera owner or Arrange runtime.
 
-## What Pass 1 does not decide
+## Pass 2 contextual inspector
 
-Pass 1 does not finalize the contextual inspector state machine or final visual hierarchy.
+Pass 2 locks the selection-to-inspector contract:
 
-Those belong to the next passes:
+| Selection | Context inspector |
+| --- | --- |
+| Canvas / nothing selected | No object inspector |
+| One card | Card |
+| Two or more cards | Card, with Align / Gap / Distribute exposed immediately |
+| Connector | Connector, including endpoint editing |
+| Highlight | Highlight appearance |
 
-1. Contextual selection model: Canvas / Card / multi-card / Connector / Highlight.
-2. Global action placement: Arrange, Guides, View and Export.
-3. Design System visual migration after the interaction architecture is stable.
+Only one object inspector is visible at a time.
+
+Unit navigation is a supporting utility below the contextual inspector. It is not owned by Card, Connector or Highlight.
+
+The visible global actions stay outside the object inspector:
+
+- Select / Pan / Highlight tools.
+- Auto Arrange.
+- Guides.
+- Zoom / Fit.
+- Export.
+
+Auto Arrange is global because it arranges the visible cards for the current handover group, not one selected card. Its single visible entry point delegates to `OverviewArrangeModesRuntime`.
+
+Highlight drawing remains owned by `OverviewPenRuntime`; only its appearance control is re-homed into the Highlight inspector.
+
+Changing handover group resets contextual inspection to Canvas so stale object controls do not survive into a different group.
+
+## What Pass 2 does not decide
+
+Pass 2 does not finalize visual density, typography polish or final component styling. Those belong to the Design System visual migration after runtime verification.
 
 ## Review rule
 

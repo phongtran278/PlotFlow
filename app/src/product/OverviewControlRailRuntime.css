@@ -3,15 +3,16 @@
 .pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:100%}
 @media(max-width:1180px){.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:auto}}
 
-/* Context inspector */
-body.pf-product-overview .pf-overview-function-object,body.pf-product-overview .pf-overview-function-connector,body.pf-product-overview .pf-overview-function-unit{display:none!important}
-body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-object,body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-unit{display:grid!important}
+/* Context inspector: exactly one object inspector at a time. Unit stays a utility below it. */
+body.pf-product-overview .pf-overview-function-object,body.pf-product-overview .pf-overview-function-connector,body.pf-product-overview .pf-overview-function-highlight{display:none!important}
+body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-object{display:grid!important}
 body.pf-product-overview .pf-overview-control-rail[data-inspector-object="connector"] .pf-overview-function-connector{display:grid!important}
+body.pf-product-overview .pf-overview-control-rail[data-inspector-object="highlight"] .pf-overview-function-highlight{display:grid!important}
+body.pf-product-overview .pf-overview-function-unit{display:grid!important}
 body.pf-product-overview .pf-overview-function-view{display:none!important}
 
 /* Card */
-body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:span 7!important;margin:0!important;padding-bottom:0!important;border-bottom:0!important;align-self:end!important}
-body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:span 5!important;align-self:end!important;min-width:0!important;padding-inline:7px!important;white-space:nowrap!important}
+body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:1/-1!important;margin:0!important;padding-bottom:0!important;border-bottom:0!important;align-self:end!important}
 body.pf-product-overview .pf-overview-function-object .pf-overview-v2-controls{display:none!important}
 body.pf-product-overview .pf-card-selection-summary{grid-column:1/-1;padding:8px 10px;border:1px dashed var(--pf-line);border-radius:10px;font-size:10px;line-height:1.35;color:var(--pf-text-muted);background:var(--pf-surface-soft)}
 body.pf-product-overview .pf-card-selection-summary[data-multi="1"]{border-style:solid;color:var(--pf-text);font-weight:650}
@@ -32,6 +33,11 @@ body.pf-product-overview .pf-connector-endpoint-actions small{grid-column:1/-1;c
 body.pf-product-overview .pf-live-callout-lines line,body.pf-product-overview .pf-callout-lines line{cursor:pointer}
 body.pf-product-overview .pf-live-callout-lines line[data-pf-connector-selected="1"],body.pf-product-overview .pf-callout-lines line[data-pf-connector-selected="1"]{filter:drop-shadow(0 0 2px rgba(15,122,100,.6))}
 
+/* Highlight inspector */
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-menu{width:100%;min-width:0;display:block;position:relative}
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-menu>summary{display:none!important}
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-popover{position:static!important;inset:auto!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;padding:10px!important;border:1px solid var(--pf-line)!important;border-radius:12px!important;background:var(--pf-surface-raised)!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-sizing:border-box!important}
+
 /* Single-card transform */
 body.pf-product-overview .pf-precision-popover{position:fixed!important;left:12px!important;right:auto!important;top:118px!important;width:300px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 142px)!important;overflow:auto!important;z-index:20025!important;transform:none!important}
 body.pf-product-overview .pf-precision-popover .pf-style-system-grid{display:grid!important}
@@ -43,7 +49,10 @@ body.pf-product-overview .pf-overview-header-commandbar{display:flex;align-items
 body.pf-product-overview .pf-overview-header-commandbar>.pf-editor-tools{display:flex!important;align-items:center!important;gap:3px!important;margin:0!important;padding:0 6px 0 0!important;border:0!important;border-right:1px solid var(--pf-line)!important;background:transparent!important;flex:0 0 auto!important}
 body.pf-product-overview .pf-overview-header-commandbar>.pf-editor-tools button{min-width:30px!important;height:30px!important}
 body.pf-product-overview .pf-overview-header-commandbar .pf-editor-divider{height:18px!important}
-body.pf-product-overview .pf-overview-header-commandbar>.pf-overview-header-view,body.pf-product-overview .pf-overview-header-commandbar>.pf-overview-header-guides,body.pf-product-overview .pf-overview-header-commandbar>.pf-export-menu{flex:0 0 auto!important;margin:0!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy,body.pf-product-overview .pf-overview-header-commandbar>.pf-overview-header-view,body.pf-product-overview .pf-overview-header-commandbar>.pf-overview-header-guides,body.pf-product-overview .pf-overview-header-commandbar>.pf-export-menu{flex:0 0 auto!important;margin:0!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy{height:30px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;border:1px solid rgba(15,122,100,.18);border-radius:8px;background:var(--pf-brand-accent-soft);color:var(--pf-brand-accent);font:650 9px/1 var(--pf-font-ui);white-space:nowrap;cursor:pointer}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy:hover{background:#dcece6}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy b{font:inherit}
 body.pf-product-overview .pf-overview-toolbar-section-tools,body.pf-product-overview .pf-overview-toolbar-section-view{display:none!important}
 body.pf-product-overview .pf-editor-tools [data-action="undo"]{border-radius:8px 0 0 8px!important;margin-right:-3px!important}
 body.pf-product-overview .pf-editor-tools [data-action="redo"]{border-radius:0 8px 8px 0!important;margin-left:-3px!important}
@@ -75,4 +84,4 @@ body.pf-product-overview .pf-object-audit-chip>i{display:grid;place-items:center
 body.pf-product-overview .pf-object-audit-chip.is-mismatch{font-weight:700}
 
 @media(max-width:1100px){body.pf-product-overview .pf-overview-header-commandbar{max-width:100%;overflow-x:auto;justify-content:flex-start;scrollbar-width:thin}body.pf-product-overview .pf-overview-group-band{grid-template-columns:1fr}body.pf-product-overview .pf-overview-group-band nav{grid-template-columns:repeat(3,minmax(120px,1fr));overflow-x:auto;padding-bottom:2px}}
-@media(max-width:760px){body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale,body.pf-product-overview .pf-overview-function-object .pf-auto-arrange-proxy{grid-column:1/-1!important}body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content,body.pf-product-overview .pf-precision-popover{left:12px!important;right:12px!important;top:96px!important;width:auto!important;max-width:none!important}body.pf-product-overview .pf-object-audit-counts{grid-template-columns:1fr}body.pf-product-overview .pf-connector-endpoint-actions{grid-template-columns:1fr 1fr}body.pf-product-overview .pf-connector-endpoint-actions [data-connector-proxy="edit"]{grid-column:1/-1}}
+@media(max-width:760px){body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:1/-1!important}body.pf-product-overview .pf-overview-function-connector .pf-overview-disclosure[open]>.pf-overview-disclosure-content,body.pf-product-overview .pf-precision-popover{left:12px!important;right:12px!important;top:96px!important;width:auto!important;max-width:none!important}body.pf-product-overview .pf-object-audit-counts{grid-template-columns:1fr}body.pf-product-overview .pf-connector-endpoint-actions{grid-template-columns:1fr 1fr}body.pf-product-overview .pf-connector-endpoint-actions [data-connector-proxy="edit"]{grid-column:1/-1}}
