@@ -6,6 +6,7 @@
 .pf-overview-handover-tabs button.is-active{background:var(--pf-surface-raised);color:var(--pf-ink);box-shadow:0 1px 4px rgba(19,22,26,.12)}
 .pf-overview-handover-tabs span{font-size:11px;font-weight:650;line-height:1}
 .pf-overview-handover-tabs small{color:var(--pf-muted);font-size:9px;font-weight:600;line-height:1}
+.pf-overview-handover-tabs + .pf-overview-view-status{display:none!important}
 
 /* The canvas is already the primary surface. Do not place a second white card behind it. */
 .pf-overview .pf-masterplan-card{padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
