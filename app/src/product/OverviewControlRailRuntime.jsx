@@ -75,8 +75,10 @@ export default function OverviewControlRailRuntime() {
         if (value === "highlight" && details.closest(".pf-overview-function-highlight")) return;
         details.removeAttribute("open");
       });
-      if (value === "connector") rail.querySelector('.pf-overview-function-connector [data-overview-disclosure="connector"]')?.setAttribute("open", "");
-      if (value === "highlight") rail.querySelector(".pf-overview-function-highlight .pf-pen-style-menu")?.setAttribute("open", "");
+      const changed = rail.dataset.lastInspectorObject !== value;
+      if (changed && value === "connector") rail.querySelector('.pf-overview-function-connector [data-overview-disclosure="connector"]')?.setAttribute("open", "");
+      if (changed && value === "highlight") rail.querySelector(".pf-overview-function-highlight .pf-pen-style-menu")?.setAttribute("open", "");
+      rail.dataset.lastInspectorObject = value;
     }
     function currentCards() {
       if (!stage) return [];
@@ -179,8 +181,7 @@ export default function OverviewControlRailRuntime() {
       const toolbar = document.querySelector(".pf-overview-zoom-toolbar"); organizeCanvasToolbar(toolbar); moveTo(toolbar, viewContent); organizeCanvasToolbar(toolbar);
       organizeHeaderControls(document.querySelector(".pf-overview-header-actions"), toolbar, document.querySelector(".pf-overview-guide-control"));
       syncCardSelectionSummary(cardContent); syncObjectAudit(); ensureConnectorDraftControls(connectorContent);
-      if (rail.dataset.inspectorObject === "highlight") highlightContent.querySelector(".pf-pen-style-menu")?.setAttribute("open", "");
-      if (rail.dataset.inspectorObject === "connector") connectorContent.querySelector('[data-overview-disclosure="connector"]')?.setAttribute("open", "");
+      // Organizer sync must not reopen a contextual disclosure after outside click or Escape.
       rail.querySelectorAll(".pf-overview-function-group").forEach((group) => { group.hidden = !groupContent(group)?.children.length; }); applyControlHints(); return true;
     }
     function scheduleSync() { cancelAnimationFrame(frame); frame = requestAnimationFrame(groupControls); }

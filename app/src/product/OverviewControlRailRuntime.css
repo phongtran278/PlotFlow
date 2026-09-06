@@ -35,7 +35,7 @@ body.pf-product-overview .pf-live-callout-lines line[data-pf-connector-selected=
 
 /* Highlight inspector */
 body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-menu{width:100%;min-width:0;display:block;position:relative}
-body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-menu>summary{display:none!important}
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-menu>summary{display:flex!important;align-items:center;justify-content:space-between;min-height:32px;padding:0 10px;border:1px solid var(--pf-line);border-radius:9px;background:var(--pf-surface-soft);color:var(--pf-ink-2);font:650 9px/1 var(--pf-font-ui);cursor:pointer}
 body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-popover{position:static!important;inset:auto!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;padding:10px!important;border:1px solid var(--pf-line)!important;border-radius:12px!important;background:var(--pf-surface-raised)!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-sizing:border-box!important}
 
 /* Single-card transform */

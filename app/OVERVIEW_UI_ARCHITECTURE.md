@@ -104,3 +104,13 @@ The Arrange preview must:
 6. disable Apply whenever any connector crossing remains.
 
 Manual preview dragging is subject to the same validation. A crossed layout is previewable but cannot be applied.
+
+
+## Recovery and dismissal contract
+
+- Connector geometry on first Overview entry is hydrated over a short bounded sequence because cards and PDF anchors can become ready on different frames. `WindowsOverviewViewportRuntime` remains the only main-canvas connector geometry writer.
+- Undo / Redo controls may be re-homed by the presentation organizer; history handling follows the actions instead of depending on the original toolbar wrapper.
+- Focus follows the currently selected unit's current endpoint: unsaved draft while editing, otherwise saved manual endpoint, otherwise auto-detected endpoint.
+- Reset position always returns to the original auto-detected PDF endpoint captured before a manual override is applied.
+- Selection from Layers, cards and the Unit navigator keeps `OverviewAnchorRuntime` synchronized to the same unit code.
+- Contextual disclosures close on outside click or Escape and organizer sync must not immediately reopen them.

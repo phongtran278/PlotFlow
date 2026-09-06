@@ -33,6 +33,7 @@ export default function WindowsOverviewViewportRuntime() {
     let cardHistory = [];
     let cardFuture = [];
     let lastStableSnapshot = null;
+    const hydrationTimers = new Set();
 
     function syncStage() {
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts") || null;
@@ -405,7 +406,7 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function onHistoryControl(event) {
-      const button = event.target?.closest?.('.pf-overview-zoom-toolbar [data-action="undo"],.pf-overview-zoom-toolbar [data-action="redo"]');
+      const button = event.target?.closest?.('.pf-editor-tools [data-action="undo"],.pf-editor-tools [data-action="redo"]');
       if (!button) return;
       const action = button.dataset.action;
       const handled = action === "undo" ? undoCardLayout() : redoCardLayout();
@@ -438,15 +439,31 @@ export default function WindowsOverviewViewportRuntime() {
       syncLinkedSelection();
     }
 
-    function onLayoutChanged() {
-      window.requestAnimationFrame(() => {
-        if (!syncStage()) return;
-        normalizeOverlayOwnership();
-        positionConnectorsWorld();
-        syncLinkedSelection();
-      });
+    function syncGeometryNow() {
+      if (!syncStage()) return;
+      normalizeOverlayOwnership();
+      positionConnectorsWorld();
+      syncLinkedSelection();
     }
 
+    function onLayoutChanged() {
+      window.requestAnimationFrame(syncGeometryNow);
+    }
+
+    function hydrateEntryGeometry() {
+      syncGeometryNow();
+      window.requestAnimationFrame(() => {
+        syncGeometryNow();
+        window.requestAnimationFrame(syncGeometryNow);
+      });
+      [120, 360].forEach((delay) => {
+        const timer = window.setTimeout(() => {
+          hydrationTimers.delete(timer);
+          syncGeometryNow();
+        }, delay);
+        hydrationTimers.add(timer);
+      });
+    }
     function onAutoArranged() {
       window.requestAnimationFrame(() => {
         if (!syncStage()) return;
@@ -483,7 +500,7 @@ export default function WindowsOverviewViewportRuntime() {
       lastStableSnapshot = null;
       overviewCards().forEach((card) => card.classList.remove("pf-card-selected", "pf-card-key"));
       emitSelectionChanged();
-      onLayoutChanged();
+      hydrateEntryGeometry();
       window.requestAnimationFrame(() => {
         if (!syncStage()) return;
         lastStableSnapshot = snapshotCards();
@@ -506,13 +523,15 @@ export default function WindowsOverviewViewportRuntime() {
     window.addEventListener("pf-overview-auto-arranged", onAutoArranged);
     window.addEventListener("pf-overview-card-size-changed", onLayoutChanged);
     window.addEventListener("pf-overview-anchor-changed", onLayoutChanged);
-    window.addEventListener("pf-overview-live-units-ready", onLayoutChanged);
+    window.addEventListener("pf-overview-live-units-ready", hydrateEntryGeometry);
     window.addEventListener("pf-overview-group-changed", onGroupChanged);
     window.addEventListener("pf-overview-select-unit-request", onSelectUnitRequest);
     window.addEventListener("pf-overview-connector-geometry-request", onLayoutChanged);
 
     return () => {
       drag = null;
+      hydrationTimers.forEach((timer) => window.clearTimeout(timer));
+      hydrationTimers.clear();
       document.removeEventListener("pointerdown", onCardPointerDown, true);
       document.removeEventListener("pointerup", onPointerUpSelection, true);
       document.removeEventListener("click", onHistoryControl, true);
@@ -524,7 +543,7 @@ export default function WindowsOverviewViewportRuntime() {
       window.removeEventListener("pf-overview-auto-arranged", onAutoArranged);
       window.removeEventListener("pf-overview-card-size-changed", onLayoutChanged);
       window.removeEventListener("pf-overview-anchor-changed", onLayoutChanged);
-      window.removeEventListener("pf-overview-live-units-ready", onLayoutChanged);
+      window.removeEventListener("pf-overview-live-units-ready", hydrateEntryGeometry);
       window.removeEventListener("pf-overview-group-changed", onGroupChanged);
       window.removeEventListener("pf-overview-select-unit-request", onSelectUnitRequest);
       window.removeEventListener("pf-overview-connector-geometry-request", onLayoutChanged);

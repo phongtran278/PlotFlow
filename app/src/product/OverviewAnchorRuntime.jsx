@@ -33,6 +33,7 @@ export default function OverviewAnchorRuntime() {
     let anchors = readAnchors();
     let drag = null;
     let pendingDraft = null;
+    const autoAnchors = new Map();
     let navigator = null;
     let navSelect = null;
     let navStatus = null;
@@ -58,15 +59,31 @@ export default function OverviewAnchorRuntime() {
 
     function captureAutoAnchor(code) {
       const anchor = anchorForCode(code);
-      if (!anchor || anchor.dataset.pfAutoAnchorCaptured === "1") return;
+      if (!anchor) return null;
+      if (autoAnchors.has(code)) return autoAnchors.get(code);
       const x = Number.parseFloat(anchor.style.left || "50");
       const y = Number.parseFloat(anchor.style.top || "50");
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      const point = { x, y };
+      autoAnchors.set(code, point);
       anchor.dataset.pfAutoX = String(x);
       anchor.dataset.pfAutoY = String(y);
       anchor.dataset.pfAutoAnchorCaptured = "1";
+      return point;
     }
 
+    function currentEndpointPoint(code) {
+      const anchor = anchorForCode(code);
+      if (!anchor) return null;
+      if (pendingDraft?.code === code && Number.isFinite(pendingDraft.x) && Number.isFinite(pendingDraft.y)) {
+        return { x: pendingDraft.x, y: pendingDraft.y, source: "draft" };
+      }
+      const saved = anchors[code];
+      if (Number.isFinite(saved?.x) && Number.isFinite(saved?.y)) return { x: saved.x, y: saved.y, source: "saved" };
+      const x = Number.parseFloat(anchor.style.left || "50");
+      const y = Number.parseFloat(anchor.style.top || "50");
+      return Number.isFinite(x) && Number.isFinite(y) ? { x, y, source: "auto" } : null;
+    }
     function applySavedAnchor(code) {
       captureAutoAnchor(code);
       const anchor = anchorForCode(code);
@@ -138,9 +155,9 @@ export default function OverviewAnchorRuntime() {
         setStatus("No connector endpoint for this unit");
         return;
       }
-      captureAutoAnchor(code);
-      const autoX = Number(anchor.dataset.pfAutoX);
-      const autoY = Number(anchor.dataset.pfAutoY);
+      const auto = captureAutoAnchor(code);
+      const autoX = Number(auto?.x);
+      const autoY = Number(auto?.y);
       if (!Number.isFinite(autoX) || !Number.isFinite(autoY)) {
         setStatus("Original PDF anchor is not available");
         return;
@@ -222,18 +239,14 @@ export default function OverviewAnchorRuntime() {
 
     function focusCode(code) {
       if (!code || !stage) return;
-      applySavedAnchor(code);
       const anchor = anchorForCode(code);
-      if (!anchor) return;
-      const x = Number.parseFloat(anchor.style.left || "50");
-      const y = Number.parseFloat(anchor.style.top || "50");
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      const point = currentEndpointPoint(code);
+      if (!anchor || !point) return;
       setActive(code);
-      const verified = anchor.dataset?.located === "1" || anchor.dataset?.saved === "1";
-      setStatus(verified ? "" : `${code} · needs placement`);
-      window.dispatchEvent(new CustomEvent("pf-overview-focus-request", { detail: { code, x, y, scale: FOCUS_SCALE, located: anchor.dataset?.located === "1" } }));
+      const verified = anchor.dataset?.located === "1" || Boolean(anchors[code]);
+      setStatus(point.source === "draft" ? "Focus follows the current unsaved endpoint" : verified ? "" : code + " · needs placement");
+      window.dispatchEvent(new CustomEvent("pf-overview-focus-request", { detail: { code, x: point.x, y: point.y, scale: FOCUS_SCALE, located: verified, source: point.source } }));
     }
-
     function editConnector(code) {
       if (!code || !stage) return;
       if (pendingDraft && pendingDraft.code !== code) cancelDraft();
@@ -394,6 +407,20 @@ export default function OverviewAnchorRuntime() {
       if (code) setActive(code);
     }
 
+    function onSelectionRequest(event) {
+      const code = String(event.detail?.code || "");
+      if (!code || !codes().includes(code)) return;
+      setActive(code);
+      if (navSelect) navSelect.value = code;
+    }
+
+    function onCardSelectionChanged(event) {
+      const selected = Array.isArray(event.detail?.codes) ? event.detail.codes.filter(Boolean) : [];
+      const code = String(event.detail?.key || (selected.length === 1 ? selected[0] : ""));
+      if (!code || !codes().includes(code)) return;
+      setActive(code);
+      if (navSelect) navSelect.value = code;
+    }
     function onLiveUnitsReady() {
       requestAnimationFrame(() => { refreshAnchorVisuals(); buildNavigator(); });
     }
@@ -437,12 +464,16 @@ export default function OverviewAnchorRuntime() {
     window.addEventListener("pf-overview-camera", onCamera);
     window.addEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
     window.addEventListener("pf-overview-group-changed", onLiveUnitsReady);
+    window.addEventListener("pf-overview-select-unit-request", onSelectionRequest);
+    window.addEventListener("pf-overview-card-selection-changed", onCardSelectionChanged);
 
     return () => {
       observer?.disconnect();
       window.removeEventListener("pf-overview-camera", onCamera);
       window.removeEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
       window.removeEventListener("pf-overview-group-changed", onLiveUnitsReady);
+      window.removeEventListener("pf-overview-select-unit-request", onSelectionRequest);
+      window.removeEventListener("pf-overview-card-selection-changed", onCardSelectionChanged);
       detachStage();
     };
   }, []);
