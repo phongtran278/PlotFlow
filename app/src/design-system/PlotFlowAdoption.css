@@ -1,10 +1,59 @@
-/* First production adoption: Overview handover navigation uses one compact selection control. */
+/* PlotFlow Design System adoption — Overview is the first full product surface. */
+body.pf-product-overview{font-family:var(--pf-font-ui)!important;color:var(--pf-ink)}
+
+/* Handover navigation: one compact mutually-exclusive selection. */
 body.pf-product-overview .pf-overview-group-band{display:none!important}
-body.pf-product-overview .pf-overview-groups-source{position:relative!important;width:auto!important;height:auto!important;overflow:visible!important;clip:auto!important;white-space:normal!important;display:grid!important;gap:4px!important;min-width:170px!important}
-body.pf-product-overview .pf-overview-groups-source>span{display:block!important;font:700 var(--pf-text-label)/1.2 var(--pf-font-sans)!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--pf-muted)!important}
-body.pf-product-overview .pf-overview-groups-source select{appearance:none!important;width:100%!important;height:var(--pf-control-h)!important;padding:0 32px 0 var(--pf-control-padding-x)!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-raised)!important;color:var(--pf-ink-2)!important;font:650 var(--pf-text-control)/1 var(--pf-font-sans)!important;cursor:pointer!important;outline:none!important;box-shadow:none!important}
+body.pf-product-overview .pf-overview-groups-source{position:relative!important;width:auto!important;height:auto!important;overflow:visible!important;clip:auto!important;white-space:normal!important;display:grid!important;gap:var(--pf-space-1)!important;min-width:180px!important}
+body.pf-product-overview .pf-overview-groups-source>span{display:block!important;font:700 var(--pf-type-micro)/1.2 var(--pf-font-ui)!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--pf-muted)!important}
+body.pf-product-overview .pf-overview-groups-source select{appearance:none!important;width:100%!important;height:var(--pf-control-h)!important;padding:0 32px 0 var(--pf-control-padding-x)!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-raised)!important;color:var(--pf-ink-2)!important;font:600 var(--pf-text-control)/1 var(--pf-font-ui)!important;cursor:pointer!important;outline:none!important;box-shadow:none!important}
 body.pf-product-overview .pf-overview-groups-source:has(select:focus-visible){filter:drop-shadow(0 0 0 var(--pf-state-focus))}
 body.pf-product-overview .pf-overview-groups-source::after{content:"⌄";position:absolute;right:10px;bottom:8px;color:var(--pf-muted);font-size:11px;pointer-events:none}
-body.pf-product-overview .pf-overview-view-status{align-self:end!important;height:var(--pf-control-h)!important;display:inline-flex!important;align-items:center!important;gap:5px!important;padding:0 10px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-soft)!important;color:var(--pf-muted)!important}
-body.pf-product-overview .pf-overview-view-status strong{color:var(--pf-ink)!important;font-size:12px!important}
-body.pf-product-overview .pf-overview-view-status span{font-size:10px!important}
+
+/* Header toolbar: one quiet command surface, common tools outside object inspectors. */
+body.pf-product-overview .pf-overview-header-commandbar{min-height:var(--pf-toolbar-h)!important;display:flex!important;align-items:center!important;gap:var(--pf-control-gap)!important;padding:4px 6px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-button)!important;background:rgba(255,255,255,.76)!important;box-shadow:none!important;backdrop-filter:blur(18px) saturate(145%)!important;font-family:var(--pf-font-ui)!important}
+body.pf-product-overview .pf-overview-header-commandbar button,body.pf-product-overview .pf-overview-header-commandbar summary{box-sizing:border-box!important;min-height:var(--pf-control-h)!important;border-radius:var(--pf-radius-sm)!important;font-family:var(--pf-font-ui)!important;font-size:var(--pf-type-label)!important;font-weight:600!important}
+body.pf-product-overview .pf-overview-header-commandbar button:hover,body.pf-product-overview .pf-overview-header-commandbar summary:hover{background:var(--pf-state-hover)!important}
+body.pf-product-overview .pf-overview-header-commandbar button:active{background:var(--pf-state-pressed)!important}
+body.pf-product-overview .pf-overview-header-commandbar button:focus-visible,body.pf-product-overview .pf-overview-header-commandbar summary:focus-visible{outline:none!important;box-shadow:0 0 0 3px var(--pf-state-focus)!important}
+body.pf-product-overview .pf-overview-header-view{display:inline-flex!important;align-items:center!important;gap:2px!important;padding:2px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-soft)!important}
+body.pf-product-overview .pf-overview-header-view output{min-width:52px!important;color:var(--pf-ink-2)!important;font:600 var(--pf-type-label)/1 var(--pf-font-ui)!important;text-align:center!important}
+body.pf-product-overview .pf-overview-view-status{align-self:end!important;height:var(--pf-control-h)!important;display:inline-flex!important;align-items:center!important;gap:5px!important;padding:0 10px!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-soft)!important;color:var(--pf-muted)!important;font-family:var(--pf-font-ui)!important}
+body.pf-product-overview .pf-overview-view-status strong{color:var(--pf-ink)!important;font-size:var(--pf-type-callout)!important}body.pf-product-overview .pf-overview-view-status span{font-size:var(--pf-type-caption)!important}
+
+/* Object inspector: one geometry, one section rhythm, object-specific actions only. */
+body.pf-product-overview .pf-overview-control-rail{font-family:var(--pf-font-ui)!important;color:var(--pf-ink)!important}
+body.pf-product-overview .pf-overview-function-group{gap:var(--pf-space-3)!important;padding:var(--pf-space-4) 0!important;border-top:1px solid var(--pf-line)!important}
+body.pf-product-overview .pf-overview-function-group:first-child{border-top:0!important;padding-top:0!important}
+body.pf-product-overview .pf-overview-function-label{color:var(--pf-ink)!important;font:650 var(--pf-type-body)/1.2 var(--pf-font-ui)!important;letter-spacing:0!important;text-transform:none!important}
+body.pf-product-overview .pf-overview-function-content{gap:var(--pf-space-2)!important}
+body.pf-product-overview .pf-overview-control-rail button,body.pf-product-overview .pf-overview-control-rail summary,body.pf-product-overview .pf-overview-control-rail select,body.pf-product-overview .pf-overview-control-rail input{font-family:var(--pf-font-ui)!important}
+body.pf-product-overview .pf-overview-control-rail button,body.pf-product-overview .pf-overview-control-rail summary{min-height:var(--pf-control-h)!important;border-radius:var(--pf-radius-control)!important;font-size:var(--pf-type-label)!important;font-weight:600!important}
+body.pf-product-overview .pf-card-selection-summary{padding:var(--pf-space-2) var(--pf-space-3)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-soft)!important;color:var(--pf-muted)!important;font:500 var(--pf-type-caption)/1.4 var(--pf-font-ui)!important}
+body.pf-product-overview .pf-card-selection-summary[data-multi="1"]{background:var(--pf-state-selected)!important;border-color:rgba(15,122,100,.18)!important;color:var(--pf-brand-accent)!important}
+body.pf-product-overview .pf-auto-arrange-proxy{background:var(--pf-surface-raised)!important;border-color:var(--pf-line)!important;color:var(--pf-ink-2)!important}
+body.pf-product-overview .pf-auto-arrange-proxy:hover{background:var(--pf-state-hover)!important}
+
+/* Popovers/disclosures: same surface language, no local visual invention. */
+body.pf-product-overview .pf-overview-disclosure-content,body.pf-product-overview .pf-precision-popover,body.pf-product-overview .pf-pen-style-popover,body.pf-product-overview .pf-export-popover{border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-button)!important;background:rgba(255,255,255,.96)!important;box-shadow:var(--pf-shadow-popover)!important;font-family:var(--pf-font-ui)!important;backdrop-filter:blur(20px) saturate(145%)!important}
+body.pf-product-overview .pf-overview-disclosure>summary,body.pf-product-overview .pf-pen-style-menu>summary{background:var(--pf-surface-raised)!important;color:var(--pf-ink-2)!important;border-color:var(--pf-line)!important}
+body.pf-product-overview .pf-overview-disclosure[open]>summary,body.pf-product-overview .pf-pen-style-menu[open]>summary{background:var(--pf-state-selected)!important;color:var(--pf-brand-accent)!important}
+
+/* Connector editing: preserve the draft/save owner, make the state visually explicit. */
+body.pf-product-overview .pf-connector-endpoint-actions{gap:var(--pf-space-1-5)!important;padding:var(--pf-space-2)!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-soft)!important}
+body.pf-product-overview .pf-connector-endpoint-actions button{min-height:var(--pf-control-h-compact)!important;border-radius:var(--pf-radius-sm)!important;background:var(--pf-surface-raised)!important;color:var(--pf-ink-2)!important;font:600 var(--pf-type-caption)/1 var(--pf-font-ui)!important}
+body.pf-product-overview .pf-connector-endpoint-actions[data-draft="1"]{border-color:rgba(15,122,100,.28)!important;background:var(--pf-state-selected)!important}
+body.pf-product-overview .pf-connector-endpoint-actions[data-draft="1"] [data-connector-proxy="save"]{background:var(--pf-brand-accent)!important;color:#fff!important;border-color:var(--pf-brand-accent)!important}
+body.pf-product-overview .pf-connector-endpoint-actions small{color:var(--pf-muted)!important;font:500 var(--pf-type-caption)/1.4 var(--pf-font-ui)!important}
+
+/* Audit: verification/navigation panel, not a second inspector. Stable summary + scrollable body. */
+body.pf-product-overview .pf-overview-layer-panel{display:grid!important;grid-template-rows:auto auto minmax(0,1fr) auto!important;min-height:0!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important;font-family:var(--pf-font-ui)!important;overflow:hidden!important}
+body.pf-product-overview .pf-layer-panel-head{position:sticky!important;top:0!important;z-index:5!important;background:var(--pf-surface-raised)!important;border-bottom:1px solid var(--pf-line-soft)!important}
+body.pf-product-overview .pf-object-audit-counts{position:sticky!important;top:0!important;z-index:4!important;gap:var(--pf-space-1-5)!important;padding:var(--pf-space-2)!important;background:var(--pf-surface-raised)!important}
+body.pf-product-overview .pf-object-audit-chip{min-height:34px!important;padding:0 var(--pf-space-2)!important;border-radius:var(--pf-radius-sm)!important;background:var(--pf-surface-soft)!important;font-family:var(--pf-font-ui)!important}
+body.pf-product-overview .pf-object-audit-chip>b{font:500 var(--pf-type-caption)/1.2 var(--pf-font-ui)!important;color:var(--pf-muted)!important}body.pf-product-overview .pf-object-audit-chip>strong{font:650 var(--pf-type-label)/1 var(--pf-font-ui)!important;color:var(--pf-ink)!important}
+body.pf-product-overview .pf-object-audit-chip.is-mismatch{background:var(--pf-warning-soft)!important;color:var(--pf-warning)!important}
+body.pf-product-overview .pf-layer-panel-list{min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain!important}
+
+/* Narrow layouts reflow/scroll; never overlap. */
+@media(max-width:1100px){body.pf-product-overview .pf-overview-header-commandbar{overflow-x:auto!important;justify-content:flex-start!important;scrollbar-width:thin}body.pf-product-overview .pf-overview-control-rail{min-width:0!important}}
+@media(max-width:760px){body.pf-product-overview .pf-overview-groups-source{min-width:150px!important}body.pf-product-overview .pf-overview-header-commandbar{padding:4px!important}body.pf-product-overview .pf-overview-layer-panel{border-radius:var(--pf-radius-button)!important}}
