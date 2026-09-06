@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PFButton, PFSelect, PFToolbarGroup, PFInspectorSection, PFControlRow } from "./PlotFlowControls.jsx";
 import "./PlotFlowDesignSystem.css";
+import "./PlotFlowAdoption.css";
 
 const groups = ["Hoàn thiện", "Giãn xây", "Xây thô"];
 
