@@ -47,14 +47,9 @@ function ensureToolbarSection(toolbar, key, label) {
   section = document.createElement("section");
   section.className = `pf-overview-toolbar-section pf-overview-toolbar-section-${key}`;
   section.dataset.overviewToolbarSection = key;
-  const heading = document.createElement("span");
-  heading.className = "pf-overview-toolbar-section-label";
-  heading.textContent = label;
-  const content = document.createElement("div");
-  content.className = "pf-overview-toolbar-section-content";
-  section.append(heading, content);
-  toolbar.appendChild(section);
-  return content;
+  const heading = document.createElement("span"); heading.className = "pf-overview-toolbar-section-label"; heading.textContent = label;
+  const content = document.createElement("div"); content.className = "pf-overview-toolbar-section-content";
+  section.append(heading, content); toolbar.appendChild(section); return content;
 }
 
 function organizeCanvasToolbar(toolbar) {
@@ -63,7 +58,6 @@ function organizeCanvasToolbar(toolbar) {
   const arrangeContent = ensureToolbarSection(toolbar, "arrange", "Arrange");
   const viewContent = ensureToolbarSection(toolbar, "view", "View");
   moveTo(toolbar.querySelector(":scope > .pf-editor-tools"), toolsContent);
-
   let arrangeDisclosure = arrangeContent.querySelector(":scope > .pf-overview-arrange-disclosure");
   if (!arrangeDisclosure) {
     arrangeDisclosure = document.createElement("details");
@@ -76,24 +70,6 @@ function organizeCanvasToolbar(toolbar) {
   moveTo(toolbar.querySelector(":scope > .pf-export-menu"), viewContent);
 }
 
-function ensureConnectorEditProxy(connectorContent) {
-  if (!connectorContent) return;
-  let proxy = connectorContent.querySelector(":scope > [data-connector-edit-proxy]");
-  if (!proxy) {
-    proxy = document.createElement("button");
-    proxy.type = "button";
-    proxy.className = "pf-connector-edit-proxy";
-    proxy.dataset.connectorEditProxy = "1";
-    proxy.textContent = "Edit connector";
-    proxy.title = "Edit the selected unit connector endpoint";
-    proxy.addEventListener("click", () => {
-      const source = document.querySelector('.pf-unit-navigator [data-nav="adjust"]');
-      source?.click();
-    });
-    connectorContent.appendChild(proxy);
-  }
-}
-
 function ensureAutoArrangeProxy(objectContent) {
   if (!objectContent) return;
   let proxy = objectContent.querySelector(":scope > [data-auto-arrange-proxy]");
@@ -104,9 +80,7 @@ function ensureAutoArrangeProxy(objectContent) {
     proxy.dataset.autoArrangeProxy = "1";
     proxy.innerHTML = '<span aria-hidden="true">✦</span><b>Auto Arrange</b>';
     proxy.title = "Preview and arrange visible cards by their lot positions";
-    proxy.addEventListener("click", () => {
-      window.dispatchEvent(new CustomEvent("pf-overview-arrange-preview-request"));
-    });
+    proxy.addEventListener("click", () => window.dispatchEvent(new CustomEvent("pf-overview-arrange-preview-request")));
     objectContent.appendChild(proxy);
   }
 }
@@ -121,7 +95,6 @@ function organizeHeaderControls(header, toolbar, guideControl) {
     header.appendChild(guides);
   }
   moveTo(guideControl, guides.querySelector(":scope > div"));
-
   let view = header.querySelector(":scope > .pf-overview-header-view");
   if (!view) {
     view = document.createElement("div");
@@ -141,7 +114,19 @@ function organizeHeaderControls(header, toolbar, guideControl) {
 
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
-    let frame = 0; let rail = null; let mutationObserver = null;
+    let frame = 0; let rail = null; let stage = null; let mutationObserver = null;
+
+    function setInspectorObject(next) {
+      if (!rail) return;
+      const value = ["canvas", "card", "connector", "highlight"].includes(next) ? next : "canvas";
+      rail.dataset.inspectorObject = value;
+      rail.querySelectorAll("details[open]").forEach((details) => {
+        if (value === "card" && details.closest('.pf-overview-function-object')) return;
+        if (value === "connector" && details.closest('.pf-overview-function-connector')) return;
+        if (value === "highlight" && details.closest('.pf-pen-style-menu')) return;
+        details.removeAttribute("open");
+      });
+    }
 
     function applyControlHints() {
       if (!rail) return;
@@ -152,10 +137,32 @@ export default function OverviewControlRailRuntime() {
       });
     }
 
+    function onStageClick(event) {
+      if (!stage || !rail) return;
+      const card = event.target.closest?.(".pf-live-sales-callout,.pf-sales-callout");
+      if (card) { setInspectorObject("card"); return; }
+      const connector = event.target.closest?.(".pf-live-callout-lines line,.pf-callout-lines line");
+      if (connector) {
+        stage.querySelectorAll('[data-pf-connector-selected="1"]').forEach((line) => delete line.dataset.pfConnectorSelected);
+        connector.dataset.pfConnectorSelected = "1";
+        setInspectorObject("connector");
+        return;
+      }
+      const highlight = event.target.closest?.(".pf-pen-shape,[data-pen-shape-id]");
+      if (highlight) { setInspectorObject("highlight"); return; }
+      if (!event.target.closest?.(".pf-overview-zoom-toolbar,.pf-overview-control-rail")) setInspectorObject("canvas");
+    }
+
     function groupControls() {
       rail = document.querySelector(".pf-overview-control-rail");
-      const stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      if (!rail || !stage) return false;
+      const nextStage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
+      if (!rail || !nextStage) return false;
+      if (stage !== nextStage) {
+        stage?.removeEventListener("click", onStageClick);
+        stage = nextStage;
+        stage.addEventListener("click", onStageClick);
+      }
+      if (!rail.dataset.inspectorObject) rail.dataset.inspectorObject = "canvas";
       rail.classList.remove("is-fixed-toolbar");
       document.querySelectorAll(".pf-overview-control-rail-spacer").forEach((node) => node.remove());
 
@@ -163,20 +170,23 @@ export default function OverviewControlRailRuntime() {
       const canvasTools = rail.querySelector("[data-overview-canvas-tools]");
       if (!primaryTools || !canvasTools) return false;
 
-      const objectContent = groupContent(ensureGroup(primaryTools, "object", "Object"));
+      const cardContent = groupContent(ensureGroup(primaryTools, "object", "Card"));
+      const cardGroup = cardContent?.closest?.(".pf-overview-function-group");
+      const cardLabel = cardGroup?.querySelector?.(":scope > .pf-overview-function-label"); if (cardLabel) cardLabel.textContent = "Card";
       const connectorContent = groupContent(ensureGroup(primaryTools, "connector", "Connector"));
       const guideContent = groupContent(ensureGroup(primaryTools, "guides", "Guides"));
       const unitContent = groupContent(ensureGroup(primaryTools, "unit", "Unit"));
-      const viewContent = groupContent(ensureGroup(canvasTools, "view", "View"));
+      const viewContent = groupContent(ensureGroup(canvasTools, "view", "Canvas"));
+      const viewGroup = viewContent?.closest?.(".pf-overview-function-group");
+      const viewLabel = viewGroup?.querySelector?.(":scope > .pf-overview-function-label"); if (viewLabel) viewLabel.textContent = "Canvas";
 
-      // Preserve functional owner wrappers. Several runtimes use delegated listeners on these parents.
-      moveTo(document.querySelector(".pf-card-quick-scale"), objectContent);
-      moveTo(document.querySelector(".pf-precision-arrange"), objectContent);
-      moveTo(document.querySelector(".pf-overview-v2-controls"), objectContent);
-      ensureAutoArrangeProxy(objectContent);
+      // Functional owner wrappers stay intact; only their presentation is object-aware.
+      moveTo(document.querySelector(".pf-card-quick-scale"), cardContent);
+      moveTo(document.querySelector(".pf-precision-arrange"), cardContent);
+      moveTo(document.querySelector(".pf-overview-v2-controls"), cardContent);
+      ensureAutoArrangeProxy(cardContent);
       const connectorDetails = ensureDisclosure(connectorContent, "connector", "Connector settings");
       moveTo(document.querySelector(".pf-connector-control"), connectorDetails);
-      ensureConnectorEditProxy(connectorContent);
       const guideControl = document.querySelector(".pf-overview-guide-control");
       moveTo(document.querySelector(".pf-unit-navigator"), unitContent);
       const canvasToolbar = document.querySelector(".pf-overview-zoom-toolbar");
@@ -199,14 +209,13 @@ export default function OverviewControlRailRuntime() {
     });
     mutationObserver.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("plotflow-product-view-changed", scheduleSync);
-    window.addEventListener("pf-overview-group-changed", scheduleSync);
+    window.addEventListener("pf-overview-group-changed", () => { if (rail) setInspectorObject("canvas"); scheduleSync(); });
     window.addEventListener("pf-overview-live-units-ready", scheduleSync);
     scheduleSync();
 
     return () => {
-      cancelAnimationFrame(frame); mutationObserver?.disconnect();
+      cancelAnimationFrame(frame); mutationObserver?.disconnect(); stage?.removeEventListener("click", onStageClick);
       window.removeEventListener("plotflow-product-view-changed", scheduleSync);
-      window.removeEventListener("pf-overview-group-changed", scheduleSync);
       window.removeEventListener("pf-overview-live-units-ready", scheduleSync);
     };
   }, []);
