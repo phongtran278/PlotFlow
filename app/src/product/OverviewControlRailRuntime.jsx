@@ -157,6 +157,47 @@ export default function OverviewControlRailRuntime() {
       });
     }
 
+    function syncCardSelectionSummary(cardContent) {
+      if (!stage || !cardContent) return;
+      const count = stage.querySelectorAll(".pf-live-sales-callout.pf-card-selected,.pf-sales-callout.pf-card-selected").length;
+      let summary = cardContent.querySelector(":scope > .pf-card-selection-summary");
+      if (!summary) {
+        summary = document.createElement("div");
+        summary.className = "pf-card-selection-summary";
+        cardContent.prepend(summary);
+      }
+      summary.dataset.multi = count >= 2 ? "1" : "0";
+      summary.textContent = count >= 2 ? `${count} cards selected · Align & Gap available` : "Select 2+ cards to align or set gap";
+    }
+
+    function syncObjectAudit() {
+      if (!stage) return;
+      const panel = document.querySelector(".pf-overview-layer-panel");
+      if (!panel) return;
+      const cards = stage.querySelectorAll(".pf-live-sales-callout,.pf-sales-callout").length;
+      const connectors = stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").length;
+      const highlights = stage.querySelectorAll(".pf-pen-shape,[data-pen-shape-id]").length;
+      const head = panel.querySelector(".pf-layer-panel-head");
+      const title = head?.querySelector("strong");
+      if (title) title.textContent = "Object audit";
+      let audit = panel.querySelector(":scope > .pf-object-audit-counts");
+      if (!audit) {
+        audit = document.createElement("div");
+        audit.className = "pf-object-audit-counts";
+        head?.insertAdjacentElement("afterend", audit);
+      }
+      const chip = (label, value, mismatch) => `<span class="pf-object-audit-chip${mismatch ? " is-mismatch" : ""}"><b>${label}</b><strong>${value}</strong>${mismatch ? '<i title="Count differs from cards">!</i>' : ""}</span>`;
+      audit.innerHTML = chip("Cards", cards, false) + chip("Connectors", connectors, connectors !== cards) + chip("Highlights", highlights, highlights !== cards);
+    }
+
+    function clarifyConnectorAction() {
+      const adjust = document.querySelector('.pf-unit-navigator [data-nav="adjust"]');
+      if (!adjust) return;
+      adjust.setAttribute("title", "Edit connector endpoint");
+      adjust.setAttribute("aria-label", "Edit connector endpoint");
+      if (/drag\s+connector/i.test(adjust.textContent || "")) adjust.textContent = "Edit endpoint";
+    }
+
     function applyControlHints() {
       if (!rail) return;
       rail.querySelectorAll("button,[role='button'],input,select,summary").forEach((control) => {
@@ -190,7 +231,7 @@ export default function OverviewControlRailRuntime() {
     function onStageClick(event) {
       if (!stage || !rail) return;
       const card = event.target.closest?.(".pf-live-sales-callout,.pf-sales-callout");
-      if (card) { setInspectorObject("card"); return; }
+      if (card) { setInspectorObject("card"); requestAnimationFrame(scheduleSync); return; }
       const directConnector = event.target.closest?.(".pf-live-callout-lines line,.pf-callout-lines line");
       if (directConnector && selectConnector(directConnector)) return;
       const highlight = event.target.closest?.(".pf-pen-shape,[data-pen-shape-id]");
@@ -225,7 +266,7 @@ export default function OverviewControlRailRuntime() {
       const connectorContent = groupContent(ensureGroup(primaryTools, "connector", "Connector"));
       const guideContent = groupContent(ensureGroup(primaryTools, "guides", "Guides"));
       const unitContent = groupContent(ensureGroup(primaryTools, "unit", "Unit"));
-      const viewContent = groupContent(ensureGroup(canvasTools, "view", "Canvas"));
+      const viewContent = groupContent(ensureGroup(canvasTools, "view", "Shared"));
       const viewGroup = viewContent?.closest?.(".pf-overview-function-group");
       const viewLabel = viewGroup?.querySelector?.(":scope > .pf-overview-function-label"); if (viewLabel) viewLabel.textContent = "Shared";
 
@@ -244,6 +285,9 @@ export default function OverviewControlRailRuntime() {
       organizeCanvasToolbar(canvasToolbar);
       organizeHeaderControls(document.querySelector(".pf-overview-header-actions"), canvasToolbar, guideControl);
 
+      syncCardSelectionSummary(cardContent);
+      syncObjectAudit();
+      clarifyConnectorAction();
       rail.querySelectorAll(".pf-overview-function-group").forEach((group) => {
         const content = groupContent(group); group.hidden = !content?.children.length;
       });
