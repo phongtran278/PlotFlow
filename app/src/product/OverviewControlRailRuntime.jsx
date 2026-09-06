@@ -43,7 +43,11 @@ function ensureDisclosure(content, key, label) {
 
 function ensureToolbarSection(toolbar, key, label) {
   let section = toolbar.querySelector(`:scope > [data-overview-toolbar-section="${key}"]`);
-  if (section) return section.querySelector(":scope > .pf-overview-toolbar-section-content");
+  if (section) {
+    const heading = section.querySelector(":scope > .pf-overview-toolbar-section-label");
+    if (heading) heading.textContent = label;
+    return section.querySelector(":scope > .pf-overview-toolbar-section-content");
+  }
   section = document.createElement("section");
   section.className = `pf-overview-toolbar-section pf-overview-toolbar-section-${key}`;
   section.dataset.overviewToolbarSection = key;
@@ -54,9 +58,9 @@ function ensureToolbarSection(toolbar, key, label) {
 
 function organizeCanvasToolbar(toolbar) {
   if (!toolbar) return;
-  const toolsContent = ensureToolbarSection(toolbar, "tools", "Tools");
+  const toolsContent = ensureToolbarSection(toolbar, "tools", "Common");
   const arrangeContent = ensureToolbarSection(toolbar, "arrange", "Arrange");
-  const viewContent = ensureToolbarSection(toolbar, "view", "View");
+  const viewContent = ensureToolbarSection(toolbar, "view", "Canvas");
   moveTo(toolbar.querySelector(":scope > .pf-editor-tools"), toolsContent);
   let arrangeDisclosure = arrangeContent.querySelector(":scope > .pf-overview-arrange-disclosure");
   if (!arrangeDisclosure) {
@@ -112,6 +116,31 @@ function organizeHeaderControls(header, toolbar, guideControl) {
   moveTo(document.querySelector(".pf-export-menu"), header);
 }
 
+function distanceToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  if (!dx && !dy) return Math.hypot(px - x1, py - y1);
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
+  const x = x1 + t * dx;
+  const y = y1 + t * dy;
+  return Math.hypot(px - x, py - y);
+}
+
+function screenEndpoints(line) {
+  try {
+    const svg = line?.ownerSVGElement;
+    const matrix = line?.getScreenCTM?.();
+    if (!svg || !matrix) return null;
+    const a = svg.createSVGPoint();
+    const b = svg.createSVGPoint();
+    a.x = line.x1.baseVal.value; a.y = line.y1.baseVal.value;
+    b.x = line.x2.baseVal.value; b.y = line.y2.baseVal.value;
+    const p1 = a.matrixTransform(matrix);
+    const p2 = b.matrixTransform(matrix);
+    return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+  } catch { return null; }
+}
+
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
     let frame = 0; let rail = null; let stage = null; let mutationObserver = null;
@@ -137,20 +166,40 @@ export default function OverviewControlRailRuntime() {
       });
     }
 
+    function selectConnector(line) {
+      if (!stage || !line) return false;
+      stage.querySelectorAll('[data-pf-connector-selected="1"]').forEach((node) => delete node.dataset.pfConnectorSelected);
+      line.dataset.pfConnectorSelected = "1";
+      setInspectorObject("connector");
+      return true;
+    }
+
+    function nearestConnector(clientX, clientY, tolerance = 12) {
+      if (!stage) return null;
+      let best = null;
+      let bestDistance = tolerance;
+      stage.querySelectorAll(".pf-live-callout-lines line,.pf-callout-lines line").forEach((line) => {
+        const points = screenEndpoints(line);
+        if (!points) return;
+        const distance = distanceToSegment(clientX, clientY, points.x1, points.y1, points.x2, points.y2);
+        if (distance <= bestDistance) { best = line; bestDistance = distance; }
+      });
+      return best;
+    }
+
     function onStageClick(event) {
       if (!stage || !rail) return;
       const card = event.target.closest?.(".pf-live-sales-callout,.pf-sales-callout");
       if (card) { setInspectorObject("card"); return; }
-      const connector = event.target.closest?.(".pf-live-callout-lines line,.pf-callout-lines line");
-      if (connector) {
-        stage.querySelectorAll('[data-pf-connector-selected="1"]').forEach((line) => delete line.dataset.pfConnectorSelected);
-        connector.dataset.pfConnectorSelected = "1";
-        setInspectorObject("connector");
-        return;
-      }
+      const directConnector = event.target.closest?.(".pf-live-callout-lines line,.pf-callout-lines line");
+      if (directConnector && selectConnector(directConnector)) return;
       const highlight = event.target.closest?.(".pf-pen-shape,[data-pen-shape-id]");
       if (highlight) { setInspectorObject("highlight"); return; }
-      if (!event.target.closest?.(".pf-overview-zoom-toolbar,.pf-overview-control-rail")) setInspectorObject("canvas");
+      if (!event.target.closest?.(".pf-overview-zoom-toolbar,.pf-overview-control-rail")) {
+        const nearbyConnector = nearestConnector(event.clientX, event.clientY, 12);
+        if (nearbyConnector && selectConnector(nearbyConnector)) return;
+        setInspectorObject("canvas");
+      }
     }
 
     function groupControls() {
@@ -178,7 +227,7 @@ export default function OverviewControlRailRuntime() {
       const unitContent = groupContent(ensureGroup(primaryTools, "unit", "Unit"));
       const viewContent = groupContent(ensureGroup(canvasTools, "view", "Canvas"));
       const viewGroup = viewContent?.closest?.(".pf-overview-function-group");
-      const viewLabel = viewGroup?.querySelector?.(":scope > .pf-overview-function-label"); if (viewLabel) viewLabel.textContent = "Canvas";
+      const viewLabel = viewGroup?.querySelector?.(":scope > .pf-overview-function-label"); if (viewLabel) viewLabel.textContent = "Shared";
 
       // Functional owner wrappers stay intact; only their presentation is object-aware.
       moveTo(document.querySelector(".pf-card-quick-scale"), cardContent);
