@@ -335,14 +335,12 @@ export default function OverviewInteractionRuntime() {
       const preferred = String(event.detail?.key || (selectedCodes.length === 1 ? selectedCodes[0] : ""));
       selectedUnitCode = codes().includes(preferred) ? preferred : "";
       syncLinkedUnitSelection();
-      requestAnimationFrame(renderPanel);
     }
     function onGroupChanged() {
       selectedUnitCode = "";
       openUnit = "";
-      refreshPanel();
     }
-    function refreshPanel() { requestAnimationFrame(() => { if (!installPanel()) scheduleInstall(); else renderPanel(); }); }
+    function refreshPanel() { requestAnimationFrame(() => { if (!installPanel()) scheduleInstall(); }); }
 
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKeyDown, true);

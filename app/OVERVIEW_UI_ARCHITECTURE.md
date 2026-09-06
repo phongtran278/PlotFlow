@@ -190,3 +190,15 @@ Handover switching prioritizes visual continuity:
 - `WindowsOverviewViewportRuntime` resets selection on group change but does not hydrate geometry against the outgoing layer; geometry waits for `pf-overview-live-units-ready` from the incoming layer.
 - Connector Style no longer observes every DOM mutation in `document.body`. It installs with a bounded startup retry and re-applies only when live units are ready.
 - Connector Style is global and auto-saved. Input events preview immediately; change events persist automatically. There is no **Apply to all** action.
+
+
+## Pass 3 preflight: stable left rail
+
+Before visual polish, the left rail must be event-driven and visually stable.
+
+- `OverviewControlRailRuntime` does not observe all mutations in `document.body`; runtime DOM churn must not repeatedly reorganize the sidebar.
+- Control organization uses a bounded startup retry, then updates from explicit product/runtime events.
+- Handover `group-changed` resets contextual selection but does not rebuild the rail against the outgoing group.
+- Object Audit waits for `pf-overview-live-units-ready` before rebuilding for the incoming group.
+- `installPanel()` owns the Audit render; refresh must not render the full panel a second time.
+- Card selection changes linked-selection state without rebuilding the entire Audit tree.

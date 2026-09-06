@@ -63,7 +63,7 @@ function ensureAutoArrangeProxy(destination) {
 }
 export default function OverviewControlRailRuntime() {
   useEffect(() => {
-    let frame = 0; let rail = null; let stage = null; let mutationObserver = null;
+    let frame = 0; let startupFrame = 0; let rail = null; let stage = null;
 
     function setInspectorObject(next) {
       if (!rail) return;
@@ -170,29 +170,35 @@ export default function OverviewControlRailRuntime() {
       rail.querySelectorAll(".pf-overview-function-group").forEach((group) => { group.hidden = !groupContent(group)?.children.length; }); applyControlHints(); return true;
     }
     function scheduleSync() { cancelAnimationFrame(frame); frame = requestAnimationFrame(groupControls); }
-    function onGroupChanged() { setInspectorObject("canvas"); scheduleSync(); }
+    function scheduleInitialSync(attempt = 0) {
+      cancelAnimationFrame(startupFrame);
+      startupFrame = requestAnimationFrame(() => {
+        if (groupControls() || attempt >= 11) return;
+        scheduleInitialSync(attempt + 1);
+      });
+    }
+    function onGroupChanged() {
+      setInspectorObject("canvas");
+    }
     function onHighlightsChanged(event) {
       if (event.detail?.selectedId || document.querySelector(".pf-pen-tool-button.active")) setInspectorObject("highlight");
       else if (rail?.dataset.inspectorObject === "highlight") setInspectorObject("canvas");
       scheduleSync();
     }
-    function onConnectorEndpointSelected() { scheduleSync(); }
-    mutationObserver = new MutationObserver((records) => { if (document.body.classList.contains("pf-product-overview") && records.some((record) => record.addedNodes?.length || record.removedNodes?.length)) scheduleSync(); });
-    mutationObserver.observe(document.body, { childList:true, subtree:true });
-    window.addEventListener("plotflow-product-view-changed", scheduleSync);
+    function onConnectorEndpointSelected() { /* endpoint selection does not rebuild the rail */ }
+    function onProductViewChanged() { scheduleInitialSync(); }
+    window.addEventListener("plotflow-product-view-changed", onProductViewChanged);
     window.addEventListener("pf-overview-group-changed", onGroupChanged);
     window.addEventListener("pf-overview-live-units-ready", scheduleSync);
-    window.addEventListener("pf-overview-anchor-changed", scheduleSync);
     window.addEventListener("pf-overview-highlights-changed", onHighlightsChanged);
     window.addEventListener("pf-overview-select-highlight", onHighlightsChanged);
     window.addEventListener("pf-overview-select-connector-end", onConnectorEndpointSelected);
-    scheduleSync();
+    scheduleInitialSync();
     return () => {
-      cancelAnimationFrame(frame); mutationObserver?.disconnect(); stage?.removeEventListener("click", onStageClick);
-      window.removeEventListener("plotflow-product-view-changed", scheduleSync);
+      cancelAnimationFrame(frame); cancelAnimationFrame(startupFrame); stage?.removeEventListener("click", onStageClick);
+      window.removeEventListener("plotflow-product-view-changed", onProductViewChanged);
       window.removeEventListener("pf-overview-group-changed", onGroupChanged);
       window.removeEventListener("pf-overview-live-units-ready", scheduleSync);
-      window.removeEventListener("pf-overview-anchor-changed", scheduleSync);
       window.removeEventListener("pf-overview-highlights-changed", onHighlightsChanged);
       window.removeEventListener("pf-overview-select-highlight", onHighlightsChanged);
       window.removeEventListener("pf-overview-select-connector-end", onConnectorEndpointSelected);
