@@ -70,7 +70,7 @@ export default function OverviewSimplifiedRuntime() {
                 <option value="0.25">0.25</option><option value="0.5">0.5</option><option value="0.75">0.75</option>
                 <option value="1">1</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2</option><option value="3">3</option>
               </select></label>
-              <label class="pf-connector-color" title="Connector color"><input data-connector="color" type="color"></label>
+              <label class="pf-connector-color" title="Connector color"><span class="pf-connector-color-label">Color</span><input data-connector="color" type="color"><code data-connector-color-value>#E00000</code></label>
               <label class="pf-connector-opacity" title="Connector opacity"><span>Opacity</span><input data-connector="opacity" type="range" min="0.1" max="1" step="0.05"></label>
             </div>
             <div class="pf-connector-style-actions"><button type="button" data-connector-action="apply-all">Apply to all</button></div>
@@ -80,32 +80,42 @@ export default function OverviewSimplifiedRuntime() {
         control.querySelector('[data-connector="color"]').value = color;
         control.querySelector('[data-connector="opacity"]').value = String(opacity);
 
-        const syncConnector = () => {
+        const draftConnector = () => {
           const nextWidth = Number(control.querySelector('[data-connector="width"]').value) || 0.5;
           const nextColor = control.querySelector('[data-connector="color"]').value || "#e00000";
           const nextOpacity = Number(control.querySelector('[data-connector="opacity"]').value) || 1;
-          saveConnector({ width: nextWidth, color: nextColor, opacity: nextOpacity });
-          applyConnector(stage, nextWidth, nextColor, nextOpacity);
+          const value = control.querySelector("[data-connector-color-value]");
+          if (value) value.textContent = nextColor.toUpperCase();
+          return { width: nextWidth, color: nextColor, opacity: nextOpacity };
+        };
+        const previewConnector = () => {
+          const next = draftConnector();
+          applyConnector(stage, next.width, next.color, next.opacity);
+          control.dataset.connectorDirty = "1";
+        };
+        const commitConnector = () => {
+          const next = draftConnector();
+          saveConnector(next);
+          applyConnector(stage, next.width, next.color, next.opacity);
+          delete control.dataset.connectorDirty;
         };
 
         control.addEventListener("input", (event) => {
-          if (event.target.closest("[data-connector]")) control.dataset.connectorDirty = "1";
+          if (event.target.closest("[data-connector]")) previewConnector();
         });
         control.addEventListener("change", (event) => {
-          if (event.target.closest("[data-connector]")) control.dataset.connectorDirty = "1";
+          if (event.target.closest("[data-connector]")) previewConnector();
         });
         control.addEventListener("click", (event) => {
           if (event.target.closest('[data-card-action="arrange"]')) {
             triggerAutoArrange();
             return;
           }
-          if (event.target.closest('[data-connector-action="apply-all"]')) {
-            syncConnector();
-            delete control.dataset.connectorDirty;
-          }
+          if (event.target.closest('[data-connector-action="apply-all"]')) commitConnector();
         });
         rail.appendChild(control);
-        syncConnector();
+        draftConnector();
+        applyConnector(stage, width, color, opacity);
       } else {
         const settings = readSettings();
         applyConnector(stage, Number(settings.lineWidth) || 0.5, settings.lineColor || "#e00000", Number.isFinite(Number(settings.lineOpacity)) ? Number(settings.lineOpacity) : 1);

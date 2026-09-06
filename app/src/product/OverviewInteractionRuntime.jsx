@@ -185,7 +185,7 @@ export default function OverviewInteractionRuntime() {
     function applyOpenState() {
       if (!panel) return;
       panel.querySelectorAll(".pf-layer-unit[data-unit-code]").forEach((group) => {
-        const open = group.dataset.unitCode === openUnit;
+        const open = openUnit === "*" || group.dataset.unitCode === openUnit;
         group.classList.toggle("is-open", open);
         group.querySelector("[data-layer-toggle]")?.setAttribute("aria-expanded", String(open));
         const body = group.querySelector(".pf-layer-unit-body");
@@ -208,7 +208,7 @@ export default function OverviewInteractionRuntime() {
       badges = readJson(BADGE_KEY, {});
       if (openUnit && !validCodes.has(openUnit)) openUnit = "";
 
-      panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>AUDIT</span><strong>Object audit</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div><div class="pf-layer-panel-foot"><button type="button" data-layer-action="show-all">Show all</button></div>`;
+      panel.innerHTML = `<div class="pf-layer-panel-head"><div><span>AUDIT</span><strong>Object audit</strong></div><div class="pf-layer-panel-head-actions"><small>${unitCodes.length} units</small><button type="button" data-layer-action="edit-label">Map label</button></div></div><div class="pf-layer-panel-list"></div><div class="pf-layer-panel-foot"><button type="button" data-layer-action="show-all">Show all objects</button></div>`;
       const list = panel.querySelector(".pf-layer-panel-list");
 
       unitCodes.forEach((code) => {
@@ -306,7 +306,13 @@ export default function OverviewInteractionRuntime() {
         duplicates[Number(exceptionRemove.dataset.exceptionRemoveLine)]?.remove();
         renderPanel();
       }
-      if (action?.dataset.layerAction === "show-all") { Object.keys(hidden).forEach((key) => delete hidden[key]); saveJson(HIDDEN_KEY, hidden); applyHidden(); renderPanel(); }
+      if (action?.dataset.layerAction === "show-all") {
+        Object.keys(hidden).forEach((key) => delete hidden[key]);
+        openUnit = "*";
+        saveJson(HIDDEN_KEY, hidden);
+        applyHidden();
+        renderPanel();
+      }
       if (action?.dataset.layerAction === "edit-label") window.dispatchEvent(new CustomEvent("pf-overview-edit-map-label"));
     }
 

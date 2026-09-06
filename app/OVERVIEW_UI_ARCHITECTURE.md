@@ -126,3 +126,17 @@ Connector editing no longer requires clicking the thin connector line.
 - Style edits remain a draft until the user chooses **Apply to all**.
 - Clicking a connector line may visually select the line, but it must not open or relocate a floating inspector.
 - Reset position is idempotent and reads only the immutable auto-detected coordinates published by `OverviewDetailLocatorBridge`; repeated Reset actions must resolve to the exact same point.
+
+
+## Connector style preview and audit actions
+
+- Connector width, color and opacity preview live on the canvas while the controls are edited.
+- **Apply to all** persists the previewed connector style as the shared connector style.
+- The connector color control must show a readable rectangular swatch and the current hex value; it must not rely on an ambiguous native dot.
+- **Show all objects** in Object Audit reveals all hidden card/connector/anchor objects and expands every unit so the action has immediate visible feedback.
+
+## Arrange production-geometry validation
+
+Auto Arrange validates connector crossings against the same clamped card-center geometry that production Apply uses.
+
+A candidate is not considered crossing-safe merely because its ideal, unclamped preview coordinates do not cross. Card bounds, reserved top area and final PDF-edge clamping are applied first, then connector crossings are counted. Manual preview dragging uses the same normalization.

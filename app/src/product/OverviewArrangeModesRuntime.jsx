@@ -83,6 +83,17 @@ export default function OverviewArrangeModesRuntime() {
       return { top, bottom, height: Math.max(0.2, 1 - top - bottom) };
     }
 
+    function normalizedAppliedCenter(item, point, bounds) {
+      if (!item || !point || !bounds) return point;
+      const safe = safeArea(bounds);
+      const halfW = item.width / Math.max(1, bounds.width) / 2;
+      const halfH = item.height / Math.max(1, bounds.height) / 2;
+      return {
+        x: clamp(point.x, halfW, 1 - halfW),
+        y: clamp(point.y, safe.top + halfH, 1 - safe.bottom - halfH),
+      };
+    }
+
     function anchorFor(code, bounds) {
       const layer = activeLayer();
       const anchor = Array.from(layer?.querySelectorAll(".pf-live-map-anchor") || [])
@@ -352,9 +363,15 @@ export default function OverviewArrangeModesRuntime() {
 
     function solveCandidate(groups, selectedMode) {
       const next = {};
+      const bounds = pdfBounds();
       resolvedGapPx = ui.gap;
       const leftLanes = solveSide(groups.left || [], "left", selectedMode, next);
       const rightLanes = solveSide(groups.right || [], "right", selectedMode, next);
+      if (bounds) {
+        items.forEach((item) => {
+          if (next[item.code]) next[item.code] = normalizedAppliedCenter(item, next[item.code], bounds);
+        });
+      }
       return {
         draft: next,
         gap: resolvedGapPx,
@@ -400,7 +417,7 @@ export default function OverviewArrangeModesRuntime() {
       if (!footer) return;
       const resolved = Math.round(resolvedGapPx * 10) / 10;
       const lanes = resolvedLaneCount > 2 ? ` · ${resolvedLaneCount} lanes` : "";
-      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector crossings" : ` · ${resolvedCrossings} crossing${resolvedCrossings === 1 ? "" : "s"} · fix required`;
+      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector crossings after clamp" : ` · ${resolvedCrossings} crossing${resolvedCrossings === 1 ? "" : "s"} after clamp · fix required`;
       const fallback = usedSafetyFallback ? " · crossing-safe fallback" : "";
       footer.textContent = resolved + 0.05 < ui.gap
         ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px gap fits${lanes}${crossingStatus}${fallback} · preview only`
@@ -537,8 +554,10 @@ export default function OverviewArrangeModesRuntime() {
       let layout = {};
       try { layout = JSON.parse(localStorage.getItem(CARD_LAYOUT_KEY) || "{}") || {}; } catch { layout = {}; }
       items.forEach((item) => {
-        const point = draft[item.code];
-        if (!point) return;
+        const rawPoint = draft[item.code];
+        if (!rawPoint) return;
+        const point = normalizedAppliedCenter(item, rawPoint, bounds);
+        draft[item.code] = point;
         const minTop = bounds.y + safe.top * bounds.height;
         const maxLeft = bounds.x + bounds.width - item.width;
         const maxTop = bounds.y + bounds.height - safe.bottom * bounds.height - item.height;
@@ -628,7 +647,7 @@ export default function OverviewArrangeModesRuntime() {
       const halfH = item ? item.height / bounds.height / 2 : 0;
       const x = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0.04, 0.96);
       const y = clamp((event.clientY - rect.top) / Math.max(1, rect.height), safe.top + halfH, 1 - safe.bottom - halfH);
-      draft[drag.code] = { x, y };
+      draft[drag.code] = normalizedAppliedCenter(item, { x, y }, bounds);
       renderDraft();
     }
 
