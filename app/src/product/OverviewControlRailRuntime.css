@@ -62,6 +62,10 @@ body.pf-product-overview .pf-overview-group-band nav button b{overflow:hidden;te
 body.pf-product-overview .pf-overview-group-band nav button small{font-size:8px;white-space:nowrap}
 body.pf-product-overview .pf-overview-group-band nav button.active{border-color:var(--pf-brand-accent);box-shadow:inset 0 0 0 1px var(--pf-brand-accent);color:var(--pf-ink)}
 
+/* Force the handover tabs into their own visible row in the Overview shell. */
+body.pf-product-overview .pf-overview>.pf-overview-group-band{position:relative!important;inset:auto!important;z-index:40!important;grid-column:1/-1!important;grid-row:auto!important;width:auto!important;min-width:0!important;align-self:stretch!important;justify-self:stretch!important;visibility:visible!important;opacity:1!important;overflow:visible!important}
+body.pf-product-overview .pf-overview>.pf-overview-group-band+*{position:relative;z-index:auto}
+
 /* Object audit */
 body.pf-product-overview .pf-object-audit-counts{display:grid;grid-template-columns:repeat(3,minmax(72px,1fr));gap:6px;padding:8px 10px;border-bottom:1px solid var(--pf-line);background:var(--pf-surface-raised);position:sticky;top:0;z-index:4}
 body.pf-product-overview .pf-object-audit-chip{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:5px;min-width:0;padding:7px 8px;border:1px solid var(--pf-line);border-radius:8px;background:var(--pf-surface-soft);font-size:9px}
