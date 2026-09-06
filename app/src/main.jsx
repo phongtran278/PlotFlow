@@ -22,6 +22,7 @@ import MemoryGovernor from "./components/MemoryGovernor.jsx";
 import LotTileRuntime from "./components/LotTileRuntime.jsx";
 import AuthGate from "./auth/AuthGate.jsx";
 import ProductShell from "./product/ProductShell.jsx";
+import PlotFlowDesignSystem from "./design-system/PlotFlowDesignSystem.jsx";
 import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
 import DetailModeRecovery from "./product/DetailModeRecovery.jsx";
 import OverviewZoomRuntime from "./product/OverviewZoomRuntime.jsx";
@@ -63,7 +64,6 @@ function isWindowsPlatform() {
 
 function useExclusiveFloorplanEditing() {
   const [editing, setEditing] = useState(() => document.body.classList.contains("plotflow-floorplan-editing"));
-
   useEffect(() => {
     const sync = () => setEditing(document.body.classList.contains("plotflow-floorplan-editing"));
     sync();
@@ -71,13 +71,11 @@ function useExclusiveFloorplanEditing() {
     observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, []);
-
   return editing;
 }
 
 function useLotHighlightEditing() {
   const [editing, setEditing] = useState(() => document.body.classList.contains("plotflow-lot-highlight-editing"));
-
   useEffect(() => {
     const sync = () => setEditing(document.body.classList.contains("plotflow-lot-highlight-editing"));
     sync();
@@ -85,22 +83,16 @@ function useLotHighlightEditing() {
     observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, []);
-
   return editing;
 }
 
 function useOverviewActive() {
   const [active, setActive] = useState(() => document.body.classList.contains("pf-product-overview"));
-
   useEffect(() => {
-    function onProductViewChange(event) {
-      setActive(event?.detail?.screen === "project" && event?.detail?.mode === "overview");
-    }
-
+    function onProductViewChange(event) { setActive(event?.detail?.screen === "project" && event?.detail?.mode === "overview"); }
     window.addEventListener("plotflow-product-view-changed", onProductViewChange);
     return () => window.removeEventListener("plotflow-product-view-changed", onProductViewChange);
   }, []);
-
   return active;
 }
 
@@ -109,17 +101,13 @@ function PreviewInteractionsRuntime({ disabled }) {
     window.__plotflowPreviewInteractionsCleanup?.();
     window.__plotflowPreviewInteractionsCleanup = null;
     if (disabled) return undefined;
-
     const cleanup = installPreviewInteractions();
     window.__plotflowPreviewInteractionsCleanup = cleanup;
     return () => {
       cleanup?.();
-      if (window.__plotflowPreviewInteractionsCleanup === cleanup) {
-        window.__plotflowPreviewInteractionsCleanup = null;
-      }
+      if (window.__plotflowPreviewInteractionsCleanup === cleanup) window.__plotflowPreviewInteractionsCleanup = null;
     };
   }, [disabled]);
-
   return null;
 }
 
@@ -132,103 +120,44 @@ if (import.meta.hot) {
 
 function OverviewMasterplanEngine() {
   const [sourceKey, setSourceKey] = useState("");
-
   useEffect(() => {
     function sync() {
       const stage = document.querySelector('.pf-masterplan-stage[data-overview-render-mode="raster"]');
       const next = stage?.dataset?.overviewRasterSource || "";
       setSourceKey((current) => current === next ? current : next);
     }
-
     sync();
     const observer = new MutationObserver(sync);
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["data-overview-render-mode", "data-overview-group", "data-overview-raster-source"],
-    });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-overview-render-mode", "data-overview-group", "data-overview-raster-source"] });
     return () => observer.disconnect();
   }, []);
-
   if (!sourceKey) return null;
-  return isWindowsPlatform()
-    ? <OverviewWindowsFixedBitmapRuntime key={`windows-fixed:${sourceKey}`} />
-    : <OverviewRasterRuntime key={sourceKey} />;
+  return isWindowsPlatform() ? <OverviewWindowsFixedBitmapRuntime key={`windows-fixed:${sourceKey}`} /> : <OverviewRasterRuntime key={sourceKey} />;
 }
 
 function OverviewRuntimes() {
-  return (
-    <>
-      <OverviewZoomRuntime />
-      <WindowsOverviewViewportRuntime />
-      <OverviewMasterplanEngine />
-      <OverviewExportRuntime />
-      <OverviewHeaderExportRuntime />
-      <OverviewAnchorRuntime />
-      <OverviewLiveUnitsRuntime />
-      <OverviewDetailLocatorBridge />
-      <OverviewControlRailRuntime />
-      <OverviewPrecisionArrangeRuntime />
-      <OverviewV2Runtime />
-      <OverviewArrangeModesRuntime />
-      <OverviewPenRuntime />
-      <OverviewSimplifiedRuntime />
-      <OverviewGuideRuntime />
-      <OverviewInteractionRuntime />
-      <OverviewLayerRevealRuntime />
-      <OverviewUnitBadgeRuntime />
-    </>
-  );
+  return <><OverviewZoomRuntime/><WindowsOverviewViewportRuntime/><OverviewMasterplanEngine/><OverviewExportRuntime/><OverviewHeaderExportRuntime/><OverviewAnchorRuntime/><OverviewLiveUnitsRuntime/><OverviewDetailLocatorBridge/><OverviewControlRailRuntime/><OverviewPrecisionArrangeRuntime/><OverviewV2Runtime/><OverviewArrangeModesRuntime/><OverviewPenRuntime/><OverviewSimplifiedRuntime/><OverviewGuideRuntime/><OverviewInteractionRuntime/><OverviewLayerRevealRuntime/><OverviewUnitBadgeRuntime/></>;
 }
 
 function WorkspaceAuxiliaryRuntimes() {
   const overviewActive = useOverviewActive();
   const lotHighlightEditing = useLotHighlightEditing();
-
-  if (lotHighlightEditing) {
-    return <MemoryGovernor />;
-  }
-
-  return (
-    <>
-      <OverviewSellDataRuntime />
-      <AutoFloorplanSource />
-      <MemoryGovernor />
-      <LotTileRuntime />
-      <UnitReviewBar />
-      <PerformanceFeedback />
-      <WorkspaceController />
-      <WorkspaceScrollSurfaceFix />
-      <ProjectSettings />
-      <PinScaleControl />
-      <EmptyWorkspaceEnhancer />
-      <DetailModeRecovery />
-      {overviewActive && <OverviewRuntimes />}
-    </>
-  );
+  if (lotHighlightEditing) return <MemoryGovernor/>;
+  return <><OverviewSellDataRuntime/><AutoFloorplanSource/><MemoryGovernor/><LotTileRuntime/><UnitReviewBar/><PerformanceFeedback/><WorkspaceController/><WorkspaceScrollSurfaceFix/><ProjectSettings/><PinScaleControl/><EmptyWorkspaceEnhancer/><DetailModeRecovery/>{overviewActive && <OverviewRuntimes/>}</>;
 }
 
 function PlotFlowExperience() {
   const [view, setView] = useState("home");
   const floorplanEditing = useExclusiveFloorplanEditing();
   const lotHighlightEditing = useLotHighlightEditing();
-
-  if (view === "home") {
-    return <HomeLanding onOpenProject={() => setView("workspace")} />;
-  }
-
-  return (
-    <ProductShell onExitWorkspace={() => setView("home")} exclusiveEditor={floorplanEditing}>
-      <PreviewInteractionsRuntime disabled={floorplanEditing || lotHighlightEditing} />
-      <App />
-      {!floorplanEditing && <WorkspaceAuxiliaryRuntimes />}
-    </ProductShell>
-  );
+  if (view === "home") return <HomeLanding onOpenProject={() => setView("workspace")} />;
+  return <ProductShell onExitWorkspace={() => setView("home")} exclusiveEditor={floorplanEditing}><PreviewInteractionsRuntime disabled={floorplanEditing || lotHighlightEditing}/><App/>{!floorplanEditing && <WorkspaceAuxiliaryRuntimes/>}</ProductShell>;
 }
 
-createRoot(document.getElementById("root")).render(
-  <AuthGate>
-    <PlotFlowExperience />
-  </AuthGate>
-);
+function RootExperience() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("design-system") === "1") return <PlotFlowDesignSystem/>;
+  return <PlotFlowExperience/>;
+}
+
+createRoot(document.getElementById("root")).render(<AuthGate><RootExperience/></AuthGate>);
