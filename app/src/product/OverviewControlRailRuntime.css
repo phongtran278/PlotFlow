@@ -95,3 +95,11 @@ body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fie
 body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions{grid-column:1/-1!important;display:flex!important;justify-content:flex-end!important;gap:7px!important}
 body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions [data-connector-action="apply-all"]{background:var(--pf-brand-accent)!important;color:#fff!important;border-color:var(--pf-brand-accent)!important}
 body.pf-product-overview .pf-overview-function-connector .pf-connector-endpoint-actions{order:-1!important}
+
+/* Compact connector utility after usability review. */
+body.pf-product-overview .pf-overview-function-connector .pf-overview-function-content{display:block!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control{display:flex!important;align-items:center!important;gap:6px!important;height:34px!important;min-height:34px!important;padding:3px 6px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;background:var(--pf-surface-raised)!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control>span{display:none!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields{display:flex!important;align-items:center!important;gap:6px!important;min-width:max-content!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions{display:flex!important;align-items:center!important;margin-left:auto!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-endpoint-actions{display:none!important}

@@ -12,3 +12,10 @@
 .pf-connector-color{position:relative!important}
 .pf-connector-color-swatch{width:54px;height:28px;border:1px solid var(--pf-line);border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);cursor:pointer;box-sizing:border-box}
 .pf-connector-color input[type="color"]{position:absolute!important;left:34px!important;top:0!important;width:54px!important;height:28px!important;opacity:0!important;cursor:pointer!important}
+
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color{display:flex!important;align-items:center!important;gap:5px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color-label{display:none!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color-swatch{width:28px!important;height:24px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color input[type="color"]{left:0!important;top:0!important;width:28px!important;height:24px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color code{min-width:54px!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-opacity input{width:64px!important}

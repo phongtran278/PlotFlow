@@ -246,14 +246,12 @@ export default function OverviewAnchorRuntime() {
       if (pendingDraft && pendingDraft.code !== code) cancelDraft();
       applySavedAnchor(code);
       const anchor = anchorForCode(code);
-      if (!anchor) {
-        setStatus("No connector endpoint for this unit");
-        return;
-      }
+      const point = currentEndpointPoint(code);
+      if (!anchor || !point) { setStatus("No connector endpoint for this unit"); return; }
       setActive(code);
-      setStatus("Drag endpoint to adjust · Save position to override PDF anchor");
+      window.dispatchEvent(new CustomEvent("pf-overview-focus-request", { detail: { code, x: point.x, y: point.y, scale: FOCUS_SCALE, located: true, source: "edit-endpoint" } }));
+      setStatus("Drag the highlighted lot point · Save position when done");
     }
-
     function stepNavigator(delta) {
       if (pendingDraft) cancelDraft();
       const list = codes();
@@ -282,7 +280,7 @@ export default function OverviewAnchorRuntime() {
         <select aria-label="Chọn mã căn"></select>
         <button type="button" data-nav="next" title="Next unit">›</button>
         <button type="button" class="pf-unit-focus-button" data-nav="focus">Focus</button>
-        <button type="button" class="pf-unit-adjust-button" data-nav="adjust">Edit connector</button>
+        <button type="button" class="pf-unit-adjust-button" data-nav="adjust" title="Move the connector endpoint on the lot">Edit lot point</button>
         <button type="button" class="pf-unit-save-anchor" data-nav="save-anchor" hidden>Save position</button>
         <button type="button" class="pf-unit-reset-anchor" data-nav="reset-anchor">Reset position</button>
         <button type="button" class="pf-unit-cancel-anchor" data-nav="cancel-anchor" hidden>Cancel</button>

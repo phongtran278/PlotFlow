@@ -155,3 +155,11 @@ A candidate is not considered crossing-safe merely because its ideal, unclamped 
 A connector layout is invalid not only when two segments geometrically cross, but also when separate connector segments run closer than the minimum visual clearance.
 
 For groups up to 10 units, Auto Arrange deterministically searches side assignments and prefers the first zero-conflict layout. This models the same kind of manual correction a user can make by moving cards to the opposite side, while keeping one canonical Arrange runtime.
+
+
+## Overview simplification after runtime testing
+
+- Sales-file membership is the source of truth for which units appear. Object Audit hide/restore UI is removed instead of maintaining a second visibility model.
+- Endpoint editing has one clear entry point in Unit: **Edit lot point**. It focuses the current lot endpoint and keeps Save / Reset / Cancel with the anchor runtime.
+- Connector style remains a compact global row; endpoint actions are not duplicated inside Connector.
+- Auto Arrange keeps the meaning of Smart, Balanced, Compact, All left and All right while still ranking zero-conflict layouts first. Different layout buttons must remain visibly different when more than one zero-conflict solution exists.

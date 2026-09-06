@@ -407,51 +407,51 @@ export default function OverviewArrangeModesRuntime() {
       };
     }
 
-    function exhaustiveConflictSafeCandidates(selectedMode) {
-      const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
-      const n = sorted.length;
-      const candidates = [];
-      if (!n) return candidates;
+    function candidateModePenalty(candidate, selectedMode) {
+      if (!candidate) return Number.POSITIVE_INFINITY;
+      const points = items.map((item) => ({ item, point: candidate.draft[item.code] })).filter((entry) => entry.point);
+      if (selectedMode === "left") return points.filter((entry) => entry.point.x > 0.5).length * 50;
+      if (selectedMode === "right") return points.filter((entry) => entry.point.x < 0.5).length * 50;
+      if (selectedMode === "balanced") {
+        const left = points.filter((entry) => entry.point.x < 0.5).length;
+        return Math.abs(left - (points.length - left)) * 4;
+      }
+      if (selectedMode === "compact") return points.reduce((sum, entry) => sum + Math.abs(entry.point.x - 0.5), 0);
+      return points.reduce((sum, entry) => {
+        const preferredLeft = entry.item.anchor.x < 0.47;
+        const preferredRight = entry.item.anchor.x > 0.53;
+        return sum + ((preferredLeft && entry.point.x > 0.5) || (preferredRight && entry.point.x < 0.5) ? 6 : 0);
+      }, 0);
+    }
 
-      const maxMasks = n <= 10 ? (1 << n) : 0;
-      if (maxMasks) {
+    function conflictSafeCandidates(selectedMode) {
+      const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+      const candidates = [];
+      const n = sorted.length;
+      if (!n) return candidates;
+      if (n <= 10) {
+        const maxMasks = 1 << n;
         for (let mask = 0; mask < maxMasks; mask += 1) {
-          const left = [];
-          const right = [];
+          const left = []; const right = [];
           sorted.forEach((item, index) => ((mask >> index) & 1 ? right : left).push(item));
-          candidates.push(solveCandidate({ left, right }, "balanced"));
-          if (candidates[candidates.length - 1].crossings === 0) break;
+          candidates.push(solveCandidate({ left, right }, selectedMode));
         }
-      } else {
-        const patterns = [
-          (index) => index % 2,
-          (index) => (index + 1) % 2,
-          (_, item) => item.anchor.x > 0.5 ? 1 : 0,
-        ];
-        patterns.forEach((assign) => {
-          const left = [];
-          const right = [];
-          sorted.forEach((item, index) => (assign(index, item) ? right : left).push(item));
-          candidates.push(solveCandidate({ left, right }, "balanced"));
-        });
       }
       return candidates;
     }
-
     function buildDraft(selectedMode) {
       mode = selectedMode;
       const primary = solveCandidate(split(items, selectedMode), selectedMode);
       const candidates = [primary];
-
       if (primary.crossings > 0) {
         candidates.push(solveCandidate(crossingSafeSplit(items), selectedMode));
         const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
-        candidates.push(solveCandidate({ left: sorted, right: [] }, "left"));
-        candidates.push(solveCandidate({ left: [], right: sorted }, "right"));
-        candidates.push(...exhaustiveConflictSafeCandidates(selectedMode));
+        if (selectedMode !== "right") candidates.push(solveCandidate({ left: sorted, right: [] }, selectedMode));
+        if (selectedMode !== "left") candidates.push(solveCandidate({ left: [], right: sorted }, selectedMode));
+        candidates.push(...conflictSafeCandidates(selectedMode));
       }
-
-      candidates.sort((a, b) => a.crossings - b.crossings || a.distance - b.distance || a.lanes - b.lanes);
+      candidates.forEach((candidate) => { candidate.modePenalty = candidateModePenalty(candidate, selectedMode); });
+      candidates.sort((a, b) => a.crossings - b.crossings || a.modePenalty - b.modePenalty || a.distance - b.distance || a.lanes - b.lanes);
       const chosen = candidates[0];
       draft = chosen.draft;
       resolvedGapPx = chosen.gap;
@@ -460,7 +460,6 @@ export default function OverviewArrangeModesRuntime() {
       usedSafetyFallback = chosen !== primary;
       renderDraft();
     }
-
     function updateApplyState() {
       const apply = overlay?.querySelector("[data-arrange-apply]");
       if (!apply) return;

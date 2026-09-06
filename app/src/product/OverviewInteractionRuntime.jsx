@@ -25,7 +25,8 @@ export default function OverviewInteractionRuntime() {
     let stage = null;
     let openUnit = "";
     let selectedUnitCode = "";
-    const hidden = readJson(HIDDEN_KEY, {});
+    localStorage.removeItem(HIDDEN_KEY);
+    const hidden = {};
     const highlightOwners = readJson(HIGHLIGHT_OWNER_KEY, {});
     let badges = readJson(BADGE_KEY, {});
 
@@ -248,18 +249,19 @@ export default function OverviewInteractionRuntime() {
     }
 
     function installPanel() {
-      const side = document.querySelector(".pf-overview-side");
       stage = document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
-      if (!side || !stage) return false;
+      if (!stage) return false;
+      panel?.remove();
+      panel = null;
+      stage.querySelectorAll(".pf-live-sales-callout,.pf-live-callout-lines line,.pf-live-map-anchor").forEach((node) => { node.style.display = ""; });
       if (!selectedUnitCode) {
-        const selectedCard = cards().find((card) => card.classList.contains("pf-card-key"))
-          || cards().find((card) => card.classList.contains("pf-card-selected"));
+        const selectedCard = cards().find((card) => card.classList.contains("pf-card-key")) || cards().find((card) => card.classList.contains("pf-card-selected"));
         selectedUnitCode = codeFor(selectedCard);
       }
-      if (!panel?.isConnected) { panel = document.createElement("section"); panel.className = "pf-overview-layer-panel pf-overview-context-card"; side.prepend(panel); }
-      applyHidden(); renderPanel(); return true;
+      associateUnownedHighlights();
+      syncLinkedUnitSelection();
+      return true;
     }
-
     function scheduleInstall() {
       cancelAnimationFrame(frame); attempts = 0;
       const run = () => { if (disposed || installPanel()) return; attempts += 1; if (attempts < 12) frame = requestAnimationFrame(run); };
@@ -349,7 +351,7 @@ export default function OverviewInteractionRuntime() {
       openUnit = "";
       refreshPanel();
     }
-    function refreshPanel() { requestAnimationFrame(() => { if (!installPanel()) scheduleInstall(); else renderPanel(); }); }
+    function refreshPanel() { requestAnimationFrame(() => { if (!installPanel()) scheduleInstall(); }); }
 
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKeyDown, true);

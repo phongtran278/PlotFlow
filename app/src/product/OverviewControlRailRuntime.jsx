@@ -87,26 +87,7 @@ export default function OverviewControlRailRuntime() {
     }
     function ensureConnectorDraftControls(content) {
       if (!content) return;
-      let controls = content.querySelector(":scope > .pf-connector-endpoint-actions");
-      if (!controls) {
-        controls = document.createElement("div"); controls.className = "pf-connector-endpoint-actions";
-        controls.innerHTML = '<button type="button" data-connector-proxy="edit">Edit endpoint</button><button type="button" data-connector-proxy="save">Save position</button><button type="button" data-connector-proxy="reset">Reset position</button><button type="button" data-connector-proxy="cancel">Cancel</button><small data-connector-draft-status>Endpoint changes require Save position.</small>';
-        controls.addEventListener("click", (event) => {
-          const action = event.target.closest("[data-connector-proxy]")?.dataset?.connectorProxy; if (!action) return;
-          if (action === "edit") window.dispatchEvent(new CustomEvent("pf-overview-edit-endpoint-request"));
-          else {
-            const map = { save: "save-anchor", reset: "reset-anchor", cancel: "cancel-anchor" };
-            document.querySelector(`.pf-unit-navigator [data-nav="${map[action]}"]`)?.click();
-          }
-          requestAnimationFrame(scheduleSync);
-        });
-        content.prepend(controls);
-      }
-      const owner = document.querySelector(".pf-unit-navigator"); const draft = Boolean(owner?.classList.contains("has-anchor-draft"));
-      controls.dataset.draft = draft ? "1" : "0";
-      const save = controls.querySelector('[data-connector-proxy="save"]'); const cancel = controls.querySelector('[data-connector-proxy="cancel"]');
-      if (save) save.hidden = !draft; if (cancel) cancel.hidden = !draft;
-      const status = controls.querySelector("[data-connector-draft-status]"); if (status) status.textContent = draft ? "Unsaved endpoint · Save position or Cancel." : "Edit endpoint, drag the lot point, then Save position.";
+      content.querySelector(":scope > .pf-connector-endpoint-actions")?.remove();
     }
     function syncCardSelectionSummary(content) {
       if (!content) return;
