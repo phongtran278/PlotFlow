@@ -127,13 +127,40 @@ export default function OverviewControlRailRuntime() {
       audit.innerHTML = chip("Cards", cardList.length, false) + chip("Connectors", lines.length, lines.length !== cardList.length) + chip("Highlights", shapes.length, shapes.length !== cardList.length);
     }
     function syncGroupBand() {
-      const source = document.querySelector(".pf-overview-groups"); const overview = document.querySelector(".pf-overview"); if (!source || !overview) return;
+      const source = document.querySelector(".pf-overview-groups");
+      const select = source?.querySelector("select");
+      const overview = document.querySelector(".pf-overview");
+      if (!source || !select || !overview) return;
+
       let band = overview.querySelector(":scope > .pf-overview-group-band");
-      if (!band) { band = document.createElement("section"); band.className = "pf-overview-group-band"; band.innerHTML = '<div><span>HANDOVER TYPE</span><strong>Overview groups</strong></div><nav aria-label="Overview handover types"></nav>'; const intro = overview.querySelector(":scope > .pf-overview-intro"); intro?.insertAdjacentElement("afterend", band); if (!band.isConnected) overview.prepend(band); }
-      const nav = band.querySelector("nav"); const buttons = Array.from(source.querySelectorAll("button"));
+      if (!band) {
+        band = document.createElement("section");
+        band.className = "pf-overview-group-band";
+        band.innerHTML = '<div><span>HANDOVER TYPE</span><strong>Overview groups</strong></div><nav aria-label="Overview handover types"></nav>';
+        const intro = overview.querySelector(":scope > .pf-overview-intro");
+        intro?.insertAdjacentElement("afterend", band);
+        if (!band.isConnected) overview.prepend(band);
+      }
+
+      const nav = band.querySelector("nav");
+      const options = Array.from(select.options);
       nav.innerHTML = "";
-      buttons.forEach((original) => { const label = original.textContent?.replace(/\s+\d+\s*(căn|units?)?$/i, "")?.trim() || "Group"; const proxy = document.createElement("button"); proxy.type = "button"; proxy.className = original.classList.contains("active") ? "active" : ""; const count = groupCount(label); proxy.innerHTML = `<b>${label}</b><small>${count || "—"} căn</small>`; proxy.addEventListener("click", () => original.click()); nav.appendChild(proxy); });
-      source.classList.add("pf-overview-groups-source");
+      options.forEach((option) => {
+        const label = option.textContent?.trim() || option.value || "Group";
+        const proxy = document.createElement("button");
+        proxy.type = "button";
+        proxy.className = option.value === select.value ? "active" : "";
+        proxy.setAttribute("aria-pressed", String(option.value === select.value));
+        const count = groupCount(label);
+        proxy.innerHTML = `<b>${label}</b><small>${count || "—"} căn</small>`;
+        proxy.addEventListener("click", () => {
+          if (select.value === option.value) return;
+          select.value = option.value;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        nav.appendChild(proxy);
+      });
+      source.classList.toggle("pf-overview-groups-source", options.length > 0);
     }
     function organizeHeaderControls(header, toolbar, guideControl) {
       if (!header || !toolbar) return;
