@@ -1,8 +1,11 @@
 import { useEffect } from "react";
+import { useProjectContext } from "../project/ProjectContext.jsx";
 import "./OverviewPenRuntime.css";
 
-const STORAGE_KEY = "phongflow-overview-pen-shapes-v1";
-const STYLE_KEY = "phongflow-overview-pen-style-v4";
+const SHAPES_DOMAIN = "overview-highlight-shapes";
+const STYLE_DOMAIN = "overview-highlight-style";
+const LEGACY_SHAPES_KEY = "phongflow-overview-pen-shapes-v1";
+const LEGACY_STYLE_KEY = "phongflow-overview-pen-style-v4";
 const LEGACY_MARKUP_KEY = "phongflow-overview-markup-v2";
 
 const DEFAULT_STYLE = {
@@ -39,28 +42,40 @@ function normalizePoint(point = {}) {
   return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
 }
 
-function readShapes() {
-  try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    if (!Array.isArray(value)) return [];
-    return value
-      .filter((shape) => Array.isArray(shape?.points) && shape.points.length >= 3)
-      .map((shape) => ({
-        id: shape.id || `${Date.now()}-${Math.random()}`,
-        points: shape.points.map(normalizePoint),
-        style: normalizeStyle(shape.style),
-      }));
-  } catch { return []; }
+function readShapes(storage) {
+  const value = storage.readJson(SHAPES_DOMAIN, {
+    version: 1,
+    fallback: [],
+    legacyKey: LEGACY_SHAPES_KEY,
+  });
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((shape) => Array.isArray(shape?.points) && shape.points.length >= 3)
+    .map((shape) => ({
+      id: shape.id || `${Date.now()}-${Math.random()}`,
+      points: shape.points.map(normalizePoint),
+      style: normalizeStyle(shape.style),
+    }));
 }
 
-function saveShapes(value) { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); }
-function readStyle() {
-  try { return normalizeStyle(JSON.parse(localStorage.getItem(STYLE_KEY) || "{}")); }
-  catch { return { ...DEFAULT_STYLE }; }
+function saveShapes(storage, value) {
+  storage.writeJson(SHAPES_DOMAIN, value, { version: 1 });
 }
-function saveStyle(value) { localStorage.setItem(STYLE_KEY, JSON.stringify(normalizeStyle(value))); }
 
-function removeLegacyRectangles() {
+function readStyle(storage) {
+  return normalizeStyle(storage.readJson(STYLE_DOMAIN, {
+    version: 4,
+    fallback: DEFAULT_STYLE,
+    legacyKey: LEGACY_STYLE_KEY,
+  }));
+}
+
+function saveStyle(storage, value) {
+  storage.writeJson(STYLE_DOMAIN, normalizeStyle(value), { version: 4 });
+}
+
+function removeLegacyRectangles(enabled) {
+  if (!enabled) return;
   try {
     const items = JSON.parse(localStorage.getItem(LEGACY_MARKUP_KEY) || "[]");
     if (!Array.isArray(items)) return;
@@ -70,6 +85,8 @@ function removeLegacyRectangles() {
 }
 
 export default function OverviewPenRuntime() {
+  const { profile, storage } = useProjectContext();
+
   useEffect(() => {
     let stage = null;
     let layer = null;
@@ -81,8 +98,8 @@ export default function OverviewPenRuntime() {
     let active = false;
     let draft = [];
     let vertexDrag = null;
-    let shapes = readShapes();
-    let currentStyle = readStyle();
+    let shapes = readShapes(storage);
+    let currentStyle = readStyle(storage);
     let selectedId = shapes.at(-1)?.id || null;
     let camera = { scale: 1, tx: 0, ty: 0 };
     let disposed = false;
@@ -90,8 +107,8 @@ export default function OverviewPenRuntime() {
     let retryCount = 0;
     let domObserver = null;
 
-    removeLegacyRectangles();
-    saveShapes(shapes);
+    removeLegacyRectangles(Boolean(profile?.legacyStorage));
+    saveShapes(storage, shapes);
 
     const escapeAttr = (value) => String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
     const pointsAttr = (points) => points.map((point) => `${point.x.toFixed(4)},${point.y.toFixed(4)}`).join(" ");
@@ -158,7 +175,7 @@ export default function OverviewPenRuntime() {
       const shape = shapes[shapeIndex];
       const points = shape.points.map((current, pointIndex) => pointIndex === index ? normalizePoint(point) : current);
       shapes = shapes.map((item, indexShape) => indexShape === shapeIndex ? { ...shape, points } : item);
-      saveShapes(shapes);
+      saveShapes(storage, shapes);
       render();
       emitHighlightsChanged();
     }
@@ -242,7 +259,7 @@ export default function OverviewPenRuntime() {
         };
         shapes = [...shapes, shape];
         selectedId = shape.id;
-        saveShapes(shapes);
+        saveShapes(storage, shapes);
         emitHighlightsChanged();
       }
       draft = [];
@@ -294,7 +311,7 @@ export default function OverviewPenRuntime() {
       shapes = shapes.filter((shape) => String(shape.id) !== String(id));
       if (shapes.length === before) return;
       if (String(selectedId) === String(id)) selectedId = shapes.at(-1)?.id || null;
-      saveShapes(shapes);
+      saveShapes(storage, shapes);
       render();
       syncStyleControls();
       styleMenu?.classList.toggle("is-contextual", active || Boolean(selectedShape()));
@@ -306,10 +323,10 @@ export default function OverviewPenRuntime() {
       const index = shapes.findIndex((shape) => String(shape.id) === String(selectedId));
       if (index >= 0) {
         shapes = shapes.map((shape, shapeIndex) => shapeIndex === index ? { ...shape, style: next } : shape);
-        saveShapes(shapes);
+        saveShapes(storage, shapes);
       } else {
         currentStyle = next;
-        saveStyle(currentStyle);
+        saveStyle(storage, currentStyle);
       }
       render();
       syncStyleControls();
@@ -319,9 +336,9 @@ export default function OverviewPenRuntime() {
     function applyCurrentStyleToAll() {
       const next = normalizeStyle(selectedShape()?.style || currentStyle);
       currentStyle = next;
-      saveStyle(currentStyle);
+      saveStyle(storage, currentStyle);
       shapes = shapes.map((shape) => ({ ...shape, style: { ...next } }));
-      saveShapes(shapes);
+      saveShapes(storage, shapes);
       render();
       syncStyleControls();
       emitHighlightsChanged();
@@ -374,7 +391,7 @@ export default function OverviewPenRuntime() {
       vertexDrag.node?.classList.remove("is-dragging");
       vertexDrag.node?.releasePointerCapture?.(event.pointerId);
       vertexDrag = null;
-      saveShapes(shapes);
+      saveShapes(storage, shapes);
       emitHighlightsChanged();
     }
 
@@ -425,7 +442,7 @@ export default function OverviewPenRuntime() {
       shapes = [];
       draft = [];
       selectedId = null;
-      saveShapes(shapes);
+      saveShapes(storage, shapes);
       render();
       syncStyleControls();
       styleMenu?.classList.toggle("is-contextual", active);
@@ -619,7 +636,7 @@ export default function OverviewPenRuntime() {
       doneButton?.remove();
       styleMenu?.remove();
     };
-  }, []);
+  }, [profile?.legacyStorage, storage]);
 
   return null;
 }
