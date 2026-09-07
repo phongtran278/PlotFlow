@@ -264,3 +264,24 @@ Layout modes are capabilities, not promises.
 - `All left` and `All right` are strict: the solver must keep the full card body on the requested side and never move cards across the centerline as a hidden fallback.
 - Unavailable modes are disabled with an explanatory tooltip.
 - If changing Gap makes the current mode infeasible, Auto Arrange moves to the first feasible mode rather than previewing an impossible layout.
+
+
+## Project-specific Overview capability
+
+Overview is not a shared project-specific canvas by default.
+
+- `ProjectProfile.overview.configured` is the capability gate.
+- Projects without a configured Overview render a neutral wireframe skeleton only.
+- A wireframe Overview does not expose the Sài Gòn Park masterplan, handover groups, cards, connector data or editor rail.
+- Project-specific masterplan, grouping, topology and data sources must be supplied by that project's profile/package before the real Overview runtime mounts.
+- Current Vinhomes Sài Gòn Park is the only configured real Overview.
+
+## Highlight completion UX
+
+Highlight drawing has an explicit completion path.
+
+- Closing the polygon at the first point saves the shape and exits Highlight mode.
+- Double-click closing does the same.
+- Enter saves the current valid draft and exits.
+- A visible `Done` / `Save & Done` action appears while Highlight mode is active.
+- Escape exits Highlight mode; an unfinished draft is discarded, while already saved highlights remain.

@@ -2,3 +2,6 @@
 .pf-pen-style-actions{display:flex;justify-content:flex-end;padding-top:10px;margin-top:4px;border-top:1px solid rgba(17,20,28,.055)}
 .pf-pen-style-actions button{height:30px;padding:0 10px;border:1px solid var(--pf-brand-accent);border-radius:8px;background:var(--pf-brand-accent);color:#fff;font:650 8px/1 var(--pf-font-ui);cursor:pointer}
 .pf-pen-style-actions button:hover{filter:brightness(.96)}
+
+.pf-pen-done-button{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 10px;border:1px solid var(--pf-brand-accent);border-radius:9px;background:var(--pf-brand-accent);color:#fff;font:650 9px/1 var(--pf-font-ui);cursor:pointer}
+.pf-pen-done-button[hidden]{display:none!important}.pf-pen-done-button:hover{filter:brightness(.96)}

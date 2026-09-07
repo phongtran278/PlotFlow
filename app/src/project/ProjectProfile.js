@@ -5,7 +5,7 @@ const DEFAULT_PROFILE = {
   legacyStorage: false,
   topology: { kind: "unspecified", hierarchy: [] },
   sales: { schema: "project-sales-v1", fieldMap: {} },
-  overview: { groups: [] },
+  overview: { configured: false, groups: [] },
   detail: { template: "sales-poster-v1" },
   locator: { codeRules: {} },
   assets: { roles: [] },

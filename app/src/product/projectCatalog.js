@@ -107,7 +107,7 @@ export const PROJECTS = [
     profile: {
       legacyStorage: true,
       topology: { kind: "low-rise", hierarchy: ["zone", "subzone", "lot"] },
-      overview: { groups: ["Hoàn thiện", "Giãn xây", "Xây thô"] },
+      overview: { configured: true, groups: ["Hoàn thiện", "Giãn xây", "Xây thô"] },
       detail: { template: "sales-poster-v1" },
     },
   }, VINHOMES_SAIGON_PARK_LANDING),

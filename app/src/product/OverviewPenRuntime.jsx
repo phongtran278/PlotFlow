@@ -75,6 +75,7 @@ export default function OverviewPenRuntime() {
     let layer = null;
     let anchorLayer = null;
     let button = null;
+    let doneButton = null;
     let styleMenu = null;
     let cursor = null;
     let active = false;
@@ -182,6 +183,7 @@ export default function OverviewPenRuntime() {
               event.stopPropagation();
               event.stopImmediatePropagation?.();
               finish();
+              setActive(false);
             });
           }
           anchorLayer.appendChild(node);
@@ -253,6 +255,20 @@ export default function OverviewPenRuntime() {
       render();
     }
 
+    function syncDoneButton() {
+      if (!doneButton) return;
+      doneButton.hidden = !active;
+      doneButton.textContent = draft.length >= 3 ? "Save & Done" : "Done";
+      doneButton.title = draft.length >= 3
+        ? "Save the current highlight and exit Highlight mode"
+        : "Exit Highlight mode (Esc)";
+    }
+
+    function completeAndExit() {
+      if (draft.length >= 3) finish();
+      setActive(false);
+    }
+
     function setActive(next) {
       active = next;
       button?.classList.toggle("active", active);
@@ -261,6 +277,7 @@ export default function OverviewPenRuntime() {
       styleMenu?.classList.toggle("is-contextual", active || Boolean(selectedShape()));
       if (!active) cancelDraft();
       else renderAnchors();
+      syncDoneButton();
     }
 
     function selectShape(id) {
@@ -327,6 +344,7 @@ export default function OverviewPenRuntime() {
       if (!point) return;
       draft.push(point);
       renderAnchors();
+      syncDoneButton();
     }
 
     function onDoubleClick(event) {
@@ -335,6 +353,7 @@ export default function OverviewPenRuntime() {
       event.stopPropagation();
       event.stopImmediatePropagation?.();
       finish();
+      setActive(false);
     }
 
     function onPointerMove(event) {
@@ -378,11 +397,10 @@ export default function OverviewPenRuntime() {
       if (!active) return;
       if (event.key === "Enter") {
         event.preventDefault();
-        finish();
+        completeAndExit();
       }
       if (event.key === "Escape") {
         event.preventDefault();
-        cancelDraft();
         setActive(false);
       }
       if ((event.key === "Backspace" || event.key === "Delete") && draft.length) {
@@ -491,6 +509,22 @@ export default function OverviewPenRuntime() {
         if (!divider) tools.appendChild(button);
       }
 
+      if (!doneButton?.isConnected) {
+        doneButton = document.createElement("button");
+        doneButton.type = "button";
+        doneButton.className = "pf-pen-done-button";
+        doneButton.hidden = true;
+        doneButton.textContent = "Done";
+        doneButton.title = "Exit Highlight mode (Esc)";
+        doneButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          completeAndExit();
+        });
+        button.after(doneButton);
+        syncDoneButton();
+      }
+
       if (!styleMenu?.isConnected) {
         styleMenu = document.createElement("details");
         styleMenu.className = "pf-pen-style-menu";
@@ -526,7 +560,7 @@ export default function OverviewPenRuntime() {
             popover.style.setProperty("--pf-pen-popover-top", `${top}px`);
           });
         });
-        button.after(styleMenu);
+        doneButton?.after(styleMenu) || button.after(styleMenu);
         syncStyleControls();
         styleMenu.classList.toggle("is-contextual", active || Boolean(selectedShape()));
       }
@@ -582,6 +616,7 @@ export default function OverviewPenRuntime() {
       anchorLayer?.remove();
       cursor?.remove();
       button?.remove();
+      doneButton?.remove();
       styleMenu?.remove();
     };
   }, []);
