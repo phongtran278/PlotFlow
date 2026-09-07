@@ -253,3 +253,14 @@ The connector validator separates impossible endpoint proximity from real visual
 - A small terminal fan-in zone near each lot anchor is excluded from clearance distance because neighboring lots can have anchors closer than 7px by construction.
 - This prevents the solver from declaring a mathematically impossible conflict solely because two valid lot points are naturally adjacent.
 - Auto Arrange still never applies a true crossing or overlap.
+
+
+## Auto Arrange mode feasibility
+
+Layout modes are capabilities, not promises.
+
+- Every mode is pre-solved against the current card set, requested gap and active handover geometry.
+- A mode is enabled only when it has a solution with zero connector conflicts, zero card overlaps and zero mode-fit violations.
+- `All left` and `All right` are strict: the solver must keep the full card body on the requested side and never move cards across the centerline as a hidden fallback.
+- Unavailable modes are disabled with an explanatory tooltip.
+- If changing Gap makes the current mode infeasible, Auto Arrange moves to the first feasible mode rather than previewing an impossible layout.
