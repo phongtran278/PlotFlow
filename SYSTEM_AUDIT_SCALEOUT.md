@@ -982,3 +982,17 @@ PlotFlow is ready for 10–20 projects when all statements below are true:
 At that point PlotFlow is no longer “an app configured for one project”.
 
 It is a reusable real-estate design operations platform.
+
+
+## Phase 1 implementation progress
+
+First project-isolation slice is now defined in code:
+
+- `ProjectProfile` is a canonical schema factory.
+- `ProjectProvider / ProjectContext` exposes the active project/profile to Detail and auxiliary runtimes without DOM discovery.
+- `ProjectStorage` owns the namespace contract `plotflow:<projectId>:<domain>:v<version>`.
+- Legacy fallback is explicitly enabled only by a project profile, rather than globally.
+- Google Sheet recent-history is the first migrated low-risk domain. It now reads/writes project-scoped storage and copies the legacy history into the current legacy project's namespace on first read.
+- Detail visuals, locator behavior, Overview runtimes and memory policy are unchanged in this slice.
+
+This establishes the component/service boundary that later migrations should reuse instead of adding new localStorage logic per component.

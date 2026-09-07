@@ -5,6 +5,7 @@ import ProjectLanding from "./ProjectLanding.jsx";
 import WorkspaceNav from "./WorkspaceNav.jsx";
 import OverviewWorkspace from "./OverviewWorkspace.jsx";
 import { PROJECTS } from "./projectCatalog.js";
+import { ProjectProvider } from "../project/ProjectContext.jsx";
 
 const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Xây thô"];
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
@@ -195,7 +196,8 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   }
 
   return (
-    <div className={`pf-product-root ${exclusiveEditor ? "is-exclusive-editor" : ""}`}>
+    <ProjectProvider project={project}>
+      <div className={`pf-product-root ${exclusiveEditor ? "is-exclusive-editor" : ""}`}>
       {!exclusiveEditor && (
         <WorkspaceNav
           screen={screen}
@@ -248,6 +250,7 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
           visibleSellUnits={visibleSellUnits}
         />
       )}
-    </div>
+      </div>
+    </ProjectProvider>
   );
 }

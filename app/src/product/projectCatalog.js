@@ -1,3 +1,4 @@
+import { createProjectProfile } from "../project/ProjectProfile.js";
 const DEFAULT_LANDING = {
   positioning: "Project positioning statement goes here — one clear promise designed to make the right buyer want to keep exploring.",
   valuePillars: [
@@ -42,6 +43,7 @@ const DEFAULT_LANDING = {
 function withLanding(project, landing = {}) {
   return {
     ...project,
+    profile: createProjectProfile(project.profile),
     landing: {
       ...DEFAULT_LANDING,
       ...landing,
@@ -93,7 +95,22 @@ const VINHOMES_SAIGON_PARK_LANDING = {
 };
 
 export const PROJECTS = [
-  withLanding({ id: "vinhomes-saigon-park", code: "VSP", name: "Vinhomes Saigon Park", developer: "Vinhomes", location: "Xuân Thới Sơn, TP.HCM", status: "Active", tone: "sage", masterplan: true }, VINHOMES_SAIGON_PARK_LANDING),
+  withLanding({
+    id: "vinhomes-saigon-park",
+    code: "VSP",
+    name: "Vinhomes Saigon Park",
+    developer: "Vinhomes",
+    location: "Xuân Thới Sơn, TP.HCM",
+    status: "Active",
+    tone: "sage",
+    masterplan: true,
+    profile: {
+      legacyStorage: true,
+      topology: { kind: "low-rise", hierarchy: ["zone", "subzone", "lot"] },
+      overview: { groups: ["Hoàn thiện", "Giãn xây", "Xây thô"] },
+      detail: { template: "sales-poster-v1" },
+    },
+  }, VINHOMES_SAIGON_PARK_LANDING),
   withLanding({ id: "vinhomes-green-paradise", code: "VGP", name: "Vinhomes Green Paradise", developer: "Vinhomes", location: "Cần Giờ, TP.HCM", status: "Active", tone: "sea" }),
   withLanding({ id: "vinhomes-grand-park", code: "VGP2", name: "Vinhomes Grand Park", developer: "Vinhomes", location: "TP. Thủ Đức, TP.HCM", status: "Active", tone: "sky" }),
   withLanding({ id: "the-global-city", code: "TGC", name: "The Global City", developer: "Masterise Homes", location: "TP. Thủ Đức, TP.HCM", status: "Active", tone: "sand" }),

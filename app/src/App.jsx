@@ -18,6 +18,7 @@ import {
 } from "./data/assetCatalog";
 import { brandFont, buildBrandFontCss } from "./data/brandConfig";
 import { getMemoryProfile } from "./runtime/memoryProfile";
+import { useProjectContext } from "./project/ProjectContext.jsx";
 import {
   attachMatchToPageRender,
   buildFloorplanIndex,
@@ -37,7 +38,7 @@ const PREVIEW_CACHE_LIMIT = Math.max(1, Number(MEMORY_PROFILE.previewCacheTarget
 const PAGE_CACHE_LIMIT = Math.max(1, Number(MEMORY_PROFILE.pageCacheTarget) || (MEMORY_PROFILE.lowMemory ? 2 : 4));
 const DEFAULT_MASTER_PDF_URL = "/masterplan/masterplan.pdf";
 const DEFAULT_MASTER_PDF_LABEL = "Masterplan mặc định";
-const SHEET_HISTORY_KEY = "plotflow-sheet-history-r1";
+const LEGACY_SHEET_HISTORY_KEY = "plotflow-sheet-history-r1";
 
 const EMPTY_PREVIEW_UNIT = {
   unitCode: "",
@@ -270,21 +271,24 @@ function loadOverrides() {
   }
 }
 
-function loadSheetHistory() {
-  try {
-    const value = JSON.parse(localStorage.getItem(SHEET_HISTORY_KEY) || "[]");
-    if (!Array.isArray(value)) return [];
-    return value
-      .map((item) => {
-        if (typeof item === "string") return { url: item, name: "", lastUsed: 0 };
-        if (item && typeof item === "object") return item;
-        return null;
-      })
-      .filter((item) => item?.url && /^https?:\/\//i.test(String(item.url)))
-      .slice(0, 10);
-  } catch {
-    return [];
-  }
+function normalizeSheetHistory(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return { url: item, name: "", lastUsed: 0 };
+      if (item && typeof item === "object") return item;
+      return null;
+    })
+    .filter((item) => item?.url && /^https?:\/\//i.test(String(item.url)))
+    .slice(0, 10);
+}
+
+function readProjectSheetHistory(storage) {
+  return normalizeSheetHistory(storage.readJson("sheet-history", {
+    version: 1,
+    legacyKey: LEGACY_SHEET_HISTORY_KEY,
+    fallback: [],
+  }));
 }
 
 function extractSheetId(url = "") {
@@ -304,10 +308,11 @@ function extractFilenameFromDisposition(value = "") {
 }
 
 function App() {
+  const { projectId, storage } = useProjectContext();
   const [units, setUnits] = useState([]);
   const [selectedUnitCode, setSelectedUnitCode] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
-  const [sheetHistory, setSheetHistory] = useState(loadSheetHistory);
+  const [sheetHistory, setSheetHistory] = useState(() => readProjectSheetHistory(storage));
   const [connectedSheetUrl, setConnectedSheetUrl] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
   const [message, setMessage] = useState("Chưa kết nối dữ liệu. Hãy chọn Google Sheet hoặc Excel khi cần.");
@@ -361,6 +366,10 @@ function App() {
   );
   const selectedLotOverlay = selectedCode ? lotOverlays[selectedCode] || null : null;
   const previewUnit = selectedUnit || EMPTY_PREVIEW_UNIT;
+
+  useEffect(() => {
+    setSheetHistory(readProjectSheetHistory(storage));
+  }, [projectId, storage]);
 
   const locatorSummary = useMemo(() => {
     const values = units.map((unit) => locatorResults[normalizeUnitCode(unit.unitCode)]).filter(Boolean);
@@ -471,7 +480,7 @@ function App() {
   function saveSheetHistoryEntry(url, suggestedName) {
     const cleanUrl = String(url || "").trim();
     if (!cleanUrl) return;
-    const current = loadSheetHistory();
+    const current = readProjectSheetHistory(storage);
     const previous = current.find((item) => item.url === cleanUrl);
     const entry = {
       url: cleanUrl,
@@ -482,23 +491,23 @@ function App() {
       .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0))
       .slice(0, 10);
     setSheetHistory(next);
-    localStorage.setItem(SHEET_HISTORY_KEY, JSON.stringify(next));
+    storage.writeJson("sheet-history", next, { version: 1 });
   }
 
   function renameSheetHistory(url) {
-    const current = loadSheetHistory();
+    const current = readProjectSheetHistory(storage);
     const item = current.find((entry) => entry.url === url);
     const nextName = window.prompt("Tên hiển thị của Google Sheet", item?.name || fallbackSheetName(url));
     if (!nextName?.trim()) return;
     const next = current.map((entry) => entry.url === url ? { ...entry, name: nextName.trim() } : entry);
     setSheetHistory(next);
-    localStorage.setItem(SHEET_HISTORY_KEY, JSON.stringify(next));
+    storage.writeJson("sheet-history", next, { version: 1 });
   }
 
   function removeSheetHistory(url) {
-    const next = loadSheetHistory().filter((entry) => entry.url !== url);
+    const next = readProjectSheetHistory(storage).filter((entry) => entry.url !== url);
     setSheetHistory(next);
-    localStorage.setItem(SHEET_HISTORY_KEY, JSON.stringify(next));
+    storage.writeJson("sheet-history", next, { version: 1 });
   }
 
   async function fetchSheetData(sourceUrl) {
