@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import "./OverviewAnchorRuntime.css";
+import { useProjectContext } from "../project/ProjectContext.jsx";
 
 const STORAGE_KEY = "phongflow-overview-anchor-layout-v2";
 const FOCUS_SCALE = 70;
@@ -10,27 +11,29 @@ function isWindows() {
   return value.includes("win");
 }
 
-function readAnchors() {
-  try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  } catch {
-    return {};
-  }
+function readAnchors(storage) {
+  const value = storage.readJson("overview-anchor-layout", {
+    version: 2,
+    legacyKey: STORAGE_KEY,
+    fallback: {},
+  });
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
-function saveAnchors(value) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+function saveAnchors(storage, value) {
+  storage.writeJson("overview-anchor-layout", value, { version: 2 });
 }
 
 export default function OverviewAnchorRuntime() {
+  const { storage } = useProjectContext();
+
   useEffect(() => {
     const windows = isWindows();
     let stage = null;
     let observer = null;
     let camera = { scale: 1, tx: 0, ty: 0 };
     let activeCode = "";
-    let anchors = readAnchors();
+    let anchors = readAnchors(storage);
     let drag = null;
     let pendingDraft = null;
     let navigator = null;
@@ -157,7 +160,7 @@ export default function OverviewAnchorRuntime() {
       const autoX = auto.x;
       const autoY = auto.y;
       delete anchors[code];
-      saveAnchors(anchors);
+      saveAnchors(storage, anchors);
       pendingDraft = null;
       setDraftUi(false);
       anchor.style.left = `${autoX}%`;
@@ -177,7 +180,7 @@ export default function OverviewAnchorRuntime() {
       if (!pendingDraft) return;
       const { code, x, y } = pendingDraft;
       anchors[code] = { x: Number(x.toFixed(5)), y: Number(y.toFixed(5)) };
-      saveAnchors(anchors);
+      saveAnchors(storage, anchors);
       const anchor = anchorForCode(code);
       if (anchor) {
         anchor.dataset.saved = "1";
@@ -481,7 +484,7 @@ export default function OverviewAnchorRuntime() {
       window.removeEventListener("pf-overview-edit-endpoint-request", onEditEndpointRequest);
       detachStage();
     };
-  }, []);
+  }, [storage]);
 
   return null;
 }

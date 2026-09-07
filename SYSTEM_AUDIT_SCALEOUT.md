@@ -996,3 +996,16 @@ First project-isolation slice is now defined in code:
 - Detail visuals, locator behavior, Overview runtimes and memory policy are unchanged in this slice.
 
 This establishes the component/service boundary that later migrations should reuse instead of adding new localStorage logic per component.
+
+
+## Phase 1 implementation progress — slice 2
+
+Project-scoped storage now covers three single-owner Overview domains:
+
+- manual connector endpoint positions -> `overview-anchor-layout:v2`,
+- connector width/color/opacity -> `overview-connector-settings:v2`,
+- Auto Arrange UI gap preference -> `overview-arrange-ui:v1`.
+
+The current legacy project still receives one-time fallback from the historical global keys through `ProjectStorage`.
+
+This slice deliberately does **not** migrate shared card layout, sell data or pen/highlight data yet. Those domains have multiple consumers and require a coordinated boundary migration rather than replacing one key in one file.

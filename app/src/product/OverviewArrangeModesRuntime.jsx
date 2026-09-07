@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import "./OverviewArrangeModesRuntime.css";
+import { useProjectContext } from "../project/ProjectContext.jsx";
 
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const ARRANGE_UI_KEY = "plotflow-overview-arrange-preview-v1";
@@ -23,16 +24,18 @@ function objectScale(card) {
   return Number.isFinite(value) ? clamp(value, 0.2, 2.2) : 1;
 }
 
-function readArrangeUi() {
-  try {
-    const value = JSON.parse(localStorage.getItem(ARRANGE_UI_KEY) || "{}");
-    return { gap: clamp(value?.gap ?? 14, 0, 120) };
-  } catch {
-    return { gap: 14 };
-  }
+function readArrangeUi(storage) {
+  const value = storage.readJson("overview-arrange-ui", {
+    version: 1,
+    legacyKey: ARRANGE_UI_KEY,
+    fallback: {},
+  });
+  return { gap: clamp(value?.gap ?? 14, 0, 120) };
 }
 
 export default function OverviewArrangeModesRuntime() {
+  const { storage } = useProjectContext();
+
   useEffect(() => {
     let disposed = false;
     let stage = null;
@@ -51,7 +54,7 @@ export default function OverviewArrangeModesRuntime() {
     let previewConnectorRaf = 0;
     let modeSolutions = new Map();
     let pendingOpenGroup = "";
-    const ui = readArrangeUi();
+    const ui = readArrangeUi(storage);
 
     function currentGroup() {
       return String(stage?.dataset?.overviewGroup || "").trim();
@@ -75,7 +78,7 @@ export default function OverviewArrangeModesRuntime() {
     };
 
     function saveArrangeUi() {
-      localStorage.setItem(ARRANGE_UI_KEY, JSON.stringify(ui));
+      storage.writeJson("overview-arrange-ui", ui, { version: 1 });
     }
 
     function syncStage() {
@@ -1031,7 +1034,7 @@ export default function OverviewArrangeModesRuntime() {
       window.removeEventListener("pointercancel", finishDrag, true);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [storage]);
 
   return null;
 }

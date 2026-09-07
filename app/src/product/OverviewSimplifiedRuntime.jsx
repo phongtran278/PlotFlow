@@ -1,20 +1,21 @@
 import { useEffect } from "react";
 import "./OverviewSimplifiedRuntime.css";
+import { useProjectContext } from "../project/ProjectContext.jsx";
 
 const SETTINGS_KEY = "phongflow-overview-v2-settings";
 
-function readSettings() {
-  try {
-    const value = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  } catch {
-    return {};
-  }
+function readSettings(storage) {
+  const value = storage.readJson("overview-connector-settings", {
+    version: 2,
+    legacyKey: SETTINGS_KEY,
+    fallback: {},
+  });
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
-function saveConnector({ width, color, opacity }) {
-  const next = { ...readSettings(), lineWidth: width, lineColor: color, lineOpacity: opacity };
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+function saveConnector(storage, { width, color, opacity }) {
+  const next = { ...readSettings(storage), lineWidth: width, lineColor: color, lineOpacity: opacity };
+  storage.writeJson("overview-connector-settings", next, { version: 2 });
 }
 
 function applyConnector(stage, width, color, opacity) {
@@ -30,6 +31,8 @@ function applyConnector(stage, width, color, opacity) {
 }
 
 export default function OverviewSimplifiedRuntime() {
+  const { storage } = useProjectContext();
+
   useEffect(() => {
     let stage = null;
     let installRaf = 0;
@@ -54,7 +57,7 @@ export default function OverviewSimplifiedRuntime() {
       if (oldStroke) oldStroke.style.display = "none";
 
       if (!control?.isConnected) {
-        const settings = readSettings();
+        const settings = readSettings(storage);
         const width = Number(settings.lineWidth) || 0.5;
         const color = settings.lineColor || "#e00000";
         const opacity = Number.isFinite(Number(settings.lineOpacity)) ? Number(settings.lineOpacity) : 1;
@@ -98,7 +101,7 @@ export default function OverviewSimplifiedRuntime() {
         };
         const persistConnector = () => {
           previewStyle = draftConnector();
-          saveConnector(previewStyle);
+          saveConnector(storage, previewStyle);
           applyConnector(stage, previewStyle.width, previewStyle.color, previewStyle.opacity);
         };
 
@@ -120,7 +123,7 @@ export default function OverviewSimplifiedRuntime() {
         applyConnector(stage, previewStyle.width, previewStyle.color, previewStyle.opacity);
       } else {
         if (!previewStyle) {
-          const settings = readSettings();
+          const settings = readSettings(storage);
           previewStyle = {
             width: Number(settings.lineWidth) || 0.5,
             color: settings.lineColor || "#e00000",
@@ -153,7 +156,7 @@ export default function OverviewSimplifiedRuntime() {
       window.removeEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
       control?.remove();
     };
-  }, []);
+  }, [storage]);
 
   return null;
 }
