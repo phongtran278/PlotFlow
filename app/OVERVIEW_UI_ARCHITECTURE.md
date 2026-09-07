@@ -242,3 +242,14 @@ Auto Arrange must only capture the live card/anchor layer that belongs to the cu
 - `OverviewArrangeModesRuntime` matches the active layer against `stage.dataset.overviewGroup`.
 - During the 170ms handover crossfade, Auto Arrange must never fall back to the outgoing group's layer.
 - If the user requests Auto Arrange before the incoming layer is ready, the request waits for the matching `pf-overview-live-units-ready` event and then opens on the correct group.
+
+
+## Auto Arrange connector-clearance semantics
+
+The connector validator separates impossible endpoint proximity from real visual conflicts.
+
+- Straight-line crossing and collinear overlap remain invalid over the full connector.
+- The 7px visual-clearance rule applies to the connector body.
+- A small terminal fan-in zone near each lot anchor is excluded from clearance distance because neighboring lots can have anchors closer than 7px by construction.
+- This prevents the solver from declaring a mathematically impossible conflict solely because two valid lot points are naturally adjacent.
+- Auto Arrange still never applies a true crossing or overlap.

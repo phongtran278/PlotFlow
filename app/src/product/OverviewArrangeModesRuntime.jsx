@@ -350,6 +350,26 @@ export default function OverviewArrangeModesRuntime() {
       );
     }
 
+    function trimmedSegmentForClearance(segment, bounds, cardTrimPx = 3, anchorTrimPx = 14) {
+      if (!segment || !bounds) return null;
+      const ax = segment.a.x * bounds.width;
+      const ay = segment.a.y * bounds.height;
+      const bx = segment.b.x * bounds.width;
+      const by = segment.b.y * bounds.height;
+      const length = Math.hypot(bx - ax, by - ay);
+      if (length <= cardTrimPx + anchorTrimPx + 2) return null;
+
+      const startT = clamp(cardTrimPx / length, 0, 0.45);
+      const endT = clamp(1 - anchorTrimPx / length, 0.55, 1);
+      if (endT <= startT) return null;
+
+      const pointAt = (t) => ({
+        x: segment.a.x + (segment.b.x - segment.a.x) * t,
+        y: segment.a.y + (segment.b.y - segment.a.y) * t,
+      });
+      return { code: segment.code, a: pointAt(startT), b: pointAt(endT) };
+    }
+
     function segmentsConflict(first, second, bounds) {
       if (!first || !second || first.code === second.code) return false;
       const a = first.a; const b = first.b; const c = second.a; const d = second.b;
@@ -366,7 +386,15 @@ export default function OverviewArrangeModesRuntime() {
         || (Math.abs(o3) <= epsilon && pointOnSegment(c, d, a, epsilon))
         || (Math.abs(o4) <= epsilon && pointOnSegment(c, d, b, epsilon));
       if (exactOverlap) return true;
-      return bounds ? segmentDistancePx(first, second, bounds) < 7 : false;
+
+      if (!bounds) return false;
+      const firstBody = trimmedSegmentForClearance(first, bounds);
+      const secondBody = trimmedSegmentForClearance(second, bounds);
+      if (!firstBody || !secondBody) return false;
+
+      // Clearance is a body-of-line rule. Adjacent lots can have naturally close
+      // endpoints, so a short fan-in zone near each anchor is intentionally ignored.
+      return segmentDistancePx(firstBody, secondBody, bounds) < 7;
     }
 
     function countConnectorCrossings(layout) {
@@ -566,7 +594,7 @@ export default function OverviewArrangeModesRuntime() {
       if (!footer) return;
       const resolved = Math.round(resolvedGapPx * 10) / 10;
       const lanes = resolvedLaneCount > 2 ? ` · ${resolvedLaneCount} lanes` : "";
-      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector conflicts after clamp" : ` · ${resolvedCrossings} crossing${resolvedCrossings === 1 ? "" : "s"} after clamp · fix required`;
+      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector conflicts after clamp" : ` · ${resolvedCrossings} connector conflict${resolvedCrossings === 1 ? "" : "s"} after clamp · resolving`;
       const fallback = usedSafetyFallback ? " · conflict-safe fallback" : "";
       footer.textContent = resolved + 0.05 < ui.gap
         ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px gap fits${lanes}${crossingStatus}${fallback} · preview only`
