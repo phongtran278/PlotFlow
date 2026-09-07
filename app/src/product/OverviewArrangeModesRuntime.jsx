@@ -371,6 +371,21 @@ export default function OverviewArrangeModesRuntime() {
       return count;
     }
 
+    function connectorConflictCodes(layout) {
+      const bounds = pdfBounds();
+      const codes = new Set();
+      if (!bounds) return codes;
+      const segments = items.map((item) => connectorSegment(item, layout[item.code], bounds)).filter(Boolean);
+      for (let i = 0; i < segments.length; i += 1) {
+        for (let j = i + 1; j < segments.length; j += 1) {
+          if (!segmentsConflict(segments[i], segments[j], bounds)) continue;
+          codes.add(segments[i].code);
+          codes.add(segments[j].code);
+        }
+      }
+      return codes;
+    }
+
     function layoutDistance(layout) {
       return items.reduce((sum, item) => {
         const point = layout[item.code];
@@ -424,6 +439,70 @@ export default function OverviewArrangeModesRuntime() {
       }, 0);
     }
 
+    function groupSignature(groups) {
+      const left = (groups.left || []).map((item) => item.code).sort().join(",");
+      const right = (groups.right || []).map((item) => item.code).sort().join(",");
+      return `L:${left}|R:${right}`;
+    }
+
+    function flipGroup(groups, code) {
+      const left = [...(groups.left || [])];
+      const right = [...(groups.right || [])];
+      const leftIndex = left.findIndex((item) => item.code === code);
+      const rightIndex = right.findIndex((item) => item.code === code);
+      if (leftIndex >= 0) right.push(left.splice(leftIndex, 1)[0]);
+      else if (rightIndex >= 0) left.push(right.splice(rightIndex, 1)[0]);
+      return { left, right };
+    }
+
+    function boundedConflictSafeCandidates(selectedMode, sorted) {
+      const seeds = [
+        split(sorted, selectedMode),
+        crossingSafeSplit(sorted),
+        { left: [...sorted], right: [] },
+        { left: [], right: [...sorted] },
+      ];
+      const seen = new Set();
+      const accepted = [];
+      let frontier = seeds;
+      let budget = Math.max(72, Math.min(220, sorted.length * 14));
+
+      for (let round = 0; round < 7 && frontier.length && budget > 0; round += 1) {
+        const evaluated = [];
+        for (const groups of frontier) {
+          if (budget <= 0) break;
+          const signature = groupSignature(groups);
+          if (seen.has(signature)) continue;
+          seen.add(signature);
+          budget -= 1;
+
+          const candidate = solveCandidate(groups, selectedMode);
+          candidate.modePenalty = candidateModePenalty(candidate, selectedMode);
+          evaluated.push({ groups, candidate });
+          accepted.push(candidate);
+        }
+
+        const zero = evaluated.filter((entry) => entry.candidate.crossings === 0);
+        if (zero.length) break;
+
+        evaluated.sort((a, b) => (
+          a.candidate.crossings - b.candidate.crossings
+          || a.candidate.modePenalty - b.candidate.modePenalty
+          || a.candidate.distance - b.candidate.distance
+          || a.candidate.lanes - b.candidate.lanes
+        ));
+
+        const next = [];
+        evaluated.slice(0, 6).forEach(({ groups, candidate }) => {
+          const conflicted = [...connectorConflictCodes(candidate.draft)].slice(0, 12);
+          conflicted.forEach((code) => next.push(flipGroup(groups, code)));
+        });
+        frontier = next;
+      }
+
+      return accepted;
+    }
+
     function conflictSafeCandidates(selectedMode) {
       const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
       const candidates = [];
@@ -436,8 +515,9 @@ export default function OverviewArrangeModesRuntime() {
           sorted.forEach((item, index) => ((mask >> index) & 1 ? right : left).push(item));
           candidates.push(solveCandidate({ left, right }, selectedMode));
         }
+        return candidates;
       }
-      return candidates;
+      return boundedConflictSafeCandidates(selectedMode, sorted);
     }
     function buildDraft(selectedMode) {
       mode = selectedMode;
@@ -463,9 +543,10 @@ export default function OverviewArrangeModesRuntime() {
     function updateApplyState() {
       const apply = overlay?.querySelector("[data-arrange-apply]");
       if (!apply) return;
-      apply.disabled = resolvedCrossings > 0;
+      apply.disabled = false;
+      apply.textContent = resolvedCrossings > 0 ? "Resolve & apply" : "Apply layout";
       apply.title = resolvedCrossings > 0
-        ? "Resolve connector conflicts before applying this layout"
+        ? "Try one more conflict-safe solve, then apply only if the layout is safe"
         : "Apply conflict-safe layout";
     }
 
@@ -603,8 +684,26 @@ export default function OverviewArrangeModesRuntime() {
 
     function applyDraft() {
       resolvedCrossings = countConnectorCrossings(draft);
-      updateFooter();
-      if (resolvedCrossings > 0) return;
+      if (resolvedCrossings > 0) {
+        const rescue = conflictSafeCandidates(mode)
+          .map((candidate) => ({ ...candidate, modePenalty: candidateModePenalty(candidate, mode) }))
+          .filter((candidate) => candidate.crossings === 0)
+          .sort((a, b) => a.modePenalty - b.modePenalty || a.distance - b.distance || a.lanes - b.lanes)[0];
+
+        if (rescue) {
+          draft = rescue.draft;
+          resolvedGapPx = rescue.gap;
+          resolvedLaneCount = rescue.lanes;
+          resolvedCrossings = 0;
+          usedSafetyFallback = true;
+          renderDraft();
+        } else {
+          const footer = overlay?.querySelector("footer>span");
+          if (footer) footer.textContent = `${items.length} cards · ${resolvedCrossings} connector conflict${resolvedCrossings === 1 ? "" : "s"} remain · choose another mode or drag a card`;
+          updateApplyState();
+          return;
+        }
+      }
       const bounds = pdfBounds();
       if (!bounds) return;
       const safe = safeArea(bounds);
@@ -659,7 +758,7 @@ export default function OverviewArrangeModesRuntime() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>The top banner area is reserved. Connector crossings are treated as invalid; dense layouts add lanes or fall back to a conflict-safe side before Apply is enabled.</small>
+              <small>The top banner area is reserved. Connector conflicts are never applied; dense layouts use a bounded conflict-safe search and can retry once when you Apply.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>
