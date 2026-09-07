@@ -45,12 +45,23 @@ export default function OverviewArrangeModesRuntime() {
     let resolvedCrossings = 0;
     let usedSafetyFallback = false;
     let previewConnectorRaf = 0;
+    let pendingOpenGroup = "";
     const ui = readArrangeUi();
+
+    function currentGroup() {
+      return String(stage?.dataset?.overviewGroup || "").trim();
+    }
 
     function activeLayer() {
       if (!stage) return null;
-      return stage.querySelector(".pf-live-overview-callouts:not(.pf-callouts-leaving)")
-        || stage.querySelector(".pf-live-overview-callouts");
+      const group = currentGroup();
+      if (!group) {
+        return stage.querySelector(".pf-live-overview-callouts:not(.pf-callouts-leaving)")
+          || stage.querySelector(".pf-live-overview-callouts");
+      }
+      return Array.from(stage.querySelectorAll(".pf-live-overview-callouts:not(.pf-callouts-leaving)"))
+        .find((node) => String(node.dataset.overviewGroup || "").trim() === group)
+        || null;
     }
 
     const cards = () => {
@@ -746,8 +757,17 @@ export default function OverviewArrangeModesRuntime() {
 
     function openPreview() {
       if (disposed || !syncStage()) return;
+      const layer = activeLayer();
+      if (!layer) {
+        pendingOpenGroup = currentGroup();
+        return;
+      }
       items = captureItems();
-      if (!items.length) return;
+      if (!items.length) {
+        pendingOpenGroup = currentGroup();
+        return;
+      }
+      pendingOpenGroup = "";
       closePreview();
       overlay = document.createElement("div");
       overlay.className = "pf-arrange-preview-overlay";
@@ -818,17 +838,30 @@ export default function OverviewArrangeModesRuntime() {
     }
 
     function onRequest() {
+      pendingOpenGroup = "";
       openPreview();
     }
 
     function onGroupChanged() {
+      pendingOpenGroup = "";
       closePreview();
       syncStage();
+    }
+
+    function onLiveUnitsReady(event) {
+      if (!pendingOpenGroup) return;
+      syncStage();
+      const readyGroup = String(event?.detail?.group || "").trim();
+      if (readyGroup !== pendingOpenGroup || currentGroup() !== pendingOpenGroup) return;
+      window.requestAnimationFrame(() => {
+        if (!disposed && pendingOpenGroup === readyGroup) openPreview();
+      });
     }
 
     syncStage();
     window.addEventListener("pf-overview-arrange-preview-request", onRequest);
     window.addEventListener("pf-overview-group-changed", onGroupChanged);
+    window.addEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
     window.addEventListener("pointermove", onPointerMove, true);
     window.addEventListener("pointerup", finishDrag, true);
     window.addEventListener("pointercancel", finishDrag, true);
@@ -839,6 +872,7 @@ export default function OverviewArrangeModesRuntime() {
       closePreview();
       window.removeEventListener("pf-overview-arrange-preview-request", onRequest);
       window.removeEventListener("pf-overview-group-changed", onGroupChanged);
+      window.removeEventListener("pf-overview-live-units-ready", onLiveUnitsReady);
       window.removeEventListener("pointermove", onPointerMove, true);
       window.removeEventListener("pointerup", finishDrag, true);
       window.removeEventListener("pointercancel", finishDrag, true);

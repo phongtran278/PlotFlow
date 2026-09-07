@@ -232,3 +232,13 @@ Final QA contract:
 - CI proves build/lint only; exact production runtime remains the final acceptance gate.
 
 Once the toolbar click regression is confirmed on the exact live commit, Overview can leave active feature development and move to maintenance / regression-only status.
+
+
+## Auto Arrange handover-group safety
+
+Auto Arrange must only capture the live card/anchor layer that belongs to the currently selected handover group.
+
+- Each live callout layer carries `data-overview-group`.
+- `OverviewArrangeModesRuntime` matches the active layer against `stage.dataset.overviewGroup`.
+- During the 170ms handover crossfade, Auto Arrange must never fall back to the outgoing group's layer.
+- If the user requests Auto Arrange before the incoming layer is ready, the request waits for the matching `pf-overview-live-units-ready` event and then opens on the correct group.

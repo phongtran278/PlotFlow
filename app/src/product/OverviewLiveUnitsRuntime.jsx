@@ -236,6 +236,7 @@ export default function OverviewLiveUnitsRuntime() {
       const groupScale = readGroupScale(group);
       const previousLayer = layer;
       const nextLayer = makeNode("div", "pf-callout-layer pf-live-overview-callouts pf-callouts-entering");
+      nextLayer.dataset.overviewGroup = group;
       nextLayer.style.visibility = "hidden";
       nextLayer.setAttribute("aria-label", `Overview sell cards · ${group || "all"}`);
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
