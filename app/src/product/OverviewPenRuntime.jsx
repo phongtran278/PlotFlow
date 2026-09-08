@@ -98,6 +98,7 @@ export default function OverviewPenRuntime() {
     let active = false;
     let draft = [];
     let vertexDrag = null;
+    let transformDrag = null;
     let shapes = readShapes(storage);
     let currentStyle = readStyle(storage);
     let selectedId = shapes.at(-1)?.id || null;
@@ -126,6 +127,18 @@ export default function OverviewPenRuntime() {
 
     function selectedShape() {
       return shapes.find((shape) => String(shape.id) === String(selectedId)) || null;
+    }
+
+    function shapeBounds(points = []) {
+      if (!points.length) return null;
+      const xs = points.map((point) => point.x);
+      const ys = points.map((point) => point.y);
+      return {
+        minX: Math.min(...xs),
+        maxX: Math.max(...xs),
+        minY: Math.min(...ys),
+        maxY: Math.max(...ys),
+      };
     }
 
     function syncStyleControls() {
@@ -169,12 +182,91 @@ export default function OverviewPenRuntime() {
       };
     }
 
+    function replaceSelectedPoints(points, persist = false) {
+      const shapeIndex = shapes.findIndex((shape) => String(shape.id) === String(selectedId));
+      if (shapeIndex < 0) return;
+      const shape = shapes[shapeIndex];
+      shapes = shapes.map((item, indexShape) => indexShape === shapeIndex ? { ...shape, points: points.map(normalizePoint) } : item);
+      if (persist) saveShapes(storage, shapes);
+      render();
+    }
+
     function updateSelectedVertex(index, point) {
       const shapeIndex = shapes.findIndex((shape) => String(shape.id) === String(selectedId));
       if (shapeIndex < 0 || !point) return;
       const shape = shapes[shapeIndex];
       const points = shape.points.map((current, pointIndex) => pointIndex === index ? normalizePoint(point) : current);
       shapes = shapes.map((item, indexShape) => indexShape === shapeIndex ? { ...shape, points } : item);
+      saveShapes(storage, shapes);
+      render();
+      emitHighlightsChanged();
+    }
+
+    function startTransformDrag(kind, handle, event) {
+      if (event.button !== 0) return;
+      const shape = selectedShape();
+      const bounds = shapeBounds(shape?.points);
+      const start = worldPoint(event);
+      if (!shape || !bounds || !start) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      transformDrag = {
+        kind,
+        handle,
+        pointerId: event.pointerId,
+        start,
+        bounds,
+        points: shape.points.map((point) => ({ ...point })),
+      };
+      stage?.classList.add("pf-highlight-transforming");
+      window.addEventListener("pointermove", onTransformPointerMove, true);
+      window.addEventListener("pointerup", onTransformPointerUp, true);
+      window.addEventListener("pointercancel", onTransformPointerUp, true);
+    }
+
+    function transformedPoints(point) {
+      if (!transformDrag || !point) return null;
+      const { kind, handle, start, bounds, points } = transformDrag;
+      if (kind === "move") {
+        const rawDx = point.x - start.x;
+        const rawDy = point.y - start.y;
+        const dx = Math.max(-bounds.minX, Math.min(100 - bounds.maxX, rawDx));
+        const dy = Math.max(-bounds.minY, Math.min(100 - bounds.maxY, rawDy));
+        return points.map((item) => ({ x: item.x + dx, y: item.y + dy }));
+      }
+
+      const minSize = 0.5;
+      let { minX, maxX, minY, maxY } = bounds;
+      if (handle.includes("w")) minX = Math.min(point.x, maxX - minSize);
+      if (handle.includes("e")) maxX = Math.max(point.x, minX + minSize);
+      if (handle.includes("n")) minY = Math.min(point.y, maxY - minSize);
+      if (handle.includes("s")) maxY = Math.max(point.y, minY + minSize);
+      const sourceWidth = Math.max(minSize, bounds.maxX - bounds.minX);
+      const sourceHeight = Math.max(minSize, bounds.maxY - bounds.minY);
+      const nextWidth = Math.max(minSize, maxX - minX);
+      const nextHeight = Math.max(minSize, maxY - minY);
+      return points.map((item) => ({
+        x: minX + ((item.x - bounds.minX) / sourceWidth) * nextWidth,
+        y: minY + ((item.y - bounds.minY) / sourceHeight) * nextHeight,
+      }));
+    }
+
+    function onTransformPointerMove(event) {
+      if (!transformDrag || event.pointerId !== transformDrag.pointerId) return;
+      event.preventDefault();
+      const next = transformedPoints(worldPoint(event));
+      if (next) replaceSelectedPoints(next, false);
+    }
+
+    function onTransformPointerUp(event) {
+      if (!transformDrag || event.pointerId !== transformDrag.pointerId) return;
+      event.preventDefault();
+      transformDrag = null;
+      stage?.classList.remove("pf-highlight-transforming");
+      window.removeEventListener("pointermove", onTransformPointerMove, true);
+      window.removeEventListener("pointerup", onTransformPointerUp, true);
+      window.removeEventListener("pointercancel", onTransformPointerUp, true);
       saveShapes(storage, shapes);
       render();
       emitHighlightsChanged();
@@ -210,6 +302,32 @@ export default function OverviewPenRuntime() {
 
       const selected = selectedShape();
       if (!selected) return;
+      const bounds = shapeBounds(selected.points);
+      if (bounds) {
+        const topLeft = screenPoint({ x: bounds.minX, y: bounds.minY });
+        const bottomRight = screenPoint({ x: bounds.maxX, y: bounds.maxY });
+        const box = document.createElement("div");
+        box.className = "pf-pen-transform-box";
+        box.style.left = `${topLeft.x}px`;
+        box.style.top = `${topLeft.y}px`;
+        box.style.width = `${Math.max(1, bottomRight.x - topLeft.x)}px`;
+        box.style.height = `${Math.max(1, bottomRight.y - topLeft.y)}px`;
+        box.title = "Drag to move highlight";
+        box.addEventListener("pointerdown", (event) => startTransformDrag("move", "move", event));
+        const handles = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+        handles.forEach((handle) => {
+          const node = document.createElement("button");
+          node.type = "button";
+          node.className = `pf-pen-transform-handle is-${handle}`;
+          node.dataset.transformHandle = handle;
+          node.title = `Resize highlight (${handle.toUpperCase()})`;
+          node.setAttribute("aria-label", `Resize highlight from ${handle}`);
+          node.addEventListener("pointerdown", (event) => startTransformDrag("resize", handle, event));
+          box.appendChild(node);
+        });
+        anchorLayer.appendChild(box);
+      }
+
       selected.points.forEach((point, index) => {
         const pos = screenPoint(point);
         const node = document.createElement("button");
@@ -628,6 +746,10 @@ export default function OverviewPenRuntime() {
       window.removeEventListener("pf-overview-select-highlight", onSelectHighlight);
       window.removeEventListener("pf-overview-delete-highlight", onDeleteHighlight);
       window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("pointermove", onTransformPointerMove, true);
+      window.removeEventListener("pointerup", onTransformPointerUp, true);
+      window.removeEventListener("pointercancel", onTransformPointerUp, true);
+      stage?.classList.remove("pf-highlight-transforming");
       detachStage();
       layer?.remove();
       anchorLayer?.remove();
