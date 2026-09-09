@@ -463,18 +463,23 @@ export default function OverviewPenRuntime() {
     }
 
     function onPointerDown(event) {
-      if (!active || event.button !== 0 || !stage?.contains(event.target)) return;
+      if (event.button !== 0 || !stage?.contains(event.target)) return;
       if (event.target.closest?.(".pf-overview-control-rail,.pf-overview-zoom-toolbar,.pf-unit-navigator,.pf-overview-v2-controls,.pf-pen-style-menu,.pf-pen-screen-anchor-layer")) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation?.();
 
       const shapeNode = event.target.closest?.("[data-pen-shape-id]");
-      if (shapeNode) {
+      if (shapeNode && !draft.length) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
         selectShape(shapeNode.dataset.penShapeId);
+        startTransformDrag("move", "move", event);
         return;
       }
 
+      if (!active) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
       const point = worldPoint(event);
       if (!point) return;
       draft.push(point);
