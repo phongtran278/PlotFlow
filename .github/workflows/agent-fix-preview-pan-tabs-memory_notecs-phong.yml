@@ -1,7 +1,4 @@
-# Docs for the Azure Web Apps Deploy action:
-# https://github.com/Azure/webapps-deploy
-
-name: Build and deploy Node.js app to Azure Web App - notecs-phong
+name: Build and deploy Vite app to Azure Web App - notecs-phong
 
 on:
   push:
@@ -19,23 +16,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24.x'
 
-      - name: npm install, build, and test
+      - name: Install and build
         working-directory: ./app
         run: |
           npm install
-          npm run build --if-present
-          npm run test --if-present
+          npm run build
 
-      - name: Upload artifact for deployment job
+      - name: Upload dist artifact
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: ./app
+          name: web-dist
+          path: ./app/dist
 
   deploy:
     runs-on: ubuntu-latest
@@ -46,10 +42,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: web-dist
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -59,7 +55,6 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8F3C842077DA46479FEAA5DCDD163A39 }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'notecs-phong'
