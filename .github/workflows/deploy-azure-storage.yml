@@ -1,6 +1,9 @@
 name: Deploy PlotFlow to Azure Storage
 
 on:
+  push:
+    branches:
+      - agent/fix-preview-pan-tabs-memory
   workflow_dispatch:
 
 jobs:
