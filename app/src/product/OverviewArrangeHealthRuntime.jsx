@@ -42,7 +42,7 @@ export default function OverviewArrangeHealthRuntime() {
         .pf-arrange-health[data-state="ready"] .pf-arrange-health-badge{background:#eaf8f0;color:#157347}
         .pf-arrange-health[data-state="tight"] .pf-arrange-health-badge{background:#fff4df;color:#9a6700}
         .pf-arrange-health[data-state="blocked"] .pf-arrange-health-badge{background:#fff0ee;color:#b42318}
-        .pf-arrange-health p{margin:0;font-size:7.5px;line-height:1.35;color:var(--pf-muted)}
+        .pf-arrange-health p{margin:0;font-size:7.5px;line-height:1.4;color:var(--pf-muted)}
         .pf-arrange-health p b{color:var(--pf-ink);font-weight:800}
         .pf-arrange-health button{min-height:28px!important;justify-content:center!important;margin-top:1px;background:#fff!important;font-size:7.5px!important;font-weight:800!important}
       `;
@@ -82,6 +82,9 @@ export default function OverviewArrangeHealthRuntime() {
       const requestedGap = Number(gapInput.value) || 0;
       const fittedGap = numberFrom(footerText, /([0-9.]+)px gap fits/);
       const lanes = numberFrom(footerText, /·\s*([0-9]+) lanes/);
+      const connectorConflicts = numberFrom(footerText, /·\s*([0-9]+) connector conflict/);
+      const cardOverlaps = numberFrom(footerText, /·\s*([0-9]+) card overlap/);
+      const modeViolations = numberFrom(footerText, /·\s*([0-9]+) mode-fit violation/);
       const fallback = footerText.includes("conflict-safe fallback");
       const fix = health.querySelector("[data-health-fix]");
       const badge = health.querySelector(".pf-arrange-health-badge");
@@ -90,14 +93,33 @@ export default function OverviewArrangeHealthRuntime() {
 
       if (!feasible.length) {
         health.dataset.state = "blocked";
-        badge.textContent = "NOT FEASIBLE";
-        reason.innerHTML = `<b>${buttons.length ? "No layout mode can satisfy the current geometry." : "Layout cannot be evaluated."}</b> Zero-overlap and zero-connector-conflict rules are being protected.`;
-        suggestion.innerHTML = requestedGap > 0
-          ? `Try <b>Gap 0 px</b> first. If it is still unavailable, reduce card scale/width before retrying.`
-          : `Gap is already <b>0 px</b>. Reduce card scale/width, then reopen Auto Arrange.`;
+        badge.textContent = "BLOCKED";
+
+        if ((connectorConflicts || 0) > 0 && (cardOverlaps || 0) === 0) {
+          reason.innerHTML = `<b>Card size is not the blocker.</b> The current preview still has <b>${connectorConflicts} connector conflict${connectorConflicts === 1 ? "" : "s"}</b>.`;
+          suggestion.innerHTML = `Keep the card size as-is. The problem is routing geometry, so changing card scale smaller is unlikely to help. Try another side/balance mode or refine the preview positions.`;
+          if (fix) fix.hidden = true;
+          return;
+        }
+
+        if ((cardOverlaps || 0) > 0) {
+          reason.innerHTML = `<b>${cardOverlaps} card overlap${cardOverlaps === 1 ? "" : "s"}</b> remain in the best preview${(connectorConflicts || 0) > 0 ? `, plus ${connectorConflicts} connector conflict${connectorConflicts === 1 ? "" : "s"}` : ""}.`;
+          suggestion.innerHTML = requestedGap > 0
+            ? `First try <b>Gap 0 px</b>. Only consider reducing card scale if overlap still remains at 0 px.`
+            : `Gap is already <b>0 px</b>. This is a real packing constraint, not a generic “make cards smaller” warning.`;
+        } else if ((modeViolations || 0) > 0) {
+          reason.innerHTML = `<b>The selected side rule is the blocker.</b> ${modeViolations} card${modeViolations === 1 ? "" : "s"} cannot fit that mode without crossing the center boundary.`;
+          suggestion.innerHTML = `Use <b>Smart L/R</b>, <b>Balanced</b>, or <b>Compact</b> instead of forcing every card to one side.`;
+        } else {
+          reason.innerHTML = `<b>No conflict-safe solution was found for this geometry.</b>`;
+          suggestion.innerHTML = requestedGap > 0
+            ? `Try <b>Gap 0 px</b> once. If it is still blocked, the issue is geometry/routing rather than simply card size.`
+            : `Gap is already <b>0 px</b>. Keep card size unchanged and adjust the distribution/preview instead.`;
+        }
+
         if (fix) {
-          fix.hidden = requestedGap <= 0;
-          fix.textContent = "Set gap to 0 px";
+          fix.hidden = requestedGap <= 0 || (cardOverlaps || 0) === 0;
+          fix.textContent = "Try gap 0 px";
           health.dataset.fixGap = "0";
         }
         return;
@@ -109,9 +131,9 @@ export default function OverviewArrangeHealthRuntime() {
         health.dataset.state = "tight";
         badge.textContent = "TIGHT";
         reason.innerHTML = Number.isFinite(fittedGap) && fittedGap + 0.05 < requestedGap
-          ? `Requested <b>${requestedGap}px</b>; the safe solution fits about <b>${fittedGap}px</b>.`
-          : `A conflict-safe layout exists, but it needs ${lanes && lanes > 2 ? `<b>${lanes} lanes</b>` : "a fallback arrangement"}.`;
-        suggestion.innerHTML = `Available now: <b>${availableNames}</b>.${Number.isFinite(fittedGap) && fittedGap + 0.05 < requestedGap ? " Use the fitted gap for a more predictable result." : ""}`;
+          ? `Requested <b>${requestedGap}px</b>; the conflict-safe solution fits about <b>${fittedGap}px</b>.`
+          : `A conflict-safe layout exists, but it needs ${lanes && lanes > 2 ? `<b>${lanes} lanes</b>` : "an alternate safe arrangement"}.`;
+        suggestion.innerHTML = `Available now: <b>${availableNames}</b>. Card size does not need to change unless the preview actually reports card overlap.`;
         if (fix) {
           const safeGap = Number.isFinite(fittedGap) ? fittedGap : requestedGap;
           fix.hidden = !Number.isFinite(fittedGap) || fittedGap + 0.05 >= requestedGap;
