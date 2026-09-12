@@ -25,6 +25,11 @@ export default function OverviewArrangeAutoFitRuntime() {
     let session = null;
     let internalReopen = false;
     let raf = 0;
+    const scanClass = "pf-arrange-autofit-scanning";
+    const style = document.createElement("style");
+    style.dataset.pfArrangeAutofit = "1";
+    style.textContent = `body.${scanClass} .pf-arrange-preview-overlay{visibility:hidden!important;pointer-events:none!important;}`;
+    document.head.appendChild(style);
 
     const stage = () => document.querySelector(".pf-masterplan-stage.has-real-pdf.has-callouts");
     const overlay = () => document.querySelector(".pf-arrange-preview-overlay");
@@ -44,6 +49,23 @@ export default function OverviewArrangeAutoFitRuntime() {
       return clamp(Number.isFinite(raw) ? raw : 1, 0.2, 2.2);
     }
 
+    function currentGap(root = overlay()) {
+      const raw = Number(root?.querySelector("[data-arrange-gap]")?.value);
+      return Number.isFinite(raw) ? clamp(raw, 0, 120) : 14;
+    }
+
+    function gapSteps(originalGap) {
+      const candidates = [originalGap, Math.min(originalGap, 10), Math.min(originalGap, 6), Math.min(originalGap, 2), 0];
+      return candidates.filter((value, index, list) => list.findIndex((item) => Math.abs(item - value) < 0.1) === index);
+    }
+
+    function scheduleInspect() {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        raf = requestAnimationFrame(inspect);
+      });
+    }
+
     function applyTemporaryScale(scale) {
       const next = clamp(scale, 0.2, 2.2);
       cards().forEach((card) => {
@@ -52,6 +74,15 @@ export default function OverviewArrangeAutoFitRuntime() {
         card.style.scale = String(next);
       });
       window.dispatchEvent(new CustomEvent("pf-overview-connector-geometry-request"));
+    }
+
+    function setGap(root, value) {
+      const input = root?.querySelector("[data-arrange-gap]");
+      if (!input) return false;
+      const next = clamp(value, 0, 120);
+      input.value = String(next);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
     }
 
     function persistScale(scale) {
@@ -66,9 +97,15 @@ export default function OverviewArrangeAutoFitRuntime() {
       });
     }
 
+    function stopScanning() {
+      document.body.classList.remove(scanClass);
+    }
+
     function restoreOriginal() {
       if (!session || session.committed) return;
       applyTemporaryScale(session.originalScale);
+      const root = overlay();
+      if (root) setGap(root, session.originalGap);
     }
 
     function closeForRetry() {
@@ -85,19 +122,56 @@ export default function OverviewArrangeAutoFitRuntime() {
 
     function markAutoFit(root) {
       if (!session || !root) return;
+      stopScanning();
       const percent = Math.round(session.testScale * 100);
+      const gap = session.testGap;
       root.dataset.autoFitScale = String(percent);
+      root.dataset.autoFitGap = String(gap);
       const footer = root.querySelector("footer>span");
-      if (footer && percent !== Math.round(session.originalScale * 100) && !footer.textContent.includes("Auto-fit")) {
-        footer.textContent = `${footer.textContent} · Auto-fit ${percent}%`;
+      const adjustments = [];
+      if (percent !== Math.round(session.originalScale * 100)) adjustments.push(`Auto-fit ${percent}%`);
+      if (Math.abs(gap - session.originalGap) > 0.1) adjustments.push(`${gap}px gap`);
+      if (footer && adjustments.length && !footer.textContent.includes("Auto-fit")) {
+        footer.textContent = `${footer.textContent} · ${adjustments.join(" · ")}`;
       }
       const health = root.querySelector(".pf-arrange-health");
       if (health) {
         const badge = health.querySelector(".pf-arrange-health-badge");
         const suggestion = health.querySelector("[data-health-suggestion]");
         if (badge) badge.textContent = "AUTO FIT";
-        if (suggestion) suggestion.innerHTML = `PlotFlow found a conflict-safe layout at <b>${percent}% card scale</b>. Apply it, then fine-tune manually if needed.`;
+        if (suggestion) suggestion.innerHTML = `PlotFlow found a zero-conflict layout at <b>${percent}% card scale</b> with <b>${gap}px gap</b>. Apply it, then fine-tune manually if needed.`;
       }
+    }
+
+    function markExhausted(root) {
+      stopScanning();
+      if (!root || !session) return;
+      const health = root.querySelector(".pf-arrange-health");
+      const suggestion = health?.querySelector("[data-health-suggestion]");
+      if (suggestion) suggestion.textContent = "Auto-fit checked the safe card-scale and spacing range but this geometry still has no zero-conflict layout.";
+    }
+
+    function advanceGap(root) {
+      if (!session || session.gapIndex + 1 >= session.gaps.length) return false;
+      session.gapIndex += 1;
+      session.testGap = session.gaps[session.gapIndex];
+      if (!setGap(root, session.testGap)) return false;
+      scheduleInspect();
+      return true;
+    }
+
+    function advanceScale() {
+      if (!session || session.scaleIndex + 1 >= session.scales.length) return false;
+      session.scaleIndex += 1;
+      session.testScale = session.scales[session.scaleIndex];
+      session.gapIndex = 0;
+      session.testGap = session.gaps[0];
+      applyTemporaryScale(session.testScale);
+      if (!closeForRetry()) return false;
+      raf = requestAnimationFrame(() => {
+        raf = requestAnimationFrame(() => reopen());
+      });
+      return true;
     }
 
     function inspect() {
@@ -109,45 +183,47 @@ export default function OverviewArrangeAutoFitRuntime() {
         markAutoFit(root);
         return;
       }
-
-      session.step += 1;
-      if (session.step >= session.scales.length) {
-        const health = root.querySelector(".pf-arrange-health");
-        const suggestion = health?.querySelector("[data-health-suggestion]");
-        if (suggestion) suggestion.textContent = "Auto-fit tried the safe scale range but this geometry still has no zero-conflict solution. Manual refinement is required.";
-        return;
-      }
-
-      session.testScale = session.scales[session.step];
-      applyTemporaryScale(session.testScale);
-      if (!closeForRetry()) return;
-      raf = requestAnimationFrame(() => {
-        raf = requestAnimationFrame(() => reopen());
-      });
+      if (advanceGap(root)) return;
+      if (advanceScale()) return;
+      markExhausted(root);
     }
 
     function startSession() {
+      const root = overlay();
       const originalScale = currentScale();
+      const originalGap = currentGap(root);
       const scales = [];
       SCALE_STEPS.forEach((factor) => {
         const next = clamp(originalScale * factor, 0.2, originalScale);
         if (!scales.some((value) => Math.abs(value - next) < 0.005)) scales.push(next);
       });
       if (!scales.some((value) => Math.abs(value - 0.2) < 0.005)) scales.push(0.2);
-      session = { originalScale, scales, step: 0, testScale: scales[0], committed: false };
+      const gaps = gapSteps(originalGap);
+      session = {
+        originalScale,
+        originalGap,
+        scales,
+        gaps,
+        scaleIndex: 0,
+        gapIndex: 0,
+        testScale: scales[0],
+        testGap: gaps[0],
+        committed: false,
+      };
+      document.body.classList.add(scanClass);
     }
 
     function onArrangeRequest() {
       if (internalReopen) {
         internalReopen = false;
+        const root = overlay();
+        if (root && session) setGap(root, session.testGap);
       } else {
         restoreOriginal();
+        stopScanning();
         startSession();
       }
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        raf = requestAnimationFrame(inspect);
-      });
+      scheduleInspect();
     }
 
     function onClick(event) {
@@ -156,12 +232,14 @@ export default function OverviewArrangeAutoFitRuntime() {
       if (event.target.closest?.("[data-arrange-apply]")) {
         persistScale(session.testScale);
         session.committed = true;
+        stopScanning();
         window.setTimeout(() => { session = null; }, 0);
         return;
       }
       if (internalReopen) return;
       if (event.target.closest?.("[data-arrange-close],[data-arrange-cancel]") || event.target === root) {
         restoreOriginal();
+        stopScanning();
         session = null;
       }
     }
@@ -169,11 +247,13 @@ export default function OverviewArrangeAutoFitRuntime() {
     function onKeyDown(event) {
       if (event.key !== "Escape" || !overlay() || !session) return;
       restoreOriginal();
+      stopScanning();
       session = null;
     }
 
     function onGroupChanged() {
       if (session) restoreOriginal();
+      stopScanning();
       session = null;
       internalReopen = false;
     }
@@ -186,6 +266,8 @@ export default function OverviewArrangeAutoFitRuntime() {
     return () => {
       cancelAnimationFrame(raf);
       restoreOriginal();
+      stopScanning();
+      style.remove();
       window.removeEventListener("pf-overview-arrange-preview-request", onArrangeRequest);
       document.removeEventListener("click", onClick, true);
       window.removeEventListener("keydown", onKeyDown, true);
