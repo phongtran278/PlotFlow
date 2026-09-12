@@ -380,7 +380,16 @@ export default function OverviewArrangeModesRuntime() {
 
     function segmentsConflict(first, second, bounds) {
       if (!first || !second || first.code === second.code) return false;
-      const a = first.a; const b = first.b; const c = second.a; const d = second.b;
+
+      // Connector endpoints around neighbouring lots naturally fan in. Evaluate
+      // crossings/overlaps on the connector bodies after trimming the short zones
+      // beside the card and anchor; do not reject an otherwise safe layout because
+      // two lines touch only inside those endpoint zones.
+      const firstBody = bounds ? trimmedSegmentForClearance(first, bounds) : first;
+      const secondBody = bounds ? trimmedSegmentForClearance(second, bounds) : second;
+      if (!firstBody || !secondBody) return false;
+
+      const a = firstBody.a; const b = firstBody.b; const c = secondBody.a; const d = secondBody.b;
       const o1 = segmentOrientation(a, b, c);
       const o2 = segmentOrientation(a, b, d);
       const o3 = segmentOrientation(c, d, a);
@@ -396,12 +405,6 @@ export default function OverviewArrangeModesRuntime() {
       if (exactOverlap) return true;
 
       if (!bounds) return false;
-      const firstBody = trimmedSegmentForClearance(first, bounds);
-      const secondBody = trimmedSegmentForClearance(second, bounds);
-      if (!firstBody || !secondBody) return false;
-
-      // Clearance is a body-of-line rule. Adjacent lots can have naturally close
-      // endpoints, so a short fan-in zone near each anchor is intentionally ignored.
       return segmentDistancePx(firstBody, secondBody, bounds) < 7;
     }
 
