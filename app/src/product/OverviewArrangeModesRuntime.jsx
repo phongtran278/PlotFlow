@@ -1,13 +1,10 @@
 import { useEffect } from "react";
 import "./OverviewArrangeModesRuntime.css";
-import { useProjectContext } from "../project/ProjectContext.jsx";
 
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const ARRANGE_UI_KEY = "plotflow-overview-arrange-preview-v1";
 const SAFE_TOP_PX = 96;
 const SAFE_BOTTOM_PX = 20;
-const MIN_CARD_CLEARANCE_PX = 6;
-const ARRANGE_MODES = ["smart", "balanced", "compact", "left", "right"];
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, Number(value) || 0));
@@ -24,18 +21,16 @@ function objectScale(card) {
   return Number.isFinite(value) ? clamp(value, 0.2, 2.2) : 1;
 }
 
-function readArrangeUi(storage) {
-  const value = storage.readJson("overview-arrange-ui", {
-    version: 1,
-    legacyKey: ARRANGE_UI_KEY,
-    fallback: {},
-  });
-  return { gap: clamp(value?.gap ?? 14, 0, 120) };
+function readArrangeUi() {
+  try {
+    const value = JSON.parse(localStorage.getItem(ARRANGE_UI_KEY) || "{}");
+    return { gap: clamp(value?.gap ?? 14, 0, 120) };
+  } catch {
+    return { gap: 14 };
+  }
 }
 
 export default function OverviewArrangeModesRuntime() {
-  const { storage } = useProjectContext();
-
   useEffect(() => {
     let disposed = false;
     let stage = null;
@@ -48,13 +43,10 @@ export default function OverviewArrangeModesRuntime() {
     let resolvedGapPx = 14;
     let resolvedLaneCount = 0;
     let resolvedCrossings = 0;
-    let resolvedCardOverlaps = 0;
-    let resolvedModeViolations = 0;
     let usedSafetyFallback = false;
     let previewConnectorRaf = 0;
-    let modeSolutions = new Map();
     let pendingOpenGroup = "";
-    const ui = readArrangeUi(storage);
+    const ui = readArrangeUi();
 
     function currentGroup() {
       return String(stage?.dataset?.overviewGroup || "").trim();
@@ -78,7 +70,7 @@ export default function OverviewArrangeModesRuntime() {
     };
 
     function saveArrangeUi() {
-      storage.writeJson("overview-arrange-ui", ui, { version: 1 });
+      localStorage.setItem(ARRANGE_UI_KEY, JSON.stringify(ui));
     }
 
     function syncStage() {
@@ -380,16 +372,7 @@ export default function OverviewArrangeModesRuntime() {
 
     function segmentsConflict(first, second, bounds) {
       if (!first || !second || first.code === second.code) return false;
-
-      // Connector endpoints around neighbouring lots naturally fan in. Evaluate
-      // crossings/overlaps on the connector bodies after trimming the short zones
-      // beside the card and anchor; do not reject an otherwise safe layout because
-      // two lines touch only inside those endpoint zones.
-      const firstBody = bounds ? trimmedSegmentForClearance(first, bounds) : first;
-      const secondBody = bounds ? trimmedSegmentForClearance(second, bounds) : second;
-      if (!firstBody || !secondBody) return false;
-
-      const a = firstBody.a; const b = firstBody.b; const c = secondBody.a; const d = secondBody.b;
+      const a = first.a; const b = first.b; const c = second.a; const d = second.b;
       const o1 = segmentOrientation(a, b, c);
       const o2 = segmentOrientation(a, b, d);
       const o3 = segmentOrientation(c, d, a);
@@ -405,6 +388,12 @@ export default function OverviewArrangeModesRuntime() {
       if (exactOverlap) return true;
 
       if (!bounds) return false;
+      const firstBody = trimmedSegmentForClearance(first, bounds);
+      const secondBody = trimmedSegmentForClearance(second, bounds);
+      if (!firstBody || !secondBody) return false;
+
+      // Clearance is a body-of-line rule. Adjacent lots can have naturally close
+      // endpoints, so a short fan-in zone near each anchor is intentionally ignored.
       return segmentDistancePx(firstBody, secondBody, bounds) < 7;
     }
 
@@ -444,52 +433,6 @@ export default function OverviewArrangeModesRuntime() {
       }, 0);
     }
 
-    function countCardOverlaps(layout) {
-      const bounds = pdfBounds();
-      if (!bounds) return 0;
-      const rects = items.map((item) => {
-        const point = layout[item.code];
-        if (!point) return null;
-        const halfW = item.width / bounds.width / 2;
-        const halfH = item.height / bounds.height / 2;
-        const gapX = MIN_CARD_CLEARANCE_PX / bounds.width / 2;
-        const gapY = MIN_CARD_CLEARANCE_PX / bounds.height / 2;
-        return {
-          code: item.code,
-          left: point.x - halfW - gapX,
-          right: point.x + halfW + gapX,
-          top: point.y - halfH - gapY,
-          bottom: point.y + halfH + gapY,
-        };
-      }).filter(Boolean);
-
-      let count = 0;
-      for (let i = 0; i < rects.length; i += 1) {
-        for (let j = i + 1; j < rects.length; j += 1) {
-          const a = rects[i];
-          const b = rects[j];
-          const separated = a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top;
-          if (!separated) count += 1;
-        }
-      }
-      return count;
-    }
-
-    function countModeViolations(layout, selectedMode) {
-      if (selectedMode !== "left" && selectedMode !== "right") return 0;
-      const bounds = pdfBounds();
-      if (!bounds) return 0;
-      const centerGap = MIN_CARD_CLEARANCE_PX / bounds.width;
-      return items.reduce((count, item) => {
-        const point = layout[item.code];
-        if (!point) return count + 1;
-        const halfW = item.width / bounds.width / 2;
-        if (selectedMode === "left" && point.x + halfW > 0.5 - centerGap) return count + 1;
-        if (selectedMode === "right" && point.x - halfW < 0.5 + centerGap) return count + 1;
-        return count;
-      }, 0);
-    }
-
     function crossingSafeSplit(itemsForMode) {
       const sorted = [...itemsForMode].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
       const left = [];
@@ -509,17 +452,11 @@ export default function OverviewArrangeModesRuntime() {
           if (next[item.code]) next[item.code] = normalizedAppliedCenter(item, next[item.code], bounds);
         });
       }
-      const crossings = countConnectorCrossings(next);
-      const cardOverlaps = countCardOverlaps(next);
-      const modeViolations = countModeViolations(next, selectedMode);
       return {
         draft: next,
         gap: resolvedGapPx,
         lanes: leftLanes + rightLanes,
-        crossings,
-        cardOverlaps,
-        modeViolations,
-        feasible: crossings === 0 && cardOverlaps === 0 && modeViolations === 0,
+        crossings: countConnectorCrossings(next),
         distance: layoutDistance(next),
       };
     }
@@ -610,12 +547,6 @@ export default function OverviewArrangeModesRuntime() {
       const candidates = [];
       const n = sorted.length;
       if (!n) return candidates;
-
-      // Side-only modes are strict contracts: never move a card to the opposite side
-      // just to rescue connector geometry.
-      if (selectedMode === "left") return [solveCandidate({ left: sorted, right: [] }, selectedMode)];
-      if (selectedMode === "right") return [solveCandidate({ left: [], right: sorted }, selectedMode)];
-
       if (n <= 10) {
         const maxMasks = 1 << n;
         for (let mask = 0; mask < maxMasks; mask += 1) {
@@ -627,77 +558,35 @@ export default function OverviewArrangeModesRuntime() {
       }
       return boundedConflictSafeCandidates(selectedMode, sorted);
     }
-
-    function candidateSort(a, b) {
-      const invalidA = a.crossings + a.cardOverlaps + a.modeViolations;
-      const invalidB = b.crossings + b.cardOverlaps + b.modeViolations;
-      return Number(!a.feasible) - Number(!b.feasible)
-        || invalidA - invalidB
-        || a.modePenalty - b.modePenalty
-        || a.distance - b.distance
-        || a.lanes - b.lanes;
-    }
-
-    function solveMode(selectedMode) {
+    function buildDraft(selectedMode) {
+      mode = selectedMode;
       const primary = solveCandidate(split(items, selectedMode), selectedMode);
       const candidates = [primary];
-      if (!primary.feasible) {
+      if (primary.crossings > 0) {
+        candidates.push(solveCandidate(crossingSafeSplit(items), selectedMode));
         const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
-        if (selectedMode !== "left" && selectedMode !== "right") {
-          candidates.push(solveCandidate(crossingSafeSplit(items), selectedMode));
-          candidates.push(solveCandidate({ left: sorted, right: [] }, selectedMode));
-          candidates.push(solveCandidate({ left: [], right: sorted }, selectedMode));
-        }
+        if (selectedMode !== "right") candidates.push(solveCandidate({ left: sorted, right: [] }, selectedMode));
+        if (selectedMode !== "left") candidates.push(solveCandidate({ left: [], right: sorted }, selectedMode));
         candidates.push(...conflictSafeCandidates(selectedMode));
       }
       candidates.forEach((candidate) => { candidate.modePenalty = candidateModePenalty(candidate, selectedMode); });
-      candidates.sort(candidateSort);
+      candidates.sort((a, b) => a.crossings - b.crossings || a.modePenalty - b.modePenalty || a.distance - b.distance || a.lanes - b.lanes);
       const chosen = candidates[0];
-      return { primary, chosen };
-    }
-
-    function refreshModeSolutions() {
-      modeSolutions = new Map();
-      ARRANGE_MODES.forEach((name) => modeSolutions.set(name, solveMode(name)));
-      overlay?.querySelectorAll("[data-arrange-mode]").forEach((button) => {
-        const solution = modeSolutions.get(button.dataset.arrangeMode)?.chosen;
-        const feasible = Boolean(solution?.feasible);
-        button.disabled = !feasible;
-        button.setAttribute("aria-disabled", feasible ? "false" : "true");
-        button.title = feasible
-          ? "Conflict-safe layout available"
-          : "Not enough conflict-safe space for this layout";
-      });
-    }
-
-    function buildDraft(selectedMode) {
-      const solved = modeSolutions.get(selectedMode) || solveMode(selectedMode);
-      const chosen = solved?.chosen;
-      if (!chosen?.feasible) return false;
-      mode = selectedMode;
       draft = chosen.draft;
       resolvedGapPx = chosen.gap;
       resolvedLaneCount = chosen.lanes;
       resolvedCrossings = chosen.crossings;
-      resolvedCardOverlaps = chosen.cardOverlaps;
-      resolvedModeViolations = chosen.modeViolations;
-      usedSafetyFallback = chosen !== solved.primary;
+      usedSafetyFallback = chosen !== primary;
       renderDraft();
-      return true;
     }
     function updateApplyState() {
       const apply = overlay?.querySelector("[data-arrange-apply]");
       if (!apply) return;
-      const autoSolution = modeSolutions.get(mode)?.chosen;
-      const draftValid = resolvedCrossings === 0 && resolvedCardOverlaps === 0 && resolvedModeViolations === 0;
-      const canResolve = Boolean(autoSolution?.feasible);
-      apply.disabled = !draftValid && !canResolve;
-      apply.textContent = draftValid ? "Apply layout" : canResolve ? "Resolve & apply" : "Layout unavailable";
-      apply.title = draftValid
-        ? "Apply conflict-safe layout"
-        : canResolve
-          ? "Restore the conflict-safe solution for this mode and apply it"
-          : "This layout cannot fit without overlap or connector conflicts";
+      apply.disabled = false;
+      apply.textContent = resolvedCrossings > 0 ? "Resolve & apply" : "Apply layout";
+      apply.title = resolvedCrossings > 0
+        ? "Try one more conflict-safe solve, then apply only if the layout is safe"
+        : "Apply conflict-safe layout";
     }
 
     function updateFooter() {
@@ -705,13 +594,11 @@ export default function OverviewArrangeModesRuntime() {
       if (!footer) return;
       const resolved = Math.round(resolvedGapPx * 10) / 10;
       const lanes = resolvedLaneCount > 2 ? ` · ${resolvedLaneCount} lanes` : "";
-      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector conflicts" : ` · ${resolvedCrossings} connector conflict${resolvedCrossings === 1 ? "" : "s"}`;
-      const overlapStatus = resolvedCardOverlaps === 0 ? "" : ` · ${resolvedCardOverlaps} card overlap${resolvedCardOverlaps === 1 ? "" : "s"}`;
-      const modeStatus = resolvedModeViolations === 0 ? "" : ` · ${resolvedModeViolations} mode-fit violation${resolvedModeViolations === 1 ? "" : "s"}`;
+      const crossingStatus = resolvedCrossings === 0 ? " · 0 connector conflicts after clamp" : ` · ${resolvedCrossings} connector conflict${resolvedCrossings === 1 ? "" : "s"} after clamp · resolving`;
       const fallback = usedSafetyFallback ? " · conflict-safe fallback" : "";
       footer.textContent = resolved + 0.05 < ui.gap
-        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px gap fits${lanes}${crossingStatus}${overlapStatus}${modeStatus}${fallback} · preview only`
-        : `${items.length} cards · ${ui.gap}px gap${lanes}${crossingStatus}${overlapStatus}${modeStatus}${fallback} · preview only`;
+        ? `${items.length} cards · ${ui.gap}px requested · ${resolved}px gap fits${lanes}${crossingStatus}${fallback} · preview only`
+        : `${items.length} cards · ${ui.gap}px gap${lanes}${crossingStatus}${fallback} · preview only`;
       updateApplyState();
     }
 
@@ -762,8 +649,6 @@ export default function OverviewArrangeModesRuntime() {
     function renderDraft() {
       if (!canvas) return;
       resolvedCrossings = countConnectorCrossings(draft);
-      resolvedCardOverlaps = countCardOverlaps(draft);
-      resolvedModeViolations = countModeViolations(draft, mode);
       canvas.querySelectorAll(".pf-arrange-preview-chip").forEach((chip) => {
         const point = draft[chip.dataset.code];
         if (!point) return;
@@ -838,23 +723,22 @@ export default function OverviewArrangeModesRuntime() {
 
     function applyDraft() {
       resolvedCrossings = countConnectorCrossings(draft);
-      resolvedCardOverlaps = countCardOverlaps(draft);
-      resolvedModeViolations = countModeViolations(draft, mode);
-      const draftValid = resolvedCrossings === 0 && resolvedCardOverlaps === 0 && resolvedModeViolations === 0;
-      if (!draftValid) {
-        const rescue = modeSolutions.get(mode)?.chosen;
-        if (rescue?.feasible) {
+      if (resolvedCrossings > 0) {
+        const rescue = conflictSafeCandidates(mode)
+          .map((candidate) => ({ ...candidate, modePenalty: candidateModePenalty(candidate, mode) }))
+          .filter((candidate) => candidate.crossings === 0)
+          .sort((a, b) => a.modePenalty - b.modePenalty || a.distance - b.distance || a.lanes - b.lanes)[0];
+
+        if (rescue) {
           draft = rescue.draft;
           resolvedGapPx = rescue.gap;
           resolvedLaneCount = rescue.lanes;
-          resolvedCrossings = rescue.crossings;
-          resolvedCardOverlaps = rescue.cardOverlaps;
-          resolvedModeViolations = rescue.modeViolations;
+          resolvedCrossings = 0;
           usedSafetyFallback = true;
           renderDraft();
         } else {
           const footer = overlay?.querySelector("footer>span");
-          if (footer) footer.textContent = `${items.length} cards · this mode has no conflict-safe layout at the current gap`;
+          if (footer) footer.textContent = `${items.length} cards · ${resolvedCrossings} connector conflict${resolvedCrossings === 1 ? "" : "s"} remain · choose another mode or drag a card`;
           updateApplyState();
           return;
         }
@@ -939,32 +823,17 @@ export default function OverviewArrangeModesRuntime() {
       document.body.appendChild(overlay);
       canvas = overlay.querySelector(".pf-arrange-preview-map");
       buildCanvas();
-      refreshModeSolutions();
-      const initialMode = ARRANGE_MODES.find((name) => modeSolutions.get(name)?.chosen?.feasible) || "smart";
-      if (!buildDraft(initialMode)) {
-        mode = initialMode;
-        draft = modeSolutions.get(initialMode)?.chosen?.draft || {};
-        renderDraft();
-      }
+      buildDraft("smart");
 
       overlay.addEventListener("input", (event) => {
         if (!event.target.matches("[data-arrange-gap]")) return;
         ui.gap = clamp(event.target.value, 0, 120);
         saveArrangeUi();
-        refreshModeSolutions();
-        const nextMode = modeSolutions.get(mode)?.chosen?.feasible
-          ? mode
-          : ARRANGE_MODES.find((name) => modeSolutions.get(name)?.chosen?.feasible);
-        if (nextMode) buildDraft(nextMode);
-        else updateApplyState();
+        buildDraft(mode);
       });
       overlay.addEventListener("click", (event) => {
         const modeButton = event.target.closest("[data-arrange-mode]");
-        if (modeButton) {
-          if (modeButton.disabled) return;
-          buildDraft(modeButton.dataset.arrangeMode);
-          return;
-        }
+        if (modeButton) { buildDraft(modeButton.dataset.arrangeMode); return; }
         if (event.target.closest("[data-arrange-apply]")) { applyDraft(); return; }
         if (event.target.closest("[data-arrange-close],[data-arrange-cancel]")) { closePreview(); return; }
         if (event.target === overlay) closePreview();
@@ -1037,7 +906,7 @@ export default function OverviewArrangeModesRuntime() {
       window.removeEventListener("pointercancel", finishDrag, true);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [storage]);
+  }, []);
 
   return null;
 }
