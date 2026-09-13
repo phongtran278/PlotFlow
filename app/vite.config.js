@@ -1,10 +1,21 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+function resolveBuildCommit() {
+  const fromEnv = process.env.RENDER_GIT_COMMIT || process.env.GITHUB_SHA || process.env.VITE_BUILD_COMMIT
+  if (fromEnv) return String(fromEnv).slice(0, 8)
+  try {
+    return execSync('git rev-parse --short=8 HEAD', { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return 'unknown'
+  }
+}
 
 function normalizeBadgeName(value = '') {
   return String(value)
@@ -53,7 +64,12 @@ function macGoldBadgeFallback() {
   }
 }
 
+const buildCommit = resolveBuildCommit()
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __PLOTFLOW_BUILD_COMMIT__: JSON.stringify(buildCommit),
+  },
   plugins: [macGoldBadgeFallback(), react()],
 })

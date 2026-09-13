@@ -4,14 +4,20 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "setup": "node tools/sync-assets.mjs",
-    "sync-assets": "node tools/sync-assets.mjs",
-    "dev": "vite",
+    "setup": "node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
+    "sync-assets": "node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
+    "optimize-assets": "node tools/optimize-assets.mjs && node tools/sync-assets.mjs && node tools/apply-optimized-assets.mjs",
+    "prepare-masterplan": "node tools/prepare-masterplan-all.mjs",
+    "dev": "npm run build && vite preview --host 0.0.0.0 --port 4173 --strictPort --open",
+    "predev:hot": "npm run setup",
+    "dev:hot": "vite --open",
+    "prebuild": "npm run setup",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort --open"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "html-to-image": "^1.11.13",
     "jszip": "^3.10.1",
     "pdfjs-dist": "^6.2.108",

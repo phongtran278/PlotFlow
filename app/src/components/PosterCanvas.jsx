@@ -73,6 +73,16 @@ function missingHousePlaceholder(key = "HOUSE ASSET") {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+function focusSheetInput() {
+  const input = document.querySelector(".sheet-connect input[type='text']");
+  input?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  window.setTimeout(() => input?.focus?.(), 220);
+}
+
+function openExcelPicker() {
+  document.querySelector(".excel-import-button input[type='file']")?.click?.();
+}
+
 export default function PosterCanvas({
   lotOverlay,
   preferLotOverlay = false,
@@ -171,7 +181,7 @@ export default function PosterCanvas({
     : (resolvedHouse ? "" : (houseResolution.suggestedHouseModel || houseResolution.expectedAssetKey || ""));
   const baseAssets = {
     ...assets,
-    badges: placeholderMode ? [] : [],
+    badges: placeholderMode ? [] : (assets.badges || []),
     pin3D: effectivePinSrc,
     houseImage: resolvedHouse?.src || (missingKey ? missingHousePlaceholder(missingKey) : null),
     houseMissingKey: missingKey,
@@ -219,6 +229,24 @@ export default function PosterCanvas({
       )
     : null;
 
+  if (placeholderMode) {
+    return (
+      <section className="pf-detail-empty-state" aria-label="Connect sales data to begin">
+        <div className="pf-detail-empty-orbit" aria-hidden="true"><i /><i /><i /><b /></div>
+        <div className="pf-detail-empty-copy">
+          <span>DETAIL WORKSPACE · READY FOR DATA</span>
+          <h3>Turn one sales sheet into a live design workspace.</h3>
+          <p>Connect the project data first. PlotFlow will populate units, match the floorplan workflow, and open the design controls only when there is something real to work with.</p>
+          <div className="pf-detail-empty-actions">
+            <button type="button" className="primary" onClick={focusSheetInput}>Connect Google Sheet <span>→</span></button>
+            <button type="button" onClick={openExcelPicker}>Import Excel</button>
+          </div>
+          <footer><span>01 · Connect data</span><i /><span>02 · Locate floorplan</span><i /><span>03 · Refine & export</span></footer>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div ref={hostRef} className="plotflow-poster-host" style={{ display: "contents" }}>
       <PosterCanvasBase
@@ -237,11 +265,11 @@ export default function PosterCanvas({
         toolbarTarget
       )}
 
-      {!placeholderMode && <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />}
-      {!placeholderMode && <QuickTextOverride unit={unit} resolvedUnit={dataResolvedUnit} target={quickControlsTarget} isEditing={isEditing} />}
+      <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />
+      <QuickTextOverride unit={unit} resolvedUnit={dataResolvedUnit} target={quickControlsTarget} isEditing={isEditing} />
       {manualControl}
 
-      {!placeholderMode && manualLocatorOpen && createPortal(
+      {manualLocatorOpen && createPortal(
         <ManualFloorplanLocator
           initialPage={1}
           busy={manualLocatorBusy}
@@ -251,7 +279,7 @@ export default function PosterCanvas({
         document.body
       )}
 
-      {!placeholderMode && posterTarget && createPortal(
+      {posterTarget && createPortal(
         <>
           <CampaignBadgeStrip
             artboard={posterTarget}
@@ -261,7 +289,7 @@ export default function PosterCanvas({
             pinVisible={Boolean(effectivePinSrc)}
             onToggleQuickPin={() => setQuickPinMode((value) => !value)}
             unitCode={unit?.unitCode}
-            sourceBadges={assets.badges || []}
+            sourceBadges={baseAssets.badges}
           />
           <QuickPinOverlay artboard={posterTarget} src={effectivePinSrc} active={!isEditing && quickPinMode} unitCode={unit?.unitCode} />
           <PolicyImageOverlay handover={unit?.handover} />

@@ -1,0 +1,11 @@
+.pf-workflow-flow{position:relative;margin-top:64px;padding:24px 0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:32px;overflow:visible}
+.pf-workflow-step{position:relative;z-index:1;min-height:180px;padding:18px;border:1px solid var(--pf-line);border-radius:16px;background:#f9f8f5;box-shadow:0 10px 28px rgba(23,27,32,.035);display:flex;flex-direction:column}
+.pf-workflow-step--engine,.pf-workflow-step--control{background:#ecefeb}.pf-workflow-step--engine{border-color:rgba(15,122,100,.18);box-shadow:0 16px 38px rgba(15,122,100,.08)}
+.pf-workflow-step>span{color:#9a9ea3;font-size:7px;font-weight:700;letter-spacing:.13em}.pf-workflow-step>strong{margin-top:28px;font-size:17px;font-weight:680;letter-spacing:-.015em}.pf-workflow-step>b{margin-top:7px;color:#52585e;font-size:9px;font-weight:600;line-height:1.45}.pf-workflow-step>small{margin-top:auto;color:#999da2;font-size:7px;line-height:1.45}
+.pf-workflow-connector{position:absolute;right:-32px;top:50%;width:32px;height:24px;transform:translateY(-50%);overflow:visible;pointer-events:none}
+.pf-workflow-connector::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:linear-gradient(90deg,rgba(15,122,100,.1),rgba(15,122,100,.42),rgba(15,122,100,.1))}
+.pf-workflow-connector>i{position:absolute;left:-8px;top:50%;font-style:normal;color:var(--pf-brand-accent);font-size:13px;font-weight:700;line-height:1;opacity:0;transform:translateY(-52%);animation:pfWorkflowArrowTravel 2.25s cubic-bezier(.45,0,.2,1) infinite}
+.pf-workflow-step:nth-child(2) .pf-workflow-connector>i{animation-delay:.22s}.pf-workflow-step:nth-child(3) .pf-workflow-connector>i{animation-delay:.44s}.pf-workflow-step:nth-child(4) .pf-workflow-connector>i{animation-delay:.66s}
+@keyframes pfWorkflowArrowTravel{0%{left:-8px;opacity:0}18%{opacity:.22}46%{opacity:1}76%{opacity:.48}100%{left:26px;opacity:0}}
+@media(max-width:760px){.pf-workflow-flow{grid-template-columns:1fr;gap:16px}.pf-workflow-connector{display:none}}
+@media(prefers-reduced-motion:reduce){.pf-workflow-connector>i{animation-duration:3.4s}}

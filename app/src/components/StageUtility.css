@@ -1,60 +1,69 @@
 .stage-header {
-  justify-content: flex-start;
-  flex-wrap: wrap;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  flex-wrap:nowrap !important;
+  gap:10px;
 }
 
 .stage-header > :first-child {
-  order: 1;
-  flex: 0 0 auto;
-}
-
-.stage-header > .stage-utility-tools {
-  order: 2;
-  margin-left: auto;
+  order:1;
+  flex:0 0 auto;
 }
 
 .stage-header > .stage-actions {
-  order: 3;
-  margin-left: 10px;
+  order:2;
+  flex:1 1 auto;
+  min-width:0;
+  margin-left:0;
+}
+
+.stage-header > .stage-utility-tools {
+  order:3;
+  flex:0 0 auto;
+  width:auto;
+  margin:0 0 0 2px;
 }
 
 .stage-utility-tools {
-  min-height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  position: relative;
-  z-index: 80;
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  position:relative;
+  z-index:80;
+  white-space:nowrap;
 }
 
 .stage-utility-item {
-  position: relative;
-  flex: 0 0 auto;
+  position:relative;
+  flex:0 0 auto;
 }
 
-@media (max-width: 1380px) {
-  .stage-header > .stage-utility-tools {
-    order: 3;
-    width: 100%;
-    margin: 10px 0 0;
-    justify-content: flex-start;
-  }
-
-  .stage-header > .stage-actions {
-    order: 2;
-    margin-left: auto;
-  }
+@media (max-width:1180px) and (min-width:861px) {
+  .stage-utility-tools { gap:4px; }
+  .stage-header > .stage-utility-tools { margin-left:0; }
 }
 
-@media (max-width: 900px) {
-  .stage-header > .stage-actions {
-    width: 100%;
-    margin: 10px 0 0;
-    flex-wrap: wrap;
-  }
+@media (max-width:980px) and (min-width:861px) {
+  .performance-feedback-summary small { display:none !important; }
+}
 
-  .stage-header > .stage-utility-tools {
-    margin-top: 8px;
+@media (max-width:860px) {
+  .stage-header {
+    flex-direction:column;
+    align-items:stretch;
   }
+  .stage-header > .stage-actions,
+  .stage-header > .stage-utility-tools {
+    width:100%;
+    margin:0;
+  }
+  .stage-utility-tools {
+    justify-content:flex-start;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .stage-utility-tools::-webkit-scrollbar { display:none; }
 }

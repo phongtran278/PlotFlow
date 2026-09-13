@@ -4,6 +4,8 @@ import "./WorkspaceController.css";
 
 const MIN_ZOOM = 20;
 const MAX_ZOOM = 250;
+const ARTWORK_WIDTH = 1080;
+const ARTWORK_HEIGHT = 1920;
 
 function editableTarget(target) {
   const tag = target?.tagName?.toLowerCase();
@@ -34,8 +36,8 @@ function syncPanGeometry(nextZoom) {
   const viewport = findViewport();
   if (!scroll || !viewport) return;
   const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(nextZoom) || 38)) / 100;
-  scroll.style.setProperty("--workspace-content-w", `${Math.round(1080 * scale + 96)}px`);
-  scroll.style.setProperty("--workspace-content-h", `${Math.round(1920 * scale + 120)}px`);
+  scroll.style.setProperty("--workspace-content-w", `${Math.round(ARTWORK_WIDTH * scale + 96)}px`);
+  scroll.style.setProperty("--workspace-content-h", `${Math.round(ARTWORK_HEIGHT * scale + 120)}px`);
   scroll.dataset.workspacePanSurface = "true";
   viewport.style.setProperty("--studio-zoom", String(scale));
   viewport.dataset.workspaceZoom = String(Math.round(scale * 100));
@@ -93,13 +95,20 @@ export default function WorkspaceController() {
     if (!navigatorOpenRef.current) return;
     const scroll = findScrollSurface();
     if (!scroll) return;
+
+    const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(zoomRef.current) || 38)) / 100;
+    const artworkWidth = ARTWORK_WIDTH * scale;
+    const artworkHeight = ARTWORK_HEIGHT * scale;
+    const viewportWidth = clamp01(scroll.clientWidth / Math.max(1, artworkWidth));
+    const viewportHeight = clamp01(scroll.clientHeight / Math.max(1, artworkHeight));
     const maxLeft = Math.max(1, scroll.scrollWidth - scroll.clientWidth);
     const maxTop = Math.max(1, scroll.scrollHeight - scroll.clientHeight);
+
     setNavigator({
       left: clamp01(scroll.scrollLeft / maxLeft),
       top: clamp01(scroll.scrollTop / maxTop),
-      width: clamp01(scroll.clientWidth / Math.max(1, scroll.scrollWidth)),
-      height: clamp01(scroll.clientHeight / Math.max(1, scroll.scrollHeight)),
+      width: viewportWidth,
+      height: viewportHeight,
     });
   }
 
@@ -129,6 +138,7 @@ export default function WorkspaceController() {
     const scroll = findScrollSurface();
     if (!viewport) {
       setZoom(next);
+      zoomRef.current = next;
       return;
     }
 
@@ -159,7 +169,7 @@ export default function WorkspaceController() {
     if (!canvas) return;
     const availableW = Math.max(260, (stage?.clientWidth || canvas.clientWidth) - 56);
     const availableH = Math.max(360, canvas.clientHeight - 72);
-    const fitted = Math.floor(Math.min(availableW / 1080, availableH / 1920) * 100);
+    const fitted = Math.floor(Math.min(availableW / ARTWORK_WIDTH, availableH / ARTWORK_HEIGHT) * 100);
     applyZoom(Math.max(MIN_ZOOM, Math.min(100, fitted)), false);
     const scroll = findScrollSurface();
     requestAnimationFrame(() => {
@@ -309,6 +319,14 @@ export default function WorkspaceController() {
 
   if (!target) return null;
 
+  // Navigator size is now derived DIRECTLY from zoom at render time.
+  // This is intentionally independent of scrollHeight/clientHeight so it behaves
+  // identically on macOS, Windows, remote desktop and production hosting.
+  const navWidth = clamp01(90 / Math.max(1, zoom));
+  const navHeight = clamp01(48 / Math.max(1, zoom));
+  const navLeft = navigator.left * (1 - navWidth);
+  const navTop = navigator.top * (1 - navHeight);
+
   return createPortal(
     <div className="workspace-controls" aria-label="Artwork workspace controls">
       <div className="workspace-tool-toggle">
@@ -343,10 +361,10 @@ export default function WorkspaceController() {
               <div
                 className="workspace-navigator-viewport"
                 style={{
-                  left: `${navigator.left * (100 - navigator.width * 100)}%`,
-                  top: `${navigator.top * (100 - navigator.height * 100)}%`,
-                  width: `${navigator.width * 100}%`,
-                  height: `${navigator.height * 100}%`,
+                  left: `${navLeft * 100}%`,
+                  top: `${navTop * 100}%`,
+                  width: `${navWidth * 100}%`,
+                  height: `${navHeight * 100}%`,
                 }}
               />
             </div>
