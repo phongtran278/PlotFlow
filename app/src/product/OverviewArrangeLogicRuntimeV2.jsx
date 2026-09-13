@@ -155,10 +155,9 @@ export default function OverviewArrangeLogicRuntimeV2() {
     }
 
     function scaleRatios() {
-      const lowestBaseScale = Math.min(...items.map((item) => item.baseScale || 1), 1);
-      if (lowestBaseScale <= MIN_AUTO_SCALE + 0.01) return [1];
-      return [1, 0.92, 0.84, 0.78, 0.72]
+      const ratios = [1, 0.94, 0.9, 0.86, 0.82, 0.78, 0.74, 0.72]
         .filter((ratio) => items.every((item) => item.baseScale * ratio >= MIN_AUTO_SCALE - 0.001));
+      return ratios.length ? ratios : [1];
     }
 
     function gapCandidates() {
@@ -175,26 +174,72 @@ export default function OverviewArrangeLogicRuntimeV2() {
       };
     }
 
-    function splitForMode(mode, ratio, gapPx) {
+    function loadOf(list, ratio, gapPx) {
+      return list.reduce((sum, item) => sum + sized(item, ratio).height, 0)
+        + Math.max(0, list.length - 1) * gapPx;
+    }
+
+    function primarySplit(mode, ratio, gapPx) {
       const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
       if (mode === "left") return { left: sorted, right: [] };
       if (mode === "right") return { left: [], right: sorted };
-      if (mode === "balanced" || mode === "compact") {
+      if (mode === "smart") {
         const left = [];
         const right = [];
-        let leftLoad = 0;
-        let rightLoad = 0;
-        sorted.forEach((item) => {
-          const load = sized(item, ratio).height + gapPx;
-          if (leftLoad <= rightLoad) { left.push(item); leftLoad += load; }
-          else { right.push(item); rightLoad += load; }
-        });
+        sorted.forEach((item) => (item.anchor.x <= 0.5 ? left : right).push(item));
         return { left, right };
       }
       const left = [];
       const right = [];
-      sorted.forEach((item) => (item.anchor.x <= 0.5 ? left : right).push(item));
+      sorted.forEach((item) => {
+        const h = sized(item, ratio).height + gapPx;
+        if (loadOf(left, ratio, gapPx) <= loadOf(right, ratio, gapPx)) left.push(item);
+        else right.push(item);
+      });
       return { left, right };
+    }
+
+    function splitPenalty(mode, groups, ratio, gapPx) {
+      if (mode === "left" || mode === "right") return 0;
+      const leftSet = new Set(groups.left.map((item) => item.code));
+      const leftLoad = loadOf(groups.left, ratio, gapPx);
+      const rightLoad = loadOf(groups.right, ratio, gapPx);
+      const balance = Math.abs(leftLoad - rightLoad) / Math.max(1, leftLoad + rightLoad);
+      if (mode === "smart") {
+        let wrongSide = 0;
+        items.forEach((item) => {
+          const onLeft = leftSet.has(item.code);
+          const prefersLeft = item.anchor.x <= 0.5;
+          if (onLeft !== prefersLeft) wrongSide += 1;
+        });
+        return wrongSide * 1000 + balance * 10;
+      }
+      return Math.abs(groups.left.length - groups.right.length) * 100 + balance * 10;
+    }
+
+    function candidateSplits(mode, ratio, gapPx) {
+      const primary = primarySplit(mode, ratio, gapPx);
+      if (mode === "left" || mode === "right" || items.length > 10) return [primary];
+      const sorted = [...items].sort((a, b) => a.anchor.y - b.anchor.y || a.code.localeCompare(b.code));
+      const candidates = [];
+      const seen = new Set();
+      const push = (groups) => {
+        const leftCodes = groups.left.map((item) => item.code).sort().join(",");
+        const signature = leftCodes;
+        if (seen.has(signature)) return;
+        seen.add(signature);
+        candidates.push({ groups, penalty: splitPenalty(mode, groups, ratio, gapPx) });
+      };
+      push(primary);
+      const masks = 1 << sorted.length;
+      for (let mask = 0; mask < masks; mask += 1) {
+        const left = [];
+        const right = [];
+        sorted.forEach((item, index) => ((mask >> index) & 1 ? right : left).push(item));
+        push({ left, right });
+      }
+      candidates.sort((a, b) => a.penalty - b.penalty);
+      return candidates.map((entry) => entry.groups);
     }
 
     function packLanes(list, ratio, bounds, gapPx) {
@@ -249,19 +294,15 @@ export default function OverviewArrangeLogicRuntimeV2() {
       const safe = safeArea(bounds);
       const lanes = packLanes(list, ratio, bounds, gapPx);
       const xs = laneXPositions(lanes, side, ratio, bounds, mode === "compact");
-      if (!xs) return { feasible: false, reason: `${side} side is too narrow for ${lanes.length} lane${lanes.length === 1 ? "" : "s"}` };
+      if (!xs) return { feasible: false, reason: `${side} side is too narrow for ${lanes.length} lanes` };
       for (let laneIndex = 0; laneIndex < lanes.length; laneIndex += 1) {
         const lane = lanes[laneIndex];
-        const totalHeight = lane.reduce((sum, item) => sum + sized(item, ratio).height, 0)
-          + Math.max(0, lane.length - 1) * gapPx;
+        const totalHeight = loadOf(lane, ratio, gapPx);
         if (totalHeight > safe.heightPx + 0.5) return { feasible: false, reason: "Cards exceed the usable PDF height" };
         let cursor = safe.topPx + Math.max(0, (safe.heightPx - totalHeight) / 2);
         lane.forEach((item) => {
           const size = sized(item, ratio);
-          layout[item.code] = {
-            x: xs[laneIndex],
-            y: (cursor + size.height / 2) / bounds.height,
-          };
+          layout[item.code] = { x: xs[laneIndex], y: (cursor + size.height / 2) / bounds.height };
           cursor += size.height + gapPx;
         });
       }
@@ -289,11 +330,7 @@ export default function OverviewArrangeLogicRuntimeV2() {
       const dx = item.anchor.x - point.x;
       const dy = item.anchor.y - point.y;
       const denominator = Math.max(Math.abs(dx) / Math.max(halfW, 0.0001), Math.abs(dy) / Math.max(halfH, 0.0001), 0.0001);
-      return {
-        code: item.code,
-        a: { x: point.x + dx / denominator, y: point.y + dy / denominator },
-        b: { x: item.anchor.x, y: item.anchor.y },
-      };
+      return { code: item.code, a: { x: point.x + dx / denominator, y: point.y + dy / denominator }, b: { x: item.anchor.x, y: item.anchor.y } };
     }
 
     function trimmed(segment, bounds, startPx = 3, endPx = 14) {
@@ -338,34 +375,25 @@ export default function OverviewArrangeLogicRuntimeV2() {
       let lastReason = "No conflict-safe layout found";
       for (const ratio of scaleRatios()) {
         for (const gapPx of gapCandidates()) {
-          const groups = splitForMode(mode, ratio, gapPx);
-          const layout = {};
-          const left = placeSide(groups.left, "left", mode, ratio, gapPx, bounds, layout);
-          if (!left.feasible) { lastReason = left.reason; continue; }
-          const right = placeSide(groups.right, "right", mode, ratio, gapPx, bounds, layout);
-          if (!right.feasible) { lastReason = right.reason; continue; }
-          if (!sideContractSatisfied(mode, layout, ratio, bounds)) {
-            lastReason = `${mode === "left" ? "Left" : "Right"} side cannot contain every card safely`;
-            continue;
+          const candidates = candidateSplits(mode, ratio, gapPx);
+          for (const groups of candidates) {
+            const layout = {};
+            const left = placeSide(groups.left, "left", mode, ratio, gapPx, bounds, layout);
+            if (!left.feasible) { lastReason = left.reason; continue; }
+            const right = placeSide(groups.right, "right", mode, ratio, gapPx, bounds, layout);
+            if (!right.feasible) { lastReason = right.reason; continue; }
+            if (!sideContractSatisfied(mode, layout, ratio, bounds)) {
+              lastReason = `${mode === "left" ? "Left" : "Right"} side cannot contain every card safely`;
+              continue;
+            }
+            const conflicts = connectorConflictCount(layout, ratio, bounds);
+            if (conflicts > 0) { lastReason = `${conflicts} connector conflicts remain`; continue; }
+            return { feasible: true, mode, layout, ratio, lanes: left.lanes + right.lanes, gap: gapPx };
           }
-          const conflicts = connectorConflictCount(layout, ratio, bounds);
-          if (conflicts > 0) { lastReason = `${conflicts} connector conflict${conflicts === 1 ? "" : "s"} remain`; continue; }
-          return {
-            feasible: true,
-            mode,
-            layout,
-            ratio,
-            lanes: left.lanes + right.lanes,
-            gap: gapPx,
-          };
         }
       }
       if (mode === "left" || mode === "right") {
-        return {
-          feasible: false,
-          mode,
-          reason: `${items.length} cards cannot fit entirely on the ${mode} at the minimum safe card size`,
-        };
+        return { feasible: false, mode, reason: `${items.length} cards cannot fit entirely on the ${mode} at the minimum safe card size` };
       }
       return { feasible: false, mode, reason: lastReason };
     }
@@ -390,6 +418,11 @@ export default function OverviewArrangeLogicRuntimeV2() {
 
     function modeLabel(mode) {
       return mode === "smart" ? "Smart L/R" : mode === "balanced" ? "Balanced" : mode === "compact" ? "Compact" : mode === "left" ? "All left" : "All right";
+    }
+
+    function renderEmptyState() {
+      if (!canvas) return;
+      canvas.innerHTML = `<div style="height:100%;display:grid;place-items:center;padding:32px;text-align:center;color:#666;font-size:13px;line-height:1.5"><div><strong style="display:block;color:#222;margin-bottom:6px">No safe layout found</strong>Auto Arrange checked card size, gap, both sides, and connector geometry. Try another dataset or reduce card content.</div></div>`;
     }
 
     function renderSelected() {
@@ -479,8 +512,7 @@ export default function OverviewArrangeLogicRuntimeV2() {
     function applySelected() {
       if (!selectedSolution?.feasible) return;
       const bounds = pdfBounds();
-      if (!bounds) return;
-      if (!sideContractSatisfied(selectedMode, selectedSolution.layout, selectedSolution.ratio, bounds)) return;
+      if (!bounds || !sideContractSatisfied(selectedMode, selectedSolution.layout, selectedSolution.ratio, bounds)) return;
       const safe = safeArea(bounds);
       persistScale(selectedSolution.ratio);
       const layout = readJson(CARD_LAYOUT_KEY, {});
@@ -529,12 +561,12 @@ export default function OverviewArrangeLogicRuntimeV2() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>Auto Arrange chooses the largest safe card size first, then automatically reduces gap only as much as needed. All left/right are strict: if every card cannot stay on that side safely, that mode is unavailable.</small>
+              <small>Auto Arrange searches safe left/right assignments for up to 10 cards, then chooses the largest card size and widest gap that works. All left/right remain strict.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>
               <label class="pf-arrange-gap-control"><span>Preferred gap</span><input data-arrange-gap type="number" min="0" max="120" step="1" value="${ui.gap}"><b>px</b></label>
-              <button type="button" data-arrange-mode="smart"><strong>Smart L/R</strong><small>Follow each lot side first</small></button>
+              <button type="button" data-arrange-mode="smart"><strong>Smart L/R</strong><small>Follow lot side first, then solve conflicts</small></button>
               <button type="button" data-arrange-mode="balanced"><strong>Balanced</strong><small>Balance visual load across both sides</small></button>
               <button type="button" data-arrange-mode="compact"><strong>Compact</strong><small>Balanced with tighter lane spacing</small></button>
               <button type="button" data-arrange-mode="left"><strong>All left</strong><small>Every card must stay on the left half</small></button>
@@ -549,10 +581,11 @@ export default function OverviewArrangeLogicRuntimeV2() {
       const firstMode = MODES.find((mode) => solutions.get(mode)?.feasible);
       if (firstMode) selectMode(firstMode);
       else {
+        renderEmptyState();
         const apply = overlay.querySelector("[data-arrange-apply]");
         if (apply) { apply.disabled = true; apply.textContent = "No feasible layout"; }
         const footer = overlay.querySelector("footer>span");
-        if (footer) footer.textContent = `${items.length} cards · no safe layout even after automatic gap/size fitting`;
+        if (footer) footer.textContent = `${items.length} cards · no safe layout after automatic assignment/gap/size search`;
       }
       overlay.addEventListener("click", (event) => {
         const button = event.target.closest("[data-arrange-mode]");
@@ -571,6 +604,7 @@ export default function OverviewArrangeLogicRuntimeV2() {
         if (next) selectMode(next);
         else {
           selectedSolution = null;
+          renderEmptyState();
           const apply = overlay.querySelector("[data-arrange-apply]");
           if (apply) { apply.disabled = true; apply.textContent = "No feasible layout"; }
         }
