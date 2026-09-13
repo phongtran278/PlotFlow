@@ -129,6 +129,19 @@ export default function OverviewPenRuntime() {
       return shapes.find((shape) => String(shape.id) === String(selectedId)) || null;
     }
 
+    function isProtectedKeyboardTarget(target) {
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+      const element = target instanceof Element ? target : null;
+      if (!element) return false;
+      return Boolean(element.closest(
+        '[contenteditable="true"],[contenteditable=""],[role="textbox"],.pf-overview-control-rail,.pf-overview-zoom-toolbar,.pf-unit-navigator,.pf-overview-v2-controls,.pf-pen-style-menu'
+      ));
+    }
+
+    function hasBlockingDialog() {
+      return Boolean(document.querySelector('dialog[open],[role="dialog"][aria-modal="true"]'));
+    }
+
     function shapeBounds(points = []) {
       if (!points.length) return null;
       const xs = points.map((point) => point.x);
@@ -522,10 +535,9 @@ export default function OverviewPenRuntime() {
     }
 
     function onKeyDown(event) {
-      const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
-      const key = event.key.toLowerCase();
-      if (key === "r" && stage) {
+      if (!stage?.isConnected || isProtectedKeyboardTarget(event.target) || hasBlockingDialog()) return;
+      const key = String(event.key || "").toLowerCase();
+      if (key === "r") {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation?.();
@@ -538,6 +550,8 @@ export default function OverviewPenRuntime() {
         return;
       }
       if (event.key === "Escape") {
+        const shouldHandle = active || Boolean(selectedShape());
+        if (!shouldHandle) return;
         event.preventDefault();
         if (active) setActive(false);
         if (selectedShape()) selectShape(null);
