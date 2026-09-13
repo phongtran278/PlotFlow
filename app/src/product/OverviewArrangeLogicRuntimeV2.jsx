@@ -192,7 +192,6 @@ export default function OverviewArrangeLogicRuntimeV2() {
       const left = [];
       const right = [];
       sorted.forEach((item) => {
-        const h = sized(item, ratio).height + gapPx;
         if (loadOf(left, ratio, gapPx) <= loadOf(right, ratio, gapPx)) left.push(item);
         else right.push(item);
       });
@@ -224,8 +223,7 @@ export default function OverviewArrangeLogicRuntimeV2() {
       const candidates = [];
       const seen = new Set();
       const push = (groups) => {
-        const leftCodes = groups.left.map((item) => item.code).sort().join(",");
-        const signature = leftCodes;
+        const signature = groups.left.map((item) => item.code).sort().join(",");
         if (seen.has(signature)) return;
         seen.add(signature);
         candidates.push({ groups, penalty: splitPenalty(mode, groups, ratio, gapPx) });
@@ -342,8 +340,9 @@ export default function OverviewArrangeLogicRuntimeV2() {
       if (length <= startPx + endPx + 2) return null;
       const startT = clamp(startPx / length, 0, 0.45);
       const endT = clamp(1 - endPx / length, 0.55, 1);
+      if (endT <= startT) return null;
       const at = (t) => ({ x: segment.a.x + (segment.b.x - segment.a.x) * t, y: segment.a.y + (segment.b.y - segment.a.y) * t });
-      return { a: at(startT), b: at(endT) };
+      return { code: segment.code, a: at(startT), b: at(endT) };
     }
 
     function connectorConflictCount(layout, ratio, bounds) {
@@ -351,19 +350,19 @@ export default function OverviewArrangeLogicRuntimeV2() {
       let conflicts = 0;
       for (let i = 0; i < segments.length; i += 1) {
         for (let j = i + 1; j < segments.length; j += 1) {
-          const first = segments[i];
-          const second = segments[j];
-          const o1 = orientation(first.a, first.b, second.a);
-          const o2 = orientation(first.a, first.b, second.b);
-          const o3 = orientation(second.a, second.b, first.a);
-          const o4 = orientation(second.a, second.b, first.b);
+          const firstBody = trimmed(segments[i], bounds);
+          const secondBody = trimmed(segments[j], bounds);
+          if (!firstBody || !secondBody) continue;
+
+          const o1 = orientation(firstBody.a, firstBody.b, secondBody.a);
+          const o2 = orientation(firstBody.a, firstBody.b, secondBody.b);
+          const o3 = orientation(secondBody.a, secondBody.b, firstBody.a);
+          const o4 = orientation(secondBody.a, secondBody.b, firstBody.b);
           const epsilon = 0.00001;
           const crossing = ((o1 > epsilon && o2 < -epsilon) || (o1 < -epsilon && o2 > epsilon))
             && ((o3 > epsilon && o4 < -epsilon) || (o3 < -epsilon && o4 > epsilon));
           if (crossing) { conflicts += 1; continue; }
-          const firstBody = trimmed(first, bounds);
-          const secondBody = trimmed(second, bounds);
-          if (firstBody && secondBody && segmentDistancePx(firstBody, secondBody, bounds) < CONNECTOR_CLEARANCE_PX) conflicts += 1;
+          if (segmentDistancePx(firstBody, secondBody, bounds) < CONNECTOR_CLEARANCE_PX) conflicts += 1;
         }
       }
       return conflicts;
@@ -422,7 +421,7 @@ export default function OverviewArrangeLogicRuntimeV2() {
 
     function renderEmptyState() {
       if (!canvas) return;
-      canvas.innerHTML = `<div style="height:100%;display:grid;place-items:center;padding:32px;text-align:center;color:#666;font-size:13px;line-height:1.5"><div><strong style="display:block;color:#222;margin-bottom:6px">No safe layout found</strong>Auto Arrange checked card size, gap, both sides, and connector geometry. Try another dataset or reduce card content.</div></div>`;
+      canvas.innerHTML = `<div style="height:100%;display:grid;place-items:center;padding:32px;text-align:center;color:#666;font-size:13px;line-height:1.5"><div><strong style="display:block;color:#222;margin-bottom:6px">No safe layout found</strong>Auto Arrange checked usable PDF space and connector bodies, including safe fan-in around lot anchors.</div></div>`;
     }
 
     function renderSelected() {
@@ -561,7 +560,7 @@ export default function OverviewArrangeLogicRuntimeV2() {
             <div class="pf-arrange-preview-map-wrap">
               <div class="pf-arrange-preview-map-head"><span>Layout preview</span><b data-arrange-mode-label>Smart L/R</b></div>
               <div class="pf-arrange-preview-map"></div>
-              <small>Auto Arrange searches safe left/right assignments for up to 10 cards, then chooses the largest card size and widest gap that works. All left/right remain strict.</small>
+              <small>Auto Arrange searches safe left/right assignments for up to 10 cards, chooses the largest safe size and gap, and ignores only the short natural fan-in zone beside each lot anchor. All left/right remain strict.</small>
             </div>
             <aside class="pf-arrange-preview-modes">
               <span>LAYOUT OPTIONS</span>
