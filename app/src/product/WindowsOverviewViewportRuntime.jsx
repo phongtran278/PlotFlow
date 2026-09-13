@@ -300,7 +300,7 @@ export default function WindowsOverviewViewportRuntime() {
       if (!root) return;
       const selected = (preferredCard && root.contains(preferredCard) ? preferredCard : null)
         || root.querySelector(".pf-live-sales-callout.pf-card-key,.pf-live-sales-callout.pf-card-selected,.pf-live-sales-callout.pf-focus-card-active");
-      if (selected) activeCode = codeForCard(selected);
+      activeCode = selected ? codeForCard(selected) : "";
       const code = activeCode;
       stage.classList.toggle("pf-has-linked-selection", Boolean(code));
 
@@ -312,8 +312,8 @@ export default function WindowsOverviewViewportRuntime() {
         const lineCode = line.dataset.unitCode || "";
         const anchor = anchors.find((item) => (item.dataset.unitCode || item.textContent?.trim()) === lineCode);
         const resolved = anchor && (anchor.dataset.located === "1" || anchor.dataset.saved === "1");
-        const active = Boolean(code) && lineCode === code;
-        line.classList.toggle("pf-linked-active", active);
+        const linked = Boolean(code) && lineCode === code;
+        line.classList.toggle("pf-linked-active", linked);
         line.style.opacity = resolved ? "1" : "0";
       });
       anchors.forEach((anchor) => {
@@ -321,6 +321,14 @@ export default function WindowsOverviewViewportRuntime() {
         const resolved = anchor.dataset.located === "1" || anchor.dataset.saved === "1";
         anchor.classList.toggle("pf-linked-active", resolved && Boolean(code) && anchorCode === code);
       });
+    }
+
+    function clearCardSelection() {
+      if (!syncStage()) return;
+      activeCode = "";
+      overviewCards().forEach((card) => card.classList.remove("pf-card-selected", "pf-card-key"));
+      syncLinkedSelection();
+      emitSelectionChanged();
     }
 
     function selectUnitByCode(code) {
@@ -354,7 +362,10 @@ export default function WindowsOverviewViewportRuntime() {
       if (!syncStage()) return;
       if ((stage.dataset.overviewTool || "select") !== "select") return;
       const card = event.target?.closest?.(".pf-live-sales-callout,.pf-sales-callout");
-      if (!card || !stage.contains(card)) return;
+      if (!card || !stage.contains(card)) {
+        if (stage.contains(event.target)) clearCardSelection();
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();
@@ -416,6 +427,12 @@ export default function WindowsOverviewViewportRuntime() {
     }
 
     function onHistoryKey(event) {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+      if (event.key === "Escape") {
+        clearCardSelection();
+        return;
+      }
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       const key = String(event.key || "").toLowerCase();
       let handled = false;

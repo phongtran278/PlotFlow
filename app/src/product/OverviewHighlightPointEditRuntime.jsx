@@ -46,9 +46,26 @@ export default function OverviewHighlightPointEditRuntime() {
     }
 
     function onKeyDown(event) {
-      if (event.key !== "Escape") return;
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
       const stage = document.querySelector(".pf-masterplan-stage");
-      if (stage) clearSelection(stage);
+      if (!stage) return;
+
+      if (event.key === "Escape") {
+        clearSelection(stage);
+        return;
+      }
+
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      // The owner runtime already handles Delete while Highlight drawing/edit mode is active.
+      // This path makes Delete work for a completed, selected shape in normal Overview mode.
+      if (stage.classList.contains("pf-pen-active") || stage.classList.contains(CLEARED_CLASS)) return;
+      const selected = stage.querySelector(".pf-overview-pen-layer .pf-pen-shape.is-selected[data-pen-shape-id]");
+      const id = selected?.dataset?.penShapeId;
+      if (!id) return;
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent("pf-overview-delete-highlight", { detail: { id } }));
+      clearSelection(stage);
     }
 
     function onProductViewChange(event) {
