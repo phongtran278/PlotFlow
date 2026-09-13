@@ -36,7 +36,7 @@ import OverviewDetailLocatorBridge from "./product/OverviewDetailLocatorBridge.j
 import OverviewControlRailRuntime from "./product/OverviewControlRailRuntime.jsx";
 import OverviewPrecisionArrangeRuntime from "./product/OverviewPrecisionArrangeRuntime.jsx";
 import OverviewV2Runtime from "./product/OverviewV2Runtime.jsx";
-import OverviewArrangeLogicRuntimeV2 from "./product/OverviewArrangeLogicRuntimeV2.jsx";
+import OverviewArrangeLogicRuntimeV3 from "./product/OverviewArrangeLogicRuntimeV3.jsx";
 import OverviewSellDataRuntime from "./product/OverviewSellDataRuntime.jsx";
 import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import OverviewHighlightPointEditRuntime from "./product/OverviewHighlightPointEditRuntime.jsx";
@@ -137,7 +137,7 @@ function OverviewMasterplanEngine() {
 }
 
 function OverviewRuntimes() {
-  return <><OverviewZoomRuntime/><WindowsOverviewViewportRuntime/><OverviewMasterplanEngine/><OverviewExportRuntime/><OverviewHeaderExportRuntime/><OverviewAnchorRuntime/><OverviewLiveUnitsRuntime/><OverviewDetailLocatorBridge/><OverviewControlRailRuntime/><OverviewPrecisionArrangeRuntime/><OverviewV2Runtime/><OverviewArrangeLogicRuntimeV2/><OverviewPenRuntime/><OverviewHighlightPointEditRuntime/><OverviewSimplifiedRuntime/><OverviewGuideRuntime/><OverviewInteractionRuntime/><OverviewLayerRevealRuntime/><OverviewUnitBadgeRuntime/></>;
+  return <><OverviewZoomRuntime/><WindowsOverviewViewportRuntime/><OverviewMasterplanEngine/><OverviewExportRuntime/><OverviewHeaderExportRuntime/><OverviewAnchorRuntime/><OverviewLiveUnitsRuntime/><OverviewDetailLocatorBridge/><OverviewControlRailRuntime/><OverviewPrecisionArrangeRuntime/><OverviewV2Runtime/><OverviewArrangeLogicRuntimeV3/><OverviewPenRuntime/><OverviewHighlightPointEditRuntime/><OverviewSimplifiedRuntime/><OverviewGuideRuntime/><OverviewInteractionRuntime/><OverviewLayerRevealRuntime/><OverviewUnitBadgeRuntime/></>;
 }
 
 function WorkspaceAuxiliaryRuntimes() {
