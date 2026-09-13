@@ -101,7 +101,7 @@ export default function OverviewPenRuntime() {
     let transformDrag = null;
     let shapes = readShapes(storage);
     let currentStyle = readStyle(storage);
-    let selectedId = shapes.at(-1)?.id || null;
+    let selectedId = null;
     let camera = { scale: 1, tx: 0, ty: 0 };
     let disposed = false;
     let retryRaf = 0;
@@ -428,7 +428,7 @@ export default function OverviewPenRuntime() {
       const before = shapes.length;
       shapes = shapes.filter((shape) => String(shape.id) !== String(id));
       if (shapes.length === before) return;
-      if (String(selectedId) === String(id)) selectedId = shapes.at(-1)?.id || null;
+      if (String(selectedId) === String(id)) selectedId = null;
       saveShapes(storage, shapes);
       render();
       syncStyleControls();
@@ -476,7 +476,10 @@ export default function OverviewPenRuntime() {
         return;
       }
 
-      if (!active) return;
+      if (!active) {
+        if (selectedShape()) selectShape(null);
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
@@ -534,22 +537,26 @@ export default function OverviewPenRuntime() {
         setActive(!active);
         return;
       }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (active) setActive(false);
+        if (selectedShape()) selectShape(null);
+        return;
+      }
+      if ((event.key === "Backspace" || event.key === "Delete") && !draft.length && selectedShape()) {
+        event.preventDefault();
+        deleteShape(selectedId);
+        return;
+      }
       if (!active) return;
       if (event.key === "Enter") {
         event.preventDefault();
         completeAndExit();
       }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setActive(false);
-      }
       if ((event.key === "Backspace" || event.key === "Delete") && draft.length) {
         event.preventDefault();
         draft.pop();
         renderAnchors();
-      } else if ((event.key === "Backspace" || event.key === "Delete") && selectedShape()) {
-        event.preventDefault();
-        deleteShape(selectedId);
       }
     }
 
