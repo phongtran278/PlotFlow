@@ -20,7 +20,6 @@ import PinScaleControl from "./components/PinScaleControl.jsx";
 import AutoFloorplanSource from "./components/AutoFloorplanSource.jsx";
 import MemoryGovernor from "./components/MemoryGovernor.jsx";
 import LotTileRuntime from "./components/LotTileRuntime.jsx";
-import AuthGate from "./auth/AuthGate.jsx";
 import ProductShell from "./product/ProductShell.jsx";
 import PlotFlowDesignSystem from "./design-system/PlotFlowDesignSystem.jsx";
 import EmptyWorkspaceEnhancer from "./product/EmptyWorkspaceEnhancer.jsx";
@@ -161,4 +160,4 @@ function RootExperience() {
   return <PlotFlowExperience/>;
 }
 
-createRoot(document.getElementById("root")).render(<AuthGate><RootExperience/></AuthGate>);
+createRoot(document.getElementById("root")).render(<RootExperience/>);
