@@ -1,0 +1,149 @@
+body.pf-product-detail{
+  --pf-detail-bg:#f5f4f1;
+  --pf-detail-surface:rgba(255,255,255,.72);
+  --pf-detail-surface-strong:rgba(255,255,255,.9);
+  --pf-detail-ink:#15171a;
+  --pf-detail-ink-2:#2b3035;
+  --pf-detail-muted:#737980;
+  --pf-detail-soft:#969ba0;
+  --pf-detail-line:rgba(19,22,26,.085);
+  --pf-detail-accent:#0f7a64;
+  --pf-detail-accent-soft:#e6f1ed;
+  --pf-detail-shadow:0 16px 42px rgba(25,31,38,.07),inset 0 1px 0 rgba(255,255,255,.96);
+  background:var(--pf-detail-bg)!important;
+  color:var(--pf-detail-ink);
+  font-family:"IBM Plex Sans",PlotFlowBrand,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+body.pf-product-detail .pf-product-workspace{background:var(--pf-detail-bg)!important}
+body.pf-product-detail .plotflow-shell{grid-template-columns:276px minmax(0,1fr);background:var(--pf-detail-bg)!important;color:var(--pf-detail-ink)}
+body.pf-product-detail .plotflow-shell *{box-sizing:border-box}
+
+/* Sidebar — same calm editorial hierarchy as Home */
+body.pf-product-detail .unit-sidebar{
+  min-height:calc(100dvh - 64px);
+  padding:22px 16px 20px;
+  gap:18px;
+  border-right:1px solid var(--pf-detail-line);
+  background:linear-gradient(180deg,rgba(250,250,248,.88),rgba(245,246,243,.72))!important;
+  box-shadow:8px 0 30px rgba(25,31,38,.035)!important;
+  backdrop-filter:blur(24px) saturate(145%);
+  -webkit-backdrop-filter:blur(24px) saturate(145%);
+  color:var(--pf-detail-ink);
+}
+body.pf-product-detail .unit-sidebar>div:first-child{padding:2px 2px 4px}
+body.pf-product-detail .unit-sidebar h1{font-family:"IBM Plex Sans",sans-serif;font-size:20px;line-height:1;font-weight:700;letter-spacing:-.02em;color:var(--pf-detail-ink)}
+body.pf-product-detail .unit-sidebar>div:first-child p{margin-top:7px;color:var(--pf-detail-muted);font-size:9px;line-height:1.45}
+body.pf-product-detail .sheet-connect>span,
+body.pf-product-detail .unit-list-header span,
+body.pf-product-detail .sheet-history-title span{color:var(--pf-detail-soft)!important;font-size:8px!important;font-weight:600!important;letter-spacing:.13em!important;text-transform:uppercase}
+body.pf-product-detail .unit-list-header strong,
+body.pf-product-detail .sheet-history-title em{color:var(--pf-detail-muted)!important;font-size:8px!important;font-style:normal!important;font-weight:600!important}
+
+body.pf-product-detail .sheet-connect input,
+body.pf-product-detail .pdf-link-connect input,
+body.pf-product-detail .pf-layer-badge-row input{
+  height:40px;
+  border:1px solid var(--pf-detail-line)!important;
+  border-radius:10px!important;
+  background:rgba(255,255,255,.66)!important;
+  color:var(--pf-detail-ink)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.92)!important;
+  outline:none;
+}
+body.pf-product-detail .sheet-connect input:focus,
+body.pf-product-detail .pdf-link-connect input:focus{border-color:rgba(15,122,100,.28)!important;box-shadow:0 0 0 3px rgba(15,122,100,.06),inset 0 1px 0 #fff!important;background:#fff!important}
+body.pf-product-detail input::placeholder{color:#a2a6aa!important}
+
+body.pf-product-detail .sheet-connect button,
+body.pf-product-detail .excel-import-button,
+body.pf-product-detail .master-pdf-button,
+body.pf-product-detail .review-issues-button,
+body.pf-product-detail .export-current-button,
+body.pf-product-detail .export-all-button,
+body.pf-product-detail .edit-layout-button{
+  min-height:36px;
+  border:1px solid var(--pf-detail-line)!important;
+  border-radius:10px!important;
+  background:rgba(255,255,255,.72)!important;
+  color:var(--pf-detail-ink-2)!important;
+  box-shadow:0 7px 18px rgba(25,31,38,.045),inset 0 1px 0 rgba(255,255,255,.94)!important;
+  font-size:9px!important;
+  font-weight:600!important;
+  transition:transform .22s cubic-bezier(.22,1,.36,1),background .22s ease,border-color .22s ease,box-shadow .22s ease;
+}
+body.pf-product-detail .sheet-connect button:hover,
+body.pf-product-detail .excel-import-button:hover,
+body.pf-product-detail .master-pdf-button:hover,
+body.pf-product-detail .review-issues-button:hover,
+body.pf-product-detail .edit-layout-button:hover{transform:translateY(-1px);background:#fff!important;border-color:rgba(15,122,100,.16)!important}
+body.pf-product-detail .sheet-connect button:first-of-type,
+body.pf-product-detail .export-current-button{background:var(--pf-detail-ink)!important;color:#fff!important;border-color:var(--pf-detail-ink)!important;box-shadow:0 10px 22px rgba(21,23,26,.12)!important}
+body.pf-product-detail .export-all-button{background:var(--pf-detail-accent-soft)!important;color:#0c6654!important;border-color:rgba(15,122,100,.12)!important}
+body.pf-product-detail .refresh-button{background:transparent!important;box-shadow:none!important;color:var(--pf-detail-muted)!important}
+
+body.pf-product-detail .connection-status,
+body.pf-product-detail .locator-card,
+body.pf-product-detail .export-panel{
+  padding:12px;
+  border:1px solid var(--pf-detail-line)!important;
+  border-radius:14px!important;
+  background:rgba(255,255,255,.54)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9)!important;
+}
+body.pf-product-detail .connection-status p,
+body.pf-product-detail .locator-status,
+body.pf-product-detail .export-scale-note{color:var(--pf-detail-muted)!important;font-size:8px!important;line-height:1.5!important}
+body.pf-product-detail .connection-status.connected .status-dot{background:var(--pf-detail-accent)!important;box-shadow:0 0 0 5px rgba(15,122,100,.08)!important}
+body.pf-product-detail .source-divider span{color:var(--pf-detail-soft)!important;font-size:7px!important;font-weight:600!important;letter-spacing:.12em}
+body.pf-product-detail .source-divider::before,
+body.pf-product-detail .source-divider::after{background:var(--pf-detail-line)!important}
+
+body.pf-product-detail .pdf-source-tabs,
+body.pf-product-detail .export-scale-picker{padding:3px;border:1px solid var(--pf-detail-line);border-radius:10px;background:rgba(21,23,26,.035)}
+body.pf-product-detail .pdf-source-tabs button,
+body.pf-product-detail .export-scale-picker button{border:0!important;border-radius:7px!important;background:transparent!important;color:var(--pf-detail-muted)!important;box-shadow:none!important;font-size:8px!important}
+body.pf-product-detail .pdf-source-tabs button.active,
+body.pf-product-detail .export-scale-picker button.active{background:#fff!important;color:var(--pf-detail-ink)!important;box-shadow:0 2px 8px rgba(25,31,38,.06)!important}
+
+body.pf-product-detail .unit-selector{gap:5px}
+body.pf-product-detail .unit-select{min-height:44px;padding:8px 9px;border:1px solid transparent!important;border-radius:10px!important;background:transparent!important;box-shadow:none!important;color:var(--pf-detail-ink-2)!important;transition:background .18s ease,border-color .18s ease,transform .18s ease}
+body.pf-product-detail .unit-select:hover{background:rgba(255,255,255,.52)!important;border-color:var(--pf-detail-line)!important}
+body.pf-product-detail .unit-select.active{background:#fff!important;border-color:rgba(15,122,100,.14)!important;box-shadow:0 7px 20px rgba(25,31,38,.055)!important;transform:translateX(2px)}
+body.pf-product-detail .unit-select strong{font-size:11px!important;letter-spacing:-.01em}
+body.pf-product-detail .unit-select span{color:var(--pf-detail-muted)!important;font-size:8px!important}
+
+/* Main editor — neutral canvas, Home-like rhythm */
+body.pf-product-detail .component-stage{padding:24px 28px 30px;background:var(--pf-detail-bg)!important}
+body.pf-product-detail .stage-header{margin-bottom:14px;padding:0 2px 13px;border-bottom:1px solid var(--pf-detail-line);align-items:flex-end}
+body.pf-product-detail .stage-header span{color:var(--pf-detail-soft)!important;font-size:8px!important;font-weight:600;letter-spacing:.13em!important;text-transform:uppercase}
+body.pf-product-detail .stage-header h2{margin-top:7px;color:var(--pf-detail-ink)!important;font-family:"IBM Plex Sans",sans-serif;font-size:26px!important;line-height:1.04!important;font-weight:600!important;letter-spacing:-.025em!important}
+body.pf-product-detail .stage-actions{gap:8px}
+body.pf-product-detail .stage-actions>strong{font-size:11px!important;font-weight:600!important;color:var(--pf-detail-ink-2)!important}
+body.pf-product-detail .edit-layout-button.active{background:var(--pf-detail-ink)!important;color:#fff!important;border-color:var(--pf-detail-ink)!important;box-shadow:0 10px 24px rgba(21,23,26,.12)!important}
+
+body.pf-product-detail .component-canvas{
+  min-height:calc(100dvh - 178px);
+  padding:18px;
+  border:1px solid rgba(255,255,255,.86)!important;
+  border-radius:20px!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.6),rgba(248,249,247,.42))!important;
+  box-shadow:0 18px 46px rgba(25,31,38,.07),inset 0 1px 0 rgba(255,255,255,.98)!important;
+  backdrop-filter:blur(20px) saturate(145%);
+  -webkit-backdrop-filter:blur(20px) saturate(145%);
+}
+body.pf-product-detail .poster-viewport{padding:16px 20px 28px}
+body.pf-product-detail .poster-canvas{box-shadow:0 24px 64px rgba(20,24,30,.16)!important}
+body.pf-product-detail .finetune-loading{color:var(--pf-detail-muted);font-family:"IBM Plex Sans",sans-serif}
+
+/* Keep utility drawers visually in the same family */
+body.pf-product-detail .sheet-history,
+body.pf-product-detail .locator-file,
+body.pf-product-detail .locator-status,
+body.pf-product-detail .export-status{border-color:var(--pf-detail-line)!important;background:rgba(255,255,255,.44)!important;border-radius:10px!important}
+body.pf-product-detail .sheet-history-row{border-radius:9px!important;border-color:transparent!important}
+body.pf-product-detail .sheet-history-row:hover{background:rgba(255,255,255,.62)!important}
+body.pf-product-detail .sheet-history-row.active{background:var(--pf-detail-accent-soft)!important;border-color:rgba(15,122,100,.12)!important}
+body.pf-product-detail .floorplan-badge{border-radius:999px!important;font-size:7px!important;font-weight:600!important}
+
+@media(max-width:1180px){body.pf-product-detail .plotflow-shell{grid-template-columns:248px minmax(0,1fr)}body.pf-product-detail .component-stage{padding:20px}}
+@media(max-width:860px){body.pf-product-detail .plotflow-shell{grid-template-columns:1fr}body.pf-product-detail .unit-sidebar{min-height:auto;border-right:0;border-bottom:1px solid var(--pf-detail-line)}body.pf-product-detail .component-stage{padding:16px}}

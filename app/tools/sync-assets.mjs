@@ -183,14 +183,14 @@ const badgeSource = path.join(assetSource, "badges");
 copyAlias(badgeSource, (raw, n) => n.includes("hotdeal") || (n.includes("hot") && n.includes("deal")), path.join(uiDir, "badge_hotdeal.png"), "Hot Deal badge");
 copyAlias(badgeSource, (raw, n) => n.includes("veosom") || n.includes("ve o som"), path.join(uiDir, "badge_veosom.png"), "Về ở sớm badge");
 
-// macOS may store Vietnamese filenames in decomposed Unicode (NFD) while browser URLs
-// arrive in composed Unicode (NFC). Create exact NFC aliases that match CampaignBadgeStrip URLs.
+// Use ASCII aliases for all campaign artwork so macOS/Windows never depend on
+// Unicode filename normalization when Vite serves the public assets.
 for (const amount of [1, 3, 5, 6, 9]) {
   copyAlias(
     badgeSource,
     (raw, n) => n.startsWith(`${amount} chi`) && n.endsWith(".png"),
-    path.join(assetDest, "badges", `${amount} chỉ.png`),
-    `${amount} chỉ gold badge NFC alias`
+    path.join(uiDir, `gold_${amount}.png`),
+    `${amount} chỉ gold badge ASCII alias`
   );
 }
 

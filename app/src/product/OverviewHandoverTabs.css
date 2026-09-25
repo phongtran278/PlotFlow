@@ -1,0 +1,49 @@
+/* PlotFlow Overview · Pass 3 visual system
+   Presentation only. Runtime and interaction ownership stay unchanged. */
+
+body.pf-product-overview{font-family:var(--pf-font-ui);color:var(--pf-ink)}
+body.pf-product-overview .pf-overview-intro{position:relative;z-index:1200;overflow:visible;contain:none}
+body.pf-product-overview .pf-overview-header-tools,body.pf-product-overview .pf-overview-header-actions{overflow:visible}
+
+/* Handover navigation */
+.pf-overview-handover-tabs{display:inline-flex;align-items:center;gap:var(--pf-space-0-5);padding:var(--pf-space-0-5);border:1px solid var(--pf-line);border-radius:var(--pf-radius-button);background:var(--pf-surface-soft);box-sizing:border-box;white-space:nowrap}
+.pf-overview-handover-tabs button{appearance:none;min-width:112px;height:var(--pf-control-h-comfortable);display:flex;align-items:center;justify-content:space-between;gap:var(--pf-space-2);padding:0 var(--pf-space-3);border:0;border-radius:var(--pf-radius-sm);background:transparent;color:var(--pf-muted);font:600 var(--pf-text-control)/1 var(--pf-font-ui);cursor:pointer;box-sizing:border-box;transition:background var(--pf-duration-fast) var(--pf-ease-standard),color var(--pf-duration-fast) var(--pf-ease-standard),box-shadow var(--pf-duration-fast) var(--pf-ease-standard)}
+.pf-overview-handover-tabs button:hover{background:var(--pf-state-hover);color:var(--pf-ink-2)}
+.pf-overview-handover-tabs button:active{background:var(--pf-state-pressed)}
+.pf-overview-handover-tabs button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--pf-state-focus)}
+.pf-overview-handover-tabs button.is-active{background:var(--pf-surface-raised);color:var(--pf-ink);box-shadow:0 1px 3px rgba(19,22,26,.10)}
+.pf-overview-handover-tabs span{font:650 var(--pf-text-control)/1 var(--pf-font-ui)}
+.pf-overview-handover-tabs small{display:inline-flex;align-items:center;min-height:20px;padding:0 var(--pf-space-1-5);border-radius:var(--pf-radius-pill);background:rgba(19,22,26,.045);color:var(--pf-muted);font:650 var(--pf-text-meta)/1 var(--pf-font-ui)}
+.pf-overview-handover-tabs button.is-active small{background:var(--pf-brand-accent-soft);color:var(--pf-brand-accent)}
+body.pf-product-overview .pf-overview-group-band{display:none!important}
+
+/* Global command bar */
+body.pf-product-overview .pf-overview-header-commandbar{display:flex!important;align-items:center!important;gap:var(--pf-space-2)!important;min-width:0!important;max-width:100%!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-editor-tools,body.pf-product-overview .pf-overview-header-view{display:flex!important;align-items:center!important;gap:var(--pf-space-0-5)!important;padding:var(--pf-space-0-5)!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-raised)!important;box-shadow:none!important}
+body.pf-product-overview .pf-overview-header-commandbar button,body.pf-product-overview .pf-overview-header-commandbar summary{font-family:var(--pf-font-ui)!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-editor-tools button,body.pf-product-overview .pf-overview-header-view button{min-width:var(--pf-control-h-compact)!important;width:auto!important;height:var(--pf-control-h-compact)!important;min-height:var(--pf-control-h-compact)!important;padding:0 var(--pf-space-2)!important;border:0!important;border-radius:var(--pf-radius-sm)!important;background:transparent!important;color:var(--pf-ink-2)!important;box-shadow:none!important}
+body.pf-product-overview .pf-overview-header-commandbar button:hover,body.pf-product-overview .pf-overview-header-commandbar summary:hover{background:var(--pf-state-hover)!important}
+body.pf-product-overview .pf-overview-header-commandbar button:active{background:var(--pf-state-pressed)!important}
+body.pf-product-overview .pf-overview-header-commandbar button:focus-visible,body.pf-product-overview .pf-overview-header-commandbar summary:focus-visible{outline:none!important;box-shadow:0 0 0 3px var(--pf-state-focus)!important}
+
+body.pf-product-overview .pf-overview-header-guides{position:relative!important;z-index:1400!important}
+body.pf-product-overview .pf-overview-header-guides>summary{height:var(--pf-control-h)!important;min-height:var(--pf-control-h)!important;padding:0 var(--pf-space-3)!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-raised)!important;color:var(--pf-ink-2)!important;font:600 var(--pf-text-control)/1 var(--pf-font-ui)!important}
+body.pf-product-overview .pf-overview-header-view output{min-width:48px!important;color:var(--pf-muted)!important;font:600 var(--pf-text-meta)/1 var(--pf-font-ui)!important;text-align:center!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy{height:var(--pf-control-h)!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:var(--pf-space-1-5)!important;padding:0 var(--pf-space-3)!important;border:1px solid rgba(15,122,100,.16)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-brand-accent-soft)!important;color:var(--pf-brand-accent)!important;font:650 var(--pf-text-control)/1 var(--pf-font-ui)!important;white-space:nowrap!important}
+
+body.pf-product-overview .pf-pen-tool-button{min-width:auto!important;height:var(--pf-control-h-compact)!important;padding:0 var(--pf-space-2)!important;border:0!important;border-radius:var(--pf-radius-sm)!important;background:transparent!important;color:var(--pf-ink-2)!important;box-shadow:none!important;font-family:var(--pf-font-ui)!important}
+body.pf-product-overview .pf-pen-tool-button.active{background:var(--pf-state-selected)!important;color:var(--pf-brand-accent)!important}
+body.pf-product-overview .pf-pen-style-menu{display:none!important;position:relative!important;z-index:1600!important}
+body.pf-product-overview .pf-pen-style-menu.is-contextual{display:block!important}
+
+body.pf-product-overview .pf-overview-header-commandbar>.pf-export-menu>summary{height:var(--pf-control-h)!important;min-height:var(--pf-control-h)!important;padding:0 var(--pf-space-4)!important;border:1px solid var(--pf-brand-accent)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-brand-accent)!important;color:#fff!important;font:650 var(--pf-text-control)/1 var(--pf-font-ui)!important;box-shadow:none!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-export-menu>summary:hover{background:var(--pf-brand-accent)!important;filter:brightness(.96)}
+body.pf-product-overview .pf-editor-tools [data-action="undo"],body.pf-product-overview .pf-editor-tools [data-action="redo"]{color:var(--pf-muted)!important}
+
+body.pf-product-overview .pf-overview-header-guides>div,body.pf-product-overview .pf-export-popover{z-index:50000!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-button)!important;background:rgba(255,255,255,.98)!important;box-shadow:var(--pf-shadow-popover)!important;backdrop-filter:blur(18px) saturate(140%)!important}
+body.pf-product-overview .pf-overview-editor-shell{position:relative;z-index:1}
+body.pf-product-overview .pf-masterplan-stage{position:relative;z-index:1}
+.pf-overview .pf-masterplan-card{padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+
+@media(max-width:1180px){.pf-overview-handover-tabs{max-width:100%;overflow-x:auto;scrollbar-width:none}.pf-overview-handover-tabs::-webkit-scrollbar{display:none}.pf-overview-handover-tabs button{min-width:100px}body.pf-product-overview .pf-overview-header-commandbar{overflow-x:auto!important;overflow-y:visible!important;justify-content:flex-start!important;scrollbar-width:thin}}
+@media(max-width:760px){.pf-overview-handover-tabs{width:100%}.pf-overview-handover-tabs button{flex:1 0 auto;min-width:94px}}

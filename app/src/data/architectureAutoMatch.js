@@ -24,6 +24,17 @@ export const ARCHITECTURE_AUTO_MATCHES = [
   { unitCode: "AS76-08", architectureCode: "CH-53", architectureLabel: "LIỀN KỀ - TÂN CỔ ĐIỂN", confidence: 0.99 },
   { unitCode: "AS63-19", architectureCode: "CH-13", architectureLabel: "LIỀN KỀ - ĐÔNG ÂU", confidence: 0.99 },
   { unitCode: "AS86-45", architectureCode: "CH-13", architectureLabel: "LIỀN KỀ - ĐÔNG ÂU", confidence: 0.99 },
+  // Restored from the supplied 260611 architecture positioning masterplan.
+  // These units are located directly inside the corresponding legend colour zones.
+  { unitCode: "AS50-30", architectureCode: "CH-53", architectureLabel: "LIỀN KỀ - TÂN CỔ ĐIỂN", confidence: 0.96 },
+  { unitCode: "AS80-03", architectureCode: "CH-53", architectureLabel: "LIỀN KỀ - TÂN CỔ ĐIỂN", confidence: 0.96 },
+  { unitCode: "AS51-24", architectureCode: "CH-53", architectureLabel: "LIỀN KỀ - TÂN CỔ ĐIỂN", confidence: 0.96 },
+  { unitCode: "AS80-38", architectureCode: "CH-53", architectureLabel: "LIỀN KỀ - TÂN CỔ ĐIỂN", confidence: 0.96 },
+  { unitCode: "AS55-14", architectureCode: "CH-53", architectureLabel: "LIỀN KỀ - TÂN CỔ ĐIỂN", confidence: 0.96 },
+  { unitCode: "AS70-17", architectureCode: "CH-08", architectureLabel: "LIỀN KỀ - CỔ ĐIỂN", confidence: 0.96 },
+  { unitCode: "AS70-19", architectureCode: "CH-08", architectureLabel: "LIỀN KỀ - CỔ ĐIỂN", confidence: 0.96 },
+  { unitCode: "AS69-18", architectureCode: "CH-08", architectureLabel: "LIỀN KỀ - CỔ ĐIỂN", confidence: 0.96 },
+  { unitCode: "AS62-18", architectureCode: "CH-13", architectureLabel: "LIỀN KỀ - ĐÔNG ÂU", confidence: 0.96 },
   { unitCode: "TL32-19", architectureCode: "CH-59", architectureLabel: "LIỀN KỀ - HIỆN ĐẠI NHIỆT ĐỚI", confidence: 0.99 },
   { unitCode: "TL12-05", architectureCode: "CH-15", architectureLabel: "LIỀN KỀ - HÀN QUỐC", confidence: 0.99 },
   { unitCode: "TL7-25", architectureCode: "CH-19", architectureLabel: "LIỀN KỀ - HỘI AN", confidence: 0.99 },

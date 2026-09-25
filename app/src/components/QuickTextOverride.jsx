@@ -1,8 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import "./QuickTextOverride.css";
 
 const STORAGE_KEY = "plotflow-quick-text-overrides-v1";
+
+const FIELD_DEFS = [
+  { key: "unitCode", label: "Mã căn", group: "Identity" },
+  { key: "architectureLabel", label: "Kiến trúc / phong cách", group: "Identity" },
+  { key: "type", label: "Loại hình", group: "Identity" },
+  { key: "houseModel", label: "Tên mẫu nhà", group: "Identity" },
+  { key: "floors", label: "Số tầng", group: "Thông tin" },
+  { key: "handover", label: "Bàn giao", group: "Thông tin" },
+  { key: "landArea", label: "Diện tích đất", group: "Thông tin" },
+  { key: "constructionArea", label: "Diện tích xây dựng", group: "Thông tin" },
+  { key: "roadWidth", label: "Lộ giới / đường", group: "Thông tin" },
+  { key: "priceEarly", label: "Giá sớm", group: "Giá" },
+  { key: "price18", label: "Giá 18TH", group: "Giá" },
+  { key: "price24", label: "Giá 24TH", group: "Giá" },
+  { key: "price30", label: "Giá 30TH", group: "Giá" },
+  { key: "price36", label: "Giá 36TH", group: "Giá" },
+];
 
 function normalizeCode(value = "") {
   return String(value || "")
@@ -44,72 +61,92 @@ function resetQuickTextOverride(unitCode) {
 export function applyQuickTextOverride(unit, override) {
   if (!unit) return unit;
   const next = { ...unit };
-  if (Object.prototype.hasOwnProperty.call(override || {}, "architectureLabel")) next.architectureLabel = override.architectureLabel;
-  if (Object.prototype.hasOwnProperty.call(override || {}, "type")) next.type = override.type;
+  for (const { key } of FIELD_DEFS) {
+    if (Object.prototype.hasOwnProperty.call(override || {}, key)) next[key] = override[key];
+  }
   return next;
+}
+
+function valueFor(field, override, resolvedUnit) {
+  return Object.prototype.hasOwnProperty.call(override || {}, field.key)
+    ? String(override[field.key] ?? "")
+    : String(resolvedUnit?.[field.key] ?? "");
 }
 
 export default function QuickTextOverride({ unit, resolvedUnit, target, isEditing = false }) {
   const [override, setOverride] = useState(() => readQuickTextOverride(unit?.unitCode));
-  const [architectureDraft, setArchitectureDraft] = useState("");
-  const [typeDraft, setTypeDraft] = useState("");
+  const [drafts, setDrafts] = useState({});
+
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const field of FIELD_DEFS) {
+      if (!map.has(field.group)) map.set(field.group, []);
+      map.get(field.group).push(field);
+    }
+    return [...map.entries()];
+  }, []);
 
   useEffect(() => {
     const next = readQuickTextOverride(unit?.unitCode);
     setOverride(next);
-    setArchitectureDraft(Object.prototype.hasOwnProperty.call(next, "architectureLabel") ? next.architectureLabel : String(resolvedUnit?.architectureLabel || ""));
-    setTypeDraft(Object.prototype.hasOwnProperty.call(next, "type") ? next.type : String(resolvedUnit?.type || ""));
-  }, [unit?.unitCode, resolvedUnit?.architectureLabel, resolvedUnit?.type]);
+    const nextDrafts = {};
+    for (const field of FIELD_DEFS) nextDrafts[field.key] = valueFor(field, next, resolvedUnit);
+    setDrafts(nextDrafts);
+  }, [unit?.unitCode, resolvedUnit]);
 
   if (!target || isEditing || !unit) return null;
 
-  function commitArchitecture() {
-    const next = { ...override, architectureLabel: architectureDraft };
+  function commitField(key) {
+    const value = String(drafts[key] ?? "");
+    const next = { ...override, [key]: value };
     setOverride(next);
-    saveQuickTextOverride(unit.unitCode, { architectureLabel: architectureDraft });
-  }
-
-  function commitType() {
-    const next = { ...override, type: typeDraft };
-    setOverride(next);
-    saveQuickTextOverride(unit.unitCode, { type: typeDraft });
+    saveQuickTextOverride(unit.unitCode, { [key]: value });
   }
 
   function reset() {
     resetQuickTextOverride(unit.unitCode);
     setOverride({});
-    setArchitectureDraft(String(resolvedUnit?.architectureLabel || ""));
-    setTypeDraft(String(resolvedUnit?.type || ""));
+    const nextDrafts = {};
+    for (const field of FIELD_DEFS) nextDrafts[field.key] = String(resolvedUnit?.[field.key] ?? "");
+    setDrafts(nextDrafts);
   }
+
+  const overrideCount = Object.keys(override || {}).length;
 
   return createPortal(
     <details className="quick-text-card">
       <summary>
-        <span>QUICK TEXT</span>
-        <strong>Sửa / xóa nhanh</strong>
+        <span>EDIT TEXT</span>
+        <strong>{overrideCount ? `${overrideCount} override${overrideCount > 1 ? "s" : ""}` : "Manual control"}</strong>
       </summary>
-      <div className="quick-text-fields">
-        <label>
-          <span>Kiến trúc</span>
-          <input
-            value={architectureDraft}
-            onChange={(event) => setArchitectureDraft(event.target.value)}
-            onBlur={commitArchitecture}
-            onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
-          />
-        </label>
-        <label>
-          <span>Loại hình</span>
-          <input
-            value={typeDraft}
-            onChange={(event) => setTypeDraft(event.target.value)}
-            onBlur={commitType}
-            onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
-          />
-        </label>
+
+      <div className="quick-text-intro">
+        Sửa trực tiếp text hiển thị của căn này khi dữ liệu tự động chưa đúng. Không thay đổi dữ liệu nguồn.
       </div>
+
+      <div className="quick-text-scroll">
+        {groups.map(([group, fields]) => (
+          <section className="quick-text-group" key={group}>
+            <div className="quick-text-group-title">{group}</div>
+            <div className="quick-text-fields">
+              {fields.map((field) => (
+                <label key={field.key}>
+                  <span>{field.label}</span>
+                  <input
+                    value={drafts[field.key] ?? ""}
+                    onChange={(event) => setDrafts((current) => ({ ...current, [field.key]: event.target.value }))}
+                    onBlur={() => commitField(field.key)}
+                    onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
       <div className="quick-text-actions">
-        <small>Chỉ override text hiển thị của căn này. Sheet/Excel không bị sửa.</small>
+        <small>Fallback manual · chỉ áp dụng cho căn hiện tại.</small>
         <button type="button" onClick={reset}>Reset to Data</button>
       </div>
     </details>,
