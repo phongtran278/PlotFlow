@@ -10,7 +10,7 @@ function show(value, suffix = "") {
   return text === "—" ? text : `${text}${suffix}`;
 }
 
-function formatPriceBillions(value) {
+export function formatPriceBillions(value) {
   if (value === undefined || value === null) return "—";
   const raw = String(value).replace(/\u200B/g, "").trim();
   if (!raw) return "—";

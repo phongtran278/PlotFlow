@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import "./App.css";
 import PosterCanvas from "./components/PosterCanvas";
+import { formatPriceBillions } from "./components/UnitInfoCard";
 import FloorplanFineTune, { DEFAULT_FLOORPLAN_VIEW } from "./components/FloorplanFineTune";
 import AssetPicker from "./components/AssetPicker";
 import LotHighlightEditor from "./components/LotHighlightEditor";
@@ -1006,7 +1007,7 @@ function App() {
             return (
               <button key={unit.unitCode} className={`unit-select ${selectedUnit?.unitCode === unit.unitCode ? "active" : ""}`} onClick={() => { setSelectedUnitCode(unit.unitCode); setFineTuneUnitCode(null); }} disabled={isExporting}>
                 <span className="unit-main"><strong>{unit.unitCode}</strong><em className={`floorplan-badge ${badge.className}`}>{badge.icon} {badge.text}</em></span>
-                <span>{unit.priceEarly ? `${unit.priceEarly} tỷ` : "—"}</span>
+                <span>{unit.priceEarly ? `${formatPriceBillions(unit.priceEarly)} tỷ` : "—"}</span>
               </button>
             );
           })}
