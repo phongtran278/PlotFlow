@@ -10,11 +10,11 @@ const PLANS = [
     cta: "Current workspace",
     tone: "free",
     features: [
-      ["1 project", "available"],
-      ["Overview + Detail", "available"],
-      ["Manual design controls", "available"],
-      ["Standard export", "available"],
-      ["Local browser cache", "available"],
+      ["1 project", "1 dự án để bắt đầu", "available"],
+      ["Overview + Detail", "Xem toàn dự án và từng căn chi tiết", "available"],
+      ["Manual design controls", "Tự chỉnh layout, highlight, pin và asset", "available"],
+      ["Standard export", "Xuất artwork tiêu chuẩn", "available"],
+      ["Local browser cache", "Lưu tạm dữ liệu trên trình duyệt", "available"],
     ],
   },
   {
@@ -27,13 +27,13 @@ const PLANS = [
     tone: "pro",
     featured: true,
     features: [
-      ["Cloud project sync", "available"],
-      ["Shareable project links", "available"],
-      ["Unlimited unit memory", "available"],
-      ["Google Sheet auto reconnect", "available"],
-      ["HD / batch export", "available"],
-      ["Version history", "soon"],
-      ["Automatic sales-data refresh", "soon"],
+      ["Cloud project sync", "Đồng bộ project lên cloud, mở máy khác vẫn tiếp tục", "available"],
+      ["Shareable project links", "Gửi đúng link project, Overview hoặc Detail", "available"],
+      ["Unlimited unit memory", "Nhớ setup từng căn để không phải làm lại", "available"],
+      ["Google Sheet auto reconnect", "Tự kết nối lại nguồn dữ liệu gần nhất", "available"],
+      ["HD / batch export", "Xuất nhiều artwork với chất lượng cao", "available"],
+      ["Version history", "Quay lại phiên bản cũ khi cần", "soon"],
+      ["Automatic sales-data refresh", "Tự cập nhật dữ liệu bán hàng theo lịch", "soon"],
     ],
   },
   {
@@ -45,14 +45,14 @@ const PLANS = [
     cta: "Preview Team",
     tone: "team",
     features: [
-      ["Everything in Pro", "available"],
-      ["Shared cloud workspace", "available"],
-      ["Roles & permissions", "soon"],
-      ["Multi-user activity", "soon"],
-      ["White-label branding", "soon"],
-      ["Multiple client projects", "soon"],
-      ["Project analytics", "soon"],
-      ["Priority support", "soon"],
+      ["Everything in Pro", "Bao gồm toàn bộ tính năng Pro", "available"],
+      ["Shared cloud workspace", "Cùng làm việc trên một project cloud", "available"],
+      ["Roles & permissions", "Phân quyền xem, chỉnh sửa và quản trị", "soon"],
+      ["Multi-user activity", "Theo dõi hoạt động của nhiều thành viên", "soon"],
+      ["White-label branding", "Dùng logo và nhận diện riêng của doanh nghiệp", "soon"],
+      ["Multiple client projects", "Quản lý nhiều dự án và khách hàng", "soon"],
+      ["Project analytics", "Theo dõi lượt xem, sử dụng và hiệu quả", "soon"],
+      ["Priority support", "Hỗ trợ ưu tiên cho team", "soon"],
     ],
   },
 ];
@@ -69,6 +69,9 @@ const PREMIUM_ROADMAP = [
 export default function PricingPage({ onBack, onOpenWorkspace }) {
   return (
     <div className="pf-pricing">
+      <div className="pf-pricing-sparkles" aria-hidden="true">
+        <i className="s1">✦</i><i className="s2">✧</i><i className="s3">✦</i><i className="s4">✧</i><i className="s5">✦</i>
+      </div>
       <header className="pf-pricing-nav">
         <button type="button" className="pf-pricing-brand" onClick={onBack}>PlotFlow</button>
         <div className="pf-pricing-nav-meta"><span>Premium roadmap</span><em>Preview · not billing yet</em></div>
@@ -79,7 +82,7 @@ export default function PricingPage({ onBack, onOpenWorkspace }) {
         <section className="pf-pricing-hero">
           <span>BUILDING TOWARD A PRODUCT</span>
           <h1>Free today.<br/><em>Premium by design.</em></h1>
-          <p>Trang này là roadmap sống của PlotFlow. Feature đã hoàn thiện sẽ chuyển sang <b>Available</b>; phần tiếp theo vẫn hiện ở đây để sản phẩm luôn có một đích đến rõ ràng.</p>
+          <p><b>PlotFlow Premium Roadmap</b> — nơi anh và người dùng có thể nhìn thấy sản phẩm đang đi tới đâu. Tính năng đã hoàn thiện sẽ chuyển sang <b>Available · Đã có</b>; phần tiếp theo vẫn hiện rõ để ai cũng hiểu giá trị mình đang xây.</p>
           <div className="pf-pricing-proof"><b>NO PAYMENT YET</b><span>Đây là preview sản phẩm, không phải bảng giá đang bán chính thức.</span></div>
         </section>
 
@@ -94,11 +97,11 @@ export default function PricingPage({ onBack, onOpenWorkspace }) {
                 <p>{plan.description}</p>
               </div>
               <div className="pf-plan-features">
-                {plan.features.map(([label, state]) => (
+                {plan.features.map(([label, vi, state]) => (
                   <div key={label} className="pf-plan-feature">
                     <i aria-hidden="true">{state === "available" ? "✓" : "○"}</i>
-                    <span>{label}</span>
-                    <em className={state}>{state === "available" ? "Available" : "Soon"}</em>
+                    <span><b>{label}</b><small>{vi}</small></span>
+                    <em className={state}>{state === "available" ? "Available · Đã có" : "Soon · Sắp có"}</em>
                   </div>
                 ))}
               </div>
