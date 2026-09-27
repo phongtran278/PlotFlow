@@ -329,6 +329,7 @@ function App() {
   const [lotEditorCode, setLotEditorCode] = useState(null);
   const [lotEditorData, setLotEditorData] = useState(null);
   const componentCanvasRef = useRef(null);
+  const autoConnectSheetRef = useRef(false);
 
   const pdfDocRef = useRef(null);
   const pageCacheRef = useRef(new Map());
@@ -370,6 +371,16 @@ function App() {
   useEffect(() => {
     setSheetHistory(readProjectSheetHistory(storage));
   }, [projectId, storage]);
+
+  useEffect(() => {
+    autoConnectSheetRef.current = false;
+  }, [projectId]);
+
+  useEffect(() => {
+    if (autoConnectSheetRef.current || connectedSheetUrl || connectionState === "loading" || !sheetHistory.length) return;
+    autoConnectSheetRef.current = true;
+    void connectGoogleSheet(sheetHistory[0].url);
+  }, [sheetHistory, connectedSheetUrl, connectionState]);
 
   const locatorSummary = useMemo(() => {
     const values = units.map((unit) => locatorResults[normalizeUnitCode(unit.unitCode)]).filter(Boolean);
