@@ -1,4 +1,5 @@
 import "./WorkspaceNav.css";
+import BrandWordmark from "../components/BrandWordmark.jsx";
 
 export default function WorkspaceNav({ screen, mode, project, onExitWorkspace, onProjects, onMode }) {
   const inProject = screen === "project";
@@ -6,9 +7,7 @@ export default function WorkspaceNav({ screen, mode, project, onExitWorkspace, o
   return (
     <header className="pf-shell-nav">
       <div className="pf-shell-nav-left">
-        <button type="button" className="pf-shell-nav-brand" onClick={onExitWorkspace} aria-label="Back to PlotFlow home">
-          PlotFlow
-        </button>
+        <BrandWordmark className="pf-shell-nav-brand" onClick={onExitWorkspace} />
         {inProject && (
           <button type="button" className="pf-shell-nav-back" onClick={onProjects}>
             <span aria-hidden="true">←</span> Projects

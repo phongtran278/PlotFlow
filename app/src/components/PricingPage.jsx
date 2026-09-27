@@ -1,4 +1,5 @@
 import "./PricingPage.css";
+import BrandWordmark from "./BrandWordmark.jsx";
 
 const PLANS = [
   {
@@ -73,7 +74,7 @@ export default function PricingPage({ onBack, onOpenWorkspace }) {
         <i className="s1">✦</i><i className="s2">✧</i><i className="s3">✦</i><i className="s4">✧</i><i className="s5">✦</i>
       </div>
       <header className="pf-pricing-nav">
-        <button type="button" className="pf-pricing-brand" onClick={onBack}>PlotFlow</button>
+        <BrandWordmark className="pf-pricing-brand" onClick={onBack} />
         <div className="pf-pricing-nav-meta"><span>Premium roadmap</span><em>Preview · not billing yet</em></div>
         <button type="button" className="pf-pricing-open" onClick={onOpenWorkspace}>Open workspace ↗</button>
       </header>
