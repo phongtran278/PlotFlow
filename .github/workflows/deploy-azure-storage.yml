@@ -117,6 +117,17 @@ jobs:
               --only-show-errors
           done
 
+      - name: Configure SPA deep-link fallback
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          az storage blob service-properties update \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --static-website \
+            --index-document index.html \
+            --404-document index.html \
+            --only-show-errors
+
       - name: Verify Azure app shell
         env:
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}

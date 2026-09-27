@@ -150,24 +150,40 @@ function WorkspaceAuxiliaryRuntimes() {
 function PlotFlowExperience() {
   const [view, setView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("workspace") === "1" || params.get("project") ? "workspace" : "home";
+    return window.location.pathname.startsWith("/projects")
+      || params.get("workspace") === "1"
+      || params.get("project")
+      ? "workspace"
+      : "home";
   });
   const floorplanEditing = useExclusiveFloorplanEditing();
   const lotHighlightEditing = useLotHighlightEditing();
 
+  useEffect(() => {
+    function onPopState() {
+      setView(window.location.pathname.startsWith("/projects") ? "workspace" : "home");
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   function openWorkspace() {
     const url = new URL(window.location.href);
-    url.searchParams.set("workspace", "1");
-    window.history.replaceState({ plotflow: true }, "", url);
+    url.pathname = "/projects";
+    url.searchParams.delete("workspace");
+    url.searchParams.delete("project");
+    url.searchParams.delete("mode");
+    window.history.pushState({ plotflow: true }, "", url);
     setView("workspace");
   }
 
   function exitWorkspace() {
     const url = new URL(window.location.href);
+    url.pathname = "/";
     url.searchParams.delete("workspace");
     url.searchParams.delete("project");
     url.searchParams.delete("mode");
-    window.history.replaceState({ plotflow: true }, "", url);
+    window.history.pushState({ plotflow: true }, "", url);
     setView("home");
   }
 

@@ -11,26 +11,39 @@ const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Xây thô"];
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 const VALID_MODES = new Set(["landing", "overview", "detail"]);
 
+function productPath(screen, project, mode) {
+  if (screen !== "project" || !project?.id) return "/projects";
+  const suffix = mode === "overview" ? "/overview" : mode === "detail" ? "/detail" : "";
+  return `/projects/${encodeURIComponent(project.id)}${suffix}`;
+}
+
 function readProductRoute() {
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts[0] === "projects") {
+    const projectId = decodeURIComponent(parts[1] || "");
+    const project = PROJECTS.find((item) => item.id === projectId) || PROJECTS[0];
+    const mode = VALID_MODES.has(parts[2]) ? parts[2] : "landing";
+    const screen = projectId && PROJECTS.some((item) => item.id === projectId) ? "project" : "home";
+    return { screen, project, mode, legacy: false };
+  }
+
+  // Compatibility for the short-lived query-param routes shipped before slugs.
   const params = new URLSearchParams(window.location.search);
   const projectId = params.get("project") || "";
   const project = PROJECTS.find((item) => item.id === projectId) || PROJECTS[0];
   const mode = VALID_MODES.has(params.get("mode")) ? params.get("mode") : "landing";
   const screen = projectId ? "project" : "home";
-  return { screen, project, mode };
+  return { screen, project, mode, legacy: Boolean(params.get("workspace") || projectId || params.get("mode")) };
 }
 
-function writeProductRoute(screen, project, mode) {
+function writeProductRoute(screen, project, mode, { replace = false } = {}) {
   const url = new URL(window.location.href);
-  url.searchParams.set("workspace", "1");
-  if (screen === "project" && project?.id) {
-    url.searchParams.set("project", project.id);
-    url.searchParams.set("mode", VALID_MODES.has(mode) ? mode : "landing");
-  } else {
-    url.searchParams.delete("project");
-    url.searchParams.delete("mode");
-  }
-  window.history.replaceState({ plotflow: true, screen, projectId: project?.id || "", mode }, "", url);
+  url.pathname = productPath(screen, project, mode);
+  url.searchParams.delete("workspace");
+  url.searchParams.delete("project");
+  url.searchParams.delete("mode");
+  const state = { plotflow: true, screen, projectId: project?.id || "", mode };
+  window.history[replace ? "replaceState" : "pushState"](state, "", url);
 }
 
 function canonicalOverviewGroup(value = "") {
@@ -116,12 +129,10 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
 
   useEffect(() => {
     if (exclusiveEditor) return undefined;
-    writeProductRoute(screen, project, mode);
-    return undefined;
-  }, [screen, project, mode, exclusiveEditor]);
-
-  useEffect(() => {
-    if (exclusiveEditor) return undefined;
+    if (initialRouteRef.current?.legacy) {
+      writeProductRoute(screen, project, mode, { replace: true });
+      initialRouteRef.current = { ...initialRouteRef.current, legacy: false };
+    }
     function onPopState() {
       const next = readProductRoute();
       setProject(next.project);
@@ -238,9 +249,23 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   }, [detailVisible, exclusiveEditor]);
 
   function openProject(next) {
+    writeProductRoute("project", next, "landing");
     setProject(next);
     setScreen("project");
     setMode("landing");
+  }
+
+  function openProjects() {
+    writeProductRoute("home", project, "landing");
+    setScreen("home");
+    setMode("landing");
+  }
+
+  function openMode(nextMode) {
+    const safeMode = VALID_MODES.has(nextMode) ? nextMode : "landing";
+    writeProductRoute("project", project, safeMode);
+    setScreen("project");
+    setMode(safeMode);
   }
 
   return (
@@ -252,8 +277,8 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
           mode={mode}
           project={project}
           onExitWorkspace={onExitWorkspace}
-          onProjects={() => setScreen("home")}
-          onMode={setMode}
+          onProjects={openProjects}
+          onMode={openMode}
         />
       )}
 
@@ -286,7 +311,7 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
         </main>
       )}
 
-      {!exclusiveEditor && screen === "project" && mode === "landing" && <ProjectLanding project={project} onOverview={() => setMode("overview")} onDetail={() => setMode("detail")} />}
+      {!exclusiveEditor && screen === "project" && mode === "landing" && <ProjectLanding project={project} onOverview={() => openMode("overview")} onDetail={() => openMode("detail")} />}
       {!exclusiveEditor && screen === "project" && mode === "overview" && (
         <OverviewWorkspace
           project={project}
