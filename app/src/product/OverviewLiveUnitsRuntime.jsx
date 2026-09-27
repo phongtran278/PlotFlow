@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { formatPriceBillions } from "../components/UnitInfoCard.jsx";
 import "./OverviewLiveUnitsRuntime.css";
 
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
@@ -65,10 +66,8 @@ function formatArea(value) {
 }
 
 function formatPrice(value) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return "—";
-  if (/tỷ|ty\b/i.test(raw)) return raw;
-  return `${raw} tỷ`;
+  const text = formatPriceBillions(value);
+  return text === "—" ? text : `${text} tỷ`;
 }
 
 function signature(units, group) { return JSON.stringify({ group, units }); }
