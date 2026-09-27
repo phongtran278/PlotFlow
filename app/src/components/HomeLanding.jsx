@@ -39,7 +39,7 @@ const FLOW = [
   { key: "output", eyebrow: "OUTPUT", title: "Sales-ready design", body: "Overview + Detail", meta: "PNG · PDF · batch export" },
 ];
 
-export default function HomeLanding({ onOpenProject }) {
+export default function HomeLanding({ onOpenProject, onOpenPricing }) {
   const [filter, setFilter] = useState("All");
   const [feedback, setFeedback] = useState("");
   const [openFaq, setOpenFaq] = useState(0);
@@ -76,7 +76,7 @@ export default function HomeLanding({ onOpenProject }) {
     <div className="pf-home">
       <header className="pf-home-nav pf-liquid-glass">
         <a className="pf-home-brand" href="#top" aria-label="PlotFlow home">PlotFlow</a>
-        <nav aria-label="Homepage sections"><a href="#product">Product</a><a href="#workflow">System</a><a href="#projects">Projects</a><a href="#faq">Why PlotFlow</a></nav>
+        <nav aria-label="Homepage sections"><a href="#product">Product</a><a href="#workflow">System</a><a href="#projects">Projects</a><button type="button" onClick={onOpenPricing}>Pricing</button><a href="#faq">Why PlotFlow</a></nav>
         <Button variant="secondary" className="pf-home-open" onClick={onOpenProject}>Open workspace <span>↗</span></Button>
       </header>
 

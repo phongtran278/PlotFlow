@@ -11,6 +11,7 @@ import "./styles/buttonToneRefinement.css";
 import "./styles/locatorWorkflowCleanup.css";
 import App from "./App.jsx";
 import HomeLanding from "./components/HomeLanding.jsx";
+import PricingPage from "./components/PricingPage.jsx";
 import UnitReviewBar from "./components/UnitReviewBar.jsx";
 import PerformanceFeedback from "./components/PerformanceFeedback.jsx";
 import WorkspaceController from "./components/WorkspaceController.jsx";
@@ -150,6 +151,7 @@ function WorkspaceAuxiliaryRuntimes() {
 function PlotFlowExperience() {
   const [view, setView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
+    if (window.location.pathname === "/pricing") return "pricing";
     return window.location.pathname.startsWith("/projects")
       || params.get("workspace") === "1"
       || params.get("project")
@@ -161,7 +163,8 @@ function PlotFlowExperience() {
 
   useEffect(() => {
     function onPopState() {
-      setView(window.location.pathname.startsWith("/projects") ? "workspace" : "home");
+      if (window.location.pathname === "/pricing") setView("pricing");
+      else setView(window.location.pathname.startsWith("/projects") ? "workspace" : "home");
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -187,7 +190,24 @@ function PlotFlowExperience() {
     setView("home");
   }
 
-  if (view === "home") return <HomeLanding onOpenProject={openWorkspace} />;
+  function openPricing() {
+    const url = new URL(window.location.href);
+    url.pathname = "/pricing";
+    url.search = "";
+    window.history.pushState({ plotflow: true }, "", url);
+    setView("pricing");
+  }
+
+  function backHome() {
+    const url = new URL(window.location.href);
+    url.pathname = "/";
+    url.search = "";
+    window.history.pushState({ plotflow: true }, "", url);
+    setView("home");
+  }
+
+  if (view === "pricing") return <PricingPage onBack={backHome} onOpenWorkspace={openWorkspace} />;
+  if (view === "home") return <HomeLanding onOpenProject={openWorkspace} onOpenPricing={openPricing} />;
   return <ProductShell onExitWorkspace={exitWorkspace} exclusiveEditor={floorplanEditing}><PreviewInteractionsRuntime disabled={floorplanEditing || lotHighlightEditing}/><App/>{!floorplanEditing && <WorkspaceAuxiliaryRuntimes/>}</ProductShell>;
 }
 
