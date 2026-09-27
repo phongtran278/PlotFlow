@@ -10,6 +10,39 @@ function show(value, suffix = "") {
   return text === "—" ? text : `${text}${suffix}`;
 }
 
+function formatPriceBillions(value) {
+  if (value === undefined || value === null) return "—";
+  const raw = String(value).replace(/\u200B/g, "").trim();
+  if (!raw) return "—";
+
+  const compact = raw
+    .replace(/\s+/g, "")
+    .replace(/(?:VND|VNĐ|Đ|₫|TỶ|TY)/gi, "");
+
+  const groupedVnd = /^\d{1,3}(?:[.,]\d{3}){2,}$/.test(compact);
+  const plainVnd = /^\d+$/.test(compact) && compact.length >= 7;
+
+  if (groupedVnd || plainVnd) {
+    const digits = compact.replace(/[^\d]/g, "");
+    try {
+      const amount = BigInt(digits);
+      const billions = amount / 1000000000n;
+      const thousandths = (amount % 1000000000n) / 1000000n;
+      return `${billions}.${String(thousandths).padStart(3, "0")}`;
+    } catch {
+      return "—";
+    }
+  }
+
+  const decimal = compact.replace(",", ".");
+  const match = decimal.match(/^(\d+)(?:\.(\d+))?$/);
+  if (!match) return "—";
+
+  const integer = match[1].replace(/^0+(?=\d)/, "") || "0";
+  const fraction = String(match[2] || "").padEnd(3, "0").slice(0, 3);
+  return `${integer}.${fraction}`;
+}
+
 function normalizeText(value = "") {
   return String(value)
     .normalize("NFD")
@@ -85,7 +118,7 @@ function SpecColumn({ items }) {
 }
 
 function PriceBox({ label, value }) {
-  const text = sourceText(value);
+  const text = formatPriceBillions(value);
   return (
     <div className="price-box">
       <span className="price-label">{label}</span>
