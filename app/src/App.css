@@ -2205,6 +2205,28 @@ button {
 .preview-zoom-controls button:hover { background: #fff; }
 .preview-zoom-controls strong { min-width: 38px; text-align: center; font-size: 10px; color: #454d59; }
 
+.poster-house-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,.72);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  pointer-events: none;
+}
+
+.house-image-ready {
+  animation: plotflow-house-ready .16s ease-out both;
+}
+
+@keyframes plotflow-house-ready {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .house-image-fade {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 76%, rgba(0,0,0,.92) 82%, rgba(0,0,0,.48) 92%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 76%, rgba(0,0,0,.92) 82%, rgba(0,0,0,.48) 92%, transparent 100%);
