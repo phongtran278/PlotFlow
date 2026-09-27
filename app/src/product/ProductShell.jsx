@@ -9,6 +9,29 @@ import { ProjectProvider } from "../project/ProjectContext.jsx";
 
 const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Xây thô"];
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
+const VALID_MODES = new Set(["landing", "overview", "detail"]);
+
+function readProductRoute() {
+  const params = new URLSearchParams(window.location.search);
+  const projectId = params.get("project") || "";
+  const project = PROJECTS.find((item) => item.id === projectId) || PROJECTS[0];
+  const mode = VALID_MODES.has(params.get("mode")) ? params.get("mode") : "landing";
+  const screen = projectId ? "project" : "home";
+  return { screen, project, mode };
+}
+
+function writeProductRoute(screen, project, mode) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("workspace", "1");
+  if (screen === "project" && project?.id) {
+    url.searchParams.set("project", project.id);
+    url.searchParams.set("mode", VALID_MODES.has(mode) ? mode : "landing");
+  } else {
+    url.searchParams.delete("project");
+    url.searchParams.delete("mode");
+  }
+  window.history.replaceState({ plotflow: true, screen, projectId: project?.id || "", mode }, "", url);
+}
 
 function canonicalOverviewGroup(value = "") {
   const raw = String(value).trim();
@@ -78,9 +101,11 @@ function HubProjectCard({ project, index, onOpen }) {
 }
 
 export default function ProductShell({ children, onExitWorkspace, exclusiveEditor = false }) {
-  const [screen, setScreen] = useState("home");
-  const [project, setProject] = useState(PROJECTS[0]);
-  const [mode, setMode] = useState("landing");
+  const initialRouteRef = useRef(null);
+  if (!initialRouteRef.current) initialRouteRef.current = readProductRoute();
+  const [screen, setScreen] = useState(initialRouteRef.current.screen);
+  const [project, setProject] = useState(initialRouteRef.current.project);
+  const [mode, setMode] = useState(initialRouteRef.current.mode);
   const [developer, setDeveloper] = useState("All developers");
   const [query, setQuery] = useState("");
   const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
@@ -88,6 +113,24 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   const [sellUnits, setSellUnits] = useState(readSellUnits);
   const workspaceRef = useRef(null);
   const overviewSyncReadyRef = useRef(false);
+
+  useEffect(() => {
+    if (exclusiveEditor) return undefined;
+    writeProductRoute(screen, project, mode);
+    return undefined;
+  }, [screen, project, mode, exclusiveEditor]);
+
+  useEffect(() => {
+    if (exclusiveEditor) return undefined;
+    function onPopState() {
+      const next = readProductRoute();
+      setProject(next.project);
+      setScreen(next.screen);
+      setMode(next.mode);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [exclusiveEditor]);
 
   useEffect(() => {
     const fn = (event) => {
@@ -172,8 +215,13 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
     if (exclusiveEditor) return undefined;
     const root = workspaceRef.current;
     if (!root) return undefined;
-    if (detailVisible) restoreImages(root);
-    else hibernateImages(root);
+    if (detailVisible) {
+      restoreImages(root);
+      const sidebar = root.querySelector(".unit-sidebar");
+      if (sidebar && sidebar.scrollTop > 0) sidebar.scrollTo({ top: 0, behavior: "auto" });
+    } else {
+      hibernateImages(root);
+    }
     return undefined;
   }, [detailVisible, exclusiveEditor]);
 

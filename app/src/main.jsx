@@ -148,11 +148,31 @@ function WorkspaceAuxiliaryRuntimes() {
 }
 
 function PlotFlowExperience() {
-  const [view, setView] = useState("home");
+  const [view, setView] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("workspace") === "1" || params.get("project") ? "workspace" : "home";
+  });
   const floorplanEditing = useExclusiveFloorplanEditing();
   const lotHighlightEditing = useLotHighlightEditing();
-  if (view === "home") return <HomeLanding onOpenProject={() => setView("workspace")} />;
-  return <ProductShell onExitWorkspace={() => setView("home")} exclusiveEditor={floorplanEditing}><PreviewInteractionsRuntime disabled={floorplanEditing || lotHighlightEditing}/><App/>{!floorplanEditing && <WorkspaceAuxiliaryRuntimes/>}</ProductShell>;
+
+  function openWorkspace() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("workspace", "1");
+    window.history.replaceState({ plotflow: true }, "", url);
+    setView("workspace");
+  }
+
+  function exitWorkspace() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("workspace");
+    url.searchParams.delete("project");
+    url.searchParams.delete("mode");
+    window.history.replaceState({ plotflow: true }, "", url);
+    setView("home");
+  }
+
+  if (view === "home") return <HomeLanding onOpenProject={openWorkspace} />;
+  return <ProductShell onExitWorkspace={exitWorkspace} exclusiveEditor={floorplanEditing}><PreviewInteractionsRuntime disabled={floorplanEditing || lotHighlightEditing}/><App/>{!floorplanEditing && <WorkspaceAuxiliaryRuntimes/>}</ProductShell>;
 }
 
 function RootExperience() {

@@ -19,13 +19,13 @@ body:has(.plotflow-shell){overflow:hidden}
 .unit-sidebar{
   position:relative!important;inset:auto!important;width:100%;height:100dvh;min-height:0;
   overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;
-  scrollbar-color:rgba(80,90,108,.20) transparent;padding-top:18px
+  scrollbar-color:rgba(80,90,108,.20) transparent;padding-top:18px;scroll-padding-top:84px
 }
 .unit-sidebar::-webkit-scrollbar{width:7px}.unit-sidebar::-webkit-scrollbar-track{background:transparent}
 .unit-sidebar::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:var(--pf-radius-pill);background:rgba(80,90,108,.18);background-clip:padding-box}
 
 .unit-sidebar>div:first-child{
-  position:sticky;top:-18px;z-index:30;margin:-18px -18px 2px;padding:18px 18px 14px;
+  position:sticky;top:0;z-index:30;margin:0 -18px 2px;padding:14px 18px 14px;
   background:linear-gradient(180deg,rgba(249,250,248,.98) 0%,rgba(249,250,248,.94) 76%,rgba(249,250,248,0) 100%);
   backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%)
 }
@@ -37,6 +37,7 @@ body:has(.plotflow-shell){overflow:hidden}
 .unit-sidebar h1::after{content:"PhongFlow";color:var(--pf-ink);font-size:22px;font-weight:720;letter-spacing:-.65px}
 .unit-sidebar>div:first-child p{margin:5px 0 0 44px;font-size:0;line-height:1.3;font-weight:600;color:var(--pf-muted)}
 .unit-sidebar>div:first-child p::after{content:"Real Estate Visual Studio";font-size:9px;letter-spacing:.03em}
+.sheet-connect{position:relative;z-index:2;scroll-margin-top:84px}
 .source-divider,.excel-import-button{display:none!important}
 
 .component-stage{height:100dvh;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding-top:14px;scrollbar-gutter:stable}
