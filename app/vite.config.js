@@ -68,6 +68,9 @@ const buildCommit = resolveBuildCommit()
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Code-only Azure deploys reuse the static assets already stored in $web.
+  // Normal local/CI builds keep Vite's public directory enabled.
+  publicDir: process.env.PLOTFLOW_CODE_ONLY_DEPLOY === '1' ? false : 'public',
   define: {
     __PLOTFLOW_BUILD_COMMIT__: JSON.stringify(buildCommit),
   },

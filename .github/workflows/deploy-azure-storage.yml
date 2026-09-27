@@ -13,10 +13,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -29,19 +29,46 @@ jobs:
         working-directory: ./app
         run: npm ci
 
-      - name: Build PlotFlow
+      - name: Build PlotFlow code only
         working-directory: ./app
-        run: npm run build
+        env:
+          PLOTFLOW_CODE_ONLY_DEPLOY: '1'
+        run: npx vite build
 
       - name: Verify build output
-        run: test -f ./app/dist/index.html
+        run: |
+          test -f ./app/dist/index.html
+          test -d ./app/dist/assets
 
-      - name: Upload dist to Azure $web
+      - name: Upload app shell to Azure $web
         env:
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
         run: |
-          az storage blob upload-batch \
+          az storage blob upload \
             --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
-            --destination '$web' \
-            --source ./app/dist \
+            --container-name '$web' \
+            --file ./app/dist/index.html \
+            --name index.html \
             --overwrite true
+
+          find ./app/dist/assets -type f \( -name '*.js' -o -name '*.css' \) -print0 | while IFS= read -r -d '' file; do
+            blob="${file#./app/dist/}"
+            az storage blob upload \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --container-name '$web' \
+              --file "$file" \
+              --name "$blob" \
+              --overwrite true \
+              --only-show-errors
+          done
+
+      - name: Verify Azure app shell
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          az storage blob exists \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --container-name '$web' \
+            --name index.html \
+            --query exists \
+            --output tsv | grep -qx true
