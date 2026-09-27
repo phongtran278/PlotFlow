@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import "./WorkspaceController.css";
 
 const MIN_ZOOM = 20;
-const MAX_ZOOM = 250;
+const MAX_ZOOM = 180;
 const ARTWORK_WIDTH = 1080;
 const ARTWORK_HEIGHT = 1920;
 
@@ -290,12 +290,24 @@ export default function WorkspaceController() {
       if (navigatorOpenRef.current) refreshNavigator();
     }
 
+    let wheelFrame = 0;
+    let wheelDirection = 0;
+
     function wheel(event) {
       if (!(event.metaKey || event.ctrlKey)) return;
       const activeScroll = findScrollSurface();
       if (!activeScroll || !activeScroll.contains(event.target)) return;
       event.preventDefault();
-      applyZoom(zoomRef.current + (event.deltaY < 0 ? 10 : -10));
+
+      wheelDirection = event.deltaY < 0 ? 1 : -1;
+      if (wheelFrame) return;
+
+      wheelFrame = requestAnimationFrame(() => {
+        wheelFrame = 0;
+        const direction = wheelDirection;
+        wheelDirection = 0;
+        applyZoom(zoomRef.current + direction * 10);
+      });
     }
 
     window.addEventListener("keydown", keydown);
@@ -313,6 +325,7 @@ export default function WorkspaceController() {
       window.removeEventListener("pointerup", pointerend);
       window.removeEventListener("pointercancel", pointerend);
       document.removeEventListener("wheel", wheel, true);
+      if (wheelFrame) cancelAnimationFrame(wheelFrame);
       document.body.classList.remove("workspace-space-hand", "workspace-grabbing");
     };
   }, [tool]);
