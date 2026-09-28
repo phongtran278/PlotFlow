@@ -1,5 +1,5 @@
 import "./PricingPage.css";
-import BrandWordmark from "./BrandWordmark.jsx";
+import GlobalNav from "./GlobalNav.jsx";
 
 const PLANS = [
   {
@@ -73,11 +73,11 @@ export default function PricingPage({ onBack, onOpenWorkspace }) {
       <div className="pf-pricing-sparkles" aria-hidden="true">
         <i className="s1">✦</i><i className="s2">✧</i><i className="s3">✦</i><i className="s4">✧</i><i className="s5">✦</i>
       </div>
-      <header className="pf-pricing-nav">
-        <BrandWordmark className="pf-pricing-brand" onClick={onBack} />
-        <div className="pf-pricing-nav-meta"><span>Premium roadmap</span><em>Preview · not billing yet</em></div>
-        <button type="button" className="pf-pricing-open" onClick={onOpenWorkspace}>Open workspace ↗</button>
-      </header>
+      <GlobalNav
+        active="pricing"
+        onProduct={onBack}
+        onOpenWorkspace={onOpenWorkspace}
+      />
 
       <main>
         <section className="pf-pricing-hero">

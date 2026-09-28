@@ -5,7 +5,7 @@ import ProjectCard from "./ProjectCard.jsx";
 import WorkflowFlow from "./WorkflowFlow.jsx";
 import FaqAccordion from "./FaqAccordion.jsx";
 import Button from "./Button.jsx";
-import BrandWordmark from "./BrandWordmark.jsx";
+import GlobalNav from "./GlobalNav.jsx";
 
 const FEEDBACK_EMAIL = "phongtran7076@gmail.com";
 
@@ -75,11 +75,13 @@ export default function HomeLanding({ onOpenProject, onOpenPricing }) {
 
   return (
     <div className="pf-home">
-      <header className="pf-home-nav pf-liquid-glass">
-        <BrandWordmark className="pf-home-brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
-        <nav aria-label="Homepage sections"><a href="#product">Product</a><a href="#workflow">System</a><a href="#projects">Projects</a><button type="button" className="pf-home-pricing-link" onClick={onOpenPricing}>Pricing <i aria-hidden="true">✦</i></button><a href="#faq">Why PlotFlow</a></nav>
-        <Button variant="secondary" className="pf-home-open" onClick={onOpenProject}>Open workspace <span>↗</span></Button>
-      </header>
+      <GlobalNav
+        active="product"
+        onProduct={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        onProjects={onOpenProject}
+        onPricing={onOpenPricing}
+        onOpenWorkspace={onOpenProject}
+      />
 
       <main id="top">
         <section className="pf-home-hero" id="product">
