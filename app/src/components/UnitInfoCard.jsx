@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { readPriceStyle } from "./priceDesignSettings.js";
+
 function sourceText(value) {
   if (value === undefined || value === null) return "—";
   const text = String(value).replace(/\u200B/g, "").trim();
@@ -67,6 +70,18 @@ function displayUnitType(unit) {
 }
 
 export default function UnitInfoCard({ unit = {} }) {
+  const [priceStyle, setPriceStyle] = useState(() => readPriceStyle(unit?.unitCode));
+
+  useEffect(() => {
+    const sync = () => setPriceStyle(readPriceStyle(unit?.unitCode));
+    sync();
+    window.addEventListener("plotflow-price-style-updated", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("plotflow-price-style-updated", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [unit?.unitCode]);
   const leftSpecs = [
     { label: "LOẠI HÌNH", value: displayUnitType(unit) },
     { label: "SỐ TẦNG", value: show(unit.floors) },
@@ -82,8 +97,22 @@ export default function UnitInfoCard({ unit = {} }) {
   const has36 = unit.price36 !== undefined && unit.price36 !== null && String(unit.price36).trim() !== "";
 
   return (
-    <section className="unit-info-card">
-      <div className="unit-code-box">{sourceText(unit.unitCode)}</div>
+    <section className="unit-info-card" style={{
+      "--pf-price-bg": priceStyle.background,
+      "--pf-price-label-color": priceStyle.labelColor,
+      "--pf-price-value-color": priceStyle.valueColor,
+      "--pf-price-suffix-color": priceStyle.suffixColor,
+      "--pf-price-label-size": `${priceStyle.labelSize}px`,
+      "--pf-price-value-size": `${priceStyle.valueSize}px`,
+      "--pf-price-suffix-size": `${priceStyle.suffixSize}px`,
+      "--pf-price-label-weight": priceStyle.labelWeight,
+      "--pf-price-value-weight": priceStyle.valueWeight,
+      "--pf-price-suffix-weight": priceStyle.suffixWeight,
+      "--pf-price-radius": `${priceStyle.radius}px`,
+      "--pf-price-gap": `${priceStyle.gap}px`,
+      "--pf-price-align": priceStyle.align,
+    }}>
+      <div className="unit-code-box"><span className="unit-code-label">MÃ LÔ</span><strong>{sourceText(unit.unitCode)}</strong></div>
 
       <div className="unit-spec-tabs" aria-label="Unit specifications">
         <SpecColumn items={leftSpecs} />

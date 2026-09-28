@@ -7,6 +7,7 @@ import "./CampaignBadgeStrip.css";
 import ArchitectureAutoMatchCard from "./ArchitectureAutoMatchCard.jsx";
 import QuickPinOverlay from "./QuickPinOverlay.jsx";
 import QuickTextOverride, { applyQuickTextOverride, readQuickTextOverride } from "./QuickTextOverride.jsx";
+import PriceDesignControl from "./PriceDesignControl.jsx";
 import ManualFloorplanLocator from "./ManualFloorplanLocator.jsx";
 import "./ManualFloorplanLocator.css";
 import { findCatalogAsset, houseCatalog, pinAssets } from "../data/assetCatalog.js";
@@ -267,6 +268,7 @@ export default function PosterCanvas({
 
       <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />
       <QuickTextOverride unit={unit} resolvedUnit={dataResolvedUnit} target={quickControlsTarget} isEditing={isEditing} />
+      <PriceDesignControl unit={resolvedUnit} target={quickControlsTarget} isEditing={isEditing} />
       {manualControl}
 
       {manualLocatorOpen && createPortal(

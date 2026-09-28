@@ -3673,3 +3673,44 @@ body.plotflow-zen-mode .focus-deck { background:rgba(246,248,251,.94); }
   .focus-deck { right:12px; bottom:66px; width:min(330px, calc(100vw - 24px)); }
   .focus-orb { right:12px; bottom:12px; }
 }
+
+
+/* Designer-owned price card appearance. Values come from persisted design settings. */
+.poster-unit-info .unit-code-box{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+.poster-unit-info .unit-code-box .unit-code-label{
+  position:absolute;left:12px;top:9px;color:rgba(255,255,255,.72);
+  font-size:7px;line-height:1;font-weight:800;letter-spacing:.12em;
+}
+.poster-unit-info .unit-code-box strong{
+  color:inherit;font:inherit;font-weight:inherit;letter-spacing:inherit;
+}
+.poster-unit-info .price-box{
+  background:var(--pf-price-bg,#f7efe7)!important;
+  border-radius:var(--pf-price-radius,7px)!important;
+  align-items:var(--pf-price-align,center)!important;
+}
+.poster-unit-info .price-label{
+  width:100%;color:var(--pf-price-label-color,#292725)!important;
+  font-size:var(--pf-price-label-size,10.2px)!important;
+  font-weight:var(--pf-price-label-weight,850)!important;
+  text-align:var(--pf-price-align,center)!important;
+}
+.poster-unit-info .price-value{
+  width:100%;gap:var(--pf-price-gap,6px)!important;
+  justify-content:var(--pf-price-align,center)!important;
+}
+.poster-unit-info .price-value strong{
+  color:var(--pf-price-value-color,#bd1530)!important;
+  font-size:var(--pf-price-value-size,42px)!important;
+  font-weight:var(--pf-price-value-weight,850)!important;
+}
+.poster-unit-info .price-value span{
+  color:var(--pf-price-suffix-color,#bd1530)!important;
+  font-size:var(--pf-price-suffix-size,16px)!important;
+  font-weight:var(--pf-price-suffix-weight,850)!important;
+}
