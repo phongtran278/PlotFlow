@@ -119,7 +119,7 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   const [screen, setScreen] = useState(initialRouteRef.current.screen);
   const [project, setProject] = useState(initialRouteRef.current.project);
   const [mode, setMode] = useState(initialRouteRef.current.mode);
-  const [developer, setDeveloper] = useState("All developers");
+  const [developer, setDeveloper] = useState("All");
   const [query, setQuery] = useState("");
   const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
   const [units, setUnits] = useState(readAvailableUnits);
@@ -164,11 +164,11 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
     return () => document.body.classList.remove("pf-product-home", "pf-product-project", "pf-product-overview", "pf-product-detail");
   }, [screen, mode, exclusiveEditor]);
 
-  const developers = useMemo(() => ["All developers", ...Array.from(new Set(PROJECTS.map((item) => item.developer)))], []);
+  const developers = useMemo(() => ["All", ...Array.from(new Set(PROJECTS.map((item) => item.developer)))], []);
   const filteredProjects = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return PROJECTS.filter((item) => (
-      (developer === "All developers" || item.developer === developer)
+      (developer === "All" || item.developer === developer)
       && (!normalized || [item.code, item.name, item.developer, item.location, item.status].some((value) => String(value).toLowerCase().includes(normalized)))
     ));
   }, [developer, query]);
