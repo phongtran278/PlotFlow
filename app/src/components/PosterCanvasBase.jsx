@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import UnitInfoCard from "./UnitInfoCard";
+import UnitInfoCard, { canonicalUnitType, composeArchitectureLabel } from "./UnitInfoCard";
 
 const BASE = {
   house: { x: 0, y: 0, w: 1080, h: 578 },
@@ -145,16 +145,8 @@ export default function PosterCanvas({
     return () => window.removeEventListener("keydown", keydown);
   }, [history, historyIndex]);
 
-  const rawArchitectureLabel = String(unit.architectureLabel || "").trim();
-  const unitType = String(unit.type || "").trim();
-  const normalizedType = unitType.toLocaleUpperCase("vi-VN");
-  const normalizedLabel = rawArchitectureLabel.toLocaleUpperCase("vi-VN");
-
-  const architectureLabel = rawArchitectureLabel
-    ? (normalizedLabel.includes(normalizedType) || !unitType
-        ? rawArchitectureLabel
-        : `${unitType} - ${rawArchitectureLabel}`)
-    : unitType;
+  const unitType = canonicalUnitType(unit.type || "");
+  const architectureLabel = composeArchitectureLabel(unit.type || "", unit.architectureLabel || "");
 
   function selectSlot(key, e) {
     if (!isEditing) return;

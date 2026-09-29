@@ -14,6 +14,19 @@ export const DEFAULT_PRICE_STYLE = {
   radius: 7,
   gap: 6,
   align: "center",
+  labelItalic: false,
+  valueItalic: false,
+  suffixItalic: false,
+  labelLetterSpacing: 0,
+  valueLetterSpacing: -1.6,
+  suffixLetterSpacing: 0,
+  labelLineHeight: 1,
+  valueLineHeight: 0.88,
+  suffixLineHeight: 1,
+  paddingX: 8,
+  paddingY: 7,
+  rowGap: 4,
+  minHeight: 78,
 };
 
 export function normalizePriceUnitCode(value = "") {

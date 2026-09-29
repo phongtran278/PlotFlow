@@ -3714,3 +3714,29 @@ body.plotflow-zen-mode .focus-deck { background:rgba(246,248,251,.94); }
   font-size:var(--pf-price-suffix-size,16px)!important;
   font-weight:var(--pf-price-suffix-weight,850)!important;
 }
+
+
+/* Price cards behave like a small Auto Layout frame: content drives height, designer owns spacing/type. */
+.poster-unit-info .price-box{
+  height:auto!important;
+  min-height:var(--pf-price-min-height,78px)!important;
+  padding:var(--pf-price-padding-y,7px) var(--pf-price-padding-x,8px)!important;
+  gap:var(--pf-price-row-gap,4px)!important;
+  justify-content:center!important;
+}
+.poster-unit-info .price-label{
+  margin:0!important;
+  font-style:var(--pf-price-label-style,normal)!important;
+  letter-spacing:var(--pf-price-label-tracking,0px)!important;
+  line-height:var(--pf-price-label-line,1)!important;
+}
+.poster-unit-info .price-value strong{
+  font-style:var(--pf-price-value-style,normal)!important;
+  letter-spacing:var(--pf-price-value-tracking,-1.6px)!important;
+  line-height:var(--pf-price-value-line,.88)!important;
+}
+.poster-unit-info .price-value span{
+  font-style:var(--pf-price-suffix-style,normal)!important;
+  letter-spacing:var(--pf-price-suffix-tracking,0px)!important;
+  line-height:var(--pf-price-suffix-line,1)!important;
+}

@@ -16,6 +16,16 @@ const NUMBER_FIELDS = [
   ["suffixSize", "Suffix size", 8, 28, 1],
   ["radius", "Corner radius", 0, 24, 1],
   ["gap", "Value gap", 0, 18, 1],
+  ["paddingX", "Padding X", 0, 28, 1],
+  ["paddingY", "Padding Y", 0, 24, 1],
+  ["rowGap", "Row gap", 0, 18, 1],
+  ["minHeight", "Min height", 56, 130, 1],
+  ["labelLetterSpacing", "Label tracking", -3, 8, 0.1],
+  ["valueLetterSpacing", "Price tracking", -6, 8, 0.1],
+  ["suffixLetterSpacing", "Suffix tracking", -3, 8, 0.1],
+  ["labelLineHeight", "Label line height", 0.7, 2, 0.05],
+  ["valueLineHeight", "Price line height", 0.6, 1.6, 0.05],
+  ["suffixLineHeight", "Suffix line height", 0.7, 2, 0.05],
 ];
 
 function sanitize(style) {
@@ -30,6 +40,16 @@ function sanitize(style) {
     suffixWeight: Number(style.suffixWeight) || DEFAULT_PRICE_STYLE.suffixWeight,
     radius: Number(style.radius) || 0,
     gap: Number(style.gap) || 0,
+    paddingX: Number(style.paddingX) || 0,
+    paddingY: Number(style.paddingY) || 0,
+    rowGap: Number(style.rowGap) || 0,
+    minHeight: Number(style.minHeight) || DEFAULT_PRICE_STYLE.minHeight,
+    labelLetterSpacing: Number(style.labelLetterSpacing) || 0,
+    valueLetterSpacing: Number(style.valueLetterSpacing) || 0,
+    suffixLetterSpacing: Number(style.suffixLetterSpacing) || 0,
+    labelLineHeight: Number(style.labelLineHeight) || DEFAULT_PRICE_STYLE.labelLineHeight,
+    valueLineHeight: Number(style.valueLineHeight) || DEFAULT_PRICE_STYLE.valueLineHeight,
+    suffixLineHeight: Number(style.suffixLineHeight) || DEFAULT_PRICE_STYLE.suffixLineHeight,
   };
 }
 
@@ -119,6 +139,9 @@ export default function PriceDesignControl({ unit, target, isEditing = false }) 
           <label><span>Price weight</span><select value={style.valueWeight} onChange={(event) => patch("valueWeight", event.target.value)}><option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="850">850</option><option value="900">900</option></select></label>
           <label><span>Suffix weight</span><select value={style.suffixWeight} onChange={(event) => patch("suffixWeight", event.target.value)}><option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="850">850</option><option value="900">900</option></select></label>
           <label><span>Alignment</span><select value={style.align} onChange={(event) => patch("align", event.target.value)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+          <label><span>Label italic</span><input type="checkbox" checked={Boolean(style.labelItalic)} onChange={(event) => patch("labelItalic", event.target.checked)} /></label>
+          <label><span>Price italic</span><input type="checkbox" checked={Boolean(style.valueItalic)} onChange={(event) => patch("valueItalic", event.target.checked)} /></label>
+          <label><span>Suffix italic</span><input type="checkbox" checked={Boolean(style.suffixItalic)} onChange={(event) => patch("suffixItalic", event.target.checked)} /></label>
         </div>
       </div>
 

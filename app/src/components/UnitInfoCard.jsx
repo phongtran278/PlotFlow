@@ -54,14 +54,46 @@ function normalizeText(value = "") {
     .toUpperCase();
 }
 
+export function canonicalUnitType(value) {
+  const raw = sourceText(value);
+  if (raw === "—") return raw;
+  const normalized = normalizeText(raw).replace(/[^A-Z0-9]/g, "");
+  if (["K", "LK", "LIENKE"].includes(normalized)) return "LIỀN KỀ";
+  if (["SL", "SONGLAP"].includes(normalized)) return "SONG LẬP";
+  if (["DL", "DONLAP"].includes(normalized)) return "ĐƠN LẬP";
+  return raw.toLocaleUpperCase("vi-VN");
+}
+
+export function composeArchitectureLabel(typeValue, labelValue) {
+  const type = canonicalUnitType(typeValue);
+  const raw = sourceText(labelValue);
+  if (raw === "—") return type;
+  const canonicalType = type === "—" ? "" : type;
+  const typeNorm = normalizeText(canonicalType).replace(/[^A-Z0-9]/g, "");
+  const aliases = new Set([typeNorm]);
+  if (canonicalType === "LIỀN KỀ") ["K","LK","LIENKE"].forEach((x) => aliases.add(x));
+  if (canonicalType === "SONG LẬP") ["SL","SONGLAP"].forEach((x) => aliases.add(x));
+  if (canonicalType === "ĐƠN LẬP") ["DL","DONLAP"].forEach((x) => aliases.add(x));
+
+  const parts = raw.split(/\s*[-–—]\s*/).map((part) => part.trim()).filter(Boolean);
+  const cleaned = parts.filter((part, index) => {
+    const key = normalizeText(part).replace(/[^A-Z0-9]/g, "");
+    if (!aliases.has(key)) return true;
+    return index > 0 && !parts.slice(0, index).some((prev) => aliases.has(normalizeText(prev).replace(/[^A-Z0-9]/g, "")));
+  });
+  const unique = [];
+  cleaned.forEach((part) => {
+    const key = normalizeText(part).replace(/[^A-Z0-9]/g, "");
+    if (!unique.some((item) => normalizeText(item).replace(/[^A-Z0-9]/g, "") === key)) unique.push(part);
+  });
+  return [canonicalType, ...unique].filter(Boolean).join(" — ");
+}
+
 function displayUnitType(unit) {
   const source = `${unit?.type || ""} ${unit?.sourceFeature || ""}`.trim();
   if (!source) return "—";
   const normalized = normalizeText(source);
-  let base = sourceText(unit?.type);
-  if (normalized.includes("SONG LAP")) base = "SONG LẬP";
-  else if (normalized.includes("DON LAP")) base = "ĐƠN LẬP";
-  else if (normalized.includes("LIEN KE")) base = "LIỀN KỀ";
+  let base = canonicalUnitType(unit?.type);
 
   if (normalized.includes("SHOPHOUSE")) return `${base} - SHOPHOUSE`;
   if (normalized.includes("CAN GOC") || normalized.includes("GOC")) return `${base} - CĂN GÓC`;
@@ -111,6 +143,19 @@ export default function UnitInfoCard({ unit = {} }) {
       "--pf-price-radius": `${priceStyle.radius}px`,
       "--pf-price-gap": `${priceStyle.gap}px`,
       "--pf-price-align": priceStyle.align,
+      "--pf-price-label-style": priceStyle.labelItalic ? "italic" : "normal",
+      "--pf-price-value-style": priceStyle.valueItalic ? "italic" : "normal",
+      "--pf-price-suffix-style": priceStyle.suffixItalic ? "italic" : "normal",
+      "--pf-price-label-tracking": `${priceStyle.labelLetterSpacing}px`,
+      "--pf-price-value-tracking": `${priceStyle.valueLetterSpacing}px`,
+      "--pf-price-suffix-tracking": `${priceStyle.suffixLetterSpacing}px`,
+      "--pf-price-label-line": priceStyle.labelLineHeight,
+      "--pf-price-value-line": priceStyle.valueLineHeight,
+      "--pf-price-suffix-line": priceStyle.suffixLineHeight,
+      "--pf-price-padding-x": `${priceStyle.paddingX}px`,
+      "--pf-price-padding-y": `${priceStyle.paddingY}px`,
+      "--pf-price-row-gap": `${priceStyle.rowGap}px`,
+      "--pf-price-min-height": `${priceStyle.minHeight}px`,
     }}>
       <div className="unit-code-box"><span className="unit-code-label">MÃ LÔ</span><strong>{sourceText(unit.unitCode)}</strong></div>
 
