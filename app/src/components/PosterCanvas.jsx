@@ -175,7 +175,7 @@ export default function PosterCanvas({
 
   const manualHouse = placeholderMode ? null : readManualHouse(unit?.unitCode);
   const sheetHouse = placeholderMode ? null : findCatalogAsset(houseCatalog, unit?.houseModel);
-  const houseResolution = placeholderMode ? { asset: null, suggestedHouseModel: "", expectedAssetKey: "" } : resolveArchitectureHouseAsset(unit, houseCatalog);
+  const houseResolution = placeholderMode ? { asset: null, suggestedHouseModel: "", expectedAssetKey: "" } : resolveArchitectureHouseAsset(resolvedUnit, houseCatalog);
   const resolvedHouse = manualHouse || sheetHouse || houseResolution.asset || null;
   const missingKey = placeholderMode
     ? "Mẫu nhà sẽ hiển thị sau khi có dữ liệu"
