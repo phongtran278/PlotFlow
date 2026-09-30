@@ -59,10 +59,94 @@ function extractArchitectureCode(value = "") {
   return number ? `CH-${number}` : "";
 }
 
+const ARCHITECTURE_MODELS = [
+  { code: "CH-53", type: "SONG_LAP", label: "SONG LẬP - TÂN CỔ ĐIỂN" },
+  { code: "CH-53", type: "LK", label: "LIỀN KỀ - TÂN CỔ ĐIỂN" },
+  { code: "CH-08", type: "LK", label: "LIỀN KỀ - CỔ ĐIỂN" },
+  { code: "CH-08", type: "SONG_LAP", label: "SONG LẬP - CỔ ĐIỂN" },
+  { code: "CH-71", type: "SONG_LAP", label: "SONG LẬP - NHẬT BẢN ĐƯƠNG ĐẠI" },
+  { code: "CH-71", type: "LK", label: "LIỀN KỀ - NHẬT BẢN ĐƯƠNG ĐẠI" },
+  { code: "CH-59", type: "LK", label: "LIỀN KỀ - HIỆN ĐẠI NHIỆT ĐỚI" },
+  { code: "CH-59", type: "DON_LAP", label: "ĐƠN LẬP - HIỆN ĐẠI NHIỆT ĐỚI" },
+  { code: "CH-59", type: "SONG_LAP", label: "SONG LẬP - HIỆN ĐẠI NHIỆT ĐỚI" },
+  { code: "CH-52", type: "LK", label: "LIỀN KỀ - HIỆN ĐẠI XANH" },
+  { code: "CH-75", type: "LK", label: "LIỀN KỀ - HIỆN ĐẠI XANH" },
+  { code: "CH-75", type: "SONG_LAP", label: "SONG LẬP - HIỆN ĐẠI XANH" },
+  { code: "CH-29", type: "LK", label: "LIỀN KỀ - NHẬT BẢN" },
+  { code: "CH-15", type: "LK", label: "LIỀN KỀ - HÀN QUỐC" },
+  { code: "CH-19", type: "LK", label: "LIỀN KỀ - HỘI AN" },
+  { code: "CH-13", type: "LK", label: "LIỀN KỀ - ĐÔNG ÂU" },
+];
+
+function canonicalPropertyType(value = "") {
+  const key = normalizeText(value).replace(/_/g, "");
+  if (["K", "LK", "LIENKE"].includes(key) || key.includes("LIENKE")) return "LK";
+  if (["SL", "SONGLAP"].includes(key) || key.includes("SONGLAP")) return "SONG_LAP";
+  if (["DL", "DONLAP"].includes(key) || key.includes("DONLAP")) return "DON_LAP";
+  return "";
+}
+
+function architectureStyleKey(value = "") {
+  let key = normalizeText(value);
+  key = key
+    .replace(/(^|_)(K|LK|LIEN_KE|SONG_LAP|DON_LAP)(_|$)/g, "_")
+    .replace(/(^|_)(CAN_GOC|XE_KHE|SHOPHOUSE)(_|$)/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return key;
+}
+
+function inferArchitectureFromData(unit) {
+  const directCode = extractArchitectureCode(unit?.architectureCode)
+    || extractArchitectureCode(unit?.architectureLabel)
+    || extractArchitectureCode(unit?.houseModel);
+  if (directCode) {
+    const model = ARCHITECTURE_MODELS.find((item) => item.code === directCode && (!canonicalPropertyType(unit?.type) || item.type === canonicalPropertyType(unit?.type)))
+      || ARCHITECTURE_MODELS.find((item) => item.code === directCode);
+    return {
+      architectureCode: directCode,
+      architectureLabel: String(unit?.architectureLabel || model?.label || "").trim(),
+      confidence: 1,
+      source: "DATA_CODE",
+    };
+  }
+
+  const propertyType = canonicalPropertyType(unit?.type || unit?.sourceFeature || unit?.architectureLabel);
+  const styleSource = unit?.architectureLabel || unit?.houseModel || "";
+  const styleKey = architectureStyleKey(styleSource);
+  if (!styleKey) return null;
+
+  let candidates = ARCHITECTURE_MODELS.filter((item) => architectureStyleKey(item.label) === styleKey);
+  if (propertyType) candidates = candidates.filter((item) => item.type === propertyType);
+
+  const uniqueCodes = [...new Set(candidates.map((item) => item.code))];
+  if (uniqueCodes.length !== 1) return null;
+
+  const selected = candidates.find((item) => item.code === uniqueCodes[0]) || candidates[0];
+  return {
+    architectureCode: selected.code,
+    architectureLabel: String(unit?.architectureLabel || selected.label).trim(),
+    confidence: 0.94,
+    source: "DATA_INFERRED",
+  };
+}
+
 export function resolveArchitectureMatch(unit) {
   const autoMatch = ARCHITECTURE_BY_UNIT.get(normalizeUnitCode(unit?.unitCode));
   const storedLabel = String(unit?.architectureLabel || "").trim();
   const storedCode = String(unit?.architectureCode || "").trim();
+  const inferred = inferArchitectureFromData(unit);
+
+  if (inferred?.architectureCode) {
+    return {
+      unitCode: unit?.unitCode || "",
+      architectureCode: inferred.architectureCode,
+      architectureLabel: inferred.architectureLabel || storedLabel || autoMatch?.architectureLabel || "",
+      source: inferred.source,
+      confidence: inferred.confidence,
+      isOverride: false,
+    };
+  }
+
   const sameAsAuto = Boolean(
     autoMatch && storedLabel && normalizeText(storedLabel) === normalizeText(autoMatch.architectureLabel)
   );

@@ -58,6 +58,7 @@ const EMPTY_PREVIEW_UNIT = {
   floorplan: "",
   amenity1: "",
   amenity2: "",
+  architectureCode: "",
   architectureLabel: "",
   logoVariant: "",
   showHotDeal: "",
@@ -87,13 +88,28 @@ function normalizeRow(row) {
     price24: row.price24 ?? "",
     price30: row.price30 ?? row.price36 ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
     price36: row.price36 ?? row.price30 ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
-    houseModel: String(row.houseModel ?? row.houseName ?? row["Mẫu nhà"] ?? row["Tên mẫu nhà"] ?? "").trim(),
+    houseModel: String(row.houseModel ?? row.houseName ?? row["Mẫu nhà"] ?? row["MÃ MẪU NHÀ"] ?? row["Mã mẫu nhà"] ?? "").trim(),
     floorplan: String(row.floorplan ?? "").trim(),
     amenity1: String(row.amenity1 ?? "").trim(),
     amenity2: String(row.amenity2 ?? "").trim(),
+    architectureCode: String(
+      row.architectureCode ??
+      row.archCode ??
+      row["Mã kiến trúc"] ??
+      row["MÃ KIẾN TRÚC"] ??
+      row["Mã mẫu nhà"] ??
+      row["MÃ MẪU NHÀ"] ??
+      ""
+    ).trim(),
     architectureLabel: String(
       row.architectureLabel ??
+      row.architectureName ??
       row.houseLabel ??
+      row.tenKienTruc ??
+      row["Kiến trúc"] ??
+      row["KIẾN TRÚC"] ??
+      row["Tên kiến trúc"] ??
+      row["TÊN KIẾN TRÚC"] ??
       row.tenMauNha ??
       row["Tên mẫu nhà"] ??
       row["TÊN MẪU NHÀ"] ??
