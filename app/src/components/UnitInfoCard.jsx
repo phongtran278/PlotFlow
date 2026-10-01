@@ -126,8 +126,6 @@ export default function UnitInfoCard({ unit = {} }) {
     { label: "LỘ GIỚI", value: show(unit.roadWidth, "M") },
   ];
 
-  const has36 = unit.price36 !== undefined && unit.price36 !== null && String(unit.price36).trim() !== "";
-
   return (
     <section className="unit-info-card" style={{
       "--pf-price-bg": priceStyle.background,
@@ -165,10 +163,10 @@ export default function UnitInfoCard({ unit = {} }) {
       </div>
 
       <div className="price-grid">
-        <PriceBox label="GIÁ THANH TOÁN SỚM" value={unit.priceEarly} />
-        <PriceBox label="GIÁ HTLS 70% - 18TH" value={unit.price18} />
-        <PriceBox label="GIÁ HTLS 70% - 24TH" value={unit.price24} />
-        <PriceBox label={`GIÁ HTLS 70% - ${has36 ? "36TH" : "30TH"}`} value={has36 ? unit.price36 : unit.price30} />
+        <PriceBox label="GIÁ TT CHUẨN" value={unit.priceStandard} />
+        <PriceBox label="GIÁ TT SỚM" value={unit.priceEarly} />
+        <PriceBox label="GIÁ TT VAY 18T" value={unit.price18} />
+        <PriceBox label="GIÁ TT VAY 24T" value={unit.price24} />
       </div>
 
       <div className="unit-note">

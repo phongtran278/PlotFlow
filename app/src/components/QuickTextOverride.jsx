@@ -14,11 +14,10 @@ const FIELD_DEFS = [
   { key: "landArea", label: "Diện tích đất", group: "Thông tin" },
   { key: "constructionArea", label: "Diện tích xây dựng", group: "Thông tin" },
   { key: "roadWidth", label: "Lộ giới / đường", group: "Thông tin" },
-  { key: "priceEarly", label: "Giá sớm", group: "Giá" },
-  { key: "price18", label: "Giá 18TH", group: "Giá" },
-  { key: "price24", label: "Giá 24TH", group: "Giá" },
-  { key: "price30", label: "Giá 30TH", group: "Giá" },
-  { key: "price36", label: "Giá 36TH", group: "Giá" },
+  { key: "priceStandard", label: "Giá TT chuẩn", group: "Giá" },
+  { key: "priceEarly", label: "Giá TT sớm", group: "Giá" },
+  { key: "price18", label: "Giá TT vay 18T", group: "Giá" },
+  { key: "price24", label: "Giá TT vay 24T", group: "Giá" },
 ];
 
 function normalizeCode(value = "") {
