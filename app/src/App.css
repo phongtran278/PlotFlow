@@ -3740,3 +3740,9 @@ body.plotflow-zen-mode .focus-deck { background:rgba(246,248,251,.94); }
   letter-spacing:var(--pf-price-suffix-tracking,0px)!important;
   line-height:var(--pf-price-suffix-line,1)!important;
 }
+
+
+/* Recent-sheet mutations must not move the paste field while removing history rows. */
+.sheet-connect{overflow-anchor:none}
+.sheet-connect>input{overflow-anchor:auto}
+.sheet-history{overflow-anchor:none;contain:layout paint}

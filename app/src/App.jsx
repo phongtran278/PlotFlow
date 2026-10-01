@@ -76,18 +76,18 @@ const EMPTY_ASSIGNMENT = {
 
 function normalizeRow(row) {
   return {
-    unitCode: String(row.unitCode ?? "").trim(),
-    type: String(row.type ?? "").trim(),
-    floors: row.floors ?? "",
-    handover: String(row.handover ?? "").trim(),
-    landArea: row.landArea ?? "",
-    constructionArea: row.constructionArea ?? "",
-    roadWidth: row.roadWidth ?? "",
-    priceEarly: row.priceEarly ?? "",
-    price18: row.price18 ?? "",
-    price24: row.price24 ?? "",
-    price30: row.price30 ?? row.price36 ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
-    price36: row.price36 ?? row.price30 ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
+    unitCode: String(row.unitCode ?? row.MA_CAN ?? row["MÃ CĂN"] ?? row["Mã căn"] ?? "").trim(),
+    type: String(row.type ?? row.LOAI_HINH_SAN_PHAM ?? row["LOẠI HÌNH SẢN PHẨM"] ?? row["Loại hình sản phẩm"] ?? "").trim(),
+    floors: row.floors ?? row.SO_TANG ?? row["SỐ TẦNG"] ?? "",
+    handover: String(row.handover ?? row.TIEU_CHUAN_BAN_GIAO ?? row["TIÊU CHUẨN BÀN GIAO"] ?? "").trim(),
+    landArea: row.landArea ?? row.DT_DAT_M2 ?? row["DT ĐẤT M2"] ?? "",
+    constructionArea: row.constructionArea ?? row.DTXD_M2 ?? row["DTXD M2"] ?? "",
+    roadWidth: row.roadWidth ?? row.LO_GIOI ?? row["LỘ GIỚI"] ?? "",
+    priceEarly: row.priceEarly ?? row.TIEN_DO_SOM ?? row["TIẾN ĐỘ SỚM"] ?? "",
+    price18: row.price18 ?? row.VAY_70_18T ?? "",
+    price24: row.price24 ?? row.VAY_70_24T ?? "",
+    price30: row.price30 ?? row.VAY_70_30T ?? row.price36 ?? row.VAY_70_36T ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
+    price36: row.price36 ?? row.VAY_70_36T ?? row.price30 ?? row.VAY_70_30T ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
     houseModel: String(row.houseModel ?? row.houseName ?? row["Mẫu nhà"] ?? row["MÃ MẪU NHÀ"] ?? row["Mã mẫu nhà"] ?? "").trim(),
     floorplan: String(row.floorplan ?? "").trim(),
     amenity1: String(row.amenity1 ?? "").trim(),
@@ -127,6 +127,23 @@ async function parseCSV(text) {
   const workbook = XLSX.read(text, { type: "string" });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   return XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map(normalizeRow).filter((unit) => unit.unitCode);
+}
+
+function parseWorkbookUnits(workbook, XLSX) {
+  const orderedNames = [
+    ...workbook.SheetNames.filter((name) => String(name).trim().toUpperCase() === "UNITS"),
+    ...workbook.SheetNames.filter((name) => String(name).trim().toUpperCase() !== "UNITS"),
+  ];
+  let best = { units: [], sheetName: "" };
+  for (const sheetName of orderedNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) continue;
+    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: false });
+    const units = rows.map(normalizeRow).filter((unit) => unit.unitCode);
+    if (units.length > best.units.length) best = { units, sheetName };
+    if (String(sheetName).trim().toUpperCase() === "UNITS" && units.length) return { units, sheetName };
+  }
+  return best;
 }
 
 function getGoogleSheetCSVUrl(input) {
@@ -346,6 +363,7 @@ function App() {
   const [lotEditorCode, setLotEditorCode] = useState(null);
   const [lotEditorData, setLotEditorData] = useState(null);
   const componentCanvasRef = useRef(null);
+  const sheetInputRef = useRef(null);
   const autoConnectSheetRef = useRef(false);
 
   const pdfDocRef = useRef(null);
@@ -536,6 +554,7 @@ function App() {
     const next = readProjectSheetHistory(storage).filter((entry) => entry.url !== url);
     setSheetHistory(next);
     storage.writeJson("sheet-history", next, { version: 1 });
+    window.requestAnimationFrame(() => sheetInputRef.current?.focus({ preventScroll: true }));
   }
 
   async function fetchSheetData(sourceUrl) {
@@ -585,10 +604,10 @@ function App() {
       setConnectionState("loading"); setMessage("Đang đọc Excel...");
       const XLSX = await import("xlsx");
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-      const importedUnits = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" }).map(normalizeRow).filter((u) => u.unitCode);
-      if (!importedUnits.length) throw new Error("Không có căn hợp lệ trong Excel.");
+      const { units: importedUnits, sheetName } = parseWorkbookUnits(workbook, XLSX);
+      if (!importedUnits.length) throw new Error("Không có căn hợp lệ trong Excel. Hãy kiểm tra sheet UNITS hoặc cột mã căn.");
       setUnits(importedUnits); setSelectedUnitCode(importedUnits[0].unitCode); setConnectedSheetUrl("");
-      setConnectionState("excel"); setLastUpdated(new Date()); setMessage(`Excel loaded · ${importedUnits.length} căn`);
+      setConnectionState("excel"); setLastUpdated(new Date()); setMessage(`Excel loaded · ${sheetName || "data"} · ${importedUnits.length} căn`);
     } catch (error) {
       setConnectionState("error"); setMessage(error.message || "Không đọc được Excel.");
     }
@@ -931,7 +950,7 @@ function App() {
 
         <div className="sheet-connect">
           <span>GOOGLE SHEETS</span>
-          <input type="text" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet link..." />
+          <input ref={sheetInputRef} type="text" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet link..." />
           {sheetHistory.length > 0 && (
             <div className="sheet-history">
               <div className="sheet-history-title"><span>RECENT SHEETS</span><em>{sheetHistory.length}/10</em></div>
@@ -942,7 +961,7 @@ function App() {
                     <small>{extractSheetId(item.url).slice(-8) || "saved link"}</small>
                   </button>
                   <button type="button" className="sheet-history-icon" title="Đổi tên" onClick={() => renameSheetHistory(item.url)}>✎</button>
-                  <button type="button" className="sheet-history-icon danger" title="Xóa khỏi recent" onClick={() => removeSheetHistory(item.url)}>×</button>
+                  <button type="button" className="sheet-history-icon danger" title="Xóa khỏi recent" onMouseDown={(e) => e.preventDefault()} onClick={() => removeSheetHistory(item.url)}>×</button>
                 </div>
               ))}
             </div>

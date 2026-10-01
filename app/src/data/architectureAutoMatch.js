@@ -4,8 +4,9 @@ function normalizeUnitCode(value = "") {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[Đđ]/g, "D")
     .toUpperCase()
-    .replace(/\s+/g, "")
-    .trim();
+    .trim()
+    .replace(/(?:\s|_|-)+(VOS|VEOSOM|VE_O_SOM)$/i, "")
+    .replace(/\s+/g, "");
 }
 
 function normalizeText(value = "") {
