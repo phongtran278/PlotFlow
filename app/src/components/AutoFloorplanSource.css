@@ -1,0 +1,167 @@
+.plotflow-locator-simple {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.plotflow-locator-simple__status {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 15px 16px 14px 44px;
+  border: 1px solid rgba(22, 88, 74, 0.12);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(247, 252, 250, 0.98), rgba(242, 249, 246, 0.92));
+  box-shadow: 0 8px 24px rgba(27, 69, 60, 0.05);
+}
+
+.plotflow-locator-simple__status::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 17px;
+  width: 12px;
+  height: 12px;
+  border: 4px solid rgba(31, 132, 108, 0.13);
+  border-radius: 999px;
+  background: #238a72;
+  box-sizing: content-box;
+}
+
+.plotflow-locator-simple__status strong {
+  color: #153f37;
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.plotflow-locator-simple__status span {
+  color: rgba(25, 61, 55, 0.63);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.plotflow-locator-simple__selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(31, 85, 74, 0.08);
+  border-radius: 12px;
+  background: rgba(248, 250, 249, 0.72);
+  color: rgba(25, 61, 55, 0.55);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.plotflow-locator-simple__selected strong {
+  color: #1c4d43;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.plotflow-locator-simple__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.plotflow-locator-simple__actions button {
+  position: relative;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.plotflow-locator-simple__actions button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.plotflow-locator-simple__actions button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.plotflow-locator-simple__edit {
+  border: 1px solid rgba(14, 105, 86, 0.18);
+  background: #176d5d;
+  color: #fff;
+  box-shadow: 0 7px 17px rgba(23, 109, 93, 0.16);
+}
+
+.plotflow-locator-simple__edit:not(:disabled):hover {
+  background: #126453;
+  box-shadow: 0 9px 20px rgba(23, 109, 93, 0.2);
+}
+
+.plotflow-locator-simple__review {
+  border: 1px solid rgba(25, 86, 73, 0.1);
+  background: rgba(23, 109, 93, 0.055);
+  color: #215f52;
+  box-shadow: none;
+}
+
+.plotflow-locator-simple__actions button:disabled {
+  cursor: default;
+  border-color: rgba(36, 74, 66, 0.06);
+  background: rgba(38, 72, 65, 0.045);
+  color: rgba(32, 66, 59, 0.35);
+  box-shadow: none;
+}
+
+/* Keep the technical PDF source controls available to the internal lazy-loader while
+   removing them from the user-facing workflow. */
+.locator-card.plotflow-locator-simplified > .pdf-source-tabs,
+.locator-card.plotflow-locator-simplified > .pdf-link-connect,
+.locator-card.plotflow-locator-simplified > .master-pdf-button,
+.locator-card.plotflow-locator-simplified > .locator-file,
+.locator-card.plotflow-locator-simplified > .locator-status,
+.locator-card.plotflow-locator-simplified > .locator-summary,
+.locator-card.plotflow-locator-simplified > .review-issues-button {
+  display: none !important;
+}
+
+/* Refine the two contextual stage actions so they read as tools, not chunky form buttons. */
+.stage-actions .edit-floorplan-top {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(25, 74, 64, 0.12);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #315a51;
+  box-shadow: 0 4px 12px rgba(26, 63, 55, 0.06);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  backdrop-filter: blur(12px);
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.stage-actions .edit-floorplan-top:hover {
+  transform: translateY(-1px);
+  border-color: rgba(23, 109, 93, 0.2);
+  box-shadow: 0 6px 15px rgba(26, 63, 55, 0.09);
+}
+
+.stage-actions .edit-floorplan-top.lot-button {
+  border-color: rgba(23, 109, 93, 0.14);
+  background: rgba(234, 247, 242, 0.9);
+  color: #176d5d;
+}
+
+.stage-actions .edit-floorplan-top.lot-button:hover {
+  background: rgba(226, 244, 237, 0.96);
+}

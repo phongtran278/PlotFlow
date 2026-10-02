@@ -1,0 +1,6 @@
+.pf-overview-layer-panel{height:min(68dvh,680px)!important;max-height:calc(100dvh - 180px)!important;overflow:hidden!important}
+.pf-layer-panel-list{overscroll-behavior:contain;scroll-padding-block:10px}
+.pf-layer-unit.is-open{overflow:visible}
+.pf-layer-unit.is-open>.pf-layer-unit-body{max-height:none!important;overflow:visible!important}
+.pf-layer-reveal-pulse{box-shadow:0 0 0 2px rgba(18,168,255,.14),0 8px 22px rgba(18,168,255,.08)!important;transition:box-shadow .22s ease}
+@media(max-width:1080px){.pf-overview-layer-panel{height:440px!important;max-height:none!important}}

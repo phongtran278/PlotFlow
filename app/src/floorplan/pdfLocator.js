@@ -1,1 +1,18 @@
-export * from "./pdfLocatorAuto.js";
+export {
+  attachMatchToPageRender,
+  buildFloorplanIndex,
+  calculateCropRect,
+  FLOORPLAN_FRAME_ASPECT,
+  FLOORPLAN_FRAME_HEIGHT,
+  FLOORPLAN_FRAME_WIDTH,
+  FLOORPLAN_ZOOM_MAX,
+  FLOORPLAN_ZOOM_MIN,
+  normalizeUnitCode,
+  openVectorPdf,
+  releasePreparedDetailRaster,
+  releasePreparedFallbackPdf,
+  renderPdfPageBase,
+  renderPdfRegion,
+  resolvePdfSourceUrl,
+  resolveUnitsAgainstIndex,
+} from "./pdfLocatorFacade.js";

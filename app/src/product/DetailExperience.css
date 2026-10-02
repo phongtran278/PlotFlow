@@ -1,0 +1,75 @@
+body.pf-product-detail .pf-shell-nav-back{display:none!important}
+
+/* Sidebar starts with data, while PlotFlow branding stays owned by the shared top nav. */
+body.pf-product-detail .unit-sidebar>div:first-child{display:none!important}
+
+/* Stable scroll ownership. */
+body.pf-product-detail{overflow:hidden!important}
+body.pf-product-detail .plotflow-shell{min-width:0!important;overflow:hidden!important}
+body.pf-product-detail .unit-sidebar{min-width:0!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;scroll-behavior:auto!important;scrollbar-gutter:stable!important;padding-top:18px!important}
+body.pf-product-detail .component-stage{min-width:0!important;min-height:0!important;overflow:hidden!important}
+body.pf-product-detail .component-canvas{min-width:0!important;min-height:0!important;overflow:hidden!important}
+body.pf-product-detail .studio-canvas-scroll,body.pf-product-detail .lot-canvas-wrap{overscroll-behavior:contain!important;scroll-behavior:auto!important;scrollbar-gutter:stable both-edges!important}
+
+/* The Detail command bar is a true sticky owner and never scrolls away with artwork. */
+body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .stage-header{position:sticky!important;top:8px!important;z-index:6500!important;flex:0 0 auto!important;overflow:visible!important;isolation:isolate!important}
+body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .stage-header>div:first-child{display:none!important}
+body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .stage-actions,body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .workspace-controls-host,body.pf-product-detail .component-stage:not(.layout-studio-mode):not(.finetune-mode) .workspace-controls{overflow:visible!important}
+
+/* Settings belongs to the sidebar, not as a floating object over the artwork. */
+body.pf-product-detail .project-settings-anchor{position:sticky!important;left:auto!important;right:auto!important;top:auto!important;bottom:-1px!important;z-index:80!important;width:100%!important;margin:18px 0 -2px!important;padding:14px 0 2px!important;background:linear-gradient(180deg,rgba(250,250,248,0),rgba(250,250,248,.96) 34%)!important}
+body.pf-product-detail .project-settings-trigger{width:100%!important;min-width:0!important;height:38px!important;min-height:38px!important;padding:0 11px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;border:1px solid rgba(19,22,26,.08)!important;border-radius:10px!important;background:#fff!important;color:#5f666b!important;box-shadow:none!important;font:600 9px/1 "IBM Plex Sans",sans-serif!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.pf-product-detail .project-settings-trigger span{display:inline!important}
+body.pf-product-detail .project-settings-trigger:hover,body.pf-product-detail .project-settings-trigger.is-open{color:#0f7a64!important;border-color:rgba(15,122,100,.18)!important;background:#f6faf8!important}
+
+/* Connected Sheet stays light and readable. */
+body.pf-product-detail .sheet-connect input,body.pf-product-detail .pdf-link-connect input{background:#fff!important;color:#174f45!important;caret-color:#0f7a64!important;border-color:rgba(19,22,26,.09)!important}
+body.pf-product-detail .connection-status.connected{background:#edf5f1!important;border-color:rgba(15,122,100,.12)!important;color:#315c52!important;box-shadow:none!important}
+body.pf-product-detail .connection-status.connected *{color:#315c52!important}
+body.pf-product-detail .connection-status.connected .status-dot{background:#0f7a64!important}
+body.pf-product-detail .sheet-history-row.active{background:#eaf3ef!important;border-color:rgba(15,122,100,.13)!important;box-shadow:none!important}
+body.pf-product-detail .sheet-history-row.active .sheet-history-open,body.pf-product-detail .sheet-history-row.active strong{color:#174f45!important}
+body.pf-product-detail .sheet-history-row.active small{color:#71847e!important}
+body.pf-product-detail .sheet-history-row.active .sheet-history-icon{background:#fff!important;color:#4e5a56!important;border-color:rgba(15,122,100,.09)!important}
+body.pf-product-detail .sheet-history-row.active .sheet-history-icon:hover{color:#0f7a64!important}
+
+/* Primary actions: green + white. Light green surfaces: green ink. */
+body.pf-product-detail .sheet-connect button:first-of-type,body.pf-product-detail .export-current-button,body.pf-product-detail .pdf-link-connect button,body.pf-product-detail .edit-layout-button.active{background:#0f7a64!important;color:#fff!important;border-color:#0f7a64!important;box-shadow:0 8px 18px rgba(15,122,100,.12)!important}
+body.pf-product-detail .sheet-connect button:first-of-type *,body.pf-product-detail .export-current-button *,body.pf-product-detail .pdf-link-connect button *,body.pf-product-detail .edit-layout-button.active *{color:#fff!important}
+body.pf-product-detail button[class*="reset"],body.pf-product-detail [data-action="reset"],body.pf-product-detail .reset-button{background:#eef5f2!important;color:#155c4e!important;border-color:rgba(15,122,100,.13)!important;box-shadow:none!important}
+body.pf-product-detail button[class*="reset"]:hover,body.pf-product-detail [data-action="reset"]:hover,body.pf-product-detail .reset-button:hover{background:#e3efea!important;color:#0f6f5b!important}
+
+/* Remove legacy blue accents. */
+body.pf-product-detail .excel-import-button,body.pf-product-detail .review-issues-button,body.pf-product-detail .master-pdf-button,body.pf-product-detail .edit-floorplan-top{color:#4f565c!important;background:#fff!important;border-color:rgba(19,22,26,.09)!important}
+body.pf-product-detail .edit-floorplan-top:hover,body.pf-product-detail .review-issues-button:hover,body.pf-product-detail .master-pdf-button:hover{color:#0f7a64!important;border-color:rgba(15,122,100,.18)!important;background:#f8fbfa!important}
+body.pf-product-detail .locator-progress i,body.pf-product-detail .export-progress-bar{background:#0f7a64!important}
+body.pf-product-detail .connection-status.excel .status-dot{background:#0f7a64!important;box-shadow:0 0 0 5px rgba(15,122,100,.08)!important}
+body.pf-product-detail .connection-status.loading .status-dot{background:#b98a36!important;box-shadow:0 0 0 5px rgba(185,138,54,.08)!important}
+
+/* Preview toolbar: keep one compact pan control and remove redundant collapse UI. */
+body.pf-product-detail .workspace-tool-toggle button:first-child{display:none!important}
+body.pf-product-detail .workspace-tool-toggle{padding:0!important;border:0!important;background:transparent!important}
+body.pf-product-detail .workspace-tool-toggle button:last-child{border:1px solid rgba(19,22,26,.08)!important;border-radius:8px!important;background:#fff!important;color:#5e666b!important}
+body.pf-product-detail .workspace-tool-toggle button:last-child.active{background:#eaf3ef!important;color:#0f7a64!important}
+body.pf-product-detail .workspace-panel-toggle{display:none!important}
+
+/* Assignment dock: CampaignBadgeStrip is the single badge control owner. */
+body.pf-product-detail .design-assignment-dock{border:1px solid rgba(19,22,26,.08)!important;border-radius:16px!important;background:rgba(255,255,255,.96)!important;box-shadow:0 14px 32px rgba(25,31,38,.07)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;overflow:auto!important;overscroll-behavior:contain!important;max-height:calc(100dvh - 166px)!important}
+body.pf-product-detail .design-assignment-dock>.dock-badges{display:none!important;visibility:hidden!important;pointer-events:none!important}
+body.pf-product-detail .campaign-control-card{position:relative!important;z-index:3!important;pointer-events:auto!important}
+body.pf-product-detail .campaign-control-card button,body.pf-product-detail .campaign-control-card input,body.pf-product-detail .campaign-control-card select{pointer-events:auto!important}
+
+/* Lot Highlight: Cancel/Save and zoom remain visible. */
+body.pf-product-detail .lot-editor-shell{position:relative;background:#f3f2ee!important}
+body.pf-product-detail .lot-editor-header{position:relative;z-index:30;background:#f8f8f5!important;border-bottom:1px solid rgba(19,22,26,.08)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.pf-product-detail .lot-view-controls{display:flex!important;visibility:visible!important;opacity:1!important;align-items:center!important;gap:4px!important;padding:4px!important;border:1px solid rgba(19,22,26,.09)!important;border-radius:11px!important;background:#fff!important;box-shadow:0 7px 18px rgba(25,31,38,.055)!important}
+body.pf-product-detail .lot-view-controls button{display:inline-flex!important;min-width:32px!important;height:30px!important;align-items:center!important;justify-content:center!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#5f666c!important;font-size:8px!important;font-weight:650!important;cursor:pointer!important}
+body.pf-product-detail .lot-view-controls button:hover,body.pf-product-detail .lot-view-controls button.active{background:#e8f2ee!important;color:#0f7a64!important}
+body.pf-product-detail .lot-view-controls label{height:30px!important;display:flex!important;align-items:center!important;padding:0 7px!important;border:1px solid rgba(19,22,26,.07)!important;border-radius:8px!important;background:#f7f7f4!important}
+body.pf-product-detail .lot-view-controls input{width:48px!important;border:0!important;background:transparent!important;color:#24282c!important;font-size:9px!important;font-weight:650!important;outline:0!important;text-align:right!important}
+body.pf-product-detail .lot-editor-actions{display:flex!important;visibility:visible!important;opacity:1!important;gap:7px!important}
+body.pf-product-detail .lot-editor-actions button:first-child{background:#fff!important;color:#4f565c!important;border-color:rgba(19,22,26,.10)!important}
+body.pf-product-detail .lot-editor-actions button:last-child{background:#0f7a64!important;color:#fff!important;border-color:#0f7a64!important}
+body.pf-product-detail .lot-canvas-wrap{background:radial-gradient(circle at 50% 48%,rgba(255,255,255,.82),rgba(235,236,231,.92))!important}
+
+@media(max-width:980px){.pf-detail-empty-state{grid-template-columns:1fr;padding:42px}}

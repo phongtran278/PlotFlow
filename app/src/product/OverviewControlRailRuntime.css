@@ -1,0 +1,109 @@
+.pf-overview-control-rail-spacer{display:none!important}
+.pf-overview-control-rail.is-fixed-toolbar{position:relative!important;top:auto!important;left:auto!important;right:auto!important;width:auto!important;margin:0!important;box-shadow:none!important}
+.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:100%}
+@media(max-width:1180px){.pf-overview:has(.pf-overview-control-rail) .pf-overview-layout{height:auto}}
+
+/* Context inspector: exactly one object inspector at a time. Unit stays a utility below it. */
+body.pf-product-overview .pf-overview-function-object,body.pf-product-overview .pf-overview-function-highlight{display:none!important}
+body.pf-product-overview .pf-overview-control-rail[data-inspector-object="card"] .pf-overview-function-object{display:grid!important}
+body.pf-product-overview .pf-overview-function-connector{display:grid!important}
+body.pf-product-overview .pf-overview-control-rail[data-inspector-object="highlight"] .pf-overview-function-highlight{display:grid!important}
+body.pf-product-overview .pf-overview-function-unit{display:grid!important}
+body.pf-product-overview .pf-overview-function-view{display:none!important}
+
+/* Card */
+body.pf-product-overview .pf-overview-function-object .pf-card-quick-scale{grid-column:1/-1!important;margin:0!important;padding-bottom:0!important;border-bottom:0!important;align-self:end!important}
+body.pf-product-overview .pf-overview-function-object .pf-overview-v2-controls{display:none!important}
+body.pf-product-overview .pf-card-selection-summary{grid-column:1/-1;padding:8px 10px;border:1px dashed var(--pf-line);border-radius:10px;font-size:10px;line-height:1.35;color:var(--pf-text-muted);background:var(--pf-surface-soft)}
+body.pf-product-overview .pf-card-selection-summary[data-multi="1"]{border-style:solid;color:var(--pf-text);font-weight:650}
+body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"]{grid-column:1/-1!important;display:block!important}
+body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"]>summary{display:none!important}
+body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"]>.pf-precision-popover{position:static!important;left:auto!important;right:auto!important;top:auto!important;width:auto!important;max-width:none!important;max-height:none!important;overflow:visible!important;transform:none!important;box-shadow:none!important;margin:0!important;border:1px solid var(--pf-line)!important;border-radius:12px!important;background:var(--pf-surface-raised)!important}
+body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"]>.pf-precision-popover>header,body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"] .pf-style-system-grid,body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"] .pf-precision-section-label,body.pf-product-overview .pf-precision-arrange[data-multi-selection="1"] .pf-size-lock-row{display:none!important}
+
+/* Highlight inspector */
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-menu{width:100%;min-width:0;display:block;position:relative}
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-menu>summary{display:flex!important;align-items:center;justify-content:space-between;min-height:32px;padding:0 10px;border:1px solid var(--pf-line);border-radius:9px;background:var(--pf-surface-soft);color:var(--pf-ink-2);font:650 9px/1 var(--pf-font-ui);cursor:pointer}
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-popover{position:static!important;inset:auto!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;padding:10px!important;border:1px solid var(--pf-line)!important;border-radius:12px!important;background:var(--pf-surface-raised)!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-sizing:border-box!important}
+
+/* Single-card transform */
+body.pf-product-overview .pf-precision-popover{position:fixed!important;left:12px!important;right:auto!important;top:118px!important;width:300px!important;max-width:calc(100vw - 24px)!important;max-height:calc(100dvh - 142px)!important;overflow:auto!important;z-index:20025!important;transform:none!important}
+body.pf-product-overview .pf-precision-popover .pf-style-system-grid{display:grid!important}
+body.pf-product-overview .pf-overview-toolbar-section-arrange,body.pf-product-overview .pf-overview-control-rail .pf-editor-layout-tools{display:none!important}
+
+/* Header command bar: one aligned surface, no overlapping wraps. */
+body.pf-product-overview .pf-overview-header-actions{position:relative!important;z-index:20010!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;min-width:0!important;overflow:visible!important}
+body.pf-product-overview .pf-overview-header-commandbar{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;max-width:100%;padding:5px 7px;border:1px solid var(--pf-line);border-radius:12px;background:var(--pf-surface-raised);box-shadow:0 4px 14px rgba(25,39,55,.06)}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-editor-tools{display:flex!important;align-items:center!important;gap:3px!important;margin:0!important;padding:0 6px 0 0!important;border:0!important;border-right:1px solid var(--pf-line)!important;background:transparent!important;flex:0 0 auto!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-editor-tools button{min-width:30px!important;height:30px!important}
+body.pf-product-overview .pf-overview-header-commandbar .pf-editor-divider{height:18px!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy,body.pf-product-overview .pf-overview-header-commandbar>.pf-overview-header-view,body.pf-product-overview .pf-overview-header-commandbar>.pf-overview-header-guides,body.pf-product-overview .pf-overview-header-commandbar>.pf-export-menu{flex:0 0 auto!important;margin:0!important}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy{height:30px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;border:1px solid rgba(15,122,100,.18);border-radius:8px;background:var(--pf-brand-accent-soft);color:var(--pf-brand-accent);font:650 9px/1 var(--pf-font-ui);white-space:nowrap;cursor:pointer}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy:hover{background:#dcece6}
+body.pf-product-overview .pf-overview-header-commandbar>.pf-auto-arrange-proxy b{font:inherit}
+body.pf-product-overview .pf-overview-toolbar-section-tools,body.pf-product-overview .pf-overview-toolbar-section-view{display:none!important}
+body.pf-product-overview .pf-editor-tools [data-action="undo"]{border-radius:8px 0 0 8px!important;margin-right:-3px!important}
+body.pf-product-overview .pf-editor-tools [data-action="redo"]{border-radius:0 8px 8px 0!important;margin-left:-3px!important}
+body.pf-product-overview .pf-overview-header-guides{position:relative!important;z-index:20030!important;overflow:visible!important}
+body.pf-product-overview .pf-overview-header-guides>div{position:absolute!important;top:calc(100% + 7px)!important;right:0!important;z-index:20031!important;min-width:220px!important;padding:10px!important;border:1px solid var(--pf-line)!important;border-radius:10px!important;background:var(--pf-surface-raised)!important;box-shadow:var(--pf-shadow-card)!important}
+
+/* Object audit */
+body.pf-product-overview .pf-object-audit-counts{display:grid;grid-template-columns:repeat(3,minmax(72px,1fr));gap:6px;padding:8px 10px;border-bottom:1px solid var(--pf-line);background:var(--pf-surface-raised);position:sticky;top:0;z-index:4}
+body.pf-product-overview .pf-object-audit-chip{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:5px;min-width:0;padding:7px 8px;border:1px solid var(--pf-line);border-radius:8px;background:var(--pf-surface-soft);font-size:9px}
+body.pf-product-overview .pf-object-audit-chip>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--pf-text-muted)}
+body.pf-product-overview .pf-object-audit-chip>strong{font-size:11px;color:var(--pf-text)}
+body.pf-product-overview .pf-object-audit-chip>i{display:grid;place-items:center;width:15px;height:15px;border-radius:999px;font-style:normal;font-weight:800;background:var(--pf-surface-raised);border:1px solid currentColor}
+body.pf-product-overview .pf-object-audit-chip.is-mismatch{font-weight:700}
+
+
+
+/* Pass 3 visual contract */
+body.pf-product-overview .pf-overview-control-rail{font-family:var(--pf-font-ui)!important;color:var(--pf-ink-2)}
+body.pf-product-overview .pf-overview-primary-tools{display:grid!important;gap:0!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-card)!important;background:var(--pf-surface-raised)!important;overflow:hidden!important}
+body.pf-product-overview .pf-overview-function-group{display:grid;gap:var(--pf-space-2);min-width:0;padding:var(--pf-space-3);border:0;border-bottom:1px solid var(--pf-line-soft);background:transparent}
+body.pf-product-overview .pf-overview-function-group:last-child{border-bottom:0}
+body.pf-product-overview .pf-overview-function-label{color:var(--pf-muted);font:700 var(--pf-text-meta)/1 var(--pf-font-ui);letter-spacing:.08em;text-transform:uppercase}
+body.pf-product-overview .pf-overview-function-content{min-width:0;display:grid;gap:var(--pf-space-2)}
+body.pf-product-overview .pf-card-selection-summary{padding:var(--pf-space-2) var(--pf-space-3);border:0;border-radius:var(--pf-radius-sm);background:var(--pf-surface-soft);color:var(--pf-muted);font:500 var(--pf-text-meta)/1.35 var(--pf-font-ui)}
+body.pf-product-overview .pf-card-selection-summary[data-multi="1"]{background:var(--pf-state-selected);color:var(--pf-brand-accent);font-weight:650}
+
+body.pf-product-overview .pf-overview-function-connector .pf-overview-function-content{display:block!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-control{width:100%!important;display:block!important;margin:0!important;padding:0!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control{display:grid!important;grid-template-columns:minmax(92px,.78fr) minmax(148px,1.22fr)!important;gap:var(--pf-space-2) var(--pf-space-3)!important;width:100%!important;height:auto!important;min-height:0!important;padding:var(--pf-space-2)!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-soft)!important;box-sizing:border-box!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control>span{display:none!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields{display:contents!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields>label{min-width:0!important}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields>label:has([data-connector="width"]){grid-column:1;grid-row:1}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-color{grid-column:2;grid-row:1}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-opacity{grid-column:1/-1;grid-row:2}
+body.pf-product-overview .pf-overview-function-connector .pf-connector-style-actions,
+body.pf-product-overview .pf-overview-function-connector .pf-connector-endpoint-actions{display:none!important}
+
+body.pf-product-overview .pf-overview-function-unit{background:color-mix(in srgb,var(--pf-surface-soft) 62%,transparent)}
+body.pf-product-overview .pf-overview-function-unit .pf-unit-navigator{width:100%!important;min-width:0!important;font-family:var(--pf-font-ui)!important}
+body.pf-product-overview .pf-overview-function-unit button,
+body.pf-product-overview .pf-overview-function-unit select{min-height:var(--pf-control-h-compact)!important;border-radius:var(--pf-radius-sm)!important;font-family:var(--pf-font-ui)!important}
+body.pf-product-overview .pf-overview-function-unit .pf-unit-adjust-button{color:var(--pf-brand-accent)!important}
+
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-menu>summary{min-height:var(--pf-control-h)!important;padding:0 var(--pf-space-3)!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-control)!important;background:var(--pf-surface-soft)!important;color:var(--pf-ink-2)!important;font:650 var(--pf-text-control)/1 var(--pf-font-ui)!important}
+body.pf-product-overview .pf-overview-function-highlight .pf-pen-style-popover{padding:var(--pf-space-3)!important;border:1px solid var(--pf-line)!important;border-radius:var(--pf-radius-button)!important;background:var(--pf-surface-raised)!important}
+
+body.pf-product-overview .pf-object-audit-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--pf-space-1-5);padding:var(--pf-space-2) var(--pf-space-3);border-bottom:1px solid var(--pf-line);background:var(--pf-surface-raised)}
+body.pf-product-overview .pf-object-audit-chip{display:flex;align-items:center;justify-content:space-between;gap:var(--pf-space-1);min-width:0;padding:var(--pf-space-1-5) var(--pf-space-2);border:1px solid var(--pf-line-soft);border-radius:var(--pf-radius-sm);background:var(--pf-surface-soft);color:var(--pf-muted);font:600 var(--pf-text-meta)/1 var(--pf-font-ui)}
+body.pf-product-overview .pf-object-audit-chip>strong{color:var(--pf-ink-2);font-size:var(--pf-text-control)}
+body.pf-product-overview .pf-object-audit-chip>i{display:none}
+body.pf-product-overview .pf-object-audit-chip.is-mismatch{border-color:color-mix(in srgb,var(--pf-warning) 28%,transparent);background:var(--pf-warning-soft);color:var(--pf-warning)}
+body.pf-product-overview .pf-object-audit-chip.is-mismatch>i{display:grid}
+
+body.pf-product-overview .pf-overview-control-rail button:focus-visible,
+body.pf-product-overview .pf-overview-control-rail select:focus-visible,
+body.pf-product-overview .pf-overview-control-rail input:focus-visible,
+body.pf-product-overview .pf-overview-control-rail summary:focus-visible{outline:none!important;box-shadow:0 0 0 3px var(--pf-state-focus)!important}
+
+@media(max-width:760px){
+  body.pf-product-overview .pf-overview-function-connector .pf-connector-style-control{grid-template-columns:1fr!important}
+  body.pf-product-overview .pf-overview-function-connector .pf-connector-style-fields>label:has([data-connector="width"]),
+  body.pf-product-overview .pf-overview-function-connector .pf-connector-color,
+  body.pf-product-overview .pf-overview-function-connector .pf-connector-opacity{grid-column:1!important;grid-row:auto!important}
+  body.pf-product-overview .pf-object-audit-counts{grid-template-columns:1fr}
+}

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import "./App.css";
 import PosterCanvas from "./components/PosterCanvas";
+import { formatPriceBillions } from "./components/UnitInfoCard";
 import FloorplanFineTune, { DEFAULT_FLOORPLAN_VIEW } from "./components/FloorplanFineTune";
 import AssetPicker from "./components/AssetPicker";
 import LotHighlightEditor from "./components/LotHighlightEditor";
@@ -17,6 +18,8 @@ import {
   pinAssets,
 } from "./data/assetCatalog";
 import { brandFont, buildBrandFontCss } from "./data/brandConfig";
+import { getMemoryProfile } from "./runtime/memoryProfile";
+import { useProjectContext } from "./project/ProjectContext.jsx";
 import {
   attachMatchToPageRender,
   buildFloorplanIndex,
@@ -24,17 +27,19 @@ import {
   FLOORPLAN_FRAME_ASPECT,
   normalizeUnitCode,
   openVectorPdf,
+  releasePreparedDetailRaster,
   renderPdfPageBase,
   renderPdfRegion,
   resolvePdfSourceUrl,
   resolveUnitsAgainstIndex,
 } from "./floorplan/pdfLocator";
 
-const PREVIEW_CACHE_LIMIT = 12;
-const PAGE_CACHE_LIMIT = 4;
+const MEMORY_PROFILE = getMemoryProfile();
+const PREVIEW_CACHE_LIMIT = Math.max(1, Number(MEMORY_PROFILE.previewCacheTarget) || 2);
+const PAGE_CACHE_LIMIT = Math.max(1, Number(MEMORY_PROFILE.pageCacheTarget) || (MEMORY_PROFILE.lowMemory ? 2 : 4));
 const DEFAULT_MASTER_PDF_URL = "/masterplan/masterplan.pdf";
 const DEFAULT_MASTER_PDF_LABEL = "Masterplan mặc định";
-const SHEET_HISTORY_KEY = "plotflow-sheet-history-r1";
+const LEGACY_SHEET_HISTORY_KEY = "plotflow-sheet-history-r1";
 
 const EMPTY_PREVIEW_UNIT = {
   unitCode: "",
@@ -44,6 +49,7 @@ const EMPTY_PREVIEW_UNIT = {
   landArea: "",
   constructionArea: "",
   roadWidth: "",
+  priceStandard: "",
   priceEarly: "",
   price18: "",
   price24: "",
@@ -53,6 +59,7 @@ const EMPTY_PREVIEW_UNIT = {
   floorplan: "",
   amenity1: "",
   amenity2: "",
+  architectureCode: "",
   architectureLabel: "",
   logoVariant: "",
   showHotDeal: "",
@@ -70,25 +77,41 @@ const EMPTY_ASSIGNMENT = {
 
 function normalizeRow(row) {
   return {
-    unitCode: String(row.unitCode ?? "").trim(),
-    type: String(row.type ?? "").trim(),
-    floors: row.floors ?? "",
-    handover: String(row.handover ?? "").trim(),
-    landArea: row.landArea ?? "",
-    constructionArea: row.constructionArea ?? "",
-    roadWidth: row.roadWidth ?? "",
-    priceEarly: row.priceEarly ?? "",
-    price18: row.price18 ?? "",
-    price24: row.price24 ?? "",
-    price30: row.price30 ?? row.price36 ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
-    price36: row.price36 ?? row.price30 ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
-    houseModel: String(row.houseModel ?? row.houseName ?? row["Mẫu nhà"] ?? row["Tên mẫu nhà"] ?? "").trim(),
+    unitCode: String(row.unitCode ?? row.MA_CAN ?? row["MÃ CĂN"] ?? row["Mã căn"] ?? "").trim(),
+    type: String(row.type ?? row.LOAI_HINH_SAN_PHAM ?? row["LOẠI HÌNH SẢN PHẨM"] ?? row["Loại hình sản phẩm"] ?? "").trim(),
+    floors: row.floors ?? row.SO_TANG ?? row["SỐ TẦNG"] ?? "",
+    handover: String(row.handover ?? row.TIEU_CHUAN_BAN_GIAO ?? row["TIÊU CHUẨN BÀN GIAO"] ?? "").trim(),
+    landArea: row.landArea ?? row.DT_DAT_M2 ?? row["DT ĐẤT M2"] ?? "",
+    constructionArea: row.constructionArea ?? row.DTXD_M2 ?? row["DTXD M2"] ?? "",
+    roadWidth: row.roadWidth ?? row.LO_GIOI ?? row["LỘ GIỚI"] ?? "",
+    priceStandard: row.priceStandard ?? row.TIEN_DO_CHUAN ?? row["TIẾN ĐỘ CHUẨN"] ?? row["Giá TT chuẩn"] ?? row["GIÁ TT CHUẨN"] ?? "",
+    priceEarly: row.priceEarly ?? row.TIEN_DO_SOM ?? row["TIẾN ĐỘ SỚM"] ?? row["Giá TT sớm"] ?? row["GIÁ TT SỚM"] ?? "",
+    price18: row.price18 ?? row.VAY_70_18T ?? "",
+    price24: row.price24 ?? row.VAY_70_24T ?? "",
+    price30: row.price30 ?? row.VAY_70_30T ?? row.price36 ?? row.VAY_70_36T ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
+    price36: row.price36 ?? row.VAY_70_36T ?? row.price30 ?? row.VAY_70_30T ?? row["Giá 36TH"] ?? row["GIÁ 36TH"] ?? "",
+    houseModel: String(row.houseModel ?? row.houseName ?? row["Mẫu nhà"] ?? row["MÃ MẪU NHÀ"] ?? row["Mã mẫu nhà"] ?? "").trim(),
     floorplan: String(row.floorplan ?? "").trim(),
     amenity1: String(row.amenity1 ?? "").trim(),
     amenity2: String(row.amenity2 ?? "").trim(),
+    architectureCode: String(
+      row.architectureCode ??
+      row.archCode ??
+      row["Mã kiến trúc"] ??
+      row["MÃ KIẾN TRÚC"] ??
+      row["Mã mẫu nhà"] ??
+      row["MÃ MẪU NHÀ"] ??
+      ""
+    ).trim(),
     architectureLabel: String(
       row.architectureLabel ??
+      row.architectureName ??
       row.houseLabel ??
+      row.tenKienTruc ??
+      row["Kiến trúc"] ??
+      row["KIẾN TRÚC"] ??
+      row["Tên kiến trúc"] ??
+      row["TÊN KIẾN TRÚC"] ??
       row.tenMauNha ??
       row["Tên mẫu nhà"] ??
       row["TÊN MẪU NHÀ"] ??
@@ -106,6 +129,23 @@ async function parseCSV(text) {
   const workbook = XLSX.read(text, { type: "string" });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   return XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map(normalizeRow).filter((unit) => unit.unitCode);
+}
+
+function parseWorkbookUnits(workbook, XLSX) {
+  const orderedNames = [
+    ...workbook.SheetNames.filter((name) => String(name).trim().toUpperCase() === "UNITS"),
+    ...workbook.SheetNames.filter((name) => String(name).trim().toUpperCase() !== "UNITS"),
+  ];
+  let best = { units: [], sheetName: "" };
+  for (const sheetName of orderedNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) continue;
+    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: false });
+    const units = rows.map(normalizeRow).filter((unit) => unit.unitCode);
+    if (units.length > best.units.length) best = { units, sheetName };
+    if (String(sheetName).trim().toUpperCase() === "UNITS" && units.length) return { units, sheetName };
+  }
+  return best;
 }
 
 function getGoogleSheetCSVUrl(input) {
@@ -267,21 +307,24 @@ function loadOverrides() {
   }
 }
 
-function loadSheetHistory() {
-  try {
-    const value = JSON.parse(localStorage.getItem(SHEET_HISTORY_KEY) || "[]");
-    if (!Array.isArray(value)) return [];
-    return value
-      .map((item) => {
-        if (typeof item === "string") return { url: item, name: "", lastUsed: 0 };
-        if (item && typeof item === "object") return item;
-        return null;
-      })
-      .filter((item) => item?.url && /^https?:\/\//i.test(String(item.url)))
-      .slice(0, 10);
-  } catch {
-    return [];
-  }
+function normalizeSheetHistory(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return { url: item, name: "", lastUsed: 0 };
+      if (item && typeof item === "object") return item;
+      return null;
+    })
+    .filter((item) => item?.url && /^https?:\/\//i.test(String(item.url)))
+    .slice(0, 10);
+}
+
+function readProjectSheetHistory(storage) {
+  return normalizeSheetHistory(storage.readJson("sheet-history", {
+    version: 1,
+    legacyKey: LEGACY_SHEET_HISTORY_KEY,
+    fallback: [],
+  }));
 }
 
 function extractSheetId(url = "") {
@@ -301,10 +344,11 @@ function extractFilenameFromDisposition(value = "") {
 }
 
 function App() {
+  const { projectId, storage } = useProjectContext();
   const [units, setUnits] = useState([]);
   const [selectedUnitCode, setSelectedUnitCode] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
-  const [sheetHistory, setSheetHistory] = useState(loadSheetHistory);
+  const [sheetHistory, setSheetHistory] = useState(() => readProjectSheetHistory(storage));
   const [connectedSheetUrl, setConnectedSheetUrl] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
   const [message, setMessage] = useState("Chưa kết nối dữ liệu. Hãy chọn Google Sheet hoặc Excel khi cần.");
@@ -321,6 +365,8 @@ function App() {
   const [lotEditorCode, setLotEditorCode] = useState(null);
   const [lotEditorData, setLotEditorData] = useState(null);
   const componentCanvasRef = useRef(null);
+  const sheetInputRef = useRef(null);
+  const autoConnectSheetRef = useRef(false);
 
   const pdfDocRef = useRef(null);
   const pageCacheRef = useRef(new Map());
@@ -358,6 +404,20 @@ function App() {
   );
   const selectedLotOverlay = selectedCode ? lotOverlays[selectedCode] || null : null;
   const previewUnit = selectedUnit || EMPTY_PREVIEW_UNIT;
+
+  useEffect(() => {
+    setSheetHistory(readProjectSheetHistory(storage));
+  }, [projectId, storage]);
+
+  useEffect(() => {
+    autoConnectSheetRef.current = false;
+  }, [projectId]);
+
+  useEffect(() => {
+    if (autoConnectSheetRef.current || connectedSheetUrl || connectionState === "loading" || !sheetHistory.length) return;
+    autoConnectSheetRef.current = true;
+    void connectGoogleSheet(sheetHistory[0].url);
+  }, [sheetHistory, connectedSheetUrl, connectionState]);
 
   const locatorSummary = useMemo(() => {
     const values = units.map((unit) => locatorResults[normalizeUnitCode(unit.unitCode)]).filter(Boolean);
@@ -440,7 +500,7 @@ function App() {
       y: Math.max(0, Math.min(1, (pageRender.anchorY - crop.y) / crop.h)),
     };
     const clean = await renderPdfRegion(pdfDocRef.current, pageRender, view, {
-      outputWidth: 2168,
+      outputWidth: MEMORY_PROFILE.lotEditorWidth,
       aspect: FLOORPLAN_FRAME_ASPECT,
       includeHighlight: false,
       maxRenderScale: 128,
@@ -452,18 +512,23 @@ function App() {
     setLotEditorCode(code);
   }
 
+  function closeLotEditor() {
+    setLotEditorCode(null);
+    setLotEditorData(null);
+    releasePreparedDetailRaster();
+  }
+
   function saveLotOverlay(overlay) {
     const next = { ...lotOverlays, [lotEditorCode]: { ...overlay, stale: false } };
     setLotOverlays(next);
     localStorage.setItem("plotflow-lot-overlays-r1-v9", JSON.stringify(next));
-    setLotEditorCode(null);
-    setLotEditorData(null);
+    closeLotEditor();
   }
 
   function saveSheetHistoryEntry(url, suggestedName) {
     const cleanUrl = String(url || "").trim();
     if (!cleanUrl) return;
-    const current = loadSheetHistory();
+    const current = readProjectSheetHistory(storage);
     const previous = current.find((item) => item.url === cleanUrl);
     const entry = {
       url: cleanUrl,
@@ -474,23 +539,24 @@ function App() {
       .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0))
       .slice(0, 10);
     setSheetHistory(next);
-    localStorage.setItem(SHEET_HISTORY_KEY, JSON.stringify(next));
+    storage.writeJson("sheet-history", next, { version: 1 });
   }
 
   function renameSheetHistory(url) {
-    const current = loadSheetHistory();
+    const current = readProjectSheetHistory(storage);
     const item = current.find((entry) => entry.url === url);
     const nextName = window.prompt("Tên hiển thị của Google Sheet", item?.name || fallbackSheetName(url));
     if (!nextName?.trim()) return;
     const next = current.map((entry) => entry.url === url ? { ...entry, name: nextName.trim() } : entry);
     setSheetHistory(next);
-    localStorage.setItem(SHEET_HISTORY_KEY, JSON.stringify(next));
+    storage.writeJson("sheet-history", next, { version: 1 });
   }
 
   function removeSheetHistory(url) {
-    const next = loadSheetHistory().filter((entry) => entry.url !== url);
+    const next = readProjectSheetHistory(storage).filter((entry) => entry.url !== url);
     setSheetHistory(next);
-    localStorage.setItem(SHEET_HISTORY_KEY, JSON.stringify(next));
+    storage.writeJson("sheet-history", next, { version: 1 });
+    window.requestAnimationFrame(() => sheetInputRef.current?.focus({ preventScroll: true }));
   }
 
   async function fetchSheetData(sourceUrl) {
@@ -540,10 +606,10 @@ function App() {
       setConnectionState("loading"); setMessage("Đang đọc Excel...");
       const XLSX = await import("xlsx");
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-      const importedUnits = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" }).map(normalizeRow).filter((u) => u.unitCode);
-      if (!importedUnits.length) throw new Error("Không có căn hợp lệ trong Excel.");
+      const { units: importedUnits, sheetName } = parseWorkbookUnits(workbook, XLSX);
+      if (!importedUnits.length) throw new Error("Không có căn hợp lệ trong Excel. Hãy kiểm tra sheet UNITS hoặc cột mã căn.");
       setUnits(importedUnits); setSelectedUnitCode(importedUnits[0].unitCode); setConnectedSheetUrl("");
-      setConnectionState("excel"); setLastUpdated(new Date()); setMessage(`Excel loaded · ${importedUnits.length} căn`);
+      setConnectionState("excel"); setLastUpdated(new Date()); setMessage(`Excel loaded · ${sheetName || "data"} · ${importedUnits.length} căn`);
     } catch (error) {
       setConnectionState("error"); setMessage(error.message || "Không đọc được Excel.");
     }
@@ -644,7 +710,7 @@ function App() {
 
     renderFloorplanPreview(selectedCode, locatorResults)
       .then(() => {
-        if (cancelled) return;
+        if (cancelled || !MEMORY_PROFILE.preloadNextUnit) return;
         const selectedIndex = units.findIndex((unit) => normalizeUnitCode(unit.unitCode) === selectedCode);
         if (selectedIndex < 0) return;
         const nextUnit = units[selectedIndex + 1];
@@ -886,7 +952,7 @@ function App() {
 
         <div className="sheet-connect">
           <span>GOOGLE SHEETS</span>
-          <input type="text" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet link..." />
+          <input ref={sheetInputRef} type="text" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet link..." />
           {sheetHistory.length > 0 && (
             <div className="sheet-history">
               <div className="sheet-history-title"><span>RECENT SHEETS</span><em>{sheetHistory.length}/10</em></div>
@@ -897,7 +963,7 @@ function App() {
                     <small>{extractSheetId(item.url).slice(-8) || "saved link"}</small>
                   </button>
                   <button type="button" className="sheet-history-icon" title="Đổi tên" onClick={() => renameSheetHistory(item.url)}>✎</button>
-                  <button type="button" className="sheet-history-icon danger" title="Xóa khỏi recent" onClick={() => removeSheetHistory(item.url)}>×</button>
+                  <button type="button" className="sheet-history-icon danger" title="Xóa khỏi recent" onMouseDown={(e) => e.preventDefault()} onClick={() => removeSheetHistory(item.url)}>×</button>
                 </div>
               ))}
             </div>
@@ -978,7 +1044,7 @@ function App() {
             return (
               <button key={unit.unitCode} className={`unit-select ${selectedUnit?.unitCode === unit.unitCode ? "active" : ""}`} onClick={() => { setSelectedUnitCode(unit.unitCode); setFineTuneUnitCode(null); }} disabled={isExporting}>
                 <span className="unit-main"><strong>{unit.unitCode}</strong><em className={`floorplan-badge ${badge.className}`}>{badge.icon} {badge.text}</em></span>
-                <span>{unit.priceEarly ? `${unit.priceEarly} tỷ` : "—"}</span>
+                <span>{unit.priceEarly ? `${formatPriceBillions(unit.priceEarly)} tỷ` : "—"}</span>
               </button>
             );
           })}
@@ -987,7 +1053,7 @@ function App() {
 
       <main className={`component-stage ${isLayoutEditing ? "layout-studio-mode" : ""} ${fineTuneUnitCode ? "finetune-mode" : ""}`}>
         {lotEditorCode ? (
-          <LotHighlightEditor unit={units.find((item) => normalizeUnitCode(item.unitCode) === lotEditorCode)} imageSrc={lotEditorData?.imageSrc} initialOverlay={lotEditorData?.initialOverlay} autoAnchor={lotEditorData?.autoAnchor} viewSignature={lotEditorData?.viewSignature} pinSrc={pinAssets.pin2D} onCancel={() => { setLotEditorCode(null); setLotEditorData(null); }} onSave={saveLotOverlay} />
+          <LotHighlightEditor unit={units.find((item) => normalizeUnitCode(item.unitCode) === lotEditorCode)} imageSrc={lotEditorData?.imageSrc} initialOverlay={lotEditorData?.initialOverlay} autoAnchor={lotEditorData?.autoAnchor} viewSignature={lotEditorData?.viewSignature} pinSrc={pinAssets.pin2D} onCancel={closeLotEditor} onSave={saveLotOverlay} />
         ) : fineTuneUnitCode ? (
           fineTuneLoading ? <div className="finetune-loading">Rendering PDF page…</div> : (
             <FloorplanFineTune key={`${fineTuneUnitCode}-${fineTuneResult?.selectedMatchIndex || 0}`} unit={fineTuneUnit} locatorResult={fineTuneResult} pageRender={fineTunePageRender} initialView={fineTuneInitialView} onCancel={() => { setFineTuneUnitCode(null); setFineTunePageRender(null); }} onSave={saveFineTune} onCandidateChange={changeFineTuneCandidate} onRenderVectorPreview={renderFineTuneVectorPreview} />

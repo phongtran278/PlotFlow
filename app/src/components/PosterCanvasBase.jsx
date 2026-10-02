@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import UnitInfoCard from "./UnitInfoCard";
+import UnitInfoCard, { canonicalUnitType, composeArchitectureLabel } from "./UnitInfoCard";
 
 const BASE = {
   house: { x: 0, y: 0, w: 1080, h: 578 },
@@ -66,10 +66,33 @@ export default function PosterCanvas({
   const [history, setHistory] = useState([BASE]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [resizeState, setResizeState] = useState(null);
+  const [readyHouseImage, setReadyHouseImage] = useState(null);
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
-  function pushHistory(nextLayout) {
+  useEffect(() => {
+    const nextSrc = assets?.houseImage || null;
+    setReadyHouseImage(null);
+    if (!nextSrc) return undefined;
+
+    let alive = true;
+    const image = new Image();
+    image.onload = () => {
+      if (alive) setReadyHouseImage(nextSrc);
+    };
+    image.onerror = () => {
+      if (alive) setReadyHouseImage(null);
+    };
+    image.src = nextSrc;
+
+    return () => {
+      alive = false;
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [assets?.houseImage, unit?.unitCode]);
+
+    function pushHistory(nextLayout) {
     setHistory((prev) => {
       const next = [...prev.slice(0, historyIndex + 1), nextLayout].slice(-80);
       setHistoryIndex(next.length - 1);
@@ -122,16 +145,8 @@ export default function PosterCanvas({
     return () => window.removeEventListener("keydown", keydown);
   }, [history, historyIndex]);
 
-  const rawArchitectureLabel = String(unit.architectureLabel || "").trim();
-  const unitType = String(unit.type || "").trim();
-  const normalizedType = unitType.toLocaleUpperCase("vi-VN");
-  const normalizedLabel = rawArchitectureLabel.toLocaleUpperCase("vi-VN");
-
-  const architectureLabel = rawArchitectureLabel
-    ? (normalizedLabel.includes(normalizedType) || !unitType
-        ? rawArchitectureLabel
-        : `${unitType} - ${rawArchitectureLabel}`)
-    : unitType;
+  const unitType = canonicalUnitType(unit.type || "");
+  const architectureLabel = composeArchitectureLabel(unit.type || "", unit.architectureLabel || "");
 
   function selectSlot(key, e) {
     if (!isEditing) return;
@@ -631,7 +646,11 @@ export default function PosterCanvas({
                 onMouseDown={(e) => beginDrag("house", e)}
                 onClick={(e) => selectSlot("house", e)}
               >
-                {assets.houseImage && <img className="house-image-fade" src={assets.houseImage} alt="House model" />}
+                {readyHouseImage
+                  ? <img key={readyHouseImage} className="house-image-fade house-image-ready" src={readyHouseImage} alt="House model" />
+                  : assets.houseImage
+                    ? <div className="poster-house-loading" aria-live="polite">Đang tải mẫu nhà…</div>
+                    : null}
                 <div className="poster-architecture-label">{architectureLabel}</div>
                 {!isEditing && onChooseAsset && (
                   <button type="button" className="poster-change-asset" onClick={(e) => { e.stopPropagation(); onChooseAsset("house"); }}>Change House</button>

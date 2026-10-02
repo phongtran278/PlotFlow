@@ -2205,6 +2205,28 @@ button {
 .preview-zoom-controls button:hover { background: #fff; }
 .preview-zoom-controls strong { min-width: 38px; text-align: center; font-size: 10px; color: #454d59; }
 
+.poster-house-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,.72);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  pointer-events: none;
+}
+
+.house-image-ready {
+  animation: plotflow-house-ready .16s ease-out both;
+}
+
+@keyframes plotflow-house-ready {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .house-image-fade {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 76%, rgba(0,0,0,.92) 82%, rgba(0,0,0,.48) 92%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 76%, rgba(0,0,0,.92) 82%, rgba(0,0,0,.48) 92%, transparent 100%);
@@ -3651,3 +3673,76 @@ body.plotflow-zen-mode .focus-deck { background:rgba(246,248,251,.94); }
   .focus-deck { right:12px; bottom:66px; width:min(330px, calc(100vw - 24px)); }
   .focus-orb { right:12px; bottom:12px; }
 }
+
+
+/* Designer-owned price card appearance. Values come from persisted design settings. */
+.poster-unit-info .unit-code-box{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+.poster-unit-info .unit-code-box .unit-code-label{
+  position:absolute;left:12px;top:9px;color:rgba(255,255,255,.72);
+  font-size:7px;line-height:1;font-weight:800;letter-spacing:.12em;
+}
+.poster-unit-info .unit-code-box strong{
+  color:inherit;font:inherit;font-weight:inherit;letter-spacing:inherit;
+}
+.poster-unit-info .price-box{
+  background:var(--pf-price-bg,#f7efe7)!important;
+  border-radius:var(--pf-price-radius,7px)!important;
+  align-items:var(--pf-price-align,center)!important;
+}
+.poster-unit-info .price-label{
+  width:100%;color:var(--pf-price-label-color,#292725)!important;
+  font-size:var(--pf-price-label-size,10.2px)!important;
+  font-weight:var(--pf-price-label-weight,850)!important;
+  text-align:var(--pf-price-align,center)!important;
+}
+.poster-unit-info .price-value{
+  width:100%;gap:var(--pf-price-gap,6px)!important;
+  justify-content:var(--pf-price-align,center)!important;
+}
+.poster-unit-info .price-value strong{
+  color:var(--pf-price-value-color,#bd1530)!important;
+  font-size:var(--pf-price-value-size,42px)!important;
+  font-weight:var(--pf-price-value-weight,850)!important;
+}
+.poster-unit-info .price-value span{
+  color:var(--pf-price-suffix-color,#bd1530)!important;
+  font-size:var(--pf-price-suffix-size,16px)!important;
+  font-weight:var(--pf-price-suffix-weight,850)!important;
+}
+
+
+/* Price cards behave like a small Auto Layout frame: content drives height, designer owns spacing/type. */
+.poster-unit-info .price-box{
+  height:auto!important;
+  min-height:var(--pf-price-min-height,78px)!important;
+  padding:var(--pf-price-padding-y,7px) var(--pf-price-padding-x,8px)!important;
+  gap:var(--pf-price-row-gap,4px)!important;
+  justify-content:center!important;
+}
+.poster-unit-info .price-label{
+  margin:0!important;
+  font-style:var(--pf-price-label-style,normal)!important;
+  letter-spacing:var(--pf-price-label-tracking,0px)!important;
+  line-height:var(--pf-price-label-line,1)!important;
+}
+.poster-unit-info .price-value strong{
+  font-style:var(--pf-price-value-style,normal)!important;
+  letter-spacing:var(--pf-price-value-tracking,-1.6px)!important;
+  line-height:var(--pf-price-value-line,.88)!important;
+}
+.poster-unit-info .price-value span{
+  font-style:var(--pf-price-suffix-style,normal)!important;
+  letter-spacing:var(--pf-price-suffix-tracking,0px)!important;
+  line-height:var(--pf-price-suffix-line,1)!important;
+}
+
+
+/* Recent-sheet mutations must not move the paste field while removing history rows. */
+.sheet-connect{overflow-anchor:none}
+.sheet-connect>input{overflow-anchor:auto}
+.sheet-history{overflow-anchor:none;contain:layout paint}

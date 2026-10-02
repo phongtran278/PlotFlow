@@ -7,6 +7,7 @@ import "./CampaignBadgeStrip.css";
 import ArchitectureAutoMatchCard from "./ArchitectureAutoMatchCard.jsx";
 import QuickPinOverlay from "./QuickPinOverlay.jsx";
 import QuickTextOverride, { applyQuickTextOverride, readQuickTextOverride } from "./QuickTextOverride.jsx";
+import PriceDesignControl from "./PriceDesignControl.jsx";
 import ManualFloorplanLocator from "./ManualFloorplanLocator.jsx";
 import "./ManualFloorplanLocator.css";
 import { findCatalogAsset, houseCatalog, pinAssets } from "../data/assetCatalog.js";
@@ -71,6 +72,16 @@ function missingHousePlaceholder(key = "HOUSE ASSET") {
   const safe = String(key || "HOUSE ASSET").replace(/[<>&]/g, "");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="578" viewBox="0 0 1080 578"><rect width="1080" height="578" fill="#f3f5f5"/><rect x="32" y="32" width="1016" height="514" rx="24" fill="none" stroke="#c5cdcb" stroke-width="3" stroke-dasharray="12 10"/><text x="540" y="265" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#67716f">CHƯA CÓ MẪU NHÀ</text><text x="540" y="315" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#2d3634">${safe}</text><text x="540" y="360" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#8b9492">Kết nối dữ liệu hoặc chọn mẫu nhà khi cần</text></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function focusSheetInput() {
+  const input = document.querySelector(".sheet-connect input[type='text']");
+  input?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  window.setTimeout(() => input?.focus?.(), 220);
+}
+
+function openExcelPicker() {
+  document.querySelector(".excel-import-button input[type='file']")?.click?.();
 }
 
 export default function PosterCanvas({
@@ -164,14 +175,14 @@ export default function PosterCanvas({
 
   const manualHouse = placeholderMode ? null : readManualHouse(unit?.unitCode);
   const sheetHouse = placeholderMode ? null : findCatalogAsset(houseCatalog, unit?.houseModel);
-  const houseResolution = placeholderMode ? { asset: null, suggestedHouseModel: "", expectedAssetKey: "" } : resolveArchitectureHouseAsset(unit, houseCatalog);
+  const houseResolution = placeholderMode ? { asset: null, suggestedHouseModel: "", expectedAssetKey: "" } : resolveArchitectureHouseAsset(resolvedUnit, houseCatalog);
   const resolvedHouse = manualHouse || sheetHouse || houseResolution.asset || null;
   const missingKey = placeholderMode
     ? "Mẫu nhà sẽ hiển thị sau khi có dữ liệu"
     : (resolvedHouse ? "" : (houseResolution.suggestedHouseModel || houseResolution.expectedAssetKey || ""));
   const baseAssets = {
     ...assets,
-    badges: placeholderMode ? [] : [],
+    badges: placeholderMode ? [] : (assets.badges || []),
     pin3D: effectivePinSrc,
     houseImage: resolvedHouse?.src || (missingKey ? missingHousePlaceholder(missingKey) : null),
     houseMissingKey: missingKey,
@@ -219,6 +230,24 @@ export default function PosterCanvas({
       )
     : null;
 
+  if (placeholderMode) {
+    return (
+      <section className="pf-detail-empty-state" aria-label="Connect sales data to begin">
+        <div className="pf-detail-empty-orbit" aria-hidden="true"><i /><i /><i /><b /></div>
+        <div className="pf-detail-empty-copy">
+          <span>DETAIL WORKSPACE · READY FOR DATA</span>
+          <h3>Turn one sales sheet into a live design workspace.</h3>
+          <p>Connect the project data first. PlotFlow will populate units, match the floorplan workflow, and open the design controls only when there is something real to work with.</p>
+          <div className="pf-detail-empty-actions">
+            <button type="button" className="primary" onClick={focusSheetInput}>Connect Google Sheet <span>→</span></button>
+            <button type="button" onClick={openExcelPicker}>Import Excel</button>
+          </div>
+          <footer><span>01 · Connect data</span><i /><span>02 · Locate floorplan</span><i /><span>03 · Refine & export</span></footer>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div ref={hostRef} className="plotflow-poster-host" style={{ display: "contents" }}>
       <PosterCanvasBase
@@ -237,11 +266,12 @@ export default function PosterCanvas({
         toolbarTarget
       )}
 
-      {!placeholderMode && <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />}
-      {!placeholderMode && <QuickTextOverride unit={unit} resolvedUnit={dataResolvedUnit} target={quickControlsTarget} isEditing={isEditing} />}
+      <ArchitectureAutoMatchCard unit={unit} target={quickControlsTarget} isEditing={isEditing} />
+      <QuickTextOverride unit={unit} resolvedUnit={dataResolvedUnit} target={quickControlsTarget} isEditing={isEditing} />
+      <PriceDesignControl unit={resolvedUnit} target={quickControlsTarget} isEditing={isEditing} />
       {manualControl}
 
-      {!placeholderMode && manualLocatorOpen && createPortal(
+      {manualLocatorOpen && createPortal(
         <ManualFloorplanLocator
           initialPage={1}
           busy={manualLocatorBusy}
@@ -251,7 +281,7 @@ export default function PosterCanvas({
         document.body
       )}
 
-      {!placeholderMode && posterTarget && createPortal(
+      {posterTarget && createPortal(
         <>
           <CampaignBadgeStrip
             artboard={posterTarget}
@@ -261,7 +291,7 @@ export default function PosterCanvas({
             pinVisible={Boolean(effectivePinSrc)}
             onToggleQuickPin={() => setQuickPinMode((value) => !value)}
             unitCode={unit?.unitCode}
-            sourceBadges={assets.badges || []}
+            sourceBadges={baseAssets.badges}
           />
           <QuickPinOverlay artboard={posterTarget} src={effectivePinSrc} active={!isEditing && quickPinMode} unitCode={unit?.unitCode} />
           <PolicyImageOverlay handover={unit?.handover} />

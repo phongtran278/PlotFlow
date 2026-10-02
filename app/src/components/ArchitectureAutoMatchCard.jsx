@@ -66,7 +66,7 @@ export default function ArchitectureAutoMatchCard({ unit, target, isEditing = fa
   const manualHouse = readManualHouse(unit.unitCode);
   const effectiveHouse = manualHouse || house.asset;
   const isManual = match.source === "MANUAL";
-  const isAuto = match.source === "AUTO";
+  const isAuto = ["AUTO", "DATA_CODE", "DATA_INFERRED"].includes(match.source);
   const hasHouse = Boolean(effectiveHouse);
 
   return createPortal(
@@ -79,7 +79,10 @@ export default function ArchitectureAutoMatchCard({ unit, target, isEditing = fa
         <em>{manualHouse ? "HOUSE MANUAL" : isManual ? "MANUAL" : isAuto ? `AUTO ${percent(match.confidence)}` : "—"}</em>
       </div>
 
-      <div className="architecture-auto-label">{match.architectureLabel || "Chưa xác định kiến trúc"}</div>
+      <div className="architecture-auto-label">
+        {match.architectureLabel || "Chưa xác định kiến trúc"}
+        {isAuto && <small> · {percent(match.confidence)}</small>}
+      </div>
 
       {match.source !== "NONE" && (
         <div className={`architecture-house-status ${hasHouse ? "found" : "missing"}`}>
@@ -95,7 +98,7 @@ export default function ArchitectureAutoMatchCard({ unit, target, isEditing = fa
             ? `Đã map đúng ${effectiveHouse.id}.`
             : match.source !== "NONE"
               ? `Thiếu đúng asset ${house.suggestedHouseModel || house.expectedAssetKey}. Bổ sung file theo key này, PlotFlow sẽ tự nhận.`
-              : "Chưa có mapping cho mã căn này."}
+              : "Chưa đủ dữ liệu để tự nhận diện. Cần Loại hình + Kiến trúc hoặc Mã kiến trúc."}
       </div>
 
       <button type="button" className="architecture-export-button" onClick={downloadPilotWorkbook}>
