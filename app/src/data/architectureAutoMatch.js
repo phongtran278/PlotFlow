@@ -60,41 +60,6 @@ function extractArchitectureCode(value = "") {
   return number ? `CH-${number}` : "";
 }
 
-const LEARNED_ARCHITECTURE_KEY = "plotflow-learned-architecture-v1";
-
-function readLearnedArchitecture(unitCode) {
-  if (typeof window === "undefined" || !window.localStorage) return null;
-  try {
-    const all = JSON.parse(window.localStorage.getItem(LEARNED_ARCHITECTURE_KEY) || "{}");
-    return all?.[normalizeUnitCode(unitCode)] || null;
-  } catch {
-    return null;
-  }
-}
-
-export function learnArchitectureFromHouse(unit, houseId) {
-  if (typeof window === "undefined" || !window.localStorage || !unit?.unitCode || !houseId) return null;
-  const code = extractArchitectureCode(houseId);
-  if (!code) return null;
-  const propertyType = canonicalPropertyType(unit?.type || unit?.sourceFeature || "");
-  const model = ARCHITECTURE_MODELS.find((item) => item.code === code && (!propertyType || item.type === propertyType))
-    || ARCHITECTURE_MODELS.find((item) => item.code === code);
-  const learned = {
-    architectureCode: code,
-    architectureLabel: model?.label || String(unit?.architectureLabel || "").trim(),
-    confidence: 1,
-    source: "LEARNED",
-    houseModel: houseId,
-  };
-  try {
-    const all = JSON.parse(window.localStorage.getItem(LEARNED_ARCHITECTURE_KEY) || "{}");
-    all[normalizeUnitCode(unit.unitCode)] = learned;
-    window.localStorage.setItem(LEARNED_ARCHITECTURE_KEY, JSON.stringify(all));
-    window.dispatchEvent(new CustomEvent("plotflow-architecture-learned", { detail: { unitCode: unit.unitCode, learned } }));
-  } catch {}
-  return learned;
-}
-
 const ARCHITECTURE_MODELS = [
   { code: "CH-53", type: "SONG_LAP", label: "SONG LẬP - TÂN CỔ ĐIỂN" },
   { code: "CH-53", type: "LK", label: "LIỀN KỀ - TÂN CỔ ĐIỂN" },
@@ -171,7 +136,6 @@ export function resolveArchitectureMatch(unit) {
   const storedLabel = String(unit?.architectureLabel || "").trim();
   const storedCode = String(unit?.architectureCode || "").trim();
   const inferred = inferArchitectureFromData(unit);
-  const learned = readLearnedArchitecture(unit?.unitCode);
 
   if (inferred?.architectureCode) {
     return {
@@ -180,17 +144,6 @@ export function resolveArchitectureMatch(unit) {
       architectureLabel: inferred.architectureLabel || storedLabel || autoMatch?.architectureLabel || "",
       source: inferred.source,
       confidence: inferred.confidence,
-      isOverride: false,
-    };
-  }
-
-  if (learned?.architectureCode) {
-    return {
-      unitCode: unit?.unitCode || "",
-      architectureCode: learned.architectureCode,
-      architectureLabel: learned.architectureLabel || storedLabel || "",
-      source: "LEARNED",
-      confidence: 1,
       isOverride: false,
     };
   }

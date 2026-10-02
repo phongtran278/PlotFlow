@@ -260,22 +260,3 @@ body.workspace-grabbing .studio-canvas-scroll { cursor: grabbing !important; use
   .component-stage:not(.layout-studio-mode):not(.finetune-mode) .design-assignment-dock { display: none !important; }
   .workspace-panel-toggle { display: none; }
 }
-
-
-/* Persistent mini navigator: always available even when the larger Map popover is closed. */
-.workspace-navigator-inline{
-  width:34px;height:34px;padding:3px;flex:0 0 auto;display:grid;place-items:center;
-  border:1px solid rgba(35,45,65,.08);border-radius:8px;background:#f7f8fa;
-  cursor:crosshair;touch-action:none;user-select:none
-}
-.workspace-navigator-inline-artwork{
-  position:relative;width:12px;height:22px;overflow:hidden;border-radius:2px;
-  background:linear-gradient(180deg,rgba(25,116,101,.92) 0 30%,rgba(245,247,249,.96) 30% 54%,rgba(33,121,107,.92) 54% 72%,rgba(245,247,249,.96) 72% 100%);
-  box-shadow:0 1px 4px rgba(32,44,64,.16)
-}
-.workspace-navigator-inline-viewport{
-  position:absolute;min-width:2px;min-height:2px;border:1px solid #4f7cff;
-  border-radius:1px;background:rgba(79,124,255,.12);pointer-events:none
-}
-.workspace-map-toggle{display:inline-flex!important;align-items:center;justify-content:center;flex:0 0 auto;min-width:44px}
-@media(max-width:1180px){.workspace-navigator-inline{display:grid!important}.workspace-map-toggle{display:inline-flex!important}}

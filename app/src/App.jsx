@@ -4,7 +4,6 @@ import { createRoot } from "react-dom/client";
 import "./App.css";
 import PosterCanvas from "./components/PosterCanvas";
 import { formatPriceBillions } from "./components/UnitInfoCard";
-import { learnArchitectureFromHouse } from "./data/architectureAutoMatch.js";
 import FloorplanFineTune, { DEFAULT_FLOORPLAN_VIEW } from "./components/FloorplanFineTune";
 import AssetPicker from "./components/AssetPicker";
 import LotHighlightEditor from "./components/LotHighlightEditor";
@@ -474,9 +473,6 @@ function App() {
     const code = normalizeUnitCode(selectedUnit.unitCode);
     const current = resolveDesignAssignment(selectedUnit, designAssignments);
     saveDesignAssignments({ ...designAssignments, [code]: { ...current, ...patch } });
-    if (Object.prototype.hasOwnProperty.call(patch, "houseId") && patch.houseId) {
-      learnArchitectureFromHouse(selectedUnit, patch.houseId);
-    }
   }
 
   function toggleBadge(id) {
