@@ -92,7 +92,6 @@ export default function WorkspaceController() {
   }, [tool]);
 
   function refreshNavigator() {
-    if (!navigatorOpenRef.current) return;
     const scroll = findScrollSurface();
     if (!scroll) return;
 
@@ -113,7 +112,6 @@ export default function WorkspaceController() {
   }
 
   useEffect(() => {
-    if (!navigatorOpen) return undefined;
     const scroll = findScrollSurface();
     if (!scroll) return undefined;
 
@@ -130,7 +128,7 @@ export default function WorkspaceController() {
       scroll.removeEventListener("scroll", onScroll);
       resizeObserver?.disconnect();
     };
-  }, [navigatorOpen]);
+  }, [target]);
 
   function applyZoom(nextZoom, preserveCenter = true) {
     const next = clampZoom(nextZoom);
@@ -354,6 +352,26 @@ export default function WorkspaceController() {
       </label>
       <button type="button" className="workspace-zoom-step" onClick={() => applyZoom(zoom + 10)}>+</button>
       <button type="button" className="workspace-100" onClick={() => applyZoom(100)}>100%</button>
+      <div
+        className="workspace-navigator-inline"
+        onPointerDown={navigatorPointerDown}
+        onPointerMove={navigatorPointerMove}
+        onPointerUp={navigatorPointerEnd}
+        onPointerCancel={navigatorPointerEnd}
+        title="Mini Navigator · click hoặc kéo để di chuyển"
+      >
+        <div className="workspace-navigator-inline-artwork">
+          <div
+            className="workspace-navigator-inline-viewport"
+            style={{
+              left: `${navLeft * 100}%`,
+              top: `${navTop * 100}%`,
+              width: `${navWidth * 100}%`,
+              height: `${navHeight * 100}%`,
+            }}
+          />
+        </div>
+      </div>
       <button type="button" className={`workspace-map-toggle ${navigatorOpen ? "active" : ""}`} onClick={() => setNavigatorOpen((value) => !value)} title="Navigator · xem vị trí hiện tại trên toàn artwork">▣ Map</button>
       <button type="button" className={`workspace-panel-toggle ${panelCollapsed ? "active" : ""}`} onClick={() => setPanelCollapsed((value) => !value)} title="Thu gọn Design Assignment">
         {panelCollapsed ? "› Design" : "‹ Design"}
