@@ -9,7 +9,7 @@ const PREVIEW_RENDER_MAX_WIDTH = 640;
 const RASTER_DB_NAME = "plotflow-raster-cache-v1";
 const RASTER_DB_VERSION = 1;
 const RASTER_STORE = "assets";
-const CACHE_SCHEMA = "raster-first-v1";
+const CACHE_SCHEMA = "raster-first-v2-unit-code-suffix";
 
 const screenPreviewCache = new Map();
 const objectUrlCache = new Map();
