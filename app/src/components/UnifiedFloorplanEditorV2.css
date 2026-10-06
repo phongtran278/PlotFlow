@@ -294,6 +294,66 @@ body.plotflow-floorplan-editing .focus-deck {
   margin-right: auto;
 }
 
+/* Memory-bounded Fine Tune viewport.
+   The page-wide preview used to be positioned at extreme CSS dimensions at
+   1000–2000% zoom. Chromium could promote that layer to a huge compositor
+   surface even though the source raster itself was small. Fine Tune now paints
+   only the bounded raster crop returned by the page-tile runtime. */
+.unified-floorplan-v2 .unified-floorplan-stage {
+  contain: layout paint;
+  isolation: isolate;
+  background: #f5f6f8;
+}
+
+.unified-floorplan-v2 .unified-fast-image {
+  display: none;
+}
+
+/* Bundled masterplan is raster-tile based. Keep the existing render-state
+   element but describe what is actually happening instead of saying vector. */
+.unified-floorplan-v2 .unified-canvas-head > em {
+  font-size: 0;
+}
+
+.unified-floorplan-v2 .unified-canvas-head > em::after {
+  font-size: 8px;
+}
+
+.unified-floorplan-v2 .unified-canvas-head > em.rendering::after {
+  content: "Loading raster tiles…";
+}
+
+.unified-floorplan-v2 .unified-canvas-head > em.ready::after {
+  content: "Raster detail";
+}
+
+.unified-floorplan-v2 .unified-canvas-head > em.preview::after,
+.unified-floorplan-v2 .unified-canvas-head > em.idle::after {
+  content: "Viewport preview";
+}
+
+.unified-floorplan-v2 .unified-canvas-head > em.error::after {
+  content: "Raster load error";
+}
+
+/* The real raster zoom controls already exist in the editor, but they used to
+   sit below the tools/inspector sections and could disappear below the fold.
+   Keep VIEW at the top of the scroll column so zoom tests always exercise the
+   tile/crop renderer instead of falling back to CSS scaling. */
+.unified-floorplan-v2 .unified-tools {
+  display: flex;
+  flex-direction: column;
+}
+
+.unified-floorplan-v2 .unified-tools > .unified-section:nth-child(5) {
+  order: -1;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #fff;
+  box-shadow: 0 8px 16px rgba(24, 32, 48, .05);
+}
+
 @media (max-width: 1400px) {
   .unified-floorplan-v2 .unified-floorplan-workspace {
     grid-template-columns: 210px minmax(500px,1fr) 280px;

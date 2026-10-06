@@ -1,4 +1,52 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+function AssetThumbnail({ item, selected, eager = false }) {
+  const src = item.thumbnailSrc || item.src;
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+  }, [src]);
+
+  const revealWhenDecoded = async (event) => {
+    const image = event.currentTarget;
+    try {
+      if (typeof image.decode === "function") {
+        await image.decode();
+      }
+    } catch {
+      // The image has already loaded; decoding can reject in a few browsers.
+    }
+
+    requestAnimationFrame(() => setReady(true));
+  };
+
+  return (
+    <div
+      className="asset-picker-thumb"
+      style={{
+        contain: "layout paint",
+        isolation: "isolate",
+      }}
+    >
+      <img
+        src={src}
+        alt={item.name}
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
+        fetchPriority={eager ? "high" : "auto"}
+        onLoad={revealWhenDecoded}
+        style={{
+          opacity: ready ? 1 : 0,
+          transition: "opacity 140ms ease-out",
+          transform: "translateZ(0)",
+          willChange: ready ? "auto" : "opacity",
+        }}
+      />
+      {selected && <i>✓</i>}
+    </div>
+  );
+}
 
 export default function AssetPicker({
   open,
@@ -77,17 +125,18 @@ export default function AssetPicker({
             </button>
           )}
 
-          {filtered.map((item) => (
+          {filtered.map((item, index) => (
             <button
               type="button"
               key={item.id}
               className={`asset-picker-card ${value === item.id ? "selected" : ""}`}
               onClick={() => onSelect?.(item.id)}
             >
-              <div className="asset-picker-thumb">
-                <img src={item.thumbnailSrc || item.src} alt={item.name} loading="lazy" />
-                {value === item.id && <i>✓</i>}
-              </div>
+              <AssetThumbnail
+                item={item}
+                selected={value === item.id}
+                eager={index < 6}
+              />
               <strong>{item.name}</strong>
               <small>{item.id}</small>
             </button>

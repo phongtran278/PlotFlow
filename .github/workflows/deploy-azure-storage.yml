@@ -1,0 +1,147 @@
+name: Deploy PlotFlow to Azure Storage
+
+on:
+  push:
+    branches:
+      - agent/fix-preview-pan-tabs-memory
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Prepare shared project state
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          STATE_BLOB='plotflow-projects/vinhomes-saigon-park/state.json'
+          PROJECT_ID='vinhomes-saigon-park'
+          STATE_EXISTS="$(az storage blob exists \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --container-name '$web' \
+            --name "$STATE_BLOB" \
+            --query exists \
+            --output tsv)"
+
+          if [ "$STATE_EXISTS" != "true" ]; then
+            printf '{"version":1,"projectId":"vinhomes-saigon-park","storage":{}}' > /tmp/plotflow-state.json
+            az storage blob upload \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --container-name '$web' \
+              --name "$STATE_BLOB" \
+              --file /tmp/plotflow-state.json \
+              --content-type 'application/json; charset=utf-8' \
+              --overwrite false \
+              --only-show-errors
+          fi
+
+          if ! az storage cors list \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --services b \
+            --output json | grep -Fq 'https://plotflow.phongtran.tech'; then
+            az storage cors add \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --services b \
+              --methods GET PUT OPTIONS \
+              --origins 'https://plotflow.phongtran.tech' \
+              --allowed-headers '*' \
+              --exposed-headers '*' \
+              --max-age 3600 \
+              --only-show-errors
+          fi
+
+          EXPIRY="$(date -u -d '+365 days' '+%Y-%m-%dT%H:%MZ')"
+          STATE_URL="$(az storage blob generate-sas \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --container-name '$web' \
+            --name "$STATE_BLOB" \
+            --permissions rw \
+            --expiry "$EXPIRY" \
+            --https-only \
+            --full-uri \
+            --output tsv)"
+
+          echo "VITE_PROJECT_STATE_URL=$STATE_URL" >> "$GITHUB_ENV"
+          echo "VITE_CLOUD_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./app
+        run: npm ci
+
+      - name: Build PlotFlow code only
+        working-directory: ./app
+        env:
+          PLOTFLOW_CODE_ONLY_DEPLOY: '1'
+        run: npx vite build
+
+      - name: Verify build output
+        run: |
+          test -f ./app/dist/index.html
+          test -d ./app/dist/assets
+          grep -R -q 'vinhomes-saigon-park' ./app/dist/assets
+
+      - name: Upload app shell to Azure $web
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          az storage blob upload \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --container-name '$web' \
+            --file ./app/dist/index.html \
+            --name index.html \
+            --overwrite true
+
+          find ./app/dist/assets -type f \( -name '*.js' -o -name '*.css' \) -print0 | while IFS= read -r -d '' file; do
+            blob="${file#./app/dist/}"
+            az storage blob upload \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --container-name '$web' \
+              --file "$file" \
+              --name "$blob" \
+              --overwrite true \
+              --only-show-errors
+          done
+
+      - name: Configure SPA deep-link fallback
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          az storage blob service-properties update \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --static-website \
+            --index-document index.html \
+            --404-document index.html \
+            --only-show-errors
+
+      - name: Verify Azure app shell
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          az storage blob exists \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --container-name '$web' \
+            --name index.html \
+            --query exists \
+            --output tsv | grep -qx true
+
+          az storage blob exists \
+            --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+            --container-name '$web' \
+            --name 'plotflow-projects/vinhomes-saigon-park/state.json' \
+            --query exists \
+            --output tsv | grep -qx true

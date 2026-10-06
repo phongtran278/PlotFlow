@@ -1,0 +1,18 @@
+.price-design-card{margin-top:10px;border:1px solid rgba(35,45,65,.08);border-radius:12px;background:rgba(255,255,255,.72);overflow:hidden}
+.price-design-card>summary{list-style:none;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
+.price-design-card>summary::-webkit-details-marker{display:none}
+.price-design-card>summary span{color:#929aa5;font-size:7.5px;font-weight:800;letter-spacing:.13em}
+.price-design-card>summary strong{color:#353c46;font-size:9px;font-weight:700}
+.price-design-intro{padding:0 12px 10px;color:#838c98;font-size:8px;line-height:1.55}
+.price-design-section{padding:10px 12px;border-top:1px solid rgba(35,45,65,.07)}
+.price-design-section>span{display:block;margin-bottom:8px;color:#a0a7b0;font-size:7px;font-weight:800;letter-spacing:.12em}
+.price-design-colors{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.price-design-colors label{display:grid;gap:5px;color:#7f8792;font-size:7.5px}
+.price-design-colors input{width:100%;height:28px;padding:2px;border:1px solid rgba(35,45,65,.10);border-radius:7px;background:#fff}
+.price-design-fields{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.price-design-fields label{min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 68px;align-items:center;gap:6px;color:#7f8792;font-size:7.5px}
+.price-design-fields input,.price-design-fields select{width:100%;height:28px;padding:0 7px;border:1px solid rgba(35,45,65,.09);border-radius:7px;background:#fff;color:#3d4652;font-size:8px;outline:none}
+.price-design-actions{padding:10px 12px 5px;display:grid;grid-template-columns:1fr auto auto;gap:6px;border-top:1px solid rgba(35,45,65,.07)}
+.price-design-actions button{height:30px;padding:0 9px;border:1px solid rgba(35,45,65,.09);border-radius:8px;background:#fff;color:#626b77;font-size:8px;font-weight:700;cursor:pointer}
+.price-design-actions button.primary{background:#20252b;border-color:#20252b;color:#fff}
+.price-design-status{display:block;padding:3px 12px 11px;color:#9aa2ac;font-size:7.5px}

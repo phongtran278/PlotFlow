@@ -1,0 +1,19 @@
+.pf-brand-wordmark.pf-brand-wordmark{
+  appearance:none;
+  border:0;
+  padding:0;
+  margin:0;
+  background:transparent;
+  color:#17191d;
+  font-family:"PlotFlowBrand",Arial,sans-serif;
+  font-size:20px;
+  font-weight:600;
+  line-height:1;
+  letter-spacing:-.012em;
+  font-synthesis:none;
+  cursor:pointer;
+  transition:opacity .2s ease,transform .2s ease;
+}
+.pf-brand-wordmark.pf-brand-wordmark:hover{opacity:.72;transform:translateY(-1px)}
+.pf-brand-wordmark.pf-brand-wordmark:focus-visible{outline:2px solid rgba(15,122,100,.28);outline-offset:4px;border-radius:4px}
+@media(max-width:680px){.pf-brand-wordmark.pf-brand-wordmark{font-size:18px}}
