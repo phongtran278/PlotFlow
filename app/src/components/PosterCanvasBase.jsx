@@ -581,7 +581,9 @@ export default function PosterCanvas({
         <div className="studio-canvas-scroll">
           <div
             className="poster-viewport studio-poster-viewport"
-            style={isEditing ? { "--studio-zoom": zoom / 100 } : { "--studio-zoom": previewZoom }}
+            style={isEditing
+              ? { "--studio-zoom": zoom / 100 }
+              : { "--studio-zoom": `var(--detail-preview-zoom, ${previewZoom})` }}
           >
             <div ref={canvasRef} className={`poster-canvas ${isEditing ? "layout-editing" : ""}`}>
               <img className="poster-template" src="/assets/template/template.png" alt="PlotFlow Template" />

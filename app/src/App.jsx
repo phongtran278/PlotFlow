@@ -357,7 +357,8 @@ function App() {
   const [exportMessage, setExportMessage] = useState("");
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
   const [isLayoutEditing, setIsLayoutEditing] = useState(false);
-  const [previewZoom, setPreviewZoom] = useState(0.38);
+  const previewZoomRef = useRef(0.38);
+  const previewZoomLabelRef = useRef(null);
   const [exportScale, setExportScale] = useState(3);
   const [designAssignments, setDesignAssignments] = useState(() => loadLocalJson("plotflow-design-assignments-r1", {}));
   const [lotOverlays, setLotOverlays] = useState(() => loadLocalJson("plotflow-lot-overlays-r1-v9", {}));
@@ -437,6 +438,18 @@ function App() {
     return () => style.remove();
   }, []);
 
+  function setDetailPreviewZoom(nextValue) {
+    const current = previewZoomRef.current;
+    const requested = typeof nextValue === "function" ? nextValue(current) : nextValue;
+    const numeric = Number(requested);
+    const next = Number(Math.min(1, Math.max(0.2, Number.isFinite(numeric) ? numeric : current)).toFixed(3));
+    previewZoomRef.current = next;
+
+    const host = componentCanvasRef.current;
+    if (host) host.style.setProperty("--detail-preview-zoom", String(next));
+    if (previewZoomLabelRef.current) previewZoomLabelRef.current.textContent = `${Math.round(next * 100)}%`;
+  }
+
   function fitPreview() {
     const host = componentCanvasRef.current;
     if (!host) return;
@@ -444,7 +457,7 @@ function App() {
     const availableW = Math.max(360, rect.width - 390);
     const availableH = Math.max(420, window.innerHeight - rect.top - 40);
     const next = Math.min(1, availableW / 1080, availableH / 1920);
-    setPreviewZoom(Math.max(0.2, Number(next.toFixed(3))));
+    setDetailPreviewZoom(next);
   }
 
   useEffect(() => {
@@ -457,7 +470,7 @@ function App() {
   useEffect(() => {
     function keydown(event) {
       if (event.shiftKey && event.key === "1") { event.preventDefault(); fitPreview(); }
-      if ((event.metaKey || event.ctrlKey) && event.key === "0") { event.preventDefault(); setPreviewZoom(1); }
+      if ((event.metaKey || event.ctrlKey) && event.key === "0") { event.preventDefault(); setDetailPreviewZoom(1); }
     }
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
@@ -1067,10 +1080,10 @@ function App() {
                 {!isLayoutEditing && (
                   <div className="preview-zoom-controls">
                     <button type="button" onClick={fitPreview}>Fit</button>
-                    <button type="button" onClick={() => setPreviewZoom((z) => Math.max(0.2, z - 0.05))}>−</button>
-                    <strong>{Math.round(previewZoom * 100)}%</strong>
-                    <button type="button" onClick={() => setPreviewZoom((z) => Math.min(1, z + 0.05))}>+</button>
-                    <button type="button" onClick={() => setPreviewZoom(1)}>100%</button>
+                    <button type="button" onClick={() => setDetailPreviewZoom((z) => z - 0.05)}>−</button>
+                    <strong ref={previewZoomLabelRef}>38%</strong>
+                    <button type="button" onClick={() => setDetailPreviewZoom((z) => z + 0.05)}>+</button>
+                    <button type="button" onClick={() => setDetailPreviewZoom(1)}>100%</button>
                   </div>
                 )}
                 {selectedLocator?.matches?.length > 0 && !isLayoutEditing && <button className="edit-floorplan-top" onClick={() => openFineTune()}>⌖ Edit Floorplan View</button>}
@@ -1078,7 +1091,11 @@ function App() {
                 <button type="button" className={isLayoutEditing ? "edit-layout-button active" : "edit-layout-button"} onClick={() => setIsLayoutEditing((current) => !current)} disabled={isExporting}>{isLayoutEditing ? "✓ Done" : "⌘ Edit Layout"}</button>
               </div>
             </header>
-            <div ref={componentCanvasRef} className="component-canvas round1-canvas">
+            <div
+              ref={componentCanvasRef}
+              className="component-canvas round1-canvas"
+              style={{ "--detail-preview-zoom": previewZoomRef.current }}
+            >
               <PosterCanvas
                 unit={previewUnit}
                 assets={selectedAssets}
@@ -1089,7 +1106,6 @@ function App() {
                 onEditLot={selectedLocator?.matches?.length ? () => openLotEditor() : null}
                 onChooseAsset={selectedUnit ? (type) => setAssetPickerType(type) : null}
                 lotOverlay={selectedLotOverlay?.stale ? null : selectedLotOverlay}
-                previewZoom={previewZoom}
               />
 
               {selectedUnit && !isLayoutEditing && (
