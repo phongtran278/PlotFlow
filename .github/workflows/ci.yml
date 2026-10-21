@@ -53,3 +53,6 @@ jobs:
 
       - name: Verify built app shell
         run: npm run test:build
+
+      - name: Verify SPA routes in local preview
+        run: npm run test:routes
