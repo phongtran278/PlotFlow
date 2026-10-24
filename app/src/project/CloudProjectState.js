@@ -1,5 +1,8 @@
 const CLOUD_STATE_URL = import.meta.env.VITE_PROJECT_STATE_URL || "";
 const CLOUD_PROJECT_ID = import.meta.env.VITE_CLOUD_PROJECT_ID || "vinhomes-saigon-park";
+const STATE_API_BASE_URL = (import.meta.env.VITE_STATE_API_BASE_URL || "").replace(/\/$/, "");
+const API_MODE = Boolean(STATE_API_BASE_URL);
+const STATE_API_URL = API_MODE ? `${STATE_API_BASE_URL}/v1/projects/${encodeURIComponent(CLOUD_PROJECT_ID)}/state` : "";
 const SAVE_DELAY_MS = 900;
 
 const EXACT_SHARED_KEYS = new Set([
@@ -27,6 +30,21 @@ let saving = false;
 let saveAgain = false;
 let suspendTracking = false;
 let installed = false;
+let remoteEtag = null;
+let remoteStorage = {};
+let writeBlocked = false;
+let bootstrapComplete = false;
+function notifyState(status) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("plotflow-cloud-state-status", {
+      detail: { status, projectId: CLOUD_PROJECT_ID, transport: API_MODE ? "state-api" : "legacy" },
+    }));
+  }
+}
+function normalizeEtag(raw) {
+  const value = String(raw || "");
+  return /^"[^"\r\n]+"$/.test(value) ? value : null;
+}
 
 function shouldShareKey(key = "") {
   const text = String(key || "");
@@ -71,16 +89,25 @@ function applyStorage(snapshot = {}) {
 }
 
 async function readCloudState() {
-  if (!CLOUD_STATE_URL) return null;
-  const response = await fetch(CLOUD_STATE_URL, { method: "GET", cache: "no-store" });
-  if (response.status === 404) return { version: 1, projectId: CLOUD_PROJECT_ID, storage: {} };
+  if (!API_MODE && !CLOUD_STATE_URL) return null;
+  const response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
+    method: "GET", cache: "no-store", credentials: API_MODE ? "include" : "same-origin",
+  });
+  if (!API_MODE && response.status === 404) return { version: 1, projectId: CLOUD_PROJECT_ID, storage: {} };
   if (!response.ok) throw new Error(`Cloud state GET failed (${response.status})`);
   const value = await response.json();
+  if (API_MODE) {
+    const etag = normalizeEtag(response.headers.get("x-plotflow-state-etag"));
+    if (!etag) throw new Error("State API did not provide a strong Azure version");
+    remoteEtag = etag;
+    remoteStorage = { ...(value?.storage || {}) };
+  }
   return value && typeof value === "object" ? value : null;
 }
 
 async function writeCloudState() {
-  if (!CLOUD_STATE_URL) return false;
+  if ((!API_MODE && !CLOUD_STATE_URL) || !bootstrapComplete || writeBlocked) return false;
+  if (API_MODE && !remoteEtag) return false;
   if (saving) {
     saveAgain = true;
     return false;
@@ -92,23 +119,43 @@ async function writeCloudState() {
       version: 1,
       projectId: CLOUD_PROJECT_ID,
       updatedAt: new Date().toISOString(),
-      storage: collectStorage(),
+      storage: API_MODE ? { ...remoteStorage, ...collectStorage() } : collectStorage(),
     };
-    const response = await fetch(CLOUD_STATE_URL, {
+    const response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
       method: "PUT",
-      headers: {
+      credentials: API_MODE ? "include" : "same-origin",
+      headers: API_MODE ? {
+        "Content-Type": "application/json; charset=utf-8",
+        "If-Match": remoteEtag,
+      } : {
         "Content-Type": "application/json; charset=utf-8",
         "x-ms-blob-type": "BlockBlob",
       },
       body: JSON.stringify(payload),
       cache: "no-store",
     });
+    if (API_MODE && response.status === 412) {
+      writeBlocked = true;
+      notifyState("version_conflict");
+      return false;
+    }
     if (!response.ok) throw new Error(`Cloud state PUT failed (${response.status})`);
+    if (API_MODE) {
+      const nextEtag = normalizeEtag(response.headers.get("x-plotflow-state-etag") || response.headers.get("etag"));
+      if (!nextEtag) {
+        writeBlocked = true;
+        notifyState("missing_write_version");
+        return false;
+      }
+      remoteEtag = nextEtag;
+      remoteStorage = payload.storage;
+    }
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-saved", {
       detail: { projectId: CLOUD_PROJECT_ID, updatedAt: payload.updatedAt },
     }));
     return true;
   } catch (error) {
+    if (API_MODE) { writeBlocked = true; notifyState("save_error"); }
     console.warn("[PlotFlow] cloud state save skipped:", error);
     return false;
   } finally {
@@ -121,7 +168,7 @@ async function writeCloudState() {
 }
 
 function scheduleCloudSave(delay = SAVE_DELAY_MS) {
-  if (!CLOUD_STATE_URL || suspendTracking) return;
+  if ((!API_MODE && !CLOUD_STATE_URL) || suspendTracking || !bootstrapComplete || writeBlocked) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
@@ -163,7 +210,7 @@ function installStorageTracking() {
 }
 
 export async function bootstrapCloudProjectState() {
-  if (!CLOUD_STATE_URL || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
+  if ((!API_MODE && !CLOUD_STATE_URL) || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
     installStorageTracking();
     return { enabled: false, projectId: CLOUD_PROJECT_ID };
   }
@@ -178,15 +225,22 @@ export async function bootstrapCloudProjectState() {
       applyStorage(cloudStorage);
       console.info(`[PlotFlow] cloud project restored: ${CLOUD_PROJECT_ID}`);
     } else if (Object.keys(collectStorage()).length > 0) {
-      await writeCloudState();
-      console.info(`[PlotFlow] local project migrated to cloud: ${CLOUD_PROJECT_ID}`);
+      if (!API_MODE) {
+        bootstrapComplete = true;
+        await writeCloudState();
+        console.info(`[PlotFlow] local project migrated to cloud: ${CLOUD_PROJECT_ID}`);
+      } else {
+        notifyState("manual_migration_required");
+      }
     }
   } catch (error) {
+    if (API_MODE) { writeBlocked = true; notifyState("load_error"); }
     console.warn("[PlotFlow] cloud state unavailable; using local cache:", error);
   }
 
+  bootstrapComplete = true;
   installStorageTracking();
-  return { enabled: true, projectId: CLOUD_PROJECT_ID };
+  return { enabled: true, projectId: CLOUD_PROJECT_ID, transport: API_MODE ? "state-api" : "legacy" };
 }
 
 export function flushCloudProjectState() {
