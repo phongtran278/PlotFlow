@@ -22,3 +22,5 @@ Workflow: **PlotFlow UI State API Staging CI**. It builds the React app with `VI
 Until steps 4–7 are verified, treat this as a prepared staging build rather than a usable live UI. The app does not yet display a dedicated status banner for the fail-closed state, so the browser event `plotflow-cloud-state-status` can be used to monitor it.
 
 Keep `agent/fix-preview-pan-tabs-memory` and `$web` unchanged.
+
+Deployment trigger note: After connecting Cloudflare Git builds, a new commit on this isolated staging branch should start a new build. Confirm the deployment branch and commit before opening the UI.
