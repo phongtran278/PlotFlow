@@ -1,0 +1,30 @@
+name: State API CI
+
+on:
+  pull_request:
+    paths:
+      - 'services/state-api/**'
+      - '.github/workflows/state-api-ci.yml'
+  push:
+    branches:
+      - feature/plotflow-state-api-foundation
+    paths:
+      - 'services/state-api/**'
+      - '.github/workflows/state-api-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: State API tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/state-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test

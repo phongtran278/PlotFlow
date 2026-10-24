@@ -1,0 +1,192 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createApp } from '../src/index.js';
+import { projectRole } from '../src/auth.js';
+
+const state = { version: 1, projectId: 'project-a', storage: { 'layout': '{}' } };
+const env = {
+  ALLOWED_ORIGINS: 'https://staging.example.org',
+  PROJECT_ACL_JSON: JSON.stringify({
+    'project-a': {
+      'viewer@example.org': 'viewer',
+      'editor@example.org': 'editor',
+      'admin@example.org': 'admin',
+    },
+  }),
+};
+const url = 'https://api.example.net/v1/projects/project-a/state';
+const user = (email) => async () => email ? { id: email, email } : null;
+const handler = (email, overrides = {}) => createApp({
+  authenticate: user(email),
+  read: async () => ({ status: 200, etag: '"v1"', state }),
+  write: async () => ({ status: 201, etag: '"v2"' }),
+  ...overrides,
+});
+const request = (method, body, headers = {}) => new Request(url, {
+  method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+});
+
+test('unauthenticated and non-members cannot read project state', async () => {
+  assert.equal((await handler(null)(request('GET'), env)).status, 401);
+  assert.equal((await handler('stranger@example.org')(request('GET'), env)).status, 403);
+});
+test('viewer can read but cannot write', async () => {
+  const app = handler('viewer@example.org');
+  const response = await app(request('GET'), env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('etag'), '"v1"');
+  assert.deepEqual(await response.json(), state);
+  assert.equal((await app(request('PUT', state, { 'If-Match': '"v1"' }), env)).status, 403);
+});
+test('editor can write only with a concrete previous ETag', async () => {
+  const app = handler('editor@example.org');
+  assert.equal((await app(request('PUT', state), env)).status, 428);
+  assert.equal((await app(request('PUT', state, { 'If-Match': '*' }), env)).status, 428);
+  const result = await app(request('PUT', state, { 'If-Match': '"v1"' }), env);
+  assert.equal(result.status, 200);
+  assert.equal(result.headers.get('etag'), '"v2"');
+});
+test('stale version returns conflict, never retries blind overwrite', async () => {
+  const app = handler('admin@example.org', { write: async () => ({ status: 412 }) });
+  const result = await app(request('PUT', state, { 'If-Match': '"stale"' }), env);
+  assert.equal(result.status, 412);
+  assert.equal((await result.json()).error, 'version_conflict');
+});
+test('invalid project payload and oversized state are rejected', async () => {
+  const app = handler('editor@example.org');
+  assert.equal((await app(request('PUT', { ...state, projectId: 'project-b' }, { 'If-Match': '"v1"' }), env)).status, 400);
+  const huge = { ...state, storage: { layout: 'x'.repeat(300_000) } };
+  assert.equal((await app(request('PUT', huge, { 'If-Match': '"v1"' }), env)).status, 413);
+});
+test('unknown project, forbidden origins and missing routes are denied', async () => {
+  const app = handler('admin@example.org');
+  assert.equal((await app(new Request(url.replace('project-a','project-b')), env)).status, 403);
+  assert.equal((await app(request('GET', undefined, { Origin: 'https://evil.example' }), env)).status, 403);
+  assert.equal((await app(new Request('https://api.example.net/unknown'), env)).status, 404);
+});
+test('ACL is explicit per email and project', () => {
+  assert.equal(projectRole(env, 'project-a', { email: 'editor@example.org' }), 'editor');
+  assert.equal(projectRole(env, 'project-b', { email: 'editor@example.org' }), null);
+});
+
+test('missing Access verification settings give a specific non-secret diagnostic', async () => {
+  const app = createApp({ authenticate: async (_request, variables) => {
+    const { AccessConfigError } = await import('../src/auth.js');
+    if (!variables.ACCESS_AUD) throw new AccessConfigError();
+  } });
+  const result = await app(request('GET'), env);
+  assert.equal(result.status, 503);
+  assert.equal((await result.json()).error, 'access_config_invalid');
+});
+
+test('staging test page renders without exposing credentials', async () => {
+  const response = await createApp()(new Request('https://api.example.net/test'), {});
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /text\/html/);
+  const html = await response.text();
+  assert.match(html, /Thử chống ghi đè/);
+  assert.doesNotMatch(html, /sig=|ACCESS_AUD|AZURE_BLOB_URLS_JSON.*=/);
+});
+
+test('inline staging UI script is valid JavaScript and buttons can bind', async () => {
+  const { testPage } = await import('../src/test-page.js');
+  const start = testPage.indexOf('<script type="module">');
+  const end = testPage.indexOf('</script>', start);
+  const script = start >= 0 && end > start ? testPage.slice(start + '<script type="module">'.length, end) : null;
+  assert.ok(script, 'Expected inline test UI module');
+  const { Script } = await import('node:vm');
+  assert.doesNotThrow(() => new Script(script), 'Inline UI module must parse');
+  assert.ok(script.includes("addEventListener('click',read)"));
+});
+
+test('diagnostics reports only configuration presence without revealing credentials', async () => {
+  const config = {
+    ACCESS_TEAM_DOMAIN: 'https://team-123.cloudflareaccess.com',
+    ACCESS_AUD: 'private-audience-id',
+    PROJECT_ACL_JSON: '{"project-a":{}}',
+    AZURE_BLOB_URLS_JSON: '{"project-a":"https://private.example/?sig=secret"}',
+  };
+  const response = await createApp()(new Request('https://api.example.net/diagnostics'), config);
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.deepEqual(result, {
+    accessTeamConfigured: true,
+    accessAudienceConfigured: true,
+    projectPermissionsConfigured: true,
+    stagingStorageConfigured: true,
+  });
+  assert.doesNotMatch(JSON.stringify(result), /private-audience-id|secret|team-123/);
+});
+
+test('same-origin browser PUT succeeds while foreign origins remain forbidden', async () => {
+  const app = handler('editor@example.org');
+  const same = await app(request('PUT', state, {
+    'If-Match': '"v1"',
+    Origin: 'https://api.example.net',
+  }), env);
+  assert.equal(same.status, 200);
+  const other = await app(request('PUT', state, {
+    'If-Match': '"v1"',
+    Origin: 'https://untrusted.example.org',
+  }), env);
+  assert.equal(other.status, 403);
+  assert.equal((await other.json()).error, 'origin_not_allowed');
+});
+
+test('missing and invalid If-Match are diagnosed without leaking actual ETags', async () => {
+  const app = handler('editor@example.org');
+  const missing = await app(request('PUT', state), env);
+  assert.equal(missing.status, 428);
+  assert.equal((await missing.json()).reason, 'missing_if_match');
+  const invalid = await app(request('PUT', state, { 'If-Match': '0x1234' }), env);
+  assert.equal(invalid.status, 428);
+  assert.equal((await invalid.json()).reason, 'invalid_if_match_format');
+});
+
+test('quoted Azure ETags with ordinary letters are accepted for conditional updates', async () => {
+  const app = handler('editor@example.org');
+  for (const tag of ['"0x8DF2B6005A8ABEA"', '"anAzureVersion"']) {
+    const result = await app(request('PUT', state, { 'If-Match': tag }), env);
+    assert.equal(result.status, 200, 'strong quoted ETag must be accepted');
+  }
+  const weak = await app(request('PUT', state, { 'If-Match': 'W/"0x8DF2B6005A8ABEA"' }), env);
+  assert.equal(weak.status, 428, 'weak validators are not accepted for conditional writes');
+});
+
+test('invalid ETag reveals safe shape metadata only', async () => {
+  const app = handler('editor@example.org');
+  const response = await app(request('PUT', state, { 'If-Match': 'W/"secret-version"' }), env);
+  assert.equal(response.status, 428);
+  const result = await response.json();
+  assert.equal(result.etagShape.weak, true);
+  assert.equal(result.etagShape.length, 18);
+  assert.doesNotMatch(JSON.stringify(result), /secret-version/);
+});
+
+test('GET sends Azure version in dedicated header alongside ETag', async () => {
+  const app = handler('editor@example.org');
+  const response = await app(request('GET'), env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('x-plotflow-state-etag'), '"v1"');
+  assert.equal(response.headers.get('etag'), '"v1"');
+});
+
+test('only staging UI origin receives credentialed CORS headers and Azure version on GET/PUT', async () => {
+  const stagingOrigin = 'https://plotflow-ui-staging.phongtran7076.workers.dev';
+  const stagingEnv = { ...env, ALLOWED_ORIGINS: stagingOrigin };
+  const app = handler('editor@example.org');
+  const get = await app(request('GET', undefined, { Origin: stagingOrigin }), stagingEnv);
+  assert.equal(get.status, 200);
+  assert.equal(get.headers.get('access-control-allow-origin'), stagingOrigin);
+  assert.equal(get.headers.get('access-control-allow-credentials'), 'true');
+  assert.match(get.headers.get('access-control-expose-headers'), /x-plotflow-state-etag/);
+  const options = await app(request('OPTIONS', undefined, { Origin: stagingOrigin }), stagingEnv);
+  assert.equal(options.status, 204);
+  assert.match(options.headers.get('access-control-allow-headers'), /if-match/);
+  const put = await app(request('PUT', state, { Origin: stagingOrigin, 'If-Match': '"v1"' }), stagingEnv);
+  assert.equal(put.status, 200);
+  assert.equal(put.headers.get('x-plotflow-state-etag'), '"v2"');
+  const badOrigin = await app(request('GET', undefined, { Origin: 'https://untrusted.invalid' }), stagingEnv);
+  assert.equal(badOrigin.status, 403);
+  assert.equal(badOrigin.headers.get('access-control-allow-origin'), null);
+});
