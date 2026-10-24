@@ -31,3 +31,11 @@ From `services/state-api`, run `npm test`. No cloud credentials are needed; fake
 6. Audit and revoke the older public write SAS only after deployment migration and verification; rotating Storage account keys without inventory may break other apps.
 
 **No production change is included in this step.**
+
+## Git deployment and runtime settings
+
+The two non-secret Access identifiers (`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD`) are declared in `wrangler.jsonc` so Git-backed deployments retain them. Do not place Azure URLs with SAS tokens or project-member emails in the committed Wrangler variables.
+
+`PROJECT_ACL_JSON` must be configured as a **Worker runtime Secret** (not Build Variable) for staging. `AZURE_BLOB_URLS_JSON` must also be a Worker runtime Secret. After deploying from GitHub, verify both secrets still exist and that the secured GET endpoint is accessible. No client-side or build-time variables should hold credentials.
+
+A successful build or `/health` response does not prove runtime bindings exist; authenticated state reads are the integration check.

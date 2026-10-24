@@ -6,5 +6,9 @@
   "workers_dev": true,
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "https://white-flower-20f9.cloudflareaccess.com",
+    "ACCESS_AUD": "1e3023284947bf1806b517acf87c4e3020e67e2b23b6672c55c6e3e924272823"
   }
 }
