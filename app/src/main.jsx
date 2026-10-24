@@ -51,6 +51,7 @@ import "./product/OverviewFinalPolish.css";
 import { installMemoryProfile } from "./runtime/memoryProfile.js";
 import { installPreviewInteractions } from "./previewInteractions.js";
 import { bootstrapCloudProjectState } from "./project/CloudProjectState.js";
+import CloudSaveStatus from "./project/CloudSaveStatus.jsx";
 
 window.__PLOTFLOW_BUILD__ = __PLOTFLOW_BUILD_COMMIT__;
 document.documentElement.dataset.plotflowBuild = __PLOTFLOW_BUILD_COMMIT__;
@@ -219,7 +220,7 @@ function RootExperience() {
 
 async function startPlotFlow() {
   await bootstrapCloudProjectState();
-  createRoot(document.getElementById("root")).render(<RootExperience/>);
+  createRoot(document.getElementById("root")).render(<><RootExperience/><CloudSaveStatus/></>);
 }
 
 void startPlotFlow();

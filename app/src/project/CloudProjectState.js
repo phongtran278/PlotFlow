@@ -36,6 +36,7 @@ let writeBlocked = false;
 let bootstrapComplete = false;
 function notifyState(status) {
   if (typeof window !== "undefined") {
+    window.__plotflowCloudStateStatus = { status, transport: API_MODE ? "state-api" : "legacy" };
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-status", {
       detail: { status, projectId: CLOUD_PROJECT_ID, transport: API_MODE ? "state-api" : "legacy" },
     }));
