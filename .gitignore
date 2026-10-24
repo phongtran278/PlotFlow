@@ -50,3 +50,6 @@ app/.plotflow_backups/
 app/_backup_before_recovery_*/
 app/_patch_backups/
 backups/
+
+# Generated automatically from assets/houses during setup/build
+app/src/data/generatedHouseCatalog.js
