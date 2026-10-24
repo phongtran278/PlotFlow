@@ -132,3 +132,13 @@ test('same-origin browser PUT succeeds while foreign origins remain forbidden', 
   assert.equal(other.status, 403);
   assert.equal((await other.json()).error, 'origin_not_allowed');
 });
+
+test('missing and invalid If-Match are diagnosed without leaking actual ETags', async () => {
+  const app = handler('editor@example.org');
+  const missing = await app(request('PUT', state), env);
+  assert.equal(missing.status, 428);
+  assert.equal((await missing.json()).reason, 'missing_if_match');
+  const invalid = await app(request('PUT', state, { 'If-Match': '0x1234' }), env);
+  assert.equal(invalid.status, 428);
+  assert.equal((await invalid.json()).reason, 'invalid_if_match_format');
+});
