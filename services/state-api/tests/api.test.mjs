@@ -90,7 +90,9 @@ test('staging test page renders without exposing credentials', async () => {
 
 test('inline staging UI script is valid JavaScript and buttons can bind', async () => {
   const { testPage } = await import('../src/test-page.js');
-  const script = testPage.match(/<script type="module">([\\s\\S]*?)<\\/script>/)?.[1];
+  const start = testPage.indexOf('<script type="module">');
+  const end = testPage.indexOf('</script>', start);
+  const script = start >= 0 && end > start ? testPage.slice(start + '<script type="module">'.length, end) : null;
   assert.ok(script, 'Expected inline test UI module');
   const { Script } = await import('node:vm');
   assert.doesNotThrow(() => new Script(script), 'Inline UI module must parse');
