@@ -7,13 +7,17 @@ function decodeBase64Url(input) {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
+export class AccessConfigError extends Error {
+  constructor() { super('Cloudflare Access verification settings are missing or malformed'); }
+}
+
 export async function verifyAccessJwt(request, env, fetcher = fetch) {
   const token = request.headers.get('Cf-Access-Jwt-Assertion');
   if (!token) return null;
   const team = String(env.ACCESS_TEAM_DOMAIN || '').trim().replace(/\/$/, '');
   const audience = String(env.ACCESS_AUD || '').trim();
   if (!/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/i.test(team) || !audience) {
-    throw new Error('Access issuer and audience are not configured');
+    throw new AccessConfigError();
   }
   const sections = token.split('.');
   if (sections.length !== 3) return null;
@@ -22,7 +26,7 @@ export async function verifyAccessJwt(request, env, fetcher = fetch) {
     const claims = JSON.parse(decoder.decode(decodeBase64Url(sections[1])));
     if (header.alg !== 'RS256' || !header.kid || typeof header.kid !== 'string') return null;
     const now = Math.floor(Date.now() / 1000);
-    if (claims.iss !== team || claims.aud !== audience || typeof claims.exp !== 'number'
+    if (claims.iss !== team || !(Array.isArray(claims.aud) ? claims.aud.includes(audience) : claims.aud === audience) || typeof claims.exp !== 'number'
         || now >= claims.exp || (claims.nbf !== undefined && now < claims.nbf)
         || !claims.sub || typeof claims.email !== 'string') return null;
     const keyResponse = await fetcher(team + '/cdn-cgi/access/certs');

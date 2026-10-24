@@ -68,3 +68,13 @@ test('ACL is explicit per email and project', () => {
   assert.equal(projectRole(env, 'project-a', { email: 'editor@example.org' }), 'editor');
   assert.equal(projectRole(env, 'project-b', { email: 'editor@example.org' }), null);
 });
+
+test('missing Access verification settings give a specific non-secret diagnostic', async () => {
+  const app = createApp({ authenticate: async (_request, variables) => {
+    const { AccessConfigError } = await import('../src/auth.js');
+    if (!variables.ACCESS_AUD) throw new AccessConfigError();
+  } });
+  const result = await app(request('GET'), env);
+  assert.equal(result.status, 503);
+  assert.equal((await result.json()).error, 'access_config_invalid');
+});

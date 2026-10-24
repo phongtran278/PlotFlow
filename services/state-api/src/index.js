@@ -1,4 +1,4 @@
-import { verifyAccessJwt, projectRole } from './auth.js';
+import { verifyAccessJwt, projectRole, AccessConfigError } from './auth.js';
 import { readState, writeState } from './azure.js';
 
 const json = (value, status = 200, headers = {}) => new Response(JSON.stringify(value), {
@@ -41,7 +41,7 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
     if (!['GET', 'PUT'].includes(request.method)) return reply({ error: 'method_not_allowed' }, 405, { allow: 'GET, PUT' });
     let identity;
     try { identity = await authenticate(request, env); }
-    catch { return reply({ error: 'authentication_unavailable' }, 503); }
+    catch (error) { return reply({ error: error instanceof AccessConfigError ? 'access_config_invalid' : 'authentication_unavailable' }, 503); }
     if (!identity) return reply({ error: 'unauthorized' }, 401);
     let role;
     try { role = projectRole(env, match[1], identity); }
