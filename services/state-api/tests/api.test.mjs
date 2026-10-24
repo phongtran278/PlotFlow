@@ -78,3 +78,12 @@ test('missing Access verification settings give a specific non-secret diagnostic
   assert.equal(result.status, 503);
   assert.equal((await result.json()).error, 'access_config_invalid');
 });
+
+test('staging test page renders without exposing credentials', async () => {
+  const response = await createApp()(new Request('https://api.example.net/test'), {});
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /text\/html/);
+  const html = await response.text();
+  assert.match(html, /Thử chống ghi đè/);
+  assert.doesNotMatch(html, /sig=|ACCESS_AUD|AZURE_BLOB_URLS_JSON.*=/);
+});

@@ -1,5 +1,6 @@
 import { verifyAccessJwt, projectRole, AccessConfigError } from './auth.js';
 import { readState, writeState } from './azure.js';
+import { testPage } from './test-page.js';
 
 const json = (value, status = 200, headers = {}) => new Response(JSON.stringify(value), {
   status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers },
@@ -35,6 +36,7 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
       });
     }
     const path = new URL(request.url).pathname;
+    if (path === '/test' && request.method === 'GET') return new Response(testPage, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" } });
     if (path === '/health' && request.method === 'GET') return reply({ ok: true, service: 'plotflow-state-api' });
     const match = /^\/v1\/projects\/([a-z0-9]+(?:-[a-z0-9]+)*)\/state$/.exec(path);
     if (!match) return reply({ error: 'not_found' }, 404);
