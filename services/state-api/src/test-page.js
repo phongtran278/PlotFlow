@@ -26,7 +26,7 @@ small{color:#64748b}.status{font-weight:650}.warning{color:#986b04}
 const path='/v1/projects/vinhomes-saigon-park/state';
 const $=id=>document.getElementById(id);
 let baseline=null;let afterSave=false;let busy=false;
-const log=(text)=>{$('log').textContent=new Date().toLocaleTimeString('vi-VN')+' · '+text+'\n'+($('log').textContent==='Chưa có thao tác.'?'':$('log').textContent).slice(0,5000)};
+const log=(text)=>{$('log').textContent=new Date().toLocaleTimeString('vi-VN')+' · '+text+'\\n'+($('log').textContent==='Chưa có thao tác.'?'':$('log').textContent).slice(0,5000)};
 function controls(){ $('save').disabled=busy||!baseline||afterSave||!$('confirm').checked; $('conflict').disabled=busy||!afterSave||!baseline; $('read').disabled=busy}
 async function responseJSON(response){return response.json().catch(()=>({error:'invalid_response'}))}
 async function read(){busy=true;controls();try{
