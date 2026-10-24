@@ -12,7 +12,7 @@ function allowedOrigin(request, env) {
   const origin = request.headers.get('Origin');
   if (!origin) return null;
   const allowed = (env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean);
-  return allowed.includes(origin) ? origin : null;
+  // The staging UI is served by this Worker: its own Origin must be accepted.\n  const sameOrigin = origin === new URL(request.url).origin;\n  return sameOrigin || allowed.includes(origin) ? origin : null;
 }
 function validateState(input, projectId) {
   return input && typeof input === 'object' && !Array.isArray(input)

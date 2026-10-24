@@ -117,3 +117,18 @@ test('diagnostics reports only configuration presence without revealing credenti
   });
   assert.doesNotMatch(JSON.stringify(result), /private-audience-id|secret|team-123/);
 });
+
+test('same-origin browser PUT succeeds while foreign origins remain forbidden', async () => {
+  const app = handler('editor@example.org');
+  const same = await app(request('PUT', state, {
+    'If-Match': '"v1"',
+    Origin: 'https://api.example.net',
+  }), env);
+  assert.equal(same.status, 200);
+  const other = await app(request('PUT', state, {
+    'If-Match': '"v1"',
+    Origin: 'https://untrusted.example.org',
+  }), env);
+  assert.equal(other.status, 403);
+  assert.equal((await other.json()).error, 'origin_not_allowed');
+});
