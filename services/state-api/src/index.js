@@ -38,10 +38,10 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
     const path = new URL(request.url).pathname;
     if (path === '/test' && request.method === 'GET') return new Response(testPage, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" } });
     if (path === '/diagnostics' && request.method === 'GET') {
-      const team = String(env.ACCESS_TEAM_DOMAIN || '').trim().replace(/\\/$/, '');
+      const team = String(env.ACCESS_TEAM_DOMAIN || '').trim().replace(/\/$/, '');
       const aud = String(env.ACCESS_AUD || '').trim();
       return reply({
-        accessTeamConfigured: /^https:\\/\\/[a-z0-9-]+\\.cloudflareaccess\\.com$/i.test(team),
+        accessTeamConfigured: team.startsWith('https://') && team.endsWith('.cloudflareaccess.com') && !team.includes(' '),
         accessAudienceConfigured: aud.length > 0,
         projectPermissionsConfigured: Boolean(env.PROJECT_ACL_JSON),
         stagingStorageConfigured: Boolean(env.AZURE_BLOB_URLS_JSON),
