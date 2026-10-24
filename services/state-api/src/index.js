@@ -37,6 +37,16 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
     }
     const path = new URL(request.url).pathname;
     if (path === '/test' && request.method === 'GET') return new Response(testPage, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'" } });
+    if (path === '/diagnostics' && request.method === 'GET') {
+      const team = String(env.ACCESS_TEAM_DOMAIN || '').trim().replace(/\\/$/, '');
+      const aud = String(env.ACCESS_AUD || '').trim();
+      return reply({
+        accessTeamConfigured: /^https:\\/\\/[a-z0-9-]+\\.cloudflareaccess\\.com$/i.test(team),
+        accessAudienceConfigured: aud.length > 0,
+        projectPermissionsConfigured: Boolean(env.PROJECT_ACL_JSON),
+        stagingStorageConfigured: Boolean(env.AZURE_BLOB_URLS_JSON),
+      });
+    }
     if (path === '/health' && request.method === 'GET') return reply({ ok: true, service: 'plotflow-state-api' });
     const match = /^\/v1\/projects\/([a-z0-9]+(?:-[a-z0-9]+)*)\/state$/.exec(path);
     if (!match) return reply({ error: 'not_found' }, 404);

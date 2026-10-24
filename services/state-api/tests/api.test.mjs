@@ -98,3 +98,22 @@ test('inline staging UI script is valid JavaScript and buttons can bind', async 
   assert.doesNotThrow(() => new Script(script), 'Inline UI module must parse');
   assert.ok(script.includes("addEventListener('click',read)"));
 });
+
+test('diagnostics reports only configuration presence without revealing credentials', async () => {
+  const config = {
+    ACCESS_TEAM_DOMAIN: 'https://team-123.cloudflareaccess.com',
+    ACCESS_AUD: 'private-audience-id',
+    PROJECT_ACL_JSON: '{"project-a":{}}',
+    AZURE_BLOB_URLS_JSON: '{"project-a":"https://private.example/?sig=secret"}',
+  };
+  const response = await createApp()(new Request('https://api.example.net/diagnostics'), config);
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.deepEqual(result, {
+    accessTeamConfigured: true,
+    accessAudienceConfigured: true,
+    projectPermissionsConfigured: true,
+    stagingStorageConfigured: true,
+  });
+  assert.doesNotMatch(JSON.stringify(result), /private-audience-id|secret|team-123/);
+});
