@@ -170,3 +170,23 @@ test('GET sends Azure version in dedicated header alongside ETag', async () => {
   assert.equal(response.headers.get('x-plotflow-state-etag'), '"v1"');
   assert.equal(response.headers.get('etag'), '"v1"');
 });
+
+test('only staging UI origin receives credentialed CORS headers and Azure version on GET/PUT', async () => {
+  const stagingOrigin = 'https://plotflow-ui-staging.phongtran7076.workers.dev';
+  const stagingEnv = { ...env, ALLOWED_ORIGINS: stagingOrigin };
+  const app = handler('editor@example.org');
+  const get = await app(request('GET', undefined, { Origin: stagingOrigin }), stagingEnv);
+  assert.equal(get.status, 200);
+  assert.equal(get.headers.get('access-control-allow-origin'), stagingOrigin);
+  assert.equal(get.headers.get('access-control-allow-credentials'), 'true');
+  assert.match(get.headers.get('access-control-expose-headers'), /x-plotflow-state-etag/);
+  const options = await app(request('OPTIONS', undefined, { Origin: stagingOrigin }), stagingEnv);
+  assert.equal(options.status, 204);
+  assert.match(options.headers.get('access-control-allow-headers'), /if-match/);
+  const put = await app(request('PUT', state, { Origin: stagingOrigin, 'If-Match': '"v1"' }), stagingEnv);
+  assert.equal(put.status, 200);
+  assert.equal(put.headers.get('x-plotflow-state-etag'), '"v2"');
+  const badOrigin = await app(request('GET', undefined, { Origin: 'https://untrusted.invalid' }), stagingEnv);
+  assert.equal(badOrigin.status, 403);
+  assert.equal(badOrigin.headers.get('access-control-allow-origin'), null);
+});
