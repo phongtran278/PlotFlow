@@ -24,3 +24,6 @@ Until steps 4–7 are verified, treat this as a prepared staging build rather th
 Keep `agent/fix-preview-pan-tabs-memory` and `$web` unchanged.
 
 Deployment trigger note: After connecting Cloudflare Git builds, a new commit on this isolated staging branch should start a new build. Confirm the deployment branch and commit before opening the UI.
+
+## Cloudflare 25 MiB asset cap
+Cloudflare Workers refuses any static file exceeding 25 MiB. The staging-only `app/tools/prepare-cloudflare-staging.mjs` runs after `npm run build` when `VITE_STATE_API_BASE_URL` is set. It omits only oversized media from `dist` and writes `dist/staging-omitted-assets.json`; source assets remain unchanged. Review the omitted list and separately optimize/host those images before functional visual QA. Application HTML/JS/CSS over the cap cause a build failure rather than being omitted. This is a staging deployment unblocker, NOT full asset parity.
