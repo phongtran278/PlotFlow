@@ -162,3 +162,11 @@ test('invalid ETag reveals safe shape metadata only', async () => {
   assert.equal(result.etagShape.length, 18);
   assert.doesNotMatch(JSON.stringify(result), /secret-version/);
 });
+
+test('GET sends Azure version in dedicated header alongside ETag', async () => {
+  const app = handler('editor@example.org');
+  const response = await app(request('GET'), env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('x-plotflow-state-etag'), '"v1"');
+  assert.equal(response.headers.get('etag'), '"v1"');
+});

@@ -32,7 +32,7 @@ async function responseJSON(response){return response.json().catch(()=>({error:'
 async function read(){busy=true;controls();try{
   const response=await fetch(path,{credentials:'same-origin',cache:'no-store'});
   const data=await responseJSON(response);
-  const etag=response.headers.get('etag');
+  const etag=response.headers.get('x-plotflow-state-etag') || response.headers.get('etag');
   if(!response.ok||!etag||data.projectId!=='vinhomes-saigon-park') throw Error('GET '+response.status+' '+(data.error||'missing_etag'));
   baseline={etag: /^0x[0-9a-f]+$/i.test(etag) ? '"'+etag+'"' : etag,state:data};afterSave=false;
   $('readState').textContent='Đã đọc thành công · ETag nhận được';

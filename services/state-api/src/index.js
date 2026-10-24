@@ -66,7 +66,7 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
         const result = await read(env, match[1]);
         if (result.status !== 200) return reply({ error: 'storage_unavailable' }, 502);
         if (!validateState(result.state, match[1]) || !result.etag) return reply({ error: 'invalid_storage_state' }, 502);
-        return reply(result.state, 200, { etag: result.etag });
+        return reply(result.state, 200, { etag: result.etag, 'x-plotflow-state-etag': result.etag });
       }
       const etag = request.headers.get('If-Match');
       if (!etag) return reply({ error: 'etag_required', reason: 'missing_if_match' }, 428);
