@@ -18,7 +18,8 @@
     "test": "node --test tests/*.test.mjs",
     "test:build": "node tools/check-built-app.mjs",
     "check:secrets": "node tools/check-secrets.mjs",
-    "test:routes": "node tools/smoke-preview.mjs"
+    "test:routes": "node tools/smoke-preview.mjs",
+    "postbuild": "node tools/prepare-cloudflare-staging.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

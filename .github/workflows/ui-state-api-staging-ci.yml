@@ -1,0 +1,53 @@
+name: PlotFlow UI State API Staging CI
+
+on:
+  push:
+    branches:
+      - feature/plotflow-frontend-state-api-staging
+  pull_request:
+    branches:
+      - feature/plotflow-state-api-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run check:secrets
+      - run: npm test
+      - name: Build isolated frontend against State API (no Azure SAS)
+        env:
+          VITE_CLOUD_PROJECT_ID: vinhomes-saigon-park
+          VITE_STATE_API_BASE_URL: https://plotflow-state-api-staging.phongtran7076.workers.dev
+          VITE_PROJECT_STATE_URL: ''
+          PLOTFLOW_CODE_ONLY_DEPLOY: '1'
+        run: npm run build
+      - name: Ensure no Azure SAS is present in built JS
+        run: |
+          if grep -R -E '([?&]sig=|blob\.core\.windows\.net)' dist/assets --include='*.js' ; then
+            echo 'Found Azure blob signature/URL in client bundle'
+            exit 1
+          fi
+          test -f dist/index.html
+          test -d dist/assets
+      - name: Upload staging frontend preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plotflow-ui-staging
+          path: app/dist/
+          retention-days: 7
