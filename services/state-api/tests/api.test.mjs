@@ -152,3 +152,13 @@ test('quoted Azure ETags with ordinary letters are accepted for conditional upda
   const weak = await app(request('PUT', state, { 'If-Match': 'W/"0x8DF2B6005A8ABEA"' }), env);
   assert.equal(weak.status, 428, 'weak validators are not accepted for conditional writes');
 });
+
+test('invalid ETag reveals safe shape metadata only', async () => {
+  const app = handler('editor@example.org');
+  const response = await app(request('PUT', state, { 'If-Match': 'W/"secret-version"' }), env);
+  assert.equal(response.status, 428);
+  const result = await response.json();
+  assert.equal(result.etagShape.weak, true);
+  assert.equal(result.etagShape.length, 18);
+  assert.doesNotMatch(JSON.stringify(result), /secret-version/);
+});

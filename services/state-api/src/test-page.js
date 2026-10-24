@@ -54,7 +54,7 @@ try{
   }else if(response.ok&&result.saved===true){
     afterSave=true;$('saveState').textContent='PASS · Dữ liệu thử đã lưu';
     log('PUT '+response.status+' thành công. Giữ nguyên ETag cũ để kiểm tra xung đột.');
-  }else{$('saveState').textContent='Không lưu được · HTTP '+response.status;log('PUT '+response.status+' '+(result.error||'')+' '+(result.reason||''))}
+  }else{$('saveState').textContent='Không lưu được · HTTP '+response.status;log('PUT '+response.status+' '+(result.error||'')+' '+(result.reason||'')+' '+(result.etagShape?JSON.stringify(result.etagShape):''))}
 }catch(error){log('Lỗi: '+error.message);(stale?$('conflictState'):$('saveState')).textContent='Lỗi: '+error.message}
 finally{busy=false;controls()}}
 $('read').addEventListener('click',read);$('save').addEventListener('click',()=>write(false));$('conflict').addEventListener('click',()=>write(true));$('confirm').addEventListener('change',controls);

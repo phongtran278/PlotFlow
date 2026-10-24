@@ -70,7 +70,17 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
       }
       const etag = request.headers.get('If-Match');
       if (!etag) return reply({ error: 'etag_required', reason: 'missing_if_match' }, 428);
-      if (etag === '*' || !/^"[^"\r\n]+"$/.test(etag)) return reply({ error: 'etag_required', reason: 'invalid_if_match_format' }, 428);
+      if (etag === '*' || !/^"[^"\r\n]+"$/.test(etag)) {
+        const shape = {
+          length: etag.length,
+          startsWithQuote: etag.startsWith('"'),
+          endsWithQuote: etag.endsWith('"'),
+          weak: etag.startsWith('W/'),
+          containsComma: etag.includes(','),
+          containsWhitespace: /\s/.test(etag),
+        };
+        return reply({ error: 'etag_required', reason: 'invalid_if_match_format', etagShape: shape }, 428);
+      }
       if (Number(request.headers.get('content-length') || 0) > MAX_STATE_BYTES) return reply({ error: 'too_large' }, 413);
       const raw = await request.text();
       if (new TextEncoder().encode(raw).byteLength > MAX_STATE_BYTES) return reply({ error: 'too_large' }, 413);
