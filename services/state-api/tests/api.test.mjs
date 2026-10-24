@@ -142,3 +142,13 @@ test('missing and invalid If-Match are diagnosed without leaking actual ETags', 
   assert.equal(invalid.status, 428);
   assert.equal((await invalid.json()).reason, 'invalid_if_match_format');
 });
+
+test('quoted Azure ETags with ordinary letters are accepted for conditional updates', async () => {
+  const app = handler('editor@example.org');
+  for (const tag of ['"0x8DF2B6005A8ABEA"', '"anAzureVersion"']) {
+    const result = await app(request('PUT', state, { 'If-Match': tag }), env);
+    assert.equal(result.status, 200, 'strong quoted ETag must be accepted');
+  }
+  const weak = await app(request('PUT', state, { 'If-Match': 'W/"0x8DF2B6005A8ABEA"' }), env);
+  assert.equal(weak.status, 428, 'weak validators are not accepted for conditional writes');
+});
