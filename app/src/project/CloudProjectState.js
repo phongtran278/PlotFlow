@@ -119,7 +119,7 @@ async function writeCloudState() {
       version: 1,
       projectId: CLOUD_PROJECT_ID,
       updatedAt: new Date().toISOString(),
-      storage: API_MODE ? { ...remoteStorage, ...collectStorage() } : collectStorage(),
+      storage: API_MODE ? { ...Object.fromEntries(Object.entries(remoteStorage).filter(([key]) => !shouldShareKey(key))), ...collectStorage() } : collectStorage(),
     };
     const response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
       method: "PUT",
@@ -230,6 +230,7 @@ export async function bootstrapCloudProjectState() {
         await writeCloudState();
         console.info(`[PlotFlow] local project migrated to cloud: ${CLOUD_PROJECT_ID}`);
       } else {
+        writeBlocked = true;
         notifyState("manual_migration_required");
       }
     }
