@@ -96,5 +96,5 @@ test('inline staging UI script is valid JavaScript and buttons can bind', async 
   assert.ok(script, 'Expected inline test UI module');
   const { Script } = await import('node:vm');
   assert.doesNotThrow(() => new Script(script), 'Inline UI module must parse');
-  assert.match(script, /addEventListener\\('click',read\\)/);
+  assert.ok(script.includes("addEventListener('click',read)"));
 });
