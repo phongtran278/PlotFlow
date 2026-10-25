@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getMemoryProfile } from "../runtime/memoryProfile.js";
-import { releasePreparedFallbackPdf } from "../floorplan/pdfLocator.js";
+import { releasePreparedFallbackPdf } from "../floorplan/pdfLocatorFacade.js";
 
 function softenImage(img) {
   try {
