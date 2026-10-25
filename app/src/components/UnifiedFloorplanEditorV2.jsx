@@ -8,7 +8,7 @@ import {
   FLOORPLAN_ZOOM_MAX,
   FLOORPLAN_ZOOM_MIN,
   releasePreparedDetailRaster,
-} from "../floorplan/pdfLocator";
+} from "../floorplan/pdfLocatorFacade.js";
 import "./UnifiedFloorplanEditor.css";
 import "./UnifiedFloorplanEditorV2.css";
 
