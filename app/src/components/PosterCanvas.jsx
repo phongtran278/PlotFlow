@@ -12,7 +12,7 @@ import ManualFloorplanLocator from "./ManualFloorplanLocator.jsx";
 import "./ManualFloorplanLocator.css";
 import { findCatalogAsset, houseCatalog, pinAssets } from "../data/assetCatalog.js";
 import { resolveArchitectureHouseAsset, withResolvedArchitecture } from "../data/architectureAutoMatch.js";
-import { renderPdfPageBase, renderPdfRegion } from "../floorplan/pdfLocator.js";
+import { renderPdfPageBase, renderPdfRegion } from "../floorplan/pdfLocatorFacade.js";
 
 const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
 const MANUAL_FLOORPLAN_KEY = "plotflow-manual-floorplans-v1";

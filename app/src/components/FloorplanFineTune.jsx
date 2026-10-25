@@ -11,7 +11,7 @@ import {
   pinAssets,
 } from "../data/assetCatalog";
 import { resolveArchitectureHouseAsset } from "../data/architectureAutoMatch.js";
-import { normalizeUnitCode } from "../floorplan/pdfLocator";
+import { normalizeUnitCode } from "../floorplan/pdfLocatorFacade.js";
 
 export { DEFAULT_FLOORPLAN_VIEW };
 

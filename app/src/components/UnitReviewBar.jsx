@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./UnitReviewBar.css";
-import "./UnitReviewDrawer.css";
 
 const STATUS_ORDER = ["all", "ready", "review", "not-found", "unindexed"];
 

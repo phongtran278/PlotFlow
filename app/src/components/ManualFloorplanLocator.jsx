@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { openVectorPdf } from "../floorplan/pdfLocator.js";
+import { openVectorPdf } from "../floorplan/pdfLocatorFacade.js";
 
 export default function ManualFloorplanLocator({ pdfDoc: providedPdfDoc, initialPage = 1, busy = false, onCancel, onPick }) {
   const [pdfDoc, setPdfDoc] = useState(providedPdfDoc || null);

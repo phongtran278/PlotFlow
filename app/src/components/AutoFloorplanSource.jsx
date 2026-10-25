@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { releasePreparedFallbackPdf } from "../floorplan/pdfLocator";
+import { releasePreparedFallbackPdf } from "../floorplan/pdfLocatorFacade.js";
 import "./AutoFloorplanSource.css";
 
 function setText(node, value) {

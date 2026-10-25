@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feature/plotflow-frontend-state-api-staging
+      - cleanup/plotflow-structure-phase-1
   pull_request:
     branches:
       - feature/plotflow-state-api-foundation
+      - feature/plotflow-frontend-state-api-staging
   workflow_dispatch:
 
 permissions:

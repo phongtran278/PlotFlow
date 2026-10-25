@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import "./FocusDeckPosition.css";
 import useStageUtilityTarget from "./useStageUtilityTarget";
 
 const FOCUS_SECONDS = 25 * 60;
