@@ -32,7 +32,7 @@ import {
   renderPdfRegion,
   resolvePdfSourceUrl,
   resolveUnitsAgainstIndex,
-} from "./floorplan/pdfLocator";
+} from "./floorplan/pdfLocatorFacade.js";
 
 const MEMORY_PROFILE = getMemoryProfile();
 const PREVIEW_CACHE_LIMIT = Math.max(1, Number(MEMORY_PROFILE.previewCacheTarget) || 2);
