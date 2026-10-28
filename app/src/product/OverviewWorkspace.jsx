@@ -1,3 +1,5 @@
+import RiverParkOverview from "./RiverParkOverview.jsx";
+import "./RiverParkOverview.css";
 import "./OverviewWorkspace.css";
 import "./OverviewHandoverTabs.css";
 
@@ -21,17 +23,7 @@ export default function OverviewWorkspace({
   units,
   visibleSellUnits,
 }) {
-  if (project?.id === "la-home-river-park") {
-    return (
-      <main className="pf-overview">
-        <header className="pf-overview-intro"><div className="pf-overview-intro-copy"><h1>{project.name}</h1></div></header>
-        <div style={{ height: "calc(100svh - 150px)", display: "flex", flexDirection: "column", gap: 8 }}>
-          <a href="https://drive.google.com/file/d/1NLgYaknfNY_QOQS2Qj84VExUEM9Ahy3x/view" target="_blank" rel="noopener noreferrer">Mở bản PDF gốc</a>
-          <iframe title="Mặt bằng River Park" src="https://drive.google.com/file/d/1NLgYaknfNY_QOQS2Qj84VExUEM9Ahy3x/preview" style={{ width: "100%", flex: 1, border: 0 }} />
-        </div>
-      </main>
-    );
-  }
+  if (project?.id === "la-home-river-park") return <RiverParkOverview />;
   const overviewConfigured = Boolean(project?.profile?.overview?.configured && project.masterplan);
   const liveUnitCount = sellUnits.length ? uniqueUnitCount(sellUnits) : uniqueUnitCount(units);
   const groupUnitCount = sellUnits.length ? uniqueUnitCount(visibleSellUnits) : liveUnitCount;
