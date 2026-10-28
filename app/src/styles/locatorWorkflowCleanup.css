@@ -1,0 +1,3 @@
+.locator-card > .review-issues-button:first-of-type {
+  display: none;
+}

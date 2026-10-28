@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditor.jsx";
+import { useCallback, useRef } from "react";
+import UnifiedFloorplanEditor, { DEFAULT_FLOORPLAN_VIEW } from "./UnifiedFloorplanEditorV2.jsx";
 import "./UnifiedFloorplanEntry.css";
 import { assetLibrary } from "../data/assetLibrary";
 import {
@@ -36,8 +36,6 @@ function resolvePosterAssets(unit) {
   const code = normalizeUnitCode(unit.unitCode);
   const saved = loadJson(DESIGN_ASSIGNMENT_KEY, {})[code] || {};
 
-  // Source houseModel wins. If it is blank, use only an exact compatible auto
-  // architecture match. Never fall back to the first/random house in catalog.
   const explicitHouse = findCatalogAsset(houseCatalog, unit.houseModel);
   const autoHouse = resolveArchitectureHouseAsset(unit, houseCatalog).asset;
   const house = explicitHouse || autoHouse || null;
@@ -93,6 +91,13 @@ export default function FloorplanFineTune({
   const currentIndex = locatorResult?.selectedMatchIndex ?? 0;
   const savedOverride = loadJson(FLOORPLAN_OVERRIDE_KEY, {})[code] || null;
   const persistedOverlay = loadJson(LOT_OVERLAY_KEY, {})[code] || null;
+  const renderPreviewRef = useRef(onRenderVectorPreview);
+
+  renderPreviewRef.current = onRenderVectorPreview;
+
+  // Keep one callback identity for the entire editor session so parent renders do not
+  // retrigger raster work when the page/camera itself has not changed.
+  const stableRenderPreview = useCallback((view) => renderPreviewRef.current?.(view), []);
 
   const sameSavedSource = savedOverride
     ? (savedOverride.selectedMatchIndex ?? 0) === currentIndex
@@ -103,7 +108,7 @@ export default function FloorplanFineTune({
     ? ({ ...DEFAULT_FLOORPLAN_VIEW, ...(initialView || {}) })
     : DEFAULT_FLOORPLAN_VIEW;
 
-  const posterAssets = useMemo(() => resolvePosterAssets(unit), [unit?.unitCode, unit?.houseModel, unit?.architectureLabel]);
+  const posterAssets = resolvePosterAssets(unit);
 
   async function saveComposition(view, overlay) {
     persistOverlay(code, overlay);
@@ -123,7 +128,7 @@ export default function FloorplanFineTune({
       onCancel={onCancel}
       onSave={saveComposition}
       onCandidateChange={onCandidateChange}
-      onRenderVectorPreview={onRenderVectorPreview}
+      onRenderVectorPreview={stableRenderPreview}
     />
   );
 }
