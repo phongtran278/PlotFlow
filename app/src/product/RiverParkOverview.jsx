@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const BLOCKS = [
   ["C1",.94,.65],["C2",.75,.18],["C3",.75,.71],["C4",.63,.33],
@@ -15,6 +15,8 @@ export default function RiverParkOverview() {
   const [scale,setScale]=useState(1);
   const [focus,setFocus]=useState({x:.5,y:.5});
   const [missing,setMissing]=useState(false);
+  const [localAsset,setLocalAsset]=useState(null);
+  useEffect(()=>()=>{if(localAsset) URL.revokeObjectURL(localAsset);},[localAsset]);
   const [drag,setDrag]=useState(null);
   const viewport=useRef(null);
   const parsed=useMemo(()=>{
@@ -51,8 +53,8 @@ export default function RiverParkOverview() {
     </div>
     <div className="pf-riverpark-info">{parsed?.lot ? "Đã xác định dãy "+parsed.block+". Chưa có tọa độ chính xác cho lô số "+parsed.lot+"; chỉ zoom đến dãy, không suy đoán vị trí lô." : parsed ? "Chọn Tìm & zoom để tới dãy "+parsed.block+"." : "Chọn một dãy trên bản đồ hoặc tìm theo mã. Giữ Ctrl và lăn chuột để zoom."}</div>
     <div ref={viewport} className="pf-riverpark-viewport" onWheel={wheel} onPointerMove={move} onPointerUp={()=>setDrag(null)} onPointerCancel={()=>setDrag(null)} onPointerLeave={()=>setDrag(null)} onPointerDown={e=>{if(scale<=1)return;viewport.current?.setPointerCapture(e.pointerId);setDrag({clientX:e.clientX,clientY:e.clientY,...focus});}}>
-      {missing ? <div className="pf-riverpark-missing">Đang chờ đưa ảnh masterplan vào kho asset của PlotFlow. Dữ liệu chỉ mục C1–C18 đã được cấu hình; không sử dụng PDF nhúng.</div> : <div className="pf-riverpark-map" style={{transform:"translate("+((.5-focus.x)*scale*100)+"%, "+((.5-focus.y)*scale*100)+"%) scale("+scale+")"}}>
-        <img src={ASSET} onError={()=>setMissing(true)} alt="Tổng mặt bằng River Park" draggable={false}/>
+      {missing && !localAsset ? <div className="pf-riverpark-missing"><div><p>Ảnh masterplan chưa được đưa vào kho assets GitHub.</p><label>Chọn ảnh mặt bằng WebP / PNG để xem ngay trên máy này <input type="file" accept="image/webp,image/png,image/jpeg" onChange={e=>{const file=e.target.files?.[0];if(file){setLocalAsset(URL.createObjectURL(file));setMissing(false);}}}/></label><p>Ảnh tải cục bộ sẽ không tự đồng bộ sang thiết bị khác.</p></div></div> : <div className="pf-riverpark-map" style={{transform:"translate("+((.5-focus.x)*scale*100)+"%, "+((.5-focus.y)*scale*100)+"%) scale("+scale+")"}}>
+        <img src={localAsset || ASSET} onError={()=>setMissing(true)} alt="Tổng mặt bằng River Park" draggable={false}/>
         {BLOCKS.map(([code,x,y])=><button key={code} className="pf-riverpark-pin" style={{left:(x*100)+"%",top:(y*100)+"%"}} onPointerDown={e=>e.stopPropagation()} onClick={()=>{setQuery(code);jump({x,y});}} aria-label={"Zoom đến dãy "+code}>{code}</button>)}
       </div>}
     </div>
