@@ -145,7 +145,7 @@ export default function ProjectLanding({ project, onOverview, onDetail }) {
           </div>
           <div className="pf-project-landing-resource-list">
             {landing.resources.map((item, index) => (
-              <button type="button" key={`${item.name}-${index}`}>
+              <button type="button" key={`${item.name}-${index}`} disabled={!item.url} onClick={() => item.url && window.open(item.url, "_blank", "noopener,noreferrer")} title={item.url ? "Mở tài liệu nguồn" : "Tài liệu chưa được cung cấp"}>
                 <span>0{index + 1}</span>
                 <span className="pf-project-landing-resource-copy">
                   <strong>{item.name}</strong>
