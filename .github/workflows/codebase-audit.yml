@@ -1,0 +1,37 @@
+name: PlotFlow Codebase Audit (read-only)
+
+on:
+  pull_request:
+    branches:
+      - agent/fix-preview-pan-tabs-memory
+    paths:
+      - "app/src/**"
+      - "app/tools/audit-codebase.mjs"
+      - "services/**"
+      - ".github/workflows/codebase-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  codebase-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Read-only codebase inventory
+        run: node app/tools/audit-codebase.mjs --json > codebase-audit.json
+      - name: Verify report schema
+        run: |
+          node --input-type=module -e 'import fs from "node:fs"; const a=JSON.parse(fs.readFileSync("codebase-audit.json","utf8")); if(a.totalFiles < 100 || !Array.isArray(a.riskReviewQueue)) process.exit(1); console.log("Inventory complete:", a.totalFiles, "source files")'
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plotflow-read-only-codebase-audit
+          path: codebase-audit.json
+          retention-days: 14
