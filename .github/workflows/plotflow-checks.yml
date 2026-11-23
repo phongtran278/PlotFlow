@@ -1,0 +1,36 @@
+name: PlotFlow app checks
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - '.github/workflows/plotflow-checks.yml'
+      - 'PlotFlow_DEMO_READY_PATCH_03/**'
+      - 'PlotFlow_ROUND1_FINAL_RECOVERY_06/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Lint
+        run: npm run lint
