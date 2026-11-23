@@ -41,7 +41,7 @@ jobs:
       - name: Install pinned Playwright locally without changing package manifests
         run: npm install --no-save --package-lock=false playwright@1.58.2
       - name: Install test browser
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Build isolated application
         run: npm run build
       - name: Chromium route smoke and diagnostic memory sampling
