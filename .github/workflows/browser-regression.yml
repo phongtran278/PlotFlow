@@ -1,0 +1,59 @@
+name: PlotFlow Browser Regression (isolated)
+
+on:
+  pull_request:
+    branches:
+      - agent/fix-preview-pan-tabs-memory
+    paths:
+      - "app/src/**"
+      - "app/tools/browser-smoke-memory.mjs"
+      - ".github/workflows/browser-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plotflow-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      PLOTFLOW_CODE_ONLY_DEPLOY: "1"
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install application dependencies
+        run: npm ci
+      - name: Install pinned Playwright locally without changing package manifests
+        run: npm install --no-save --package-lock=false playwright@1.58.2
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+      - name: Build isolated application
+        run: npm run build
+      - name: Chromium route smoke and diagnostic memory sampling
+        run: node tools/browser-smoke-memory.mjs
+        env:
+          VITE_PROJECT_STATE_URL: ""
+          VITE_STATE_API_BASE_URL: ""
+      - name: Upload browser baseline
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plotflow-browser-smoke-memory
+          path: app/browser-check-output/browser-smoke-memory.json
+          if-no-files-found: warn
+          retention-days: 14
