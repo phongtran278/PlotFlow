@@ -1,0 +1,7 @@
+# Project media synchronization — local plan, no Azure writes
+
+This increment builds a deterministic local manifest after the strict media build, with project-specific namespaces, SHA-256 content identities, original and variant object keys, dimensions, transparency, sizes, and existing runtime URLs. Identical bytes within a project and object kind are deduplicated. The plan does not contact Azure or contain credentials. It cannot upload, delete, change state.json, or publish a manifest. Unknown provenance of existing runtime-only aliases is explicit, not guessed. PDF and tile paths are excluded. No source bytes are changed.
+
+Next gates: verify manifest CI and review original-to-alias mappings; verify backup integrity and a restore in a separately isolated staging container; provision a dedicated staging media container and narrowly scoped identity (not the production account key); compare a remote read-only inventory to the local plan to select only new content hashes; upload immutable original/variant objects only after separate approval, verify hashes and browser access, and publish versioned manifest with a rollback pointer only after approval. Never write production state or use real project data for write tests. Current plan is not a remote inventory and publicationAllowed is always false.
+
+The previous Azure code deploy workflow is unchanged and must not be dispatched. Production migration is outside this PR. Keep #70 and earlier branches intact for rollback.
