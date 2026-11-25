@@ -5,6 +5,7 @@ on:
       - qa/backup-recovery-20261125
       - qa/masterplan-browser-20261125
       - qa/detail-raster-lifecycle-20261125
+      - qa/shared-sales-core-20261125
     paths:
       - 'app/**'
       - '.github/workflows/masterplan-browser-ci.yml'
@@ -19,11 +20,11 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           lfs: true
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
@@ -90,7 +91,7 @@ jobs:
           node --input-type=module -e 'import fs from "node:fs";for(const f of ["dependency-audit.json","dependency-audit-runtime.json"]){const v=JSON.parse(fs.readFileSync(f)).metadata?.vulnerabilities;if(!v||v.high||v.critical)throw Error("Unresolved high/critical findings: "+f);}'
       - name: Save QA reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: masterplan-browser-qa
           path: |
