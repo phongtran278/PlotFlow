@@ -149,7 +149,17 @@ try {
   await page.getByRole("button",{name:"Detail",exact:true}).click();
   await page.locator(".pf-product-workspace.is-visible").waitFor({state:"visible"});
   // Detail intentionally hides All Projects; navigate via the visible Project Home tab.
-  await page.getByRole("button",{name:"Project Home",exact:true}).click();
+  // A real pointer must reach the nav; never force click or bypass an overlay.
+  const projectHome = page.getByRole("button",{name:"Project Home",exact:true});
+  await projectHome.click({trial:true,timeout:10000});
+  const navigationHit = await projectHome.evaluate(button=>{
+    const rect=button.getBoundingClientRect();
+    const target=document.elementFromPoint(rect.left+rect.width/2,rect.top+rect.height/2);
+    return {reachable:target===button||button.contains(target),navZ:getComputedStyle(button.closest(".pf-shell-nav")).zIndex,stageZ:document.querySelector(".stage-header")?getComputedStyle(document.querySelector(".stage-header")).zIndex:null};
+  });
+  results.detailNavigationHit=navigationHit;
+  if(!navigationHit.reachable)throw Error("Detail toolbar intercepts project navigation");
+  await projectHome.click();
   await page.waitForURL(base+"/projects/vinhomes-saigon-park");
   await page.getByRole("button",{name:"All Projects",exact:true}).click();
   await page.locator('[data-active-project=""][data-legacy-workspace="inactive"]').waitFor({state:"visible"});

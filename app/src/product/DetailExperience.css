@@ -1,4 +1,6 @@
 body.pf-product-detail .pf-shell-nav-back{display:none!important}
+/* Global navigation must remain above the sticky Detail toolbar (6500). */
+body.pf-product-detail .pf-product-root > .pf-shell-nav{z-index:7000!important}
 
 /* Sidebar starts with data, while PlotFlow branding stays owned by the shared top nav. */
 body.pf-product-detail .unit-sidebar>div:first-child{display:none!important}
