@@ -1,0 +1,34 @@
+name: PlotFlow Azure migration inventory (no LFS download)
+on:
+  push:
+    branches:
+      - qa/azure-media-inventory-20261125
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GIT_LFS_SKIP_SMUDGE: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: false
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Test pointer parser and path classification
+        run: node --test tools/azure-migration/inventory-lfs-media.test.mjs
+      - name: Inventory Git metadata only
+        run: |
+          node tools/azure-migration/inventory-lfs-media.mjs > azure-media-inventory.json
+          node --input-type=module -e 'import fs from "node:fs";const {entries,objects,...summary}=JSON.parse(fs.readFileSync("azure-media-inventory.json"));console.log(JSON.stringify(summary,null,2));if(summary.publicationAllowed||summary.azureVerified)throw Error("Unexpected inventory mode");'
+      - uses: actions/upload-artifact@v6
+        with:
+          name: azure-media-inventory
+          path: azure-media-inventory.json
+          retention-days: 14
