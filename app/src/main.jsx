@@ -4,7 +4,7 @@ import "./index.css";
 import "./styles/plotflow-tokens.css";
 import "./components/CommercialShell.css";
 import "./components/WorkspaceReturn.css";
-import "./product/overviewV2Migration.js";
+// Historical anchor reset is intentionally not run at boot; migration requires explicit review.
 import "./product/DetailHomeLanguage.css";
 import "./product/DetailExperience.css";
 import "./styles/buttonToneRefinement.css";

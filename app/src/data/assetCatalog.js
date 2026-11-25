@@ -1,29 +1,7 @@
 import { generatedHouseCatalog } from "./generatedHouseCatalog.js";
 
 const A = "/assets";
-const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
-const HOUSE_CATALOG_MIGRATION_KEY = "plotflow-house-catalog-generated-only-v1";
 const DECIMAL_SENTINEL = "\u200B";
-
-function migrateLegacyHouseAssignments() {
-  if (typeof window === "undefined" || !window.localStorage) return;
-  if (window.localStorage.getItem(HOUSE_CATALOG_MIGRATION_KEY) === "1") return;
-
-  try {
-    const raw = JSON.parse(window.localStorage.getItem(DESIGN_ASSIGNMENT_KEY) || "{}");
-    const cleaned = {};
-    Object.entries(raw || {}).forEach(([unitCode, assignment]) => {
-      if (!assignment || typeof assignment !== "object") return;
-      const { houseId, ...rest } = assignment;
-      cleaned[unitCode] = rest;
-    });
-    window.localStorage.setItem(DESIGN_ASSIGNMENT_KEY, JSON.stringify(cleaned));
-  } catch {
-    // Bad legacy storage should never block app boot.
-  }
-
-  window.localStorage.setItem(HOUSE_CATALOG_MIGRATION_KEY, "1");
-}
 
 function parseCsvRows(text = "") {
   const rows = [];
@@ -179,7 +157,7 @@ function installGoogleSheetFetchFallback() {
   window.__plotflowGoogleSheetFetchPatched = true;
 }
 
-migrateLegacyHouseAssignments();
+// Do not erase saved house selections at module import. Legacy migration is a separate approved operation.
 installGoogleSheetFetchFallback();
 
 // Single source of truth: app/tools/sync-assets.mjs scans assets/houses/

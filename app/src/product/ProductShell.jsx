@@ -6,6 +6,7 @@ import WorkspaceNav from "./WorkspaceNav.jsx";
 import OverviewWorkspace from "./OverviewWorkspace.jsx";
 import { PROJECTS } from "./projectCatalog.js";
 import { ProjectProvider } from "../project/ProjectContext.jsx";
+import { canMountLegacyWorkspace, projectRouteId } from "../project/ProjectWorkspacePolicy.js";
 
 const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Xây thô"];
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
@@ -20,7 +21,7 @@ function productPath(screen, project, mode) {
 function readProductRoute() {
   const parts = window.location.pathname.split("/").filter(Boolean);
   if (parts[0] === "projects") {
-    const projectId = decodeURIComponent(parts[1] || "");
+    const projectId = projectRouteId(parts[1]);
     const project = PROJECTS.find((item) => item.id === projectId) || PROJECTS[0];
     const mode = VALID_MODES.has(parts[2]) ? parts[2] : "landing";
     const screen = projectId && PROJECTS.some((item) => item.id === projectId) ? "project" : "home";
@@ -32,7 +33,7 @@ function readProductRoute() {
   const projectId = params.get("project") || "";
   const project = PROJECTS.find((item) => item.id === projectId) || PROJECTS[0];
   const mode = VALID_MODES.has(params.get("mode")) ? params.get("mode") : "landing";
-  const screen = projectId ? "project" : "home";
+  const screen = projectId && PROJECTS.some(item => item.id === projectId) ? "project" : "home";
   return { screen, project, mode, legacy: Boolean(params.get("workspace") || projectId || params.get("mode")) };
 }
 
@@ -113,7 +114,7 @@ function HubProjectCard({ project, index, onOpen }) {
   );
 }
 
-export default function ProductShell({ children, onExitWorkspace, exclusiveEditor = false }) {
+export default function ProductShell({ children, onExitWorkspace, exclusiveEditor: editorRequested = false }) {
   const initialRouteRef = useRef(null);
   if (!initialRouteRef.current) initialRouteRef.current = readProductRoute();
   const [screen, setScreen] = useState(initialRouteRef.current.screen);
@@ -122,8 +123,10 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   const [developer, setDeveloper] = useState("All");
   const [query, setQuery] = useState("");
   const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
-  const [units, setUnits] = useState(readAvailableUnits);
-  const [sellUnits, setSellUnits] = useState(readSellUnits);
+  const legacyWorkspace = canMountLegacyWorkspace(project, screen);
+  const exclusiveEditor = editorRequested && legacyWorkspace;
+  const [units, setUnits] = useState(() => legacyWorkspace ? readAvailableUnits() : []);
+  const [sellUnits, setSellUnits] = useState(() => legacyWorkspace ? readSellUnits() : []);
   const workspaceRef = useRef(null);
   const overviewSyncReadyRef = useRef(false);
 
@@ -144,6 +147,9 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   }, [exclusiveEditor]);
 
   useEffect(() => {
+    if (!legacyWorkspace) { setUnits([]); setSellUnits([]); return undefined; }
+    setSellUnits(readSellUnits());
+    setUnits(readAvailableUnits());
     const fn = (event) => {
       if (exclusiveEditor) return;
       setSellUnits(Array.isArray(event.detail?.units) ? event.detail.units : readSellUnits());
@@ -151,18 +157,18 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
     };
     window.addEventListener("plotflow-overview-sell-units", fn);
     return () => window.removeEventListener("plotflow-overview-sell-units", fn);
-  }, [exclusiveEditor]);
+  }, [exclusiveEditor, legacyWorkspace]);
 
   useEffect(() => {
     if (exclusiveEditor) return undefined;
-    const detail = { screen, mode };
+    const detail = { screen, mode, projectId: project.id, legacyWorkspace };
     document.body.classList.toggle("pf-product-home", screen === "home");
     document.body.classList.toggle("pf-product-project", screen === "project" && mode === "landing");
     document.body.classList.toggle("pf-product-overview", screen === "project" && mode === "overview");
     document.body.classList.toggle("pf-product-detail", screen === "project" && mode === "detail");
     window.dispatchEvent(new CustomEvent("plotflow-product-view-changed", { detail }));
     return () => document.body.classList.remove("pf-product-home", "pf-product-project", "pf-product-overview", "pf-product-detail");
-  }, [screen, mode, exclusiveEditor]);
+  }, [screen, mode, exclusiveEditor, project.id, legacyWorkspace]);
 
   const developers = useMemo(() => ["All", ...Array.from(new Set(PROJECTS.map((item) => item.developer)))], []);
   const filteredProjects = useMemo(() => {
@@ -192,7 +198,7 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
 
   useEffect(() => {
     if (exclusiveEditor) return undefined;
-    if (screen !== "project" || mode !== "overview") {
+    if (!legacyWorkspace || screen !== "project" || mode !== "overview") {
       overviewSyncReadyRef.current = false;
       return undefined;
     }
@@ -218,9 +224,9 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
       window.cancelAnimationFrame(raf1);
       window.cancelAnimationFrame(raf2);
     };
-  }, [screen, mode, overviewGroup, exclusiveEditor]);
+  }, [screen, mode, overviewGroup, exclusiveEditor, legacyWorkspace]);
 
-  const detailVisible = screen === "project" && mode === "detail";
+  const detailVisible = legacyWorkspace && screen === "project" && mode === "detail";
 
   useEffect(() => {
     if (exclusiveEditor) return undefined;
@@ -270,7 +276,7 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
 
   return (
     <ProjectProvider project={project}>
-      <div className={`pf-product-root ${exclusiveEditor ? "is-exclusive-editor" : ""}`}>
+      <div data-active-project={screen === "project" ? project.id : ""} data-legacy-workspace={legacyWorkspace ? "active" : "inactive"} className={`pf-product-root ${exclusiveEditor && legacyWorkspace ? "is-exclusive-editor" : ""}`}>
       {!exclusiveEditor && (
         <WorkspaceNav
           screen={screen}
@@ -287,8 +293,15 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
         hidden={!detailVisible && !exclusiveEditor}
         className={`pf-product-workspace ${(detailVisible || exclusiveEditor) ? "is-visible" : "is-hidden"}`}
       >
-        {children}
+        {legacyWorkspace ? children : null}
       </div>
+
+      {!legacyWorkspace && screen === "project" && mode === "detail" && (
+        <main className="pf-overview" data-project-detail-unconfigured="true">
+          <header className="pf-overview-intro"><div className="pf-overview-intro-copy"><h1>{project.name}</h1></div></header>
+          <div className="pf-overview-coming"><strong>Detail chưa được cấu hình</strong><span>Dự án này cần bộ dữ liệu, sơ đồ và mẫu thiết kế riêng.</span></div>
+        </main>
+      )}
 
       {!exclusiveEditor && screen === "home" && (
         <main className="pf-project-hub">
@@ -318,9 +331,9 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
           overviewGroups={overviewGroups}
           overviewGroup={overviewGroup}
           onOverviewGroup={setOverviewGroup}
-          sellUnits={sellUnits}
-          units={units}
-          visibleSellUnits={visibleSellUnits}
+          sellUnits={legacyWorkspace ? sellUnits : []}
+          units={legacyWorkspace ? units : []}
+          visibleSellUnits={legacyWorkspace ? visibleSellUnits : []}
         />
       )}
       </div>

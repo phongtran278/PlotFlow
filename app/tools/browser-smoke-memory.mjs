@@ -117,6 +117,42 @@ try {
     }
     await snapshot(page, session, `navigation-cycle-${cycle}`);
   }
+  // Test real browser routes with synthetic legacy state; never use an actual backup.
+  const synthetic = {
+    "plotflow-design-assignments-r1": JSON.stringify({"QA-ONLY":{houseId:"QA-HOUSE",badges:[]}}),
+    "phongflow-overview-anchor-layout-v2": JSON.stringify({"QA-ONLY":{x:1,y:2}}),
+    "plotflow-overview-sell-units-v1": JSON.stringify([{code:"QA-ONLY",handover:"Giãn xây"}])
+  };
+  await page.evaluate(values => {
+    for (const [key,value] of Object.entries(values)) localStorage.setItem(key,value);
+    localStorage.removeItem("plotflow-house-catalog-generated-only-v1");
+    localStorage.removeItem("phongflow-overview-v2-anchor-migrated-1");
+  }, synthetic);
+  results.projectIsolation=[];
+  async function verifyForeign(mode) {
+    await page.locator('[data-active-project="vinhomes-green-paradise"][data-legacy-workspace="inactive"]').waitFor({state:"visible"});
+    if(await page.locator(".pf-product-workspace > *").count())throw Error("Legacy editor mounted in another project");
+    if(mode==="overview")await page.locator('[data-overview-render-mode="wireframe"]').waitFor({state:"visible"});
+    if(mode==="detail")await page.locator('[data-project-detail-unconfigured="true"]').waitFor({state:"visible"});
+    const saved=await page.evaluate(keys=>Object.fromEntries(keys.map(k=>[k,localStorage.getItem(k)])),Object.keys(synthetic));
+    if(JSON.stringify(saved)!==JSON.stringify(synthetic))throw Error("Foreign project changed legacy data");
+    results.projectIsolation.push({mode,legacyMounted:false,legacyValuesUnchanged:true});
+  }
+  await checkRoute(page,"/projects/vinhomes-green-paradise/detail");
+  await verifyForeign("detail");
+  await page.getByRole("button",{name:"Overview",exact:true}).click();
+  await verifyForeign("overview");
+  await page.getByRole("button",{name:"All Projects"}).click();
+  await page.locator('[data-active-project=""][data-legacy-workspace="inactive"]').waitFor({state:"visible"});
+  await page.locator(".pf-hub-project-card").filter({hasText:"Vinhomes Saigon Park"}).click();
+  await page.locator('[data-active-project="vinhomes-saigon-park"][data-legacy-workspace="active"]').waitFor({state:"visible"});
+  await page.getByRole("button",{name:"Detail",exact:true}).click();
+  await page.locator(".pf-product-workspace.is-visible").waitFor({state:"visible"});
+  await page.getByRole("button",{name:"All Projects"}).click();
+  await page.locator(".pf-hub-project-card").filter({hasText:"Vinhomes Green Paradise"}).click();
+  await page.getByRole("button",{name:"Detail",exact:true}).click();
+  await verifyForeign("detail");
+  console.log("Project isolation QA passed: "+results.projectIsolation.length+" foreign-view checks");
   await context.close();
   console.log(`Browser smoke passed: ${results.routes.length} route visits; ${results.memory.length} memory samples`);
 } catch (error) {
