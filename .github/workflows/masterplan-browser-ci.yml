@@ -4,6 +4,7 @@ on:
     branches:
       - qa/backup-recovery-20261125
       - qa/masterplan-browser-20261125
+      - qa/detail-raster-lifecycle-20261125
     paths:
       - 'app/**'
       - '.github/workflows/masterplan-browser-ci.yml'
