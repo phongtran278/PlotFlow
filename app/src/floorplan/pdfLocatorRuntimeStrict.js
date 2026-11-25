@@ -87,7 +87,8 @@ async function loadManifest() {
   if (!manifestPromise) {
     manifestPromise = fetch(PREPARED_MANIFEST_URL, { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
-      .catch(() => null);
+      .catch(() => null)
+      .then((manifest) => { if (!manifest) manifestPromise = null; return manifest; });
   }
   return manifestPromise;
 }
@@ -134,10 +135,10 @@ function boundedOutputWidth(options = {}) {
   return profile.lowMemory ? Math.min(requested, 1280) : Math.min(requested, 1640);
 }
 
-function chooseLevel(pageInfo, tiles, crop, outputWidth) {
+function chooseLevel(pageRender, tiles, crop, outputWidth) {
   const levels = [...(tiles?.levels || [])].sort((a, b) => Number(a.width) - Number(b.width));
   if (!levels.length) return null;
-  const equivalentPageWidth = outputWidth * (Number(pageInfo.width || 1) / Math.max(1, crop.w));
+  const equivalentPageWidth = outputWidth * (Number(pageRender.width || 1) / Math.max(1, crop.w));
   const adequate = levels.find((level) => Number(level.width) >= equivalentPageWidth * 0.82);
   return adequate || levels[levels.length - 1];
 }
@@ -208,8 +209,9 @@ async function canvasToResult(canvas, crop, epoch, extra = {}) {
   };
 }
 
-async function renderGlobalTiles(pageRender, view, options = {}) {
+async function renderGlobalTiles(pageRender, view, options = {}, epoch) {
   const manifest = await loadManifest();
+  if (epoch !== renderEpoch) return null;
   const pageInfo = manifest?.pages?.[String(pageRender?.pageNumber || 1)];
   if (!pageInfo) return null;
   const tiles = recoverTiles(pageInfo);
@@ -219,16 +221,15 @@ async function renderGlobalTiles(pageRender, view, options = {}) {
   const crop = calculateCropRect(pageRender, view, aspect);
   const outputWidth = boundedOutputWidth(options);
   const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
-  const level = chooseLevel(pageInfo, tiles, crop, outputWidth);
+  const level = chooseLevel(pageRender, tiles, crop, outputWidth);
   if (!level) return null;
 
   rasterRenderCount += 1;
   publishRuntimeStats({ activeLevel: Number(level.width), outputWidth, outputHeight });
 
-  const epoch = ++renderEpoch;
   const tileSize = Number(level.tileSize || tiles.tileSize || TILE_SIZE);
-  const scaleX = Number(level.width) / Math.max(1, Number(pageInfo.width || pageRender.width || 1));
-  const scaleY = Number(level.height) / Math.max(1, Number(pageInfo.height || pageRender.height || 1));
+  const scaleX = Number(level.width) / Math.max(1, Number(pageRender.width || pageInfo.width || 1));
+  const scaleY = Number(level.height) / Math.max(1, Number(pageRender.height || pageInfo.height || 1));
   const sx = crop.x * scaleX;
   const sy = crop.y * scaleY;
   const sw = crop.w * scaleX;
@@ -241,7 +242,9 @@ async function renderGlobalTiles(pageRender, view, options = {}) {
   const canvas = document.createElement("canvas");
   canvas.width = outputWidth;
   canvas.height = outputHeight;
+  try {
   const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) throw new Error("Canvas context unavailable");
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, outputWidth, outputHeight);
   ctx.imageSmoothingEnabled = true;
@@ -283,11 +286,18 @@ async function renderGlobalTiles(pageRender, view, options = {}) {
     }
   }
 
-  return canvasToResult(canvas, crop, epoch, {
+  return await canvasToResult(canvas, crop, epoch, {
     width: outputWidth,
     height: outputHeight,
     preparedTier: `page-tiles-${level.width}`,
   });
+  } catch (error) {
+    if (epoch !== renderEpoch) return null;
+    throw error;
+  } finally {
+    canvas.width = 1;
+    canvas.height = 1;
+  }
 }
 
 export async function renderPdfRegion(pdfDoc, pageRender, view = {}, options = {}) {
@@ -297,7 +307,8 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = {}, options = {
     return legacyRuntime.renderPdfRegion(pdfDoc, pageRender, view, options);
   }
 
-  const result = await renderGlobalTiles(pageRender, view, options);
+  const epoch = ++renderEpoch;
+  const result = await renderGlobalTiles(pageRender, view, options, epoch);
   if (!result?.dataUrl) return result;
 
   const isSavedScreenPreview = options.includeHighlight === false
@@ -307,7 +318,10 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = {}, options = {
   if (!isSavedScreenPreview || !String(result.dataUrl).startsWith("blob:")) return result;
 
   const key = previewKey(pageRender, view);
-  const stableUrl = await cloneBlobUrl(result.dataUrl);
+  let stableUrl;
+  try { stableUrl = await cloneBlobUrl(result.dataUrl); }
+  catch (error) { if (epoch !== renderEpoch) return null; throw error; }
+  if (epoch !== renderEpoch) { revoke(stableUrl); return null; }
   rememberStablePreview(key, stableUrl);
   return { ...result, dataUrl: stableUrl, stablePreview: true };
 }

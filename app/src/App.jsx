@@ -518,6 +518,7 @@ function App() {
       includeHighlight: false,
       maxRenderScale: 128,
     });
+    if (!clean?.dataUrl) return;
     const imageSrc = clean.dataUrl;
     const existing = lotOverlays[code];
     const sig = viewSignature(view);
@@ -694,6 +695,7 @@ function App() {
         aspect: FLOORPLAN_FRAME_ASPECT,
         includeHighlight: false,
       });
+      if (!preview?.dataUrl) return null; // superseded raster request
       if (generation === previewGenerationRef.current) commitFloorplanPreview(code, signature, preview.dataUrl);
       return preview.dataUrl;
     })().finally(() => previewInFlightRef.current.delete(inFlightKey));
@@ -870,6 +872,7 @@ function App() {
       localStorage.setItem("plotflow-lot-overlays-r1-v9", JSON.stringify(nextLots));
     }
     const hq = await renderPdfRegion(pdfDocRef.current, fineTunePageRender, view, { outputWidth: 1084, aspect: FLOORPLAN_FRAME_ASPECT, includeHighlight: false });
+    if (!hq?.dataUrl) return;
     const match = result.matches[selectedMatchIndex];
     const signature = `${match.pageNumber}:${selectedMatchIndex}:${match.x}:${match.y}:${viewSignature(view)}`;
     commitFloorplanPreview(code, signature, hq.dataUrl);
@@ -903,7 +906,7 @@ function App() {
       includeHighlight: false,
       maxRenderScale: 128,
     });
-    return { ...floorplanImages, [code]: vector.dataUrl };
+    return vector?.dataUrl ? { ...floorplanImages, [code]: vector.dataUrl } : floorplanImages;
   }
 
   function reviewIssues() {
