@@ -1,0 +1,7 @@
+# Locked media optimization — Preview only (2026-11-25)
+
+Stacked on Draft PR #67 (2440fe1c50024255e6279d63508f9ccb196f2489), itself based on #66. Sharp 0.34.5 is pinned in app/package.json; app/package-lock.json is reconstructed from all 50 indexed log chunks emitted by the successful GitHub Actions job 139207589393. Existing non-root lock entries are unchanged; new packages have npm registry URLs and integrity hashes. Previous isolated CI passed npm ci, six application tests, one image fixture test, strict build and asset audit: 34 source images, 26 optimized output files including one alias, zero missing, oversized or omitted. Candidate is not a production security approval.
+
+Default staging build now optimizes built images and refuses any missing tracked image or oversized output. No legacy deletion fallback. Non-staging build skip remains unchanged. Originals, source URLs, PNG alpha, PDF and tiles are not modified. Test the actual Cloudflare UI and API previews again, including all house keys and amenity images, and review quality before considering any rollout.
+
+CI now runs npm ci from the committed lockfile, checks media coverage, and captures full and runtime-only npm audit reports. Previous run reported four high severity vulnerabilities; assess advisories before any release. QA reporting does not imply security approval. No credentials, Azure uploads, production merges or deployments. Rollback: retain #67 and #66 intact; abandon this Draft branch if necessary.
