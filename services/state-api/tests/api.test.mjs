@@ -170,3 +170,27 @@ test('GET sends Azure version in dedicated header alongside ETag', async () => {
   assert.equal(response.headers.get('x-plotflow-state-etag'), '"v1"');
   assert.equal(response.headers.get('etag'), '"v1"');
 });
+
+test('Preview disables both state GET and PUT even when credentials and ACL are provided', async () => {
+  let reads = 0;
+  let writes = 0;
+  const preview = createApp({
+    authenticate: user('admin@example.org'),
+    read: async () => { reads++; return { status: 200, etag: '"v1"', state }; },
+    write: async () => { writes++; return { status: 201 }; },
+  });
+  const previewEnv = {
+    ...env,
+    PLOTFLOW_PREVIEW_DISABLE_STATE_ACCESS: '1',
+    AZURE_BLOB_URLS_JSON: JSON.stringify({ 'project-a': 'https://storage.blob.core.windows.net/container/state.json?sig=not-real' }),
+  };
+  for (const method of ['GET', 'PUT']) {
+    const response = await preview(request(method, method === 'PUT' ? state : undefined, method === 'PUT' ? { 'If-Match': '"v1"' } : {}), previewEnv);
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, 'preview_state_disabled');
+  }
+  assert.equal(reads, 0);
+  assert.equal(writes, 0);
+  const health = await preview(new Request('https://api.example.net/health'), previewEnv);
+  assert.equal(health.status, 200);
+});
