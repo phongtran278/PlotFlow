@@ -148,7 +148,11 @@ try {
   await page.locator('[data-active-project="vinhomes-saigon-park"][data-legacy-workspace="active"]').waitFor({state:"visible"});
   await page.getByRole("button",{name:"Detail",exact:true}).click();
   await page.locator(".pf-product-workspace.is-visible").waitFor({state:"visible"});
-  await page.getByRole("button",{name:"All Projects"}).click();
+  // Detail intentionally hides All Projects; navigate via the visible Project Home tab.
+  await page.getByRole("button",{name:"Project Home",exact:true}).click();
+  await page.waitForURL(base+"/projects/vinhomes-saigon-park");
+  await page.getByRole("button",{name:"All Projects",exact:true}).click();
+  await page.locator('[data-active-project=""][data-legacy-workspace="inactive"]').waitFor({state:"visible"});
   await page.locator(".pf-hub-project-card").filter({hasText:"Vinhomes Green Paradise"}).click();
   await page.getByRole("button",{name:"Detail",exact:true}).click();
   await verifyForeign("detail");
