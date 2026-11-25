@@ -7,6 +7,7 @@ on:
       - qa/detail-raster-lifecycle-20261125
       - qa/shared-sales-core-20261125
       - qa/project-cloud-scope-20261125
+      - qa/project-workspace-boundary-20261125
     paths:
       - 'app/**'
       - '.github/workflows/masterplan-browser-ci.yml'

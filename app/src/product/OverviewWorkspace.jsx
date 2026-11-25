@@ -1,6 +1,8 @@
 import "./OverviewWorkspace.css";
 import "./OverviewHandoverTabs.css";
 
+import { canMountLegacyWorkspace } from "../project/ProjectWorkspacePolicy.js";
+
 const OVERVIEW_RENDER_MODE = "raster";
 
 function uniqueUnitCount(list = []) {
@@ -21,7 +23,7 @@ export default function OverviewWorkspace({
   units,
   visibleSellUnits,
 }) {
-  const overviewConfigured = Boolean(project?.profile?.overview?.configured && project.masterplan);
+  const overviewConfigured = canMountLegacyWorkspace(project, "project") && project?.profile?.overview?.rasterSource === "prepared-masterplan-page-1";
   const liveUnitCount = sellUnits.length ? uniqueUnitCount(sellUnits) : uniqueUnitCount(units);
   const groupUnitCount = sellUnits.length ? uniqueUnitCount(visibleSellUnits) : liveUnitCount;
   const countForGroup = (group) => {
@@ -80,7 +82,7 @@ export default function OverviewWorkspace({
               className={`pf-masterplan-stage ${overviewConfigured ? "has-real-pdf has-callouts" : "is-project-wireframe"}`}
               data-overview-group={overviewConfigured ? overviewGroup : ""}
               data-overview-render-mode={overviewConfigured ? OVERVIEW_RENDER_MODE : "wireframe"}
-              data-overview-raster-source={overviewConfigured ? "prepared-masterplan-page-1" : ""}
+              data-overview-raster-source={overviewConfigured ? project.profile.overview.rasterSource : ""}
             >
               {!overviewConfigured && (
                 <div className="pf-overview-wireframe" aria-label="Overview chưa được cấu hình cho dự án này">

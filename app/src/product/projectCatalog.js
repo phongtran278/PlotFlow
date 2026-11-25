@@ -1,4 +1,4 @@
-import { createProjectProfile } from "../project/ProjectProfile.js";
+import { createProjectProfile, cloneProjectConfig } from "../project/ProjectProfile.js";
 const DEFAULT_LANDING = {
   positioning: "Project positioning statement goes here — one clear promise designed to make the right buyer want to keep exploring.",
   valuePillars: [
@@ -44,12 +44,12 @@ function withLanding(project, landing = {}) {
   return {
     ...project,
     profile: createProjectProfile(project.profile),
-    landing: {
+    landing: cloneProjectConfig({
       ...DEFAULT_LANDING,
       ...landing,
       location: { ...DEFAULT_LANDING.location, ...(landing.location || {}) },
       trust: { ...DEFAULT_LANDING.trust, ...(landing.trust || {}) },
-    },
+    }),
   };
 }
 
@@ -107,7 +107,15 @@ export const PROJECTS = [
     profile: {
       legacyStorage: true,
       topology: { kind: "low-rise", hierarchy: ["zone", "subzone", "lot"] },
-      overview: { configured: true, groups: ["Hoàn thiện", "Giãn xây", "Xây thô"] },
+      overview: { configured: true, groups: ["Hoàn thiện", "Giãn xây", "Xây thô"], rasterSource: "prepared-masterplan-page-1" },
+      assets: {
+        roles: ["masterplan", "houses", "amenities", "branding", "badges", "pins"],
+        catalogId: "vinhomes-saigon-park",
+        masterplanPdf: "/masterplan/masterplan.pdf",
+        preparedManifest: "/masterplan/generated/manifest.json",
+        pageTilesBase: "/masterplan/generated/page-tiles/page-1",
+        housesBase: "/assets/houses", amenitiesBase: "/assets/amenities", brandingBase: "/assets/ui",
+      },
       detail: { template: "sales-poster-v1" },
     },
   }, VINHOMES_SAIGON_PARK_LANDING),
