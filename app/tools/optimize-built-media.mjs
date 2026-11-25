@@ -6,13 +6,14 @@ import { fileURLToPath } from 'node:url';
 // Never modify assets/ originals or the masterplan tile pyramid.
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(appDir, 'dist');
-const types = ['houses', 'amenities'];
+const types = ['houses', 'amenities', 'houses_optimized', 'library/houses', 'library/amenities'];
 const imageExt = /\.(png|jpe?g|webp)$/i;
 const limitBytes = 25 * 1024 * 1024;
-const maxWidth = Number(process.env.PLOTFLOW_MEDIA_MAX_WIDTH || 2400);
+const maxWidth = Number(process.env.PLOTFLOW_MEDIA_MAX_WIDTH || 3200);
+const maxPixels = 100_000_000;
 const targetBytes = Math.round(Number(process.env.PLOTFLOW_MEDIA_TARGET_MIB || 2.5) * 1024 * 1024);
 const dryRun = process.argv.includes('--dry-run');
-if (!Number.isFinite(maxWidth) || maxWidth < 400 || !Number.isFinite(targetBytes) || targetBytes < 64 * 1024) {
+if (!Number.isInteger(maxWidth) || maxWidth < 400 || maxWidth > 8192 || !Number.isFinite(targetBytes) || targetBytes < 64 * 1024 || targetBytes > limitBytes) {
   throw new Error('Invalid PLOTFLOW_MEDIA_MAX_WIDTH or PLOTFLOW_MEDIA_TARGET_MIB');
 }
 
@@ -33,6 +34,8 @@ let sharp;
 if (!dryRun && images.length) {
   try { ({ default: sharp } = await import('sharp')); }
   catch { throw new Error('Image optimizer requires sharp. Install it in the build environment before enabling this step.'); }
+  sharp.cache(false);
+  sharp.concurrency(1);
 }
 
 for (const file of images) {
@@ -44,22 +47,29 @@ for (const file of images) {
     report.entries.push({ path: name, inputBytes: before, action: 'would-check' });
     continue;
   }
+  if (before <= targetBytes) {
+    report.unchanged++;
+    report.bytesAfter += before;
+    report.entries.push({ path: name, inputBytes: before, outputBytes: before, optimized: false, exceedsCloudflareLimit: false });
+    continue;
+  }
   const ext = path.extname(file).toLowerCase();
   let smallest = null;
   let failReason = null;
   // Limit each process to one input image at a time; avoid loading entire library in memory.
   try {
-    const metadata = await sharp(file, { sequentialRead: true, limitInputPixels: 400_000_000 }).metadata();
-    const width = Number(metadata.width || maxWidth);
+    const metadata = await sharp(file, { sequentialRead: true, limitInputPixels: maxPixels }).metadata();
+    const width = Math.max(Number(metadata.width || 0), Number(metadata.height || 0));
+    if (!width || (metadata.pages || 1) > 1) throw new Error('Unsupported image dimensions or animated image');
     const alpha = Boolean(metadata.hasAlpha);
-    const widths = [...new Set([Math.min(width, maxWidth), 2000, 1600, 1200].filter(w => w <= width && w >= 400))];
+    const widths = [...new Set([Math.min(width, maxWidth), Math.min(maxWidth, 2400), Math.min(maxWidth, 1600), Math.min(maxWidth, 1200)].filter(w => w <= width && w >= 400))];
     for (const w of widths) {
       for (const quality of [86, 76, 66]) {
-        let pipeline = sharp(file, { sequentialRead: true, limitInputPixels: 400_000_000 })
-          .rotate().resize({ width: w, fit: 'inside', withoutEnlargement: true });
+        let pipeline = sharp(file, { sequentialRead: true, limitInputPixels: maxPixels })
+          .rotate().resize({ width: w, height: w, fit: 'inside', withoutEnlargement: true });
         if (ext === '.png') {
           // Preserve transparency and file extension/URL; no silent JPEG conversion.
-          pipeline = pipeline.png({ palette: false, compressionLevel: 9, effort: 7 });
+          pipeline = pipeline.png({ palette: false, compressionLevel: 9, effort: 5 });
         } else if (ext === '.webp') {
           pipeline = pipeline.webp({ quality, effort: 4, alphaQuality: alpha ? 95 : undefined });
         } else {
@@ -74,6 +84,8 @@ for (const file of images) {
       if (smallest?.length <= targetBytes) break;
     }
     if (smallest && smallest.length < before) {
+      const outputMeta = await sharp(smallest, { limitInputPixels: maxPixels }).metadata();
+      if (outputMeta.format !== metadata.format || (alpha && !outputMeta.hasAlpha)) throw new Error('Output format or alpha channel was not preserved');
       // Atomic replacement in dist only. Never modify the original project assets.
       const tmp = file + '.plotflow-tmp';
       try {

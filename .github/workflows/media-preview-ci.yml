@@ -1,0 +1,54 @@
+name: PlotFlow isolated media QA
+on:
+  pull_request:
+    branches:
+      - integration/plotflow-safe-preview-20261125
+    paths:
+      - 'app/**'
+      - '.github/workflows/media-preview-ci.yml'
+permissions:
+  contents: read
+jobs:
+  media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Generate candidate lockfile for pinned Sharp (no repository write)
+        run: |
+          npm install --package-lock-only --ignore-scripts --save-dev --save-exact sharp@0.34.5
+          node -e "const fs=require('node:fs');const s=JSON.stringify(JSON.parse(fs.readFileSync('package-lock.json','utf8')));for(let i=0;i<s.length;i+=1200)console.log('PLOTFLOW_LOCK_PART '+(i/1200)+' '+s.slice(i,i+1200));console.log('PLOTFLOW_LOCK_COUNT '+Math.ceil(s.length/1200))"
+      - name: Reproduce dependency installation
+        run: npm ci
+      - run: npm run check:secrets
+      - run: npm test
+      - name: Test isolated image fixtures
+        run: node --test tools/tests/media-preview.test.mjs
+      - name: Build UI with no live State API or Azure credentials
+        env:
+          VITE_PROJECT_STATE_URL: ''
+          VITE_STATE_API_BASE_URL: ''
+          PLOTFLOW_MEDIA_OPTIMIZE: '1'
+        run: npm run build
+      - name: Verify build shell
+        run: npm run test:build
+      - name: Save dependency candidate and asset reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-qa-candidate
+          path: |
+            app/package.json
+            app/package-lock.json
+            app/media-optimization-report.json
+            app/asset-audit-report.json
+          retention-days: 7
