@@ -50,6 +50,11 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
       });
     }
     if (path === '/health' && request.method === 'GET') return reply({ ok: true, service: 'plotflow-state-api' });
+    // Preview builds must never read or write project state, even if somebody
+    // accidentally configures Azure credentials or ACL secrets on Previews Base.
+    if (env.PLOTFLOW_PREVIEW_DISABLE_STATE_ACCESS === '1' && path.startsWith('/v1/projects/')) {
+      return reply({ error: 'preview_state_disabled' }, 503);
+    }
     const match = /^\/v1\/projects\/([a-z0-9]+(?:-[a-z0-9]+)*)\/state$/.exec(path);
     if (!match) return reply({ error: 'not_found' }, 404);
     if (!['GET', 'PUT'].includes(request.method)) return reply({ error: 'method_not_allowed' }, 405, { allow: 'GET, PUT' });
