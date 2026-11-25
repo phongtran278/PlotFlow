@@ -19,7 +19,9 @@
     "test:build": "node tools/check-built-app.mjs",
     "check:secrets": "node tools/check-secrets.mjs",
     "test:routes": "node tools/smoke-preview.mjs",
-    "postbuild": "node tools/prepare-cloudflare-staging.mjs"
+    "postbuild": "node tools/prepare-cloudflare-staging.mjs",
+    "audit:assets": "node tools/audit-runtime-assets.mjs",
+    "audit:assets:strict": "node tools/audit-runtime-assets.mjs --strict"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
