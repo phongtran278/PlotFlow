@@ -14,13 +14,12 @@ if (!isStaging) {
 
 const root = path.resolve('dist');
 const MAX_BYTES = 25 * 1024 * 1024;
-const strictMedia = process.env.PLOTFLOW_MEDIA_OPTIMIZE === '1';
-if (strictMedia) {
+// All staging builds, including Workers Previews without API variables, must preserve assets.
+{
   const result = spawnSync(process.execPath, ['tools/optimize-built-media.mjs'], { stdio: 'inherit' });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error('Media optimization failed; refusing to publish incomplete output');
 }
-const removed = [];
 let scanned = 0;
 
 function visit(dir) {
@@ -32,20 +31,14 @@ function visit(dir) {
     const size = fs.statSync(absolute).size;
     if (size <= MAX_BYTES) continue;
     const relative = path.relative(root, absolute).split(path.sep).join('/');
-    if (/\.(html|js|mjs|css)$/i.test(relative)) {
-      throw new Error('Critical application asset exceeds Cloudflare 25 MiB limit: ' + relative);
-    }
-    if (strictMedia) throw new Error('Built asset exceeds Cloudflare 25 MiB limit: ' + relative);
-    fs.unlinkSync(absolute);
-    removed.push({ path: relative, sizeMiB: Number((size / 1048576).toFixed(2)) });
+    throw new Error('Built asset exceeds Cloudflare 25 MiB limit: ' + relative);
   }
 }
 visit(root);
 console.log('[staging-assets] Scanned', scanned, 'built files.');
-console.log('[staging-assets] Omitted oversized media files:', removed.length);
-for (const { path: file, sizeMiB } of removed) console.log('[staging-assets] omitted:', file, '(' + sizeMiB + ' MiB)');
-fs.writeFileSync(path.join(root, 'staging-omitted-assets.json'), JSON.stringify({ omitted: removed }, null, 2));
-if (strictMedia) {
+console.log('[staging-assets] Omitted oversized media files: 0');
+fs.writeFileSync(path.join(root, 'staging-omitted-assets.json'), JSON.stringify({ omitted: [] }, null, 2));
+{
   const result = spawnSync(process.execPath, ['tools/audit-runtime-assets.mjs', '--strict'], { stdio: 'inherit' });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error('Asset audit failed; refusing to publish incomplete output');
