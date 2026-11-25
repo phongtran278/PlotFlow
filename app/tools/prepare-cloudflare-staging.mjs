@@ -1,9 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const isStaging = Boolean(process.env.VITE_STATE_API_BASE_URL);
+// Cloudflare Preview builds have no State API env vars by design.
+// The staging UI still needs the 25 MiB asset guard when its Wrangler config is present.
+// The Azure production branch has no Wrangler config and is unaffected.
+const hasStagingWrangler = fs.existsSync(path.resolve('wrangler.jsonc'));
+const isStaging = Boolean(process.env.VITE_STATE_API_BASE_URL) || hasStagingWrangler;
 if (!isStaging) {
-  console.log('[staging-assets] Skipped: not a State API staging build.');
+  console.log('[staging-assets] Skipped: no staging Wrangler config or State API build env.');
   process.exit(0);
 }
 
