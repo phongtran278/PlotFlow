@@ -1,0 +1,76 @@
+name: PlotFlow dependency security QA
+on:
+  pull_request:
+    branches:
+      - qa/locked-media-preview-20261125
+    paths:
+      - 'app/**'
+      - '.github/workflows/dependency-security-ci.yml'
+permissions:
+  contents: read
+jobs:
+  media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Resolve targeted security candidate (runner only)
+        run: |
+          npm pkg set 'dependencies.xlsx=https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz' 'devDependencies.sharp=0.35.5' 'devDependencies.vite=8.2.4' 'overrides.source-map-js=1.2.2'
+          npm install --package-lock-only --ignore-scripts --no-audit
+          node --input-type=module -e 'import fs from "node:fs";const p=JSON.parse(fs.readFileSync("package.json"));const l=JSON.parse(fs.readFileSync("package-lock.json"));for(const [n,v] of Object.entries({"sharp":"0.35.5","vite":"8.2.4","xlsx":"0.20.3","source-map-js":"1.2.2"})){const e=Object.entries(l.packages).filter(([k])=>k.endsWith("/node_modules/"+n)||k==="node_modules/"+n);if(!e.length||e.some(([,x])=>x.version!==v||!x.integrity))throw Error("Unexpected version or integrity: "+n);console.log(n,v);} const x=l.packages["node_modules/xlsx"];if(x.resolved!=="https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz")throw Error("Unexpected SheetJS source");const s=JSON.stringify(l);for(let i=0;i<s.length;i+=1200)console.log("PLOTFLOW_LOCK_PART "+(i/1200)+" "+s.slice(i,i+1200));console.log("PLOTFLOW_LOCK_COUNT "+Math.ceil(s.length/1200));console.log("PLOTFLOW_PACKAGE "+JSON.stringify(p));'
+      - name: Reproduce candidate dependency installation
+        run: npm ci
+      - name: Dependency audit (release gate evaluated after tests)
+        run: |
+          set +e
+          npm audit --json > dependency-audit.json
+          full_status=$?
+          npm audit --omit=dev --json > dependency-audit-runtime.json
+          runtime_status=$?
+          set -e
+          echo "npm audit exits: full=$full_status runtime=$runtime_status"
+          node --input-type=module -e 'import fs from "node:fs"; for (const f of ["dependency-audit.json","dependency-audit-runtime.json"]) { const j=JSON.parse(fs.readFileSync(f)); if (!j.metadata?.vulnerabilities) throw Error("Audit unavailable: "+f); console.log(f, JSON.stringify(j.metadata.vulnerabilities)); for(const [name,v] of Object.entries(j.vulnerabilities||{})) console.log(JSON.stringify({name,severity:v.severity,direct:v.isDirect,range:v.range,fixAvailable:v.fixAvailable,advisories:(v.via||[]).filter(x=>typeof x==="object").map(x=>({title:x.title,url:x.url,severity:x.severity,range:x.range}))})); }'
+      - run: npm run check:secrets
+      - run: npm test
+      - name: Verify Excel import and export compatibility
+        run: node --test tools/tests/excel-security.test.mjs
+      - name: Test isolated image fixtures
+        run: node --test tools/tests/media-preview.test.mjs
+      - name: Build UI with default strict asset guard and no live State API or Azure credentials
+        env:
+          VITE_PROJECT_STATE_URL: ''
+          VITE_STATE_API_BASE_URL: ''
+        run: npm run build
+      - name: Verify build shell
+        run: npm run test:build
+      - name: Verify no images missing or omitted
+        run: |
+          node --input-type=module -e 'import fs from "node:fs";const a=JSON.parse(fs.readFileSync("asset-audit-report.json"));const o=JSON.parse(fs.readFileSync("dist/staging-omitted-assets.json"));const m=JSON.parse(fs.readFileSync("media-optimization-report.json"));if(!a.total||a.missingCount||a.oversizeCount||o.omitted.length||m.failed.length)throw Error("Incomplete media build");console.log(JSON.stringify({sourceImages:a.total,optimized:m.optimized,bytesBefore:m.bytesBefore,bytesAfter:m.bytesAfter,missing:a.missingCount,oversize:a.oversizeCount,omitted:o.omitted.length}));'
+      - name: Security release gate
+        run: |
+          node --input-type=module -e 'import fs from "node:fs";for(const f of ["dependency-audit.json","dependency-audit-runtime.json"]){const v=JSON.parse(fs.readFileSync(f)).metadata?.vulnerabilities;if(!v||v.high||v.critical)throw Error("Unresolved high/critical findings: "+f);}'
+      - name: Save QA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-security-candidate
+          path: |
+            app/package.json
+            app/package-lock.json
+            app/media-optimization-report.json
+            app/asset-audit-report.json
+            app/dependency-audit.json
+            app/dependency-audit-runtime.json
+          retention-days: 7
