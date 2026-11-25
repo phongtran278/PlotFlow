@@ -1,0 +1,5 @@
+# Security dependency lock — staging only
+
+Candidate validated in PR #69, GitHub Actions run 45616972974 / job 139214764318. All 51 indexed lock chunks were reconstructed; package manifest matches the four targeted dependency changes. Full and runtime npm audit both reported zero vulnerabilities at the time. Six app tests, two Excel tests, one media fixture, and strict image build passed. Candidate media: 34 source images, zero missing, oversized or omitted.
+
+This branch commits the tested package and lockfile and replaces candidate regeneration in CI with npm ci. Cloudflare must build from the committed files. Keep the full/runtime audit gate, regression tests and media coverage checks. Zero reported npm findings is not comprehensive security certification. Excel library compatibility tests are not full business workflow acceptance. Verify browser import/export with synthetic data and actual previews before rollout. No production or Azure changes. Rollback: retain #69 and #68 unchanged.
