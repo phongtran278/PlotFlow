@@ -23,6 +23,8 @@ jobs:
           node-version: '24'
       - name: Test pointer parser and path classification
         run: node --test tools/azure-migration/inventory-lfs-media.test.mjs
+      - name: Test Azure metadata comparison offline
+        run: python3 -m unittest discover -s tools/azure-migration -p 'test_compare_azure_media.py'
       - name: Inventory Git metadata only
         run: |
           node tools/azure-migration/inventory-lfs-media.mjs > azure-media-inventory.json
