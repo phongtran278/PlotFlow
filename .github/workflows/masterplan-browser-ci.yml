@@ -3,6 +3,7 @@ on:
   pull_request:
     branches:
       - qa/backup-recovery-20261125
+      - qa/masterplan-browser-20261125
     paths:
       - 'app/**'
       - '.github/workflows/masterplan-browser-ci.yml'
@@ -76,6 +77,13 @@ jobs:
         run: |
           export PLOTFLOW_PLAYWRIGHT_MODULE="$RUNNER_TEMP/plotflow-browser/node_modules/playwright/index.mjs"
           node tools/browser-smoke-memory.mjs
+      - name: Detail raster and cancellation regression
+        env:
+          VITE_PROJECT_STATE_URL: ''
+          VITE_STATE_API_BASE_URL: ''
+        run: |
+          export PLOTFLOW_PLAYWRIGHT_MODULE="$RUNNER_TEMP/plotflow-browser/node_modules/playwright/index.mjs"
+          node tools/browser-detail-raster.mjs
       - name: Security release gate
         run: |
           node --input-type=module -e 'import fs from "node:fs";for(const f of ["dependency-audit.json","dependency-audit-runtime.json"]){const v=JSON.parse(fs.readFileSync(f)).metadata?.vulnerabilities;if(!v||v.high||v.critical)throw Error("Unresolved high/critical findings: "+f);}'
@@ -89,6 +97,7 @@ jobs:
             app/package-lock.json
             app/masterplan-audit-report.json
             app/browser-check-output/browser-smoke-memory.json
+            app/browser-check-output/detail-raster.json
             app/media-sync-plan.json
             app/media-optimization-report.json
             app/asset-audit-report.json
