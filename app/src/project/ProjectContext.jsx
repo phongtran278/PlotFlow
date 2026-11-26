@@ -1,11 +1,12 @@
 import { createContext, useContext, useMemo } from "react";
 import { createProjectStorage } from "./ProjectStorage.js";
+import { canUseLegacyProjectStorage } from "./ProjectCloudScope.js";
 
 const ProjectContext = createContext(null);
 
 export function ProjectProvider({ project, children }) {
   const projectId = project?.id || "default";
-  const allowLegacyFallback = Boolean(project?.profile?.legacyStorage);
+  const allowLegacyFallback = Boolean(project?.profile?.legacyStorage) && canUseLegacyProjectStorage(projectId);
   const storage = useMemo(
     () => createProjectStorage(projectId, { allowLegacyFallback }),
     [projectId, allowLegacyFallback],
