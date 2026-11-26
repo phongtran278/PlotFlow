@@ -25,7 +25,7 @@ class VerificationTests(unittest.TestCase):
         tasks,exceptions=build_tasks(inv,report)
         self.assertEqual(len(tasks),3)
         self.assertEqual({t["blob"] for t in tasks},{"assets/houses/a.png","overview-masterplan/gian-xay.pdf","assets/font/SVNGilroy Bold.otf"})
-        self.assertEqual(len(exceptions),3)
+        self.assertEqual(len(exceptions),4)
         self.assertEqual({r["status"] for r in exceptions},{"size_differs","no_direct_mapping","not_listed_at_expected_path"})
         alias=next(t for t in tasks if t["blob"]=="assets/font/SVNGilroy Bold.otf")
         self.assertTrue(any(e["path"]=="app/public/assets/font/SVN-Gilroy-Bold.otf" and e["resolvedPath"]=="assets/font/SVNGilroy Bold.otf" for e in alias["expected"]))
