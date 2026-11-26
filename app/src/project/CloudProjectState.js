@@ -1,7 +1,15 @@
 const CLOUD_STATE_URL = import.meta.env.VITE_PROJECT_STATE_URL || "";
 const CLOUD_PROJECT_ID = import.meta.env.VITE_CLOUD_PROJECT_ID || "vinhomes-saigon-park";
 const STATE_API_BASE_URL = (import.meta.env.VITE_STATE_API_BASE_URL || "").replace(/\/$/, "");
-const API_MODE = Boolean(STATE_API_BASE_URL);
+// The dedicated Cloudflare staging UI may only use the stable staging API.
+const STAGING_UI_ORIGIN = "https://plotflow-ui-staging.phongtran7076.workers.dev";
+const STAGING_API_ORIGIN = "https://plotflow-state-api-staging.phongtran7076.workers.dev";
+const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
+const cloudflareHost = typeof window !== "undefined" && window.location.hostname.endsWith(".workers.dev");
+const stagingHost = browserOrigin === STAGING_UI_ORIGIN;
+const stagingBuild = import.meta.env.VITE_PLOTFLOW_PRIVATE_STAGING === "1";
+const API_MODE = Boolean(STATE_API_BASE_URL) && (!stagingBuild && !cloudflareHost || stagingHost && STATE_API_BASE_URL === STAGING_API_ORIGIN && !CLOUD_STATE_URL);
+const LEGACY_ENABLED = Boolean(CLOUD_STATE_URL) && !cloudflareHost && !stagingBuild;
 const STATE_API_URL = API_MODE ? `${STATE_API_BASE_URL}/v1/projects/${encodeURIComponent(CLOUD_PROJECT_ID)}/state` : "";
 const SAVE_DELAY_MS = 900;
 
@@ -36,9 +44,9 @@ let writeBlocked = false;
 let bootstrapComplete = false;
 function notifyState(status) {
   if (typeof window !== "undefined") {
-    window.__plotflowCloudStateStatus = { status, transport: API_MODE ? "state-api" : "legacy" };
+    window.__plotflowCloudStateStatus = { status, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" };
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-status", {
-      detail: { status, projectId: CLOUD_PROJECT_ID, transport: API_MODE ? "state-api" : "legacy" },
+      detail: { status, projectId: CLOUD_PROJECT_ID, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" },
     }));
   }
 }
@@ -90,14 +98,16 @@ function applyStorage(snapshot = {}) {
 }
 
 async function readCloudState() {
-  if (!API_MODE && !CLOUD_STATE_URL) return null;
+  if (!API_MODE && !LEGACY_ENABLED) return null;
   const response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
     method: "GET", cache: "no-store", credentials: API_MODE ? "include" : "same-origin",
+    ...(API_MODE ? { redirect: "error", signal: AbortSignal.timeout(15000) } : {}),
   });
   if (!API_MODE && response.status === 404) return { version: 1, projectId: CLOUD_PROJECT_ID, storage: {} };
   if (!response.ok) throw new Error(`Cloud state GET failed (${response.status})`);
   const value = await response.json();
   if (API_MODE) {
+    if (value?.version !== 1 || value?.projectId !== CLOUD_PROJECT_ID || !value.storage || typeof value.storage !== "object" || Array.isArray(value.storage) || !Object.values(value.storage).every(v => typeof v === "string")) throw new Error("Invalid State API response");
     const etag = normalizeEtag(response.headers.get("x-plotflow-state-etag"));
     if (!etag) throw new Error("State API did not provide a strong Azure version");
     remoteEtag = etag;
@@ -107,7 +117,7 @@ async function readCloudState() {
 }
 
 async function writeCloudState() {
-  if ((!API_MODE && !CLOUD_STATE_URL) || !bootstrapComplete || writeBlocked) return false;
+  if ((!API_MODE && !LEGACY_ENABLED) || !bootstrapComplete || writeBlocked) return false;
   if (API_MODE && !remoteEtag) return false;
   if (saving) {
     saveAgain = true;
@@ -134,6 +144,7 @@ async function writeCloudState() {
       },
       body: JSON.stringify(payload),
       cache: "no-store",
+      ...(API_MODE ? { redirect: "error", signal: AbortSignal.timeout(15000) } : {}),
     });
     if (API_MODE && response.status === 412) {
       writeBlocked = true;
@@ -151,6 +162,7 @@ async function writeCloudState() {
       remoteEtag = nextEtag;
       remoteStorage = payload.storage;
     }
+    if (API_MODE) notifyState("saved");
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-saved", {
       detail: { projectId: CLOUD_PROJECT_ID, updatedAt: payload.updatedAt },
     }));
@@ -169,7 +181,7 @@ async function writeCloudState() {
 }
 
 function scheduleCloudSave(delay = SAVE_DELAY_MS) {
-  if ((!API_MODE && !CLOUD_STATE_URL) || suspendTracking || !bootstrapComplete || writeBlocked) return;
+  if ((!API_MODE && !LEGACY_ENABLED) || suspendTracking || !bootstrapComplete || writeBlocked) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
@@ -211,7 +223,8 @@ function installStorageTracking() {
 }
 
 export async function bootstrapCloudProjectState() {
-  if ((!API_MODE && !CLOUD_STATE_URL) || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
+  if (!API_MODE && stagingBuild && stagingHost) { writeBlocked = true; notifyState("load_error"); }
+  if ((!API_MODE && !LEGACY_ENABLED) || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
     installStorageTracking();
     return { enabled: false, projectId: CLOUD_PROJECT_ID };
   }
@@ -223,7 +236,13 @@ export async function bootstrapCloudProjectState() {
       : {};
 
     if (Object.keys(cloudStorage).length > 0) {
-      applyStorage(cloudStorage);
+      // Preserve a differing local cache on the dedicated staging origin. A user
+      // must back it up and explicitly reset it before loading remote state.
+      const local = collectStorage();
+      const sharedRemote = Object.fromEntries(Object.entries(cloudStorage).filter(([key]) => shouldShareKey(key)));
+      const differs = Object.keys(local).length > 0 && (Object.keys(local).length !== Object.keys(sharedRemote).length || Object.entries(local).some(([key, value]) => sharedRemote[key] !== value));
+      if (API_MODE && stagingHost && differs) { writeBlocked = true; notifyState("manual_migration_required"); }
+      else applyStorage(cloudStorage);
       console.info(`[PlotFlow] cloud project restored: ${CLOUD_PROJECT_ID}`);
     } else if (Object.keys(collectStorage()).length > 0) {
       if (!API_MODE) {
