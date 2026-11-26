@@ -2,6 +2,7 @@
 import argparse
 import collections
 import concurrent.futures
+import email.utils
 import hashlib
 import json
 import re
@@ -86,6 +87,7 @@ def verify_task(task, token):
     request = urllib.request.Request(url, headers={
         "Authorization":"Bearer "+token,
         "x-ms-version":"2023-11-03",
+        "x-ms-date":email.utils.formatdate(usegmt=True),
         "Accept-Encoding":"identity",
     }, method="GET")
     last = "request_failed"
