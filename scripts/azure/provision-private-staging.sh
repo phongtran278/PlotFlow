@@ -50,10 +50,20 @@ az storage blob download --account-name "$account" --container-name "$container"
 cmp "$tmp/state.json" "$tmp/readback.json" || { echo 'Existing blob is not the exact synthetic fixture; refusing to modify it.' >&2; exit 1; }
 endpoint="$(az storage account show -g "$rg" -n "$account" --query primaryEndpoints.blob -o tsv)"
 url="${endpoint%/}/$container/$blob"
-code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "$url")"
-[[ "$code" == 403 || "$code" == 404 ]] || { echo "Anonymous blob GET unexpected HTTP $code" >&2; exit 1; }
-code_container="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' "${endpoint%/}/$container?restype=container&comp=list")"
-[[ "$code_container" == 403 || "$code_container" == 404 ]] || { echo "Anonymous container list unexpected HTTP $code_container" >&2; exit 1; }
+check_anonymous_denial() {
+  local code
+  code="$(curl --silent --show-error --max-time 20 --output "$tmp/anonymous.xml" --write-out '%{http_code}' "$1")"
+  if [[ "$code" == 403 || "$code" == 404 ]]; then
+    printf '%s' "$code"
+  elif [[ "$code" == 409 ]] && grep -q '<Code>PublicAccessNotPermitted</Code>' "$tmp/anonymous.xml"; then
+    printf '%s' "$code"
+  else
+    echo "Anonymous access unexpected HTTP $code" >&2
+    return 1
+  fi
+}
+code="$(check_anonymous_denial "$url")"
+code_container="$(check_anonymous_denial "${endpoint%/}/$container?restype=container&comp=list")"
 az storage account blob-service-properties show -g "$rg" -n "$account" -o json > "$tmp/properties.json"
 python3 - "$tmp/properties.json" <<'PY'
 import json,sys
