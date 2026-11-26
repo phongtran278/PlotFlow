@@ -11,15 +11,16 @@
 - Azure SAS is held only in Worker runtime Secrets. It must be blob-scoped, HTTPS-only, read/write only, and short-lived/rotatable.
 - State writes require the strong Azure ETag in `If-Match`; stale writes return 412.
 
-## Required Cloudflare Worker runtime secrets
+## Required Cloudflare Worker configuration
 
-Configure these in the Worker runtime environment, never in Git, Build Variables, or frontend `VITE_*` variables:
+Configure these in the Worker runtime environment. Never put credentials in Git, Build Variables, or frontend `VITE_*` variables:
 
-- `PROJECT_ACL_JSON`: explicit project-to-email role map. Grant only named users the minimum role.
-- `AZURE_BLOB_URLS_JSON`: project ID to exact private blob URL with a blob-scoped SAS.
-- Keep `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, and `AZURE_STATE_CONTAINER_NAME=plotflow-state-private` as non-secret runtime vars.
+- `PROJECT_ACL_JSON` (**runtime Secret**): explicit project-to-email role map. Grant only named users the minimum role.
+- `AZURE_BLOB_URLS_JSON` (**runtime Secret**): project ID to exact private blob URL with a blob-scoped SAS.
+- `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, and `AZURE_STATE_CONTAINER_NAME=plotflow-state-private` (non-secret runtime vars).
+- `ALLOWED_ORIGINS` (non-secret runtime var): exact comma-separated staging UI origins. The checked-in default is `https://plotflow-ui-staging.phongtran7076.workers.dev`; update it only to the actual stable staging UI origin. Never use `*` with credentialed CORS.
 
-The SAS URL must target `https://<account>.blob.core.windows.net/plotflow-state-private/<project>/state.json` and include `sp=rw`, `sr=b`, `spr=https`. Do not use an account SAS, container SAS, public `$web` path, or production credential in Preview. Use a separately provisioned staging blob first.
+The SAS URL must target `https://<account>.blob.core.windows.net/plotflow-state-private/<project>/state.json` and include `sp=rw`, `sr=b`, `spr=https`, and a valid expiry no more than 30 days away. Do not use an account SAS, container SAS, public `$web` path, or production credential in Preview. Use a separately provisioned staging blob first.
 
 ## Staging acceptance sequence
 
@@ -28,7 +29,7 @@ The SAS URL must target `https://<account>.blob.core.windows.net/plotflow-state-
 3. Create a short-lived blob-scoped SAS with only read/write, HTTPS-only. Store the full URL in Worker runtime Secret `AZURE_BLOB_URLS_JSON`; never print it in logs or paste it into chat.
 4. Set `PROJECT_ACL_JSON` to the smallest explicit staging allowlist. Confirm Access application protects the Worker hostname and the Worker independently verifies JWT issuer, audience, signature, and expiry.
 5. Confirm `/health` and `/diagnostics` do not reveal secrets. Confirm unauthenticated state GET/PUT returns 401, non-members return 403, viewer PUT returns 403, editor GET/PUT works, and stale ETag PUT returns 412.
-6. Confirm browser CORS with credentials works from the exact staging UI origin and that `x-plotflow-state-etag` is exposed to JavaScript.
+6. Confirm browser CORS with credentials works from the exact origin listed in `ALLOWED_ORIGINS` and that `x-plotflow-state-etag` is exposed to JavaScript. Check OPTIONS preflight before browser GET/PUT.
 7. Deploy a staging UI with `VITE_STATE_API_BASE_URL` and `VITE_CLOUD_PROJECT_ID`; do not set `VITE_PROJECT_STATE_URL`. Verify the built JS contains no Azure SAS or state URL.
 8. Run save/reload, multi-tab conflict, access removal, browser refresh and backup/restore tests against synthetic staging data.
 9. Only after all staging gates pass, prepare a separate production migration plan and approved maintenance window.
