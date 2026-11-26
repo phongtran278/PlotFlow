@@ -14,16 +14,21 @@ class VerificationTests(unittest.TestCase):
                 hash_stream(io.BytesIO(b),n)
     def test_safe_blob_paths(self):
         self.assertEqual(safe_name("app/public/masterplan/a.pdf"),"masterplan/a.pdf")
+        self.assertEqual(safe_name("app/public/overview-masterplan/a.pdf"),"overview-masterplan/a.pdf")
         for name in ["assets/../state.json","plotflow-projects/vinhomes-saigon-park/state.json","assets/state.json","assets/a\n.png"]:
             self.assertIsNone(safe_name(name))
     def test_only_matching_rows_selected_and_exceptions_preserved(self):
         inv=fixture()
-        report=compare(inv,[{"name":"assets/houses/a.png","bytes":100},{"name":"masterplan/masterplan.pdf","bytes":501}])
+        blobs=[{"name":"assets/houses/a.png","bytes":100},{"name":"masterplan/masterplan.pdf","bytes":501},
+               {"name":"overview-masterplan/gian-xay.pdf","bytes":600},{"name":"assets/font/SVNGilroy Bold.otf","bytes":102104}]
+        report=compare(inv,blobs)
         tasks,exceptions=build_tasks(inv,report)
-        self.assertEqual(len(tasks),1)
-        self.assertEqual(tasks[0]["blob"],"assets/houses/a.png")
+        self.assertEqual(len(tasks),3)
+        self.assertEqual({t["blob"] for t in tasks},{"assets/houses/a.png","overview-masterplan/gian-xay.pdf","assets/font/SVNGilroy Bold.otf"})
         self.assertEqual(len(exceptions),3)
         self.assertEqual({r["status"] for r in exceptions},{"size_differs","no_direct_mapping","not_listed_at_expected_path"})
+        alias=next(t for t in tasks if t["blob"]=="assets/font/SVNGilroy Bold.otf")
+        self.assertTrue(any(e["path"]=="app/public/assets/font/SVN-Gilroy-Bold.otf" and e["resolvedPath"]=="assets/font/SVNGilroy Bold.otf" for e in alias["expected"]))
     def test_identity_or_path_tampering_fails(self):
         inv=fixture()
         report=compare(inv,[])
