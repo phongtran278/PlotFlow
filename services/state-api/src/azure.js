@@ -10,15 +10,18 @@ export function getBlobUrl(env, projectId) {
   const segments = url.pathname.split('/').filter(Boolean);
   const container = segments[0] ? decodeURIComponent(segments[0]) : '';
   const permissions = url.searchParams.get('sp') || '';
+  const expiry = Date.parse(url.searchParams.get('se') || '');
+  const remainingMs = expiry - Date.now();
 
   if (url.protocol !== 'https:' || url.username || url.password
-      || !url.hostname.endsWith('.blob.core.windows.net')
+      || !/^[a-z0-9-]+\.blob\.core\.windows\.net$/i.test(url.hostname)
       || container !== expectedContainer || container === '$web'
       || segments.length < 2
       || !url.searchParams.has('sig')
       || url.searchParams.get('sr') !== 'b'
       || permissions !== 'rw'
-      || url.searchParams.get('spr') !== 'https') {
+      || url.searchParams.get('spr') !== 'https'
+      || !Number.isFinite(expiry) || remainingMs <= 0 || remainingMs > 30 * 24 * 60 * 60 * 1000) {
     throw new Error('Invalid private Azure state blob URL');
   }
   return url.toString();
