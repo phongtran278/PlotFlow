@@ -162,7 +162,7 @@ async function writeCloudState() {
       remoteEtag = nextEtag;
       remoteStorage = payload.storage;
     }
-    if (API_MODE) notifyState("saved");
+    if (API_MODE && !writeBlocked) notifyState("saved");
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-saved", {
       detail: { projectId: CLOUD_PROJECT_ID, updatedAt: payload.updatedAt },
     }));
@@ -212,6 +212,16 @@ function installStorageTracking() {
     nativeClear.call(this);
     if (hadSharedData) scheduleCloudSave();
   };
+
+  // Same-origin tabs share localStorage. Stop automatic writes when another
+  // tab changes a tracked key; ETag alone cannot isolate that shared cache.
+  if (API_MODE && stagingHost) window.addEventListener("storage", (event) => {
+    if (event.storageArea !== window.localStorage || (event.key !== null && !shouldShareKey(event.key))) return;
+    writeBlocked = true;
+    window.clearTimeout(saveTimer);
+    saveTimer = 0;
+    notifyState("version_conflict");
+  });
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && saveTimer) {
