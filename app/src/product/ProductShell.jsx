@@ -8,7 +8,7 @@ import { PROJECTS } from "./projectCatalog.js";
 import { ProjectProvider } from "../project/ProjectContext.jsx";
 import { canMountLegacyWorkspace, projectRouteId } from "../project/ProjectWorkspacePolicy.js";
 
-const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Xây thô"];
+import { projectOverviewGroups } from "../project/ProjectProfile.js";
 const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
 const VALID_MODES = new Set(["landing", "overview", "detail"]);
 
@@ -122,7 +122,7 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   const [mode, setMode] = useState(initialRouteRef.current.mode);
   const [developer, setDeveloper] = useState("All");
   const [query, setQuery] = useState("");
-  const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
+  const [overviewGroup, setOverviewGroup] = useState(() => projectOverviewGroups(initialRouteRef.current.project?.profile)[0] || "");
   const legacyWorkspace = canMountLegacyWorkspace(project, screen);
   const exclusiveEditor = editorRequested && legacyWorkspace;
   const [units, setUnits] = useState(() => legacyWorkspace ? readAvailableUnits() : []);
@@ -180,11 +180,13 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   }, [developer, query]);
 
   const overviewGroups = useMemo(() => {
+    const configured = projectOverviewGroups(project?.profile);
+    if (!legacyWorkspace) return configured;
     const fromSheet = Array.from(new Set(sellUnits.map((item) => canonicalOverviewGroup(item.handover)).filter(Boolean)));
     return fromSheet.length
-      ? DEFAULT_OVERVIEW_GROUPS.filter((group) => fromSheet.includes(group)).concat(fromSheet.filter((group) => !DEFAULT_OVERVIEW_GROUPS.includes(group)))
-      : DEFAULT_OVERVIEW_GROUPS;
-  }, [sellUnits]);
+      ? configured.filter((group) => fromSheet.includes(group)).concat(fromSheet.filter((group) => !configured.includes(group)))
+      : configured;
+  }, [sellUnits, project, legacyWorkspace]);
 
   const visibleSellUnits = useMemo(
     () => sellUnits.filter((item) => canonicalOverviewGroup(item.handover) === overviewGroup),
