@@ -277,6 +277,20 @@ function rectangleScore(points) {
   return score / 4;
 }
 
+
+function pointInPolygon(point, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const a = polygon[i];
+    const b = polygon[j];
+    const crosses = (a.y > point.y) !== (b.y > point.y);
+    if (!crosses) continue;
+    const x = ((b.x - a.x) * (point.y - a.y)) / ((b.y - a.y) || 1e-9) + a.x;
+    if (point.x < x) inside = !inside;
+  }
+  return inside;
+}
+
 function candidateFromComponent(labels, component, width, height, anchorX, anchorY) {
   if (!component || component.count < 30) return null;
   const total = width * height;
@@ -290,7 +304,11 @@ function candidateFromComponent(labels, component, width, height, anchorX, ancho
   const centroidY = component.sumY / component.count;
   const containsAnchor = anchorX >= component.minX && anchorX <= component.maxX && anchorY >= component.minY && anchorY <= component.maxY;
   const centerDistance = Math.hypot(centroidX - anchorX, centroidY - anchorY) / Math.max(12, Math.hypot(bboxW, bboxH));
+  const distanceX = anchorX < component.minX ? component.minX - anchorX : anchorX > component.maxX ? anchorX - component.maxX : 0;
+  const distanceY = anchorY < component.minY ? component.minY - anchorY : anchorY > component.maxY ? anchorY - component.maxY : 0;
+  const anchorBoundsDistance = Math.hypot(distanceX, distanceY) / Math.max(12, Math.hypot(bboxW, bboxH));
 
+  if (anchorBoundsDistance > 0.18) return null;
   if (areaRatio < 0.001 || areaRatio > 0.52) return null;
   if (bboxRatio < 0.0015 || bboxRatio > 0.62) return null;
   if (bboxW < width * 0.025 || bboxH < height * 0.025) return null;
@@ -303,6 +321,7 @@ function candidateFromComponent(labels, component, width, height, anchorX, ancho
   const tolerance = Math.max(1.4, Math.min(width, height) * 0.0045);
   const simplified = simplifyHull(hull, tolerance, 8);
   if (simplified.length < 4 || simplified.length > 8) return null;
+  if (!pointInPolygon({ x: anchorX, y: anchorY }, simplified)) return null;
 
   const hullArea = polygonArea(simplified);
   const hullFill = component.count / Math.max(1, hullArea);
@@ -328,11 +347,11 @@ function candidateFromComponent(labels, component, width, height, anchorX, ancho
     shape: { type: "polygon", source: "auto-detected", points: normalized },
     vertices: normalized.length,
     classification: normalized.length === 4 && rectangleScore(simplified) > 0.62 ? "rectangle" : "polygon",
-    diagnostics: { areaRatio, bboxRatio, fillRatio, centerDistance, touchesEdge: component.touchesEdge },
+    diagnostics: { areaRatio, bboxRatio, fillRatio, centerDistance, anchorBoundsDistance, anchorContained: containsAnchor, touchesEdge: component.touchesEdge },
   };
 }
 
-async function analyzeWithConfig(imageData, anchor, config) {
+async function analyzeWithConfig(imageData, anchor, config, trace = null) {
   const { width, height } = imageData;
   const gray = buildGray(imageData);
   const barrier = buildBarrierMask(gray, width, height, config);
@@ -342,11 +361,118 @@ async function analyzeWithConfig(imageData, anchor, config) {
   const nearLabels = labelsNearAnchor(labels, width, height, anchorX, anchorY);
 
   let best = null;
+  const inspected = [];
   for (const label of nearLabels) {
-    const candidate = candidateFromComponent(labels, components[label], width, height, anchorX, anchorY);
+    const component = components[label];
+    const candidate = candidateFromComponent(labels, component, width, height, anchorX, anchorY);
+    inspected.push({
+      count: component.count,
+      width: component.maxX - component.minX + 1,
+      height: component.maxY - component.minY + 1,
+      touchesEdge: component.touchesEdge,
+      accepted: Boolean(candidate),
+      confidence: candidate?.confidence ?? 0,
+    });
     if (candidate && (!best || candidate.confidence > best.confidence)) best = candidate;
   }
+  if (trace) {
+    trace.nearLabelCount = nearLabels.length;
+    trace.components = inspected;
+  }
   return best;
+}
+
+function cropImageData(imageData, rect) {
+  const width = rect.width;
+  const height = rect.height;
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y += 1) {
+    const sourceStart = ((rect.y + y) * imageData.width + rect.x) * 4;
+    const sourceEnd = sourceStart + width * 4;
+    data.set(imageData.data.subarray(sourceStart, sourceEnd), y * width * 4);
+  }
+  return { data, width, height };
+}
+
+function centeredSearchWindow(width, height, anchor, ratio) {
+  const cropWidth = Math.max(1, Math.min(width, Math.round(width * ratio)));
+  const cropHeight = Math.max(1, Math.min(height, Math.round(height * ratio)));
+  const anchorX = clamp01(anchor.x) * (width - 1);
+  const anchorY = clamp01(anchor.y) * (height - 1);
+  const x = Math.round(clamp(anchorX - cropWidth / 2, 0, width - cropWidth));
+  const y = Math.round(clamp(anchorY - cropHeight / 2, 0, height - cropHeight));
+  return {
+    x,
+    y,
+    width: cropWidth,
+    height: cropHeight,
+    anchor: {
+      x: (anchorX - x) / Math.max(1, cropWidth - 1),
+      y: (anchorY - y) / Math.max(1, cropHeight - 1),
+    },
+  };
+}
+
+function mapCandidateToImage(candidate, rect, imageWidth, imageHeight, ratio) {
+  const points = candidate.shape.points.map((point) => ({
+    x: clamp01((rect.x + point.x * Math.max(1, rect.width - 1)) / Math.max(1, imageWidth - 1)),
+    y: clamp01((rect.y + point.y * Math.max(1, rect.height - 1)) / Math.max(1, imageHeight - 1)),
+  }));
+  return {
+    ...candidate,
+    shape: { ...candidate.shape, points },
+    diagnostics: { ...candidate.diagnostics, searchWindowRatio: ratio },
+  };
+}
+
+export async function detectLotShapeFromImageData(imageData, anchor = { x: 0.5, y: 0.5 }) {
+  const width = Math.floor(Number(imageData?.width) || 0);
+  const height = Math.floor(Number(imageData?.height) || 0);
+  if (width < 120 || height < 100 || !imageData?.data || imageData.data.length < width * height * 4) {
+    return { accepted: false, confidence: 0, reason: "invalid-image-data" };
+  }
+
+  const safeAnchor = {
+    x: clamp01(anchor?.x ?? 0.5),
+    y: clamp01(anchor?.y ?? 0.5),
+  };
+  const windows = [1, 0.82, 0.64, 0.48, 0.38];
+  const configs = [
+    { darkThreshold: 158, gradientThreshold: 54, dilateRadius: 1 },
+    { darkThreshold: 182, gradientThreshold: 42, dilateRadius: 1 },
+    { darkThreshold: 205, gradientThreshold: 32, dilateRadius: 1 },
+  ];
+
+  let best = null;
+  const attempts = [];
+  for (const ratio of windows) {
+    const rect = centeredSearchWindow(width, height, safeAnchor, ratio);
+    if (rect.width < 180 || rect.height < 140) continue;
+    const cropped = ratio === 1 ? imageData : cropImageData(imageData, rect);
+
+    for (const config of configs) {
+      const trace = {};
+      const candidate = await analyzeWithConfig(cropped, rect.anchor, config, trace);
+      if (!candidate) {
+        attempts.push({ ratio, config, ...trace });
+        continue;
+      }
+      if (candidate.diagnostics?.touchesEdge) continue;
+      const mapped = mapCandidateToImage(candidate, rect, width, height, ratio);
+      if (!best || mapped.confidence > best.confidence) best = mapped;
+    }
+  }
+
+  if (!best) return { accepted: false, confidence: 0, reason: "no-closed-boundary", diagnostics: { attempts } };
+  const accepted = best.confidence >= 0.68
+    && best.diagnostics?.anchorContained === true
+    && best.diagnostics?.anchorBoundsDistance <= 0.18;
+  return {
+    ...best,
+    accepted,
+    method: "multi-scale-local-boundary-fill",
+    reason: accepted ? "closed-boundary" : "low-confidence",
+  };
 }
 
 export async function detectLotShape(imageSrc, anchor = { x: 0.5, y: 0.5 }) {
@@ -359,29 +485,12 @@ export async function detectLotShape(imageSrc, anchor = { x: 0.5, y: 0.5 }) {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return { accepted: false, confidence: 0, reason: "canvas-unavailable" };
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(image, 0, 0, width, height);
   const imageData = ctx.getImageData(0, 0, width, height);
-
-  const configs = [
-    { darkThreshold: 158, gradientThreshold: 54, dilateRadius: 1 },
-    { darkThreshold: 182, gradientThreshold: 42, dilateRadius: 1 },
-    { darkThreshold: 205, gradientThreshold: 32, dilateRadius: 1 },
-  ];
-
-  let best = null;
-  for (const config of configs) {
-    const candidate = await analyzeWithConfig(imageData, anchor, config);
-    if (candidate && (!best || candidate.confidence > best.confidence)) best = candidate;
-  }
-
-  if (!best) return { accepted: false, confidence: 0, reason: "no-closed-boundary" };
-  const accepted = best.confidence >= 0.68;
-  return {
-    ...best,
-    accepted,
-    method: "local-boundary-fill",
-    reason: accepted ? "closed-boundary" : "low-confidence",
-  };
+  canvas.width = 1;
+  canvas.height = 1;
+  return detectLotShapeFromImageData(imageData, anchor);
 }
