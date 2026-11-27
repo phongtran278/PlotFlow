@@ -48,7 +48,7 @@ if(Number(actualTiles.sourceWidth)!==Number(expectedTiles.width)
   ||Number(actualTiles.sourceHeight)!==Number(expectedTiles.height)
   ||Number(actualTiles.tileSize)!==Number(expectedTiles.tileSize)
   ||JSON.stringify(actualWidths)!==JSON.stringify(expectedWidths)
-  ||String(calibrationPage.sourceManifest||'').replace(/\\\\/g,'/')!==calibration.runtimeTileSourceManifest)throw Error('TL coordinate calibration does not match the bundled page-tile source');
+  ||String(calibrationPage.sourceManifest||'').replace(/\\/g,'/')!==calibration.runtimeTileSourceManifest)throw Error('TL coordinate calibration does not match the bundled page-tile source');
 function transformBbox(box,matrix){
   const points=[[box.x0,box.y0],[box.x1,box.y0],[box.x1,box.y1],[box.x0,box.y1]].map(([x,y])=>[
     matrix[0][0]*x+matrix[0][1]*y+matrix[0][2],
