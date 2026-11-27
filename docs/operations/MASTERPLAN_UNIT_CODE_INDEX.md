@@ -29,3 +29,5 @@ The existing bundled manifest already contains the 3,160 numeric-prefix TL ident
 The current bundled page and the supplied source PDF share the same page dimensions (3370.5100 × 2384.1399 points). The existing 3,160 numeric-prefix TL code set also matches the supplied source index exactly. The runtime uses the text-box center for the 57 supplemental labels, avoiding the horizontal-baseline assumption used for ordinary PDF.js text items.
 
 The index provides label anchors only. It does not claim cadastral lot polygons; Auto Shape/manual polygon remains the boundary workflow.
+
+The bundled supplement also records a fingerprint of the 3,160 numeric-prefix TL identifiers already present in the runtime manifest. The build audit recomputes that fingerprint and requires an exact match before accepting the 57 additional `TL-xx` anchors. This guards against merging coordinates from an unrelated Masterplan revision.
