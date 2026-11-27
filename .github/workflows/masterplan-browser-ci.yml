@@ -104,6 +104,7 @@ jobs:
             app/package-lock.json
             app/masterplan-audit-report.json
             app/auto-lot-shape-masterplan-report.json
+            app/auto-lot-shape-samples/
             app/browser-check-output/browser-smoke-memory.json
             app/browser-check-output/detail-raster.json
             app/media-sync-plan.json
