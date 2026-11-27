@@ -6,7 +6,8 @@ This branch is based on PR #79, targets the isolated UI Worker `plotflow-ui-stag
 - Protect all URLs via Cloudflare Access, with the same explicitly authorized test user.
 - Production branch: `fix/frontend-private-state-staging-20261126`.
 - Root directory: `app`.
-- Build command: `node tools/build-private-state-staging.mjs` (after dependency installation).
+- Build command: `npm ci && npm test && node tools/build-private-state-staging.mjs`.
+- The staging `prebuild` installs pinned build-only `sharp@0.35.3`; the `postbuild` optimizes oversized images in `dist` only, preserving original filenames/extensions and source assets. It audits every tracked house/amenity image and fails closed if any deployment asset remains over 25 MiB. It does not silently omit images.
 - Deploy command: `npx wrangler deploy`.
 - Remove `VITE_PROJECT_STATE_URL` from UI Build variables. Do not put Azure SAS or runtime ACL into UI variables.
 - Previews Base: retain the existing ordinary build command, no state credentials or API env. The browser transport in this branch rejects cloud state on non-stable workers.dev origins. The API Preview gate is independent.
@@ -19,7 +20,7 @@ The build script pins the public endpoint and project ID, rejects conflicting bu
 1. Record exact build commit and confirm the UI worker has Access enabled. Authenticate to the API origin first (same browser), then UI. Verify `GET /v1/projects/vinhomes-saigon-park/state` returns 200 with the exposed `x-plotflow-state-etag` in a cross-origin browser request. If Access blocks OPTIONS, configure Access CORS/preflight handling for this exact UI origin, not anonymous GET/PUT. Never disable Access to make a test pass.
 2. Use synthetic data only. Existing differing local cache is preserved and cloud writes blocked; back up edits before explicitly resetting staging-origin project keys. Never clear production storage. Use a fresh test browser profile if necessary.
 3. Edit one sample card, check PUT 200 and new ETag; reload and verify persistence. Test two independent browser profiles with the same project baseline, then save from both; second stale PUT must return 412 and stop automatic saving. Same-origin tabs share localStorage, so two tabs alone do not prove isolation.
-4. Test unauthorized access, wrong role, expired session, network failure, preview isolation, and asset/PDF/tiles/Excel regressions. Some Cloudflare oversized media may be omitted by existing preview tooling; review omissions before acceptance.
+4. Test unauthorized access, wrong role, expired session, network failure, preview isolation, and asset/PDF/tiles/Excel regressions. Review the generated media-optimization and asset-audit reports; original source images must remain unchanged.
 5. Check no browser request goes directly to Azure state URL; static asset traffic to Azure is allowed. Review build scanner output and actual bundle/network. Keep PR Draft until live gates pass.
 6. Do not migrate production. Staging SAS expires 2026-12-02 15:13 UTC per operator output; arrange renewal before expiry, never commit secrets.
 
