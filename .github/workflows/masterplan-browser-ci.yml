@@ -70,6 +70,8 @@ jobs:
         run: node --test tools/tests/masterplan-tiles.test.mjs
       - name: Audit built PDF and page pyramid
         run: node tools/audit-masterplan-build.mjs
+      - name: Test Auto Lot Shape against real Masterplan parcels
+        run: node tools/test-auto-lot-shape-masterplan.mjs
       - name: Install isolated browser tooling
         run: |
           mkdir -p "$RUNNER_TEMP/plotflow-browser"
@@ -101,6 +103,7 @@ jobs:
             app/package.json
             app/package-lock.json
             app/masterplan-audit-report.json
+            app/auto-lot-shape-masterplan-report.json
             app/browser-check-output/browser-smoke-memory.json
             app/browser-check-output/detail-raster.json
             app/media-sync-plan.json
