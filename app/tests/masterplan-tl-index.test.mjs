@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { extractUnitCodes, normalizeUnitCode } from "../src/floorplan/unitCode.js";
 import { attachBboxMatchToPageRender } from "../src/floorplan/bboxLocator.js";
+import { mergeTlHyphenIndex } from "../src/floorplan/mergeTlHyphenIndex.js";
 
 const supplement = JSON.parse(fs.readFileSync(
   new URL("../public/masterplan/generated/tl-hyphen-index.json", import.meta.url),
@@ -53,4 +54,25 @@ test("bbox locator uses the exact text-box center at scaled viewport sizes", () 
   assert.equal(result.anchorW, 0);
   assert.equal(result.anchorH, 0);
   assert.equal(result.unitCode, "TL-01");
+});
+
+test("runtime merge adds TL hyphen labels without replacing existing numeric TL entries", () => {
+  const existing = { "TL30-01": [{ unitCode: "TL30-01", pageNumber: 1, x: 10, y: 20 }] };
+  const manifest = {
+    index: existing,
+    pages: { "1": { width: supplement.pageSize.width, height: supplement.pageSize.height } },
+  };
+  const merged = mergeTlHyphenIndex(manifest, supplement);
+  assert.equal(merged.index["TL30-01"][0].unitCode, "TL30-01");
+  assert.equal(merged.index["TL-01"][0].unitCode, "TL-01");
+  assert.equal(Object.keys(merged.index).filter((code) => code.startsWith("TL-")).length, 57);
+  assert.equal(merged.tlHyphenIndex.count, 57);
+});
+
+test("runtime merge rejects a supplement from a different page coordinate system", () => {
+  const manifest = {
+    index: {},
+    pages: { "1": { width: supplement.pageSize.width + 2, height: supplement.pageSize.height } },
+  };
+  assert.throws(() => mergeTlHyphenIndex(manifest, supplement), /không khớp hệ tọa độ/);
 });
