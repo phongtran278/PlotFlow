@@ -21,3 +21,11 @@ Repeated matches are retained rather than silently deduplicated; the UI can mark
 The browser index cache schema is versioned separately from raster caches. Updating code recognition forces a fresh text index without invalidating already-rendered raster crops.
 
 Offline manifest generation uses `codePatternVersion: 2` and manifest version `9`.
+
+## Bundled Masterplan runtime
+
+The existing bundled manifest already contains the 3,160 numeric-prefix TL identifiers. The 57 additional `TL-xx` labels are supplied by `app/public/masterplan/generated/tl-hyphen-index.json` and merged into the manifest at load time. The supplement records its source PDF SHA-256 and uses page-top-left bounding boxes.
+
+The current bundled page and the supplied source PDF share the same page dimensions (3370.5100 × 2384.1399 points). The existing 3,160 numeric-prefix TL code set also matches the supplied source index exactly. The runtime uses the text-box center for the 57 supplemental labels, avoiding the horizontal-baseline assumption used for ordinary PDF.js text items.
+
+The index provides label anchors only. It does not claim cadastral lot polygons; Auto Shape/manual polygon remains the boundary workflow.
