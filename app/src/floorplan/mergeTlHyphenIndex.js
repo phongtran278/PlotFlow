@@ -41,7 +41,7 @@ export function mergeTlHyphenIndex(manifest, supplement) {
         || values.some((value) => !Number.isFinite(value))
         || values[0] < 0 || values[1] < 0 || values[2] <= values[0] || values[3] <= values[1]
         || values[2] > Number(pageInfo.width) || values[3] > Number(pageInfo.height)) {
-      throw new Error(\`TL lot index có tọa độ hoặc mã không hợp lệ: \${code || "unknown"}\`);
+      throw new Error(`TL lot index có tọa độ hoặc mã không hợp lệ: \${code || "unknown"}`);
     }
     assertInsideRegion(sourceBbox, calibration.sourceRegion, code);
     seen.add(code);
@@ -158,7 +158,7 @@ function assertInsideRegion(box, region, code) {
   if (values.some((value) => !Number.isFinite(value))
       || values[0] < Number(region.x0) || values[1] < Number(region.y0)
       || values[2] > Number(region.x1) || values[3] > Number(region.y1)) {
-    throw new Error(\`TL code nằm ngoài vùng hiệu chuẩn tọa độ: \${code}\`);
+    throw new Error(`TL code nằm ngoài vùng hiệu chuẩn tọa độ: \${code}`);
   }
 }
 
@@ -166,7 +166,7 @@ function assertInsidePage(box, pageInfo, code) {
   if (![box.x0, box.y0, box.x1, box.y1].every(Number.isFinite)
       || box.x0 < 0 || box.y0 < 0 || box.x1 <= box.x0 || box.y1 <= box.y0
       || box.x1 > Number(pageInfo.width) || box.y1 > Number(pageInfo.height)) {
-    throw new Error(\`TL code sau hiệu chỉnh nằm ngoài trang Masterplan: \${code}\`);
+    throw new Error(`TL code sau hiệu chỉnh nằm ngoài trang Masterplan: \${code}`);
   }
 }
 
