@@ -48,7 +48,6 @@ async function loadBundledManifest() {
   if (!supplementResponse.ok) throw new Error(`Không tải được TL lot index (${supplementResponse.status}).`);
   const manifest = await response.json();
   const supplement = await supplementResponse.json();
-  const supplement = await supplementResponse.json();
   return mergeTlHyphenIndex(manifest, supplement);
 }
 
