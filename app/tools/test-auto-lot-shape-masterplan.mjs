@@ -16,6 +16,8 @@ assert.ok(page?.tiles?.levels?.length, "Masterplan page tile pyramid is required
 
 const OUTPUT_WIDTH = 1084;
 const OUTPUT_HEIGHT = Math.round(OUTPUT_WIDTH / FLOORPLAN_FRAME_ASPECT);
+const sampleDir = path.join(app, "auto-lot-shape-samples");
+await fs.mkdir(sampleDir, { recursive: true });
 const report = { mode: "real-masterplan-auto-lot-shape", output: { width: OUTPUT_WIDTH, height: OUTPUT_HEIGHT }, samples: [] };
 
 function anchorFor(code) {
@@ -109,6 +111,9 @@ for (const code of ["TL-01", "TL-81", "TL30-01", "TL31-02"]) {
   const crop = calculateCropRect(pageRender, { zoom: 100, offsetX: 0, offsetY: 0 }, FLOORPLAN_FRAME_ASPECT);
   const level = chooseLevel(crop);
   const pixels = await renderPageCrop(crop, level);
+  await sharp(pixels.data, { raw: { width: pixels.width, height: pixels.height, channels: 4 } })
+    .png()
+    .toFile(path.join(sampleDir, code.replace(/[^A-Za-z0-9_-]/g, "_") + ".png"));
   const localAnchor = {
     x: (anchor.x - crop.x) / crop.w,
     y: (anchor.y - crop.y) / crop.h,
