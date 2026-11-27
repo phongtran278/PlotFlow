@@ -24,10 +24,33 @@ Offline manifest generation uses `codePatternVersion: 2` and manifest version `9
 
 ## Bundled Masterplan runtime
 
-The existing bundled manifest already contains the 3,160 numeric-prefix TL identifiers. The 57 additional `TL-xx` labels are supplied by `app/public/masterplan/generated/tl-hyphen-index.json` and merged into the manifest at load time. The supplement records its source PDF SHA-256 and uses page-top-left bounding boxes.
+The bundled manifest contains 3,160 numeric-prefix TL identifiers. The supplied VSP source PDF contributes 57 additional `TL-xx` labels. All TL anchors are normalized into the coordinate system used by the bundled page-tile pyramid before the locator or Auto Shape consumes them.
 
-The current bundled page and the supplied source PDF share the same page dimensions (3370.5100 × 2384.1399 points). The existing 3,160 numeric-prefix TL code set also matches the supplied source index exactly. The runtime uses the text-box center for the 57 supplemental labels, avoiding the horizontal-baseline assumption used for ordinary PDF.js text items.
+### Coordinate calibration
 
-The index provides label anchors only. It does not claim cadastral lot polygons; Auto Shape/manual polygon remains the boundary workflow.
+The supplied PDF and the bundled runtime PDF are different files, even though their page dimensions match. Page dimensions alone are not proof that text coordinates align with the runtime tiles.
 
-The bundled supplement also records a fingerprint of the 3,160 numeric-prefix TL identifiers already present in the runtime manifest. The build audit recomputes that fingerprint and requires an exact match before accepting the 57 additional `TL-xx` anchors. This guards against merging coordinates from an unrelated Masterplan revision.
+A local feature-registration calibration was measured between the supplied PDF page and the exact bundled page-tile crops. It uses a source-PDF-to-runtime-page affine transform and is limited to the calibrated TL region (source page coordinates x=900..1700, y=900..1250 points). It covers all 3,160 existing numeric-prefix TL anchors and all 57 supplemental `TL-xx` anchors.
+
+The calibration is guarded by:
+- the SHA-256 of the bundled runtime PDF
+- the exact page-tile source manifest, source dimensions, tile size and level widths
+- four deterministic page-tile crop fingerprints (`TL-01`, `TL-81`, `TL30-01`, `TL31-02`)
+- bounds checks ensuring every TL anchor stays inside the calibrated source region and maps inside the runtime page
+
+If the PDF or tile source changes, the build audit or crop-fingerprint test fails closed. The calibration must be regenerated; it must not be bypassed by loosening the detector threshold.
+
+The transform only applies to `TL*` identifiers. Other project-code families are not changed by this local calibration. Original PDF text coordinates are retained as `sourceBbox` for diagnostics, while `bbox` is stored in runtime page top-left coordinates.
+
+### Location data
+
+Each match retains its code, page number, source text and coordinate provenance. PlotFlow uses the transformed text-box center as a locator anchor. This is not a cadastral polygon: exact lot boundaries still require the Auto Shape/manual polygon workflow.
+
+Repeated matches are retained rather than silently deduplicated; the UI can mark ambiguous codes for review.
+
+## Cache and manifest
+
+The browser index cache schema is versioned separately from raster caches. Updating code recognition forces a fresh text index without invalidating already-rendered raster crops.
+
+Offline manifest generation uses `codePatternVersion: 2` and manifest version `9`.
+
