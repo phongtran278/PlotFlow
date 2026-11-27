@@ -15,8 +15,8 @@ if (fs.existsSync(path.resolve('node_modules/sharp/package.json'))) {
   process.exit(0);
 }
 
-console.log('[staging-media] Installing pinned, build-only sharp@0.35.3 for output optimization.');
-const result = spawnSync('npm', ['install', '--no-save', '--package-lock=false', 'sharp@0.35.3'], {
+console.log('[staging-media] Installing pinned, build-only sharp@0.35.5 for output optimization.');
+const result = spawnSync('npm', ['install', '--no-save', '--package-lock=false', '--no-audit', '--no-fund', 'sharp@0.35.5'], {
   stdio: 'inherit',
   env: process.env,
 });
