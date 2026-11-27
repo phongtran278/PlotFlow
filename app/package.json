@@ -11,7 +11,7 @@
     "dev": "npm run build && vite preview --host 0.0.0.0 --port 4173 --strictPort --open",
     "predev:hot": "npm run setup",
     "dev:hot": "vite --open",
-    "prebuild": "npm run setup",
+    "prebuild": "node tools/ensure-staging-media-optimizer.mjs && npm run setup",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort --open",

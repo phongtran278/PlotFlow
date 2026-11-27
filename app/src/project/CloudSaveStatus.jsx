@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 const messages = {
+  saved: { title: "Đã lưu lên staging", detail: "State API đã xác nhận ghi dữ liệu và phiên bản mới." },
   version_conflict: {
     title: "Có thay đổi từ phiên làm việc khác",
     detail: "Thay đổi trong cửa sổ này CHƯA được lưu. PlotFlow đã dừng tự động lưu để tránh ghi đè dữ liệu mới. Giữ nguyên cửa sổ và kiểm tra thay đổi trước khi tải lại.",
@@ -19,7 +20,7 @@ const messages = {
   },
   manual_migration_required: {
     title: "Dữ liệu cục bộ chưa được đồng bộ",
-    detail: "PlotFlow sẽ không tự ghi dữ liệu từ máy này lên dự án staging trống.",
+    detail: "Dữ liệu cục bộ khác bản trên máy chủ. PlotFlow giữ nguyên bản cục bộ và dừng lưu cloud. Hãy sao lưu chỉnh sửa trước khi đặt lại cache staging.",
   },
 };
 
@@ -38,10 +39,10 @@ export default function CloudSaveStatus() {
   }, []);
   const message = messages[status];
   if (!message) return null;
-  return <div role="alert" aria-live="assertive" style={{
+  return <div role={status === "saved" ? "status" : "alert"} aria-live={status === "saved" ? "polite" : "assertive"} style={{
     position: "fixed", bottom: 20, right: 20, zIndex: 2147483000,
     maxWidth: 430, padding: "16px 18px", background: "#ffffff",
-    border: "2px solid #ad3838", borderRadius: 12, color: "#272727",
+    border: status === "saved" ? "2px solid #16803d" : "2px solid #ad3838", borderRadius: 12, color: "#272727",
     boxShadow: "0 12px 34px rgba(0,0,0,.20)", fontFamily: "system-ui, sans-serif",
   }}>
     <strong style={{ display: "block", marginBottom: 8, fontSize: 16 }}>{message.title}</strong>
