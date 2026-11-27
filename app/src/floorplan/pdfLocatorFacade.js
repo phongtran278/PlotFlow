@@ -8,6 +8,7 @@ import {
   resolvePdfSourceUrl,
 } from "./floorplanGeometry.js";
 import { normalizeUnitCode, resolveUnitsAgainstIndex } from "./unitCodeCompat.js";
+import { attachBboxMatchToPageRender } from "./bboxLocator.js";
 import {
   renderPdfRegion,
   releasePreparedDetailRaster,
@@ -152,23 +153,8 @@ export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1) {
 
 export function attachMatchToPageRender(pageBase, match) {
   if (pageBase?.__plotflowPrepared) {
-    if (match?.bbox) {
-      const box = match.bbox;
-      const pageHeight = Number(pageBase.viewport.height) / Math.max(0.0001, Number(pageBase.scale) || 1);
-      const centerX = (Number(box.x0) + Number(box.x1)) / 2;
-      const centerYFromBottom = pageHeight - (Number(box.y0) + Number(box.y1)) / 2;
-      const [anchorX, anchorY] = pageBase.viewport.convertToViewportPoint(centerX, centerYFromBottom);
-      return {
-        ...pageBase,
-        anchorX,
-        anchorY,
-        anchorW: 0,
-        anchorH: 0,
-        __plotflowPrepared: true,
-        unitCode: match.unitCode,
-        locatorBounds: box,
-      };
-    }
+    const bboxMatch = attachBboxMatchToPageRender(pageBase, match);
+    if (bboxMatch) return bboxMatch;
     const [rawX, rawY] = pageBase.viewport.convertToViewportPoint(match.x, match.y);
     const anchorW = Math.max(14, Number(match.width || 0) * pageBase.scale);
     const anchorH = Math.max(14, Number(match.height || 0) * pageBase.scale);
