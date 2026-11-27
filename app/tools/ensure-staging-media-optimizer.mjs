@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
-const staging = fs.existsSync(path.resolve('wrangler.jsonc'));
+const staging = fs.existsSync(path.resolve('wrangler.jsonc'))\n  || Boolean(process.env.VITE_STATE_API_BASE_URL)\n  || process.env.PLOTFLOW_PRIVATE_STAGING === '1';
 if (!staging) {
   console.log('[staging-media] Skipped: no staging Wrangler config.');
   process.exit(0);
