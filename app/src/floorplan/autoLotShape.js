@@ -311,7 +311,7 @@ function candidateFromComponent(labels, component, width, height, anchorX, ancho
   if (anchorBoundsDistance > 0.18) return null;
   if (areaRatio < 0.001 || areaRatio > 0.52) return null;
   if (bboxRatio < 0.0015 || bboxRatio > 0.62) return null;
-  if (bboxW < width * 0.025 || bboxH < height * 0.025) return null;
+  if (bboxW < Math.max(5, width * 0.018) || bboxH < Math.max(5, height * 0.02)) return null;
   if (bboxW > width * 0.88 || bboxH > height * 0.88) return null;
   if (fillRatio < 0.2) return null;
 
