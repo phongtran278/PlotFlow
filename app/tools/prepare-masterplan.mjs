@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { extractUnitCodes, normalizeUnitCode } from "../src/floorplan/unitCode.js";
 import {
   findBestMasterplanTileSource,
   renderTileRegionToBuffer,
@@ -39,7 +40,6 @@ const pdfPublicPath = path.join(publicMasterDir, "masterplan.pdf");
 fs.mkdirSync(publicMasterDir, { recursive: true });
 if (path.resolve(pdfPath) !== path.resolve(pdfPublicPath)) fs.copyFileSync(pdfPath, pdfPublicPath);
 
-const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const DETAIL_WIDTH = Number(process.env.PLOTFLOW_LOT_DETAIL_WIDTH || 2168);
 const MEDIUM_WIDTH = Number(process.env.PLOTFLOW_LOT_MEDIUM_WIDTH || 1600);
 const PREVIEW_WIDTH = Number(process.env.PLOTFLOW_LOT_PREVIEW_WIDTH || 640);
@@ -47,16 +47,6 @@ const PAGE_PREVIEW_WIDTH = Number(process.env.PLOTFLOW_PAGE_PREVIEW_WIDTH || 180
 const FRAME_ASPECT = 506 / 390;
 const RASTER_EXT_RE = /\.(png|jpe?g|webp|tiff?)$/i;
 const PROGRESS_EVERY = Math.max(1, Number(process.env.PLOTFLOW_PROGRESS_EVERY || 25));
-
-function normalizeUnitCode(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[ĐđÐð]/g, "D")
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .trim();
-}
 
 function cliValue(flag) {
   const index = process.argv.indexOf(flag);
@@ -187,7 +177,8 @@ const pdfDoc = await pdfjsLib.getDocument({
 }).promise;
 
 const manifest = {
-  version: 8,
+  version: 9,
+  codePatternVersion: 2,
   source: pdfName,
   generatedAt: new Date().toISOString(),
   numPages: pdfDoc.numPages,
@@ -217,7 +208,7 @@ for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
 
   for (const item of content.items) {
     if (!item?.str) continue;
-    const matches = normalizeUnitCode(item.str).match(UNIT_CODE_RE) || [];
+    const matches = extractUnitCodes(item.str);
     for (const codeRaw of matches) {
       const code = normalizeUnitCode(codeRaw);
       const entry = {
