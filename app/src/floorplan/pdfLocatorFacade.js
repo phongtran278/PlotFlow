@@ -8,6 +8,8 @@ import {
   resolvePdfSourceUrl,
 } from "./floorplanGeometry.js";
 import { normalizeUnitCode, resolveUnitsAgainstIndex } from "./unitCodeCompat.js";
+import { attachBboxMatchToPageRender } from "./bboxLocator.js";
+import { mergeTlHyphenIndex } from "./mergeTlHyphenIndex.js";
 import {
   renderPdfRegion,
   releasePreparedDetailRaster,
@@ -15,6 +17,7 @@ import {
 } from "./pdfLocatorRuntimeStrict.js";
 
 const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
+const TL_HYPHEN_INDEX_URL = "/masterplan/generated/tl-hyphen-index.json";
 let preparedManifest = null;
 let customLocatorPromise = null;
 
@@ -37,13 +40,15 @@ async function customLocator() {
 }
 
 async function loadBundledManifest() {
-  const response = await fetch(PREPARED_MANIFEST_URL, { cache: "no-store" });
+  const [response, supplementResponse] = await Promise.all([
+    fetch(PREPARED_MANIFEST_URL, { cache: "no-store" }),
+    fetch(TL_HYPHEN_INDEX_URL, { cache: "no-store" }),
+  ]);
   if (!response.ok) throw new Error(`Không tải được prepared masterplan manifest (${response.status}).`);
+  if (!supplementResponse.ok) throw new Error(`Không tải được TL lot index (${supplementResponse.status}).`);
   const manifest = await response.json();
-  if (!manifest?.index || !manifest?.pages) {
-    throw new Error("Prepared masterplan manifest thiếu index/pages. PlotFlow sẽ không fallback sang PDF ở runtime.");
-  }
-  return manifest;
+  const supplement = await supplementResponse.json();
+  return mergeTlHyphenIndex(manifest, supplement);
 }
 
 function preparedViewport(pageInfo, scale = 1) {
@@ -113,6 +118,8 @@ export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1) {
 
 export function attachMatchToPageRender(pageBase, match) {
   if (pageBase?.__plotflowPrepared) {
+    const bboxMatch = attachBboxMatchToPageRender(pageBase, match);
+    if (bboxMatch) return bboxMatch;
     const [rawX, rawY] = pageBase.viewport.convertToViewportPoint(match.x, match.y);
     const anchorW = Math.max(14, Number(match.width || 0) * pageBase.scale);
     const anchorH = Math.max(14, Number(match.height || 0) * pageBase.scale);
