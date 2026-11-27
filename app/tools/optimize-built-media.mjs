@@ -30,7 +30,8 @@ if (!fs.existsSync(dist)) throw new Error('Missing app/dist; run npm run build f
 images.sort();
 const report = { scanned: images.length, optimized: 0, unchanged: 0, failed: [], bytesBefore: 0, bytesAfter: 0, entries: [], sourcePreserved: true, mode: dryRun ? 'dry-run' : 'optimize' };
 let sharp;
-if (!dryRun && images.length) {
+const oversizedImages = images.filter((file) => fs.statSync(file).size > limitBytes);
+if (!dryRun && oversizedImages.length) {
   try { ({ default: sharp } = await import('sharp')); }
   catch { throw new Error('Image optimizer requires sharp. Install it in the build environment before enabling this step.'); }
 }
@@ -41,7 +42,14 @@ for (const file of images) {
   report.bytesBefore += before;
   if (dryRun) {
     report.bytesAfter += before;
-    report.entries.push({ path: name, inputBytes: before, action: 'would-check' });
+    report.entries.push({ path: name, inputBytes: before, action: before > limitBytes ? 'would-optimize' : 'within-limit' });
+    continue;
+  }
+  if (before <= limitBytes) {
+    report.bytesAfter += before;
+    report.unchanged++;
+    report.entries.push({ path: name, inputBytes: before, outputBytes: before, optimized: false, skippedReason: 'within-cloudflare-limit' });
+    console.log(`[media] ${name} ${(before / 1048576).toFixed(2)} MiB · keep (within 25 MiB limit)`);
     continue;
   }
   const ext = path.extname(file).toLowerCase();
