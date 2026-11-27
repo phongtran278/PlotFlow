@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { attachMatchToPageRender, resolveUnitsAgainstIndex } from "../src/floorplan/pdfLocatorFacade.js";
+import { extractUnitCodes, normalizeUnitCode } from "../src/floorplan/unitCode.js";
+import { attachBboxMatchToPageRender } from "../src/floorplan/bboxLocator.js";
 
 const supplement = JSON.parse(fs.readFileSync(
   new URL("../public/masterplan/generated/tl-hyphen-index.json", import.meta.url),
@@ -17,22 +18,14 @@ test("bundled TL hyphen index has 57 unique, bounded lot labels", () => {
   assert.ok(codes.includes("TL-01"));
   assert.ok(codes.includes("TL-02"));
   assert.ok(codes.includes("TL-81"));
+  assert.deepEqual(extractUnitCodes(codes.join(" ")).sort(), [...codes].sort());
   for (const entry of supplement.entries) {
+    assert.equal(normalizeUnitCode(entry.unitCode), entry.unitCode);
     assert.match(entry.unitCode, /^TL-\d{1,5}$/);
     const { x0, y0, x1, y1 } = entry.bbox;
     assert.ok(x0 >= 0 && y0 >= 0 && x1 > x0 && y1 > y0);
     assert.ok(x1 <= supplement.pageSize.width && y1 <= supplement.pageSize.height);
   }
-});
-
-test("hyphenated TL entries resolve through the existing unit resolver", () => {
-  const entry = supplement.entries.find((item) => item.unitCode === "TL-01");
-  const result = resolveUnitsAgainstIndex(
-    [{ unitCode: "TL-01" }],
-    { "TL-01": [entry] },
-  );
-  assert.equal(result["TL-01"].status, "ready");
-  assert.equal(result["TL-01"].matches.length, 1);
 });
 
 test("bbox locator uses the exact text-box center at scaled viewport sizes", () => {
@@ -52,11 +45,12 @@ test("bbox locator uses the exact text-box center at scaled viewport sizes", () 
       },
     },
   };
-  const result = attachMatchToPageRender(pageBase, entry);
+  const result = attachBboxMatchToPageRender(pageBase, entry);
   const expectedX = ((entry.bbox.x0 + entry.bbox.x1) / 2) * scale;
   const expectedY = ((entry.bbox.y0 + entry.bbox.y1) / 2) * scale;
   assert.ok(Math.abs(result.anchorX - expectedX) < 0.001);
   assert.ok(Math.abs(result.anchorY - expectedY) < 0.001);
   assert.equal(result.anchorW, 0);
   assert.equal(result.anchorH, 0);
+  assert.equal(result.unitCode, "TL-01");
 });
