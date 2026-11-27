@@ -39,6 +39,12 @@ if(tlIndex.version!==1||tlIndex.codePatternVersion!==2||!Array.isArray(tlIndex.e
   ||tlIndex.count!==tlIndex.entries.length||tlIndex.entries.length!==57)throw Error('Invalid bundled TL hyphen index schema/count');
 if(!indexPage||Math.abs(Number(indexPage.width)-Number(tlIndex.pageSize?.width))>0.05
   ||Math.abs(Number(indexPage.height)-Number(tlIndex.pageSize?.height))>0.05)throw Error('TL hyphen index page coordinates do not match bundled masterplan');
+const numericTlCodes=Object.keys(manifest.index||{}).filter((code)=>/^TL\\d{1,5}-\\d{1,5}$/.test(code)).sort();
+let numericTlHash=2166136261;
+for(const char of numericTlCodes.join('\\n')){numericTlHash^=char.charCodeAt(0);numericTlHash=Math.imul(numericTlHash,16777619)>>>0;}
+const numericTlHashHex=(numericTlHash>>>0).toString(16);
+if(numericTlCodes.length!==Number(tlIndex.baseNumericTlIndex?.count)
+  ||numericTlHashHex!==tlIndex.baseNumericTlIndex?.sortedKeyHash)throw Error('Existing numeric TL index differs from the supplied source PDF');
 for(const entry of tlIndex.entries){
   const code=String(entry.unitCode||'');
   const b=entry.bbox||{};
@@ -48,7 +54,7 @@ for(const entry of tlIndex.entries){
     ||b.x1>Number(indexPage.width)||b.y1>Number(indexPage.height))throw Error('Invalid TL hyphen locator entry: '+code);
   tlCodes.add(code);
 }
-report.tlHyphenIndex={count:tlCodes.size,sourcePdf:tlIndex.sourcePdf,sourceSha256:tlIndex.sourceSha256,pageCoordinateMatch:true};
+report.tlHyphenIndex={count:tlCodes.size,baseNumericTlCount:numericTlCodes.length,baseNumericTlHash:numericTlHashHex,sourcePdf:tlIndex.sourcePdf,sourceSha256:tlIndex.sourceSha256,pageCoordinateMatch:true};
 const page=manifest.pages?.['1'];
 if(!page?.tiles)throw Error('Missing page-1 pyramid declaration');
 const pyramid=page.tiles;
