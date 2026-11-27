@@ -9,6 +9,7 @@ on:
       - qa/project-cloud-scope-20261125
       - qa/project-workspace-boundary-20261125
       - qa/project-config-boundary-20261125
+      - qa/project-config-boundary-20261125
     paths:
       - 'app/**'
       - '.github/workflows/masterplan-browser-ci.yml'
