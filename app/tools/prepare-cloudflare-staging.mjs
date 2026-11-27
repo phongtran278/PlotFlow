@@ -24,7 +24,7 @@ const optimizer = spawnSync(process.execPath, [path.resolve('tools/optimize-buil
   env: {
     ...process.env,
     PLOTFLOW_MEDIA_MAX_WIDTH: process.env.PLOTFLOW_MEDIA_MAX_WIDTH || '3200',
-    PLOTFLOW_MEDIA_TARGET_MIB: process.env.PLOTFLOW_MEDIA_TARGET_MIB || '8',
+    PLOTFLOW_MEDIA_TARGET_MIB: process.env.PLOTFLOW_MEDIA_TARGET_MIB || '20',
   },
 });
 if (optimizer.error || optimizer.status !== 0) {
