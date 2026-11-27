@@ -63,7 +63,7 @@ async function loadBundledManifest() {
     const code = normalizeUnitCode(entry?.unitCode);
     const box = entry?.bbox || {};
     const values = [box.x0, box.y0, box.x1, box.y1].map(Number);
-    if (!/^TL-\\d{1,5}$/.test(code) || seen.has(code) || entry.pageNumber !== supplement.pageNumber
+    if (!/^TL-\d{1,5}$/.test(code) || seen.has(code) || entry.pageNumber !== supplement.pageNumber
         || values.some((value) => !Number.isFinite(value))
         || values[0] < 0 || values[1] < 0 || values[2] <= values[0] || values[3] <= values[1]
         || values[2] > Number(pageInfo.width) || values[3] > Number(pageInfo.height)) {
