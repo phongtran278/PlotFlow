@@ -1,15 +1,17 @@
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { getMemoryProfile } from "../runtime/memoryProfile.js";
+import { extractUnitCodes, normalizeUnitCode } from "./unitCode.js";
+export { normalizeUnitCode };
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-const UNIT_CODE_RE = /[A-Z]{1,8}\d{1,5}-\d{1,5}/g;
 const PREVIEW_RENDER_MAX_WIDTH = 640;
 const RASTER_DB_NAME = "plotflow-raster-cache-v1";
 const RASTER_DB_VERSION = 1;
 const RASTER_STORE = "assets";
 const CACHE_SCHEMA = "raster-first-v2-unit-code-suffix";
+const INDEX_CACHE_SCHEMA = "unit-code-index-v2-tl-hyphen";
 
 const screenPreviewCache = new Map();
 const objectUrlCache = new Map();
@@ -97,7 +99,7 @@ async function dbPut(key, value) {
 }
 
 function indexCacheKey() {
-  return `${CACHE_SCHEMA}:index:${lastPdfSourceKey}`;
+  return `${INDEX_CACHE_SCHEMA}:index:${lastPdfSourceKey}`;
 }
 
 function rasterCacheKey(pageRender, view, outputWidth, aspect, includeHighlight) {
@@ -236,16 +238,6 @@ async function ensureActivePdf() {
   return activePdfPromise;
 }
 
-export function normalizeUnitCode(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[Đđ]/g, "D")
-    .toUpperCase()
-    .replace(/\s+/g, "")
-    .trim();
-}
-
 export function resolvePdfSourceUrl(input) {
   const raw = String(input || "").trim();
   if (!raw) throw new Error("Bạn chưa nhập link PDF.");
@@ -308,8 +300,7 @@ export async function buildFloorplanIndex(pdfDoc, onProgress) {
     for (const item of content.items) {
       if (!item?.str) continue;
       textItems += 1;
-      const raw = normalizeUnitCode(item.str);
-      const matches = raw.match(UNIT_CODE_RE) || [];
+      const matches = extractUnitCodes(item.str);
 
       for (const code of matches) {
         const key = normalizeUnitCode(code);
