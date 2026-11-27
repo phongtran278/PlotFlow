@@ -1,33 +1,56 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import { calculateCropRect, FLOORPLAN_FRAME_ASPECT } from "../src/floorplan/floorplanGeometry.js";
 import { detectLotShapeFromImageData } from "../src/floorplan/autoLotShape.js";
+import { mergeTlHyphenIndex } from "../src/floorplan/mergeTlHyphenIndex.js";
 
 const app = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(app, "dist");
 const generated = path.join(dist, "masterplan", "generated");
-const manifest = JSON.parse(await fs.readFile(path.join(generated, "manifest.json"), "utf8"));
+const rawManifest = JSON.parse(await fs.readFile(path.join(generated, "manifest.json"), "utf8"));
 const supplement = JSON.parse(await fs.readFile(path.join(generated, "tl-hyphen-index.json"), "utf8"));
+const manifest = mergeTlHyphenIndex(rawManifest, supplement);
 const page = manifest.pages?.["1"];
 assert.ok(page?.tiles?.levels?.length, "Masterplan page tile pyramid is required");
 
 const OUTPUT_WIDTH = 1084;
 const OUTPUT_HEIGHT = Math.round(OUTPUT_WIDTH / FLOORPLAN_FRAME_ASPECT);
+const SAMPLE_WIDTH = 720;
+const SAMPLE_HEIGHT = Math.round(SAMPLE_WIDTH / FLOORPLAN_FRAME_ASPECT);
 const sampleDir = path.join(app, "auto-lot-shape-samples");
 await fs.mkdir(sampleDir, { recursive: true });
-const report = { mode: "real-masterplan-auto-lot-shape", output: { width: OUTPUT_WIDTH, height: OUTPUT_HEIGHT }, samples: [] };
+const report = {
+  mode: "real-masterplan-auto-lot-shape",
+  coordinateTransformId: manifest.coordinateTransformId,
+  output: { width: SAMPLE_WIDTH, height: SAMPLE_HEIGHT },
+  calibrationCrops: [],
+  samples: [],
+};
 
-function anchorFor(code) {
+function rawAnchorFor(code) {
   const supplemental = supplement.entries.find((entry) => entry.unitCode === code);
   if (supplemental) {
     const box = supplemental.bbox;
     return { x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2 };
   }
+  const match = rawManifest.index?.[code]?.[0];
+  assert.ok(match, "No source PDF text anchor for " + code);
+  return {
+    x: Number(match.x) + Number(match.width || 0) / 2,
+    y: Number(rawManifest.pages["1"].height) - Number(match.y) - Number(match.height || 0) / 2,
+  };
+}
+
+function anchorFor(code) {
   const match = manifest.index?.[code]?.[0];
-  assert.ok(match, "No prepared PDF text anchor for " + code);
+  assert.ok(match, "No calibrated runtime anchor for " + code);
+  if (match.bbox) {
+    return { x: (match.bbox.x0 + match.bbox.x1) / 2, y: (match.bbox.y0 + match.bbox.y1) / 2 };
+  }
   return {
     x: Number(match.x) + Number(match.width || 0) / 2,
     y: Number(page.height) - Number(match.y) - Number(match.height || 0) / 2,
@@ -87,7 +110,7 @@ async function renderPageCrop(crop, level) {
   })
     .composite(composites)
     .resize({ width: OUTPUT_WIDTH, height: OUTPUT_HEIGHT, fit: "fill" })
-    .resize({ width: 720, height: Math.round(720 / FLOORPLAN_FRAME_ASPECT), fit: "fill" })
+    .resize({ width: SAMPLE_WIDTH, height: SAMPLE_HEIGHT, fit: "fill" })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -97,6 +120,30 @@ async function renderPageCrop(crop, level) {
     width: rendered.info.width,
     height: rendered.info.height,
   };
+}
+
+async function savePng(pixels, outputPath) {
+  const png = await sharp(pixels.data, {
+    raw: { width: pixels.width, height: pixels.height, channels: 4 },
+  }).png().toBuffer();
+  await fs.writeFile(outputPath, png);
+  return createHash("sha256").update(png).digest("hex");
+}
+
+for (const [code, calibrationCrop] of Object.entries(supplement.coordinateCalibration.calibrationCrops || {})) {
+  const crop = {
+    x: Number(calibrationCrop.x),
+    y: Number(calibrationCrop.y),
+    w: Number(calibrationCrop.width),
+    h: Number(calibrationCrop.height),
+  };
+  const level = chooseLevel(crop);
+  const pixels = await renderPageCrop(crop, level);
+  const actualHash = await savePng(pixels, path.join(sampleDir, "calibration-" + code + ".png"));
+  const matches = actualHash === calibrationCrop.sha256;
+  report.calibrationCrops.push({ code, level: level.width, expectedSha256: calibrationCrop.sha256, actualSha256: actualHash, matches });
+  console.log("[coordinate-calibration]", JSON.stringify({ code, matches, expectedSha256: calibrationCrop.sha256, actualSha256: actualHash }));
+  assert.equal(matches, true, "Runtime page tiles changed; TL coordinate calibration must be regenerated before use: " + code);
 }
 
 for (const code of ["TL-01", "TL-81", "TL30-01", "TL31-02"]) {
@@ -111,9 +158,7 @@ for (const code of ["TL-01", "TL-81", "TL30-01", "TL31-02"]) {
   const crop = calculateCropRect(pageRender, { zoom: 100, offsetX: 0, offsetY: 0 }, FLOORPLAN_FRAME_ASPECT);
   const level = chooseLevel(crop);
   const pixels = await renderPageCrop(crop, level);
-  await sharp(pixels.data, { raw: { width: pixels.width, height: pixels.height, channels: 4 } })
-    .png()
-    .toFile(path.join(sampleDir, code.replace(/[^A-Za-z0-9_-]/g, "_") + ".png"));
+  await savePng(pixels, path.join(sampleDir, code.replace(/[^A-Za-z0-9_-]/g, "_") + ".png"));
   const localAnchor = {
     x: (anchor.x - crop.x) / crop.w,
     y: (anchor.y - crop.y) / crop.h,
@@ -121,6 +166,7 @@ for (const code of ["TL-01", "TL-81", "TL30-01", "TL31-02"]) {
   const result = await detectLotShapeFromImageData(pixels, localAnchor);
   const sample = {
     code,
+    anchor,
     level: level.width,
     crop: { x: crop.x, y: crop.y, width: crop.w, height: crop.h },
     accepted: result.accepted,
