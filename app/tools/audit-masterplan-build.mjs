@@ -8,7 +8,7 @@ const app=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const dist=path.join(app,'dist');
 const master=path.join(dist,'masterplan');
 const manifest=JSON.parse(fs.readFileSync(path.join(master,'generated','manifest.json'),'utf8'));
-const report={mode:'read-only-built-masterplan',pageLevels:[],lotTileDeclarations:0,lotTileMissing:0,lotRasterMissing:0,lotRasterReferences:0,issues:[],pdf:null};
+const report={mode:'read-only-built-masterplan',pageLevels:[],lotTileDeclarations:0,lotTileMissing:0,lotRasterMissing:0,lotRasterReferences:0,tlHyphenIndex:null,issues:[],pdf:null};
 const max=25*1024*1024;
 const runtime={width:42000,height:29709,tileSize:512,levels:[1800,2625,5250,10500,21000,42000]};
 sharp.cache(false);sharp.concurrency(1);
@@ -30,6 +30,25 @@ if(header.toString()!=='%PDF-')throw Error('Built masterplan is not a PDF');
 const sourceHash=await digest(source),builtHash=await digest(pdf);
 report.pdf={bytes:fs.statSync(pdf).size,sha256:builtHash,sourceMatches:sourceHash===builtHash,headerValid:true};
 if(!report.pdf.sourceMatches)throw Error('Built PDF differs from original');
+const tlIndexPath=path.join(master,'generated','tl-hyphen-index.json');
+if(!exists(tlIndexPath))throw Error('Missing bundled TL hyphen index');
+const tlIndex=JSON.parse(fs.readFileSync(tlIndexPath,'utf8'));
+const tlCodes=new Set();
+const indexPage=manifest.pages?.[String(tlIndex.pageNumber)];
+if(tlIndex.version!==1||tlIndex.codePatternVersion!==2||!Array.isArray(tlIndex.entries)
+  ||tlIndex.count!==tlIndex.entries.length||tlIndex.entries.length!==57)throw Error('Invalid bundled TL hyphen index schema/count');
+if(!indexPage||Math.abs(Number(indexPage.width)-Number(tlIndex.pageSize?.width))>0.05
+  ||Math.abs(Number(indexPage.height)-Number(tlIndex.pageSize?.height))>0.05)throw Error('TL hyphen index page coordinates do not match bundled masterplan');
+for(const entry of tlIndex.entries){
+  const code=String(entry.unitCode||'');
+  const b=entry.bbox||{};
+  if(!/^TL-\\d{1,5}$/.test(code)||tlCodes.has(code)
+    ||![b.x0,b.y0,b.x1,b.y1].every(Number.isFinite)
+    ||b.x0<0||b.y0<0||b.x1<=b.x0||b.y1<=b.y0
+    ||b.x1>Number(indexPage.width)||b.y1>Number(indexPage.height))throw Error('Invalid TL hyphen locator entry: '+code);
+  tlCodes.add(code);
+}
+report.tlHyphenIndex={count:tlCodes.size,sourcePdf:tlIndex.sourcePdf,sourceSha256:tlIndex.sourceSha256,pageCoordinateMatch:true};
 const page=manifest.pages?.['1'];
 if(!page?.tiles)throw Error('Missing page-1 pyramid declaration');
 const pyramid=page.tiles;
@@ -70,5 +89,5 @@ for(const lot of Object.values(manifest.lots||{})){
 if(report.lotRasterMissing||report.lotTileMissing)report.issues.push('Declared lot assets missing; runtime fallback must be reviewed before release.');
 if(!report.lotTileDeclarations)report.issues.push('No declared lot tile pyramids; Detail/Fine Tune fallback remains unverified.');
 fs.writeFileSync(path.join(app,'masterplan-audit-report.json'),JSON.stringify(report,null,2)+'\n');
-console.log('[masterplan-audit]',JSON.stringify({pageLevels:report.pageLevels.length,pageTiles:report.pageLevels.reduce((n,x)=>n+x.checked,0),pageMissing:report.pageLevels.reduce((n,x)=>n+x.missing,0),pageInvalid:report.pageLevels.reduce((n,x)=>n+x.invalid,0),lotTileDeclarations:report.lotTileDeclarations,lotTileMissing:report.lotTileMissing,lotRasterReferences:report.lotRasterReferences,lotRasterMissing:report.lotRasterMissing,pdfSourceMatches:report.pdf.sourceMatches,issues:report.issues}));
+console.log('[masterplan-audit]',JSON.stringify({pageLevels:report.pageLevels.length,pageTiles:report.pageLevels.reduce((n,x)=>n+x.checked,0),pageMissing:report.pageLevels.reduce((n,x)=>n+x.missing,0),pageInvalid:report.pageLevels.reduce((n,x)=>n+x.invalid,0),lotTileDeclarations:report.lotTileDeclarations,lotTileMissing:report.lotTileMissing,lotRasterReferences:report.lotRasterReferences,lotRasterMissing:report.lotRasterMissing,tlHyphenCodes:report.tlHyphenIndex.count,pdfSourceMatches:report.pdf.sourceMatches,issues:report.issues}));
 if(report.pageLevels.some(l=>l.missing||l.invalid))throw Error('Page pyramid incomplete or invalid');
