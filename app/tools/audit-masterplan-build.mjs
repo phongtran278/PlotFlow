@@ -42,7 +42,7 @@ if(!indexPage||Math.abs(Number(indexPage.width)-Number(tlIndex.pageSize?.width))
 for(const entry of tlIndex.entries){
   const code=String(entry.unitCode||'');
   const b=entry.bbox||{};
-  if(!/^TL-\\d{1,5}$/.test(code)||tlCodes.has(code)
+  if(!/^TL-\d{1,5}$/.test(code)||tlCodes.has(code)
     ||![b.x0,b.y0,b.x1,b.y1].every(Number.isFinite)
     ||b.x0<0||b.y0<0||b.x1<=b.x0||b.y1<=b.y0
     ||b.x1>Number(indexPage.width)||b.y1>Number(indexPage.height))throw Error('Invalid TL hyphen locator entry: '+code);
