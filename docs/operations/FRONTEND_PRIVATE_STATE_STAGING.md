@@ -7,7 +7,7 @@ This branch is based on PR #79, targets the isolated UI Worker `plotflow-ui-stag
 - Production branch: `fix/frontend-private-state-staging-20261126`.
 - Root directory: `app`.
 - Build command: `npm ci && npm test && node tools/build-private-state-staging.mjs`.
-- The staging `prebuild` installs pinned build-only `sharp@0.35.5`; the `postbuild` optimizes oversized images in `dist` only, preserving original filenames/extensions and source assets. It audits every tracked house/amenity image and fails closed if any deployment asset remains over 25 MiB. It does not silently omit images.
+- The staging `prebuild` installs pinned build-only `sharp@0.35.5`; the `postbuild` optimizes only images that exceed 25 MiB in `dist`, preserving original filenames/extensions and source assets. Images already within the Cloudflare limit remain byte-for-byte unchanged. It audits every tracked house/amenity image and fails closed if any deployment asset remains over 25 MiB. It does not silently omit images.
 - Deploy command: `npx wrangler deploy`.
 - Remove `VITE_PROJECT_STATE_URL` from UI Build variables. Do not put Azure SAS or runtime ACL into UI variables.
 - Previews Base: retain the existing ordinary build command, no state credentials or API env. The browser transport in this branch rejects cloud state on non-stable workers.dev origins. The API Preview gate is independent.
