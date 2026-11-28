@@ -1,4 +1,4 @@
-import locatorOverrides from "./locatorOverrides.json";
+import locatorOverrides from "./locatorOverrides.json" with { type: "json" };
 
 function uniqueMatches(matches = []) {
   const seen = new Set();

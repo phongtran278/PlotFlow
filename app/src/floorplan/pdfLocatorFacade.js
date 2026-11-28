@@ -48,30 +48,6 @@ async function loadBundledManifest() {
   if (!supplementResponse.ok) throw new Error(`Không tải được TL lot index (${supplementResponse.status}).`);
   const manifest = await response.json();
   const supplement = await supplementResponse.json();
-  if (manifest.nativeCoordinateSource) {
-    const native = manifest.nativeCoordinateSource;
-    const page = manifest.pages?.["1"];
-
-    const valid =
-      native.mode === "same-pdf-native-v1" &&
-      /^[a-f0-9]{64}$/i.test(native.pdfSha256 || "") &&
-      !manifest.coordinateTransformId &&
-      native.indexCount === Object.keys(manifest.index || {}).length &&
-      page?.tiles?.sourceWidth === native.rasterWidth &&
-      page?.tiles?.sourceHeight === native.rasterHeight &&
-      Array.isArray(supplement.entries) &&
-      supplement.entries.length === supplement.count &&
-      supplement.entries.every(
-        entry => manifest.index?.[entry.unitCode]?.length
-      );
-
-    if (!valid) {
-      throw new Error("Invalid native Masterplan coordinate source.");
-    }
-
-    return manifest;
-  }
-
   return mergeTlHyphenIndex(manifest, supplement);
 }
 
