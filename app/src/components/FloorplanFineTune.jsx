@@ -15,9 +15,7 @@ import { normalizeUnitCode } from "../floorplan/pdfLocator";
 
 export { DEFAULT_FLOORPLAN_VIEW };
 
-const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
 const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
-const FLOORPLAN_OVERRIDE_KEY = "plotflow-floorplan-overrides-v6";
 
 function loadJson(key, fallback = {}) {
   try {
@@ -69,14 +67,6 @@ function resolvePosterAssets(unit) {
   };
 }
 
-function persistOverlay(code, overlay) {
-  if (!code || !overlay) return;
-  const all = loadJson(LOT_OVERLAY_KEY, {});
-  all[code] = { ...overlay, stale: false };
-  localStorage.setItem(LOT_OVERLAY_KEY, JSON.stringify(all));
-  window.dispatchEvent(new CustomEvent("plotflow-overlay-updated", { detail: { unitCode: code } }));
-}
-
 export default function FloorplanFineTune({
   unit,
   locatorResult,
@@ -86,48 +76,29 @@ export default function FloorplanFineTune({
   onSave,
   onCandidateChange,
   onRenderVectorPreview,
+  initialOverlay,
+  onBoundaryResult,
+  startManual,
 }) {
-  const code = normalizeUnitCode(unit?.unitCode);
-  const currentIndex = locatorResult?.selectedMatchIndex ?? 0;
-  const savedOverride = loadJson(FLOORPLAN_OVERRIDE_KEY, {})[code] || null;
-  const persistedOverlay = loadJson(LOT_OVERLAY_KEY, {})[code] || null;
   const renderPreviewRef = useRef(onRenderVectorPreview);
-
   renderPreviewRef.current = onRenderVectorPreview;
-
-  // Keep one callback identity for the entire editor session so parent renders do not
-  // retrigger raster work when the page/camera itself has not changed.
   const stableRenderPreview = useCallback((view) => renderPreviewRef.current?.(view), []);
-
-  const sameSavedSource = savedOverride
-    ? (savedOverride.selectedMatchIndex ?? 0) === currentIndex
-    : currentIndex === 0;
-
-  const initialOverlay = sameSavedSource && !persistedOverlay?.stale ? persistedOverlay : null;
-  const effectiveInitialView = sameSavedSource
-    ? ({ ...DEFAULT_FLOORPLAN_VIEW, ...(initialView || {}) })
-    : DEFAULT_FLOORPLAN_VIEW;
-
   const posterAssets = resolvePosterAssets(unit);
-
-  async function saveComposition(view, overlay) {
-    persistOverlay(code, overlay);
-    await onSave?.(view);
-    persistOverlay(code, overlay);
-  }
 
   return (
     <UnifiedFloorplanEditor
       unit={unit}
       locatorResult={locatorResult}
       pageRender={pageRender}
-      initialView={effectiveInitialView}
+      initialView={initialView}
       initialOverlay={initialOverlay}
       posterAssets={posterAssets}
       pinSrc={pinAssets.pin2D}
       onCancel={onCancel}
-      onSave={saveComposition}
+      onSave={onSave}
       onCandidateChange={onCandidateChange}
+      onBoundaryResult={onBoundaryResult}
+      startManual={startManual}
       onRenderVectorPreview={stableRenderPreview}
     />
   );

@@ -73,8 +73,7 @@ export default function AutoFloorplanSource() {
     }
 
     function findReviewButton() {
-      const buttons = Array.from(document.querySelectorAll(".locator-card button"));
-      return buttons.find((button) => String(button.textContent || "").trim() === "Review Issues");
+      return document.querySelector(".locator-card [data-issue-count]");
     }
 
     function selectedUnitCode() {
@@ -147,7 +146,7 @@ export default function AutoFloorplanSource() {
           </div>
           <div class="plotflow-locator-simple__selected"><span>Selected lot</span><strong>—</strong></div>
           <div class="plotflow-locator-simple__actions">
-            <button type="button" class="plotflow-locator-simple__edit">✦ Edit Lot Highlight</button>
+            <button type="button" class="plotflow-locator-simple__edit">Mở bản đồ lô</button>
             <button type="button" class="plotflow-locator-simple__review">Review Issues</button>
           </div>`;
         card.querySelector(".unit-list-header")?.after(panel);
@@ -201,9 +200,9 @@ export default function AutoFloorplanSource() {
 
       const editable = state === "ready" && (badgeState === "ready" || badgeState === "review");
       setBooleanProperty(edit, "disabled", !editable);
-      setText(edit, editable && selected ? `✦ Edit Highlight · ${selected}` : "✦ Edit Lot Highlight");
+      setText(edit, editable && selected ? `Mở bản đồ · ${selected}` : "Mở bản đồ lô");
 
-      const issueCount = counts.review + counts.notFound;
+      const issueCount = Number(findReviewButton()?.dataset.issueCount || 0);
       setBooleanProperty(review, "hidden", state !== "ready" || issueCount === 0);
       setText(review, issueCount ? `Review ${issueCount} issue${issueCount === 1 ? "" : "s"}` : "Review Issues");
     }
@@ -283,7 +282,7 @@ export default function AutoFloorplanSource() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["class", "disabled"],
+      attributeFilter: ["class", "disabled", "data-issue-count"],
     });
 
     return () => {

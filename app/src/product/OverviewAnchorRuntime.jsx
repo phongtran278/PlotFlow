@@ -416,6 +416,19 @@ export default function OverviewAnchorRuntime() {
       setActive(code);
       if (navSelect) navSelect.value = code;
     }
+    function onAutoShapeRequest(event) {
+      const status = event.detail?.status;
+      if (!stage?.isConnected) return;
+      if (pendingDraft) { status?.("Save or cancel the connector edit first"); return; }
+      const list = codes();
+      const code = navSelect?.value || activeCode;
+      if (!code || !list.includes(code)) { status?.("Select a unit first"); return; }
+      focusCode(code);
+      setActive(code);
+      window.dispatchEvent(new CustomEvent("pf-overview-auto-shape", {
+        detail: { code, stage, status: message => { if (activeCode === code) status?.(message); } },
+      }));
+    }
     function onEditEndpointRequest(event) {
       const requested = String(event.detail?.code || "");
       const code = requested || navSelect?.value || activeCode || codes()[0] || "";
@@ -473,6 +486,7 @@ export default function OverviewAnchorRuntime() {
     window.addEventListener("pf-overview-select-unit-request", onSelectionRequest);
     window.addEventListener("pf-overview-card-selection-changed", onCardSelectionChanged);
     window.addEventListener("pf-overview-edit-endpoint-request", onEditEndpointRequest);
+    window.addEventListener("pf-overview-auto-shape-request", onAutoShapeRequest);
 
     return () => {
       observer?.disconnect();
@@ -482,6 +496,7 @@ export default function OverviewAnchorRuntime() {
       window.removeEventListener("pf-overview-select-unit-request", onSelectionRequest);
       window.removeEventListener("pf-overview-card-selection-changed", onCardSelectionChanged);
       window.removeEventListener("pf-overview-edit-endpoint-request", onEditEndpointRequest);
+      window.removeEventListener("pf-overview-auto-shape-request", onAutoShapeRequest);
       detachStage();
     };
   }, [storage]);

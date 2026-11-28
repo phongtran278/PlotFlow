@@ -3746,3 +3746,28 @@ body.plotflow-zen-mode .focus-deck { background:rgba(246,248,251,.94); }
 .sheet-connect{overflow-anchor:none}
 .sheet-connect>input{overflow-anchor:auto}
 .sheet-history{overflow-anchor:none;contain:layout paint}
+
+.sheet-source-dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid #ccd9d4;
+  border-radius: 14px;
+}
+.sheet-source-dialog::backdrop { background: rgb(16 36 31 / 48%); }
+.sheet-source-dialog form, .sheet-source-dialog label { display: grid; gap: 10px; }
+.sheet-source-dialog form > div { display: flex; justify-content: flex-end; gap: 8px; }
+.detail-issue-list { margin: 0; padding: 0 20px 20px; overflow: auto; list-style: none; }
+.detail-issue-list button {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  padding: 12px;
+  margin-top: 6px;
+  border: 1px solid #dce6e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #163e35;
+  text-align: left;
+  cursor: pointer;
+}
+.detail-issue-list button:hover { border-color: #087665; }

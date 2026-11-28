@@ -1,10 +1,11 @@
 import { useEffect } from "react";
+import { syncMasterplanHeader, removeMasterplanHeader } from "./overviewMasterplanHeader.js";
 import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
 const BASE_WIDTH = 42000;
 const BASE_HEIGHT = 29709;
 const TILE_SIZE = 512;
-const LEVEL_WIDTHS = [1800, 2625, 5250, 10500, 21000, 42000];
+const LEVEL_WIDTHS = [1800,2625,5250,10500,21000,42000];
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
 const SETTLE_MS = 90;
 const FIT_EPSILON = 0.02;
@@ -148,6 +149,7 @@ export default function OverviewRasterRuntime() {
       stage.style.setProperty("--pf-pdf-width", `${width}px`);
       stage.style.setProperty("--pf-pdf-height", `${height}px`);
       window.dispatchEvent(new CustomEvent("pf-overview-pdf-bounds", { detail: { x, y, width, height } }));
+      syncMasterplanHeader(stage, bounds, camera);
       return bounds;
     }
 
@@ -282,14 +284,23 @@ export default function OverviewRasterRuntime() {
       const fitView = isFitCamera() && nextLevel === LEVEL_WIDTHS[0];
       const lowZoomBase = nextLevel === LEVEL_WIDTHS[0] && camera.scale <= 1.05;
       const changingLevel = nextLevel !== currentLevel;
-      const oldTileCount = changingLevel ? Array.from(tiles.values()).filter((entry) => entry.level !== nextLevel).length : 0;
 
       if (changingLevel) {
         currentLevel = nextLevel;
         updateStats();
-      } else {
-        releaseExcept(keep);
       }
+
+      // Remove obsolete tiles only from the incoming level.
+      // Keep previous levels as visual fallback during transition.
+      for (const [key, entry] of tiles) {
+        if (entry.level !== nextLevel || keep.has(key)) continue;
+        tiles.delete(key);
+        releaseImage(entry.image);
+        stats.releasedTiles += 1;
+      }
+
+      const oldTileCount = Array.from(tiles.values())
+        .filter((entry) => entry.level !== nextLevel).length;
 
       const epoch = ++renderEpoch;
       const missing = jobs.filter((job) => !tiles.has(tileKey(nextLevel, job.col, job.row)));
@@ -335,9 +346,15 @@ export default function OverviewRasterRuntime() {
       await Promise.all(Array.from({ length: parallelLoads }, () => worker()));
       if (disposed || epoch !== renderEpoch) return;
 
-      const nextLevelReady = Array.from(tiles.values()).some((entry) => entry.level === nextLevel);
-      if (changingLevel && nextLevelReady) releaseOtherLevels(nextLevel);
-      else if (!changingLevel) releaseExcept(keep);
+      // Switch levels only after every requested visible tile is ready.
+      const nextLevelReady = keep.size > 0
+        && Array.from(keep).every((key) => tiles.has(key));
+
+      if (nextLevelReady) {
+        releaseOtherLevels(nextLevel);
+        releaseExcept(keep);
+      }
+      // Otherwise retain previous level tiles to prevent blank background.
 
       stats.pendingTiles = 0;
       repositionExistingTiles();
@@ -354,6 +371,7 @@ export default function OverviewRasterRuntime() {
       const next = event.detail || {};
       if (!Number.isFinite(next.scale)) return;
       camera = { scale: next.scale, tx: next.tx || 0, ty: next.ty || 0 };
+      syncMasterplanHeader(stage, bounds, camera);
       repositionExistingTiles();
       window.clearTimeout(settleTimer);
       if (!windowsFixedLevel && !next.dragging) scheduleRefresh(isFitCamera() ? 0 : SETTLE_MS);
@@ -375,6 +393,7 @@ export default function OverviewRasterRuntime() {
       window.removeEventListener("pf-overview-camera", onCamera);
       releaseAll();
       if (stage) {
+        removeMasterplanHeader(stage);
         stage.classList.remove("pf-pdf-crisp-ready");
         delete stage.dataset.pfPdfX;
         delete stage.dataset.pfPdfY;
@@ -409,8 +428,10 @@ export default function OverviewRasterRuntime() {
 
     function sync() {
       const next = document.querySelector('.pf-masterplan-stage[data-overview-render-mode="raster"]');
-      if (next) attach(next);
-      else if (stage) detachStage();
+      if (next) {
+        attach(next);
+        syncMasterplanHeader(stage, bounds, camera);
+      } else if (stage) detachStage();
     }
 
     sync();
@@ -419,7 +440,7 @@ export default function OverviewRasterRuntime() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-overview-render-mode", "data-overview-group"],
+      attributeFilter: ["data-overview-render-mode", "data-overview-group", "data-overview-project-id"],
     });
 
     return () => {

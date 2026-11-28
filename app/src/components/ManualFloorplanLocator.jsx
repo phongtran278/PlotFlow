@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { openVectorPdf } from "../floorplan/pdfLocator.js";
+import { openVectorPdf, renderPdfPageBase, renderPdfRegion } from "../floorplan/pdfLocator.js";
 
 export default function ManualFloorplanLocator({ pdfDoc: providedPdfDoc, initialPage = 1, busy = false, onCancel, onPick }) {
   const [pdfDoc, setPdfDoc] = useState(providedPdfDoc || null);
@@ -8,6 +8,7 @@ export default function ManualFloorplanLocator({ pdfDoc: providedPdfDoc, initial
   const [pageImage, setPageImage] = useState(null);
   const [pageSize, setPageSize] = useState({ width: 1, height: 1 });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (providedPdfDoc) {
@@ -17,7 +18,7 @@ export default function ManualFloorplanLocator({ pdfDoc: providedPdfDoc, initial
     let cancelled = false;
     openVectorPdf("/masterplan/masterplan.pdf").then((doc) => {
       if (!cancelled) setPdfDoc(doc);
-    }).catch(() => {});
+    }).catch((reason) => { if (!cancelled) setError(reason.message); });
     return () => { cancelled = true; };
   }, [providedPdfDoc]);
 
@@ -29,7 +30,21 @@ export default function ManualFloorplanLocator({ pdfDoc: providedPdfDoc, initial
     async function renderPage() {
       if (!pdfDoc) return;
       setLoading(true);
+      setPageImage(null);
+      setError("");
       try {
+        if (pdfDoc.__plotflowPreparedMasterplan) {
+          const base = await renderPdfPageBase(pdfDoc, safePage);
+          const crop = { x: 0, y: 0, w: base.width, h: base.height };
+          const result = await renderPdfRegion(pdfDoc, base, {}, {
+            outputWidth: 1640, aspect: crop.w / crop.h, independent: true, explicitCrop: crop, embedForExport: true,
+          });
+          if (!result) throw new Error("Không mở được tile bản đồ.");
+          if (cancelled) return;
+          setPageImage(result.dataUrl);
+          setPageSize({ width: result.width, height: result.height });
+          return;
+        }
         const page = await pdfDoc.getPage(safePage);
         const viewport = page.getViewport({ scale: 1.35 });
         const canvas = document.createElement("canvas");
@@ -40,6 +55,8 @@ export default function ManualFloorplanLocator({ pdfDoc: providedPdfDoc, initial
         if (cancelled) return;
         setPageImage(canvas.toDataURL("image/png"));
         setPageSize({ width: canvas.width, height: canvas.height });
+      } catch (reason) {
+        if (!cancelled) setError(reason.message);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -70,7 +87,8 @@ export default function ManualFloorplanLocator({ pdfDoc: providedPdfDoc, initial
         </div>
       </div>
       <div className="manual-locator-stage">
-        {(loading || !pdfDoc) && <div className="manual-locator-loading">{pdfDoc ? `Đang render trang ${safePage}…` : "Đang mở masterplan…"}</div>}
+        {error && <p role="alert">{error}</p>}
+        {!error && (loading || !pdfDoc) && <div className="manual-locator-loading">{pdfDoc ? `Đang render trang ${safePage}…` : "Đang mở masterplan…"}</div>}
         {pageImage && <button type="button" className="manual-locator-image" onClick={pick} title="Click đúng vị trí căn trên masterplan" disabled={busy}><img src={pageImage} alt={`Masterplan page ${safePage}`} draggable="false" /></button>}
       </div>
       <div className="manual-locator-hint">Auto không ra thì dùng đường dự phòng này: tìm đúng trang như Ctrl+F, click gần tâm mã căn. Có thể tăng Zoom trước khi click; bạn có thể mở lại và chọn lại bất cứ lúc nào.</div>

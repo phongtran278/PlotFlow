@@ -1,0 +1,29 @@
+import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+
+const staging = fs.existsSync(path.resolve('wrangler.jsonc'))
+  || Boolean(process.env.VITE_STATE_API_BASE_URL)
+  || process.env.PLOTFLOW_PRIVATE_STAGING === '1';
+if (!staging) {
+  console.log('[staging-media] Skipped: no staging Wrangler config or explicit staging build env.');
+  process.exit(0);
+}
+
+if (fs.existsSync(path.resolve('node_modules/sharp/package.json'))) {
+  console.log('[staging-media] sharp is already installed.');
+  process.exit(0);
+}
+
+console.log('[staging-media] Installing pinned, build-only sharp@0.35.5 for output optimization.');
+const result = spawnSync('npm', ['install', '--no-save', '--no-audit', '--no-fund', 'sharp@0.35.5'], {
+  stdio: 'inherit',
+  env: process.env,
+});
+if (result.error || result.status !== 0) {
+  throw new Error('Could not install the staging-only image optimizer. No media files were omitted.');
+}
+if (!fs.existsSync(path.resolve('node_modules/sharp/package.json'))) {
+  throw new Error('sharp installation did not produce node_modules/sharp. No media files were omitted.');
+}
+console.log('[staging-media] PASS: pinned optimizer is available; source assets remain unchanged.');

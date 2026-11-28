@@ -3,7 +3,15 @@ import { canUseLegacyProjectStorage, isProjectCloudKey, validateCloudSnapshot, m
 const CLOUD_STATE_URL = import.meta.env.VITE_PROJECT_STATE_URL || "";
 const CLOUD_PROJECT_ID = import.meta.env.VITE_CLOUD_PROJECT_ID || "vinhomes-saigon-park";
 const STATE_API_BASE_URL = (import.meta.env.VITE_STATE_API_BASE_URL || "").replace(/\/$/, "");
-const API_MODE = Boolean(STATE_API_BASE_URL);
+// The dedicated Cloudflare staging UI may only use the stable staging API.
+const STAGING_UI_ORIGIN = "https://plotflow-ui-staging.phongtran7076.workers.dev";
+const STAGING_API_ORIGIN = "https://plotflow-state-api-staging.phongtran7076.workers.dev";
+const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
+const cloudflareHost = typeof window !== "undefined" && window.location.hostname.endsWith(".workers.dev");
+const stagingHost = browserOrigin === STAGING_UI_ORIGIN;
+const stagingBuild = import.meta.env.VITE_PLOTFLOW_PRIVATE_STAGING === "1";
+const API_MODE = Boolean(STATE_API_BASE_URL) && (!stagingBuild && !cloudflareHost || stagingHost && STATE_API_BASE_URL === STAGING_API_ORIGIN && !CLOUD_STATE_URL);
+const LEGACY_ENABLED = Boolean(CLOUD_STATE_URL) && !cloudflareHost && !stagingBuild;
 const STATE_API_URL = API_MODE ? `${STATE_API_BASE_URL}/v1/projects/${encodeURIComponent(CLOUD_PROJECT_ID)}/state` : "";
 const SAVE_DELAY_MS = 900;
 
@@ -18,11 +26,16 @@ let remoteEtag = null;
 let remoteStorage = {};
 let writeBlocked = false;
 let bootstrapComplete = false;
-function notifyState(status) {
+let migrationReviewAvailable = false;
+// Only expose bounded, non-sensitive diagnostic codes, never response bodies or URLs.
+function cloudLoadFailure(code) {
+  return Object.assign(new Error("Cloud state load failed: " + code), { cloudDiagnostic: code });
+}
+function notifyState(status, diagnostic = null) {
   if (typeof window !== "undefined") {
-    window.__plotflowCloudStateStatus = { status, transport: API_MODE ? "state-api" : "legacy" };
+    window.__plotflowCloudStateStatus = { status, diagnostic, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" };
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-status", {
-      detail: { status, projectId: CLOUD_PROJECT_ID, transport: API_MODE ? "state-api" : "legacy" },
+      detail: { status, diagnostic, projectId: CLOUD_PROJECT_ID, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" },
     }));
   }
 }
@@ -35,7 +48,7 @@ function shouldShareKey(key = "") {
   return isProjectCloudKey(CLOUD_PROJECT_ID, key);
 }
 
-function collectStorage() {
+function collectStorage({ strict = false } = {}) {
   const storage = {};
   try {
     for (let index = 0; index < window.localStorage.length; index += 1) {
@@ -44,7 +57,8 @@ function collectStorage() {
       const value = window.localStorage.getItem(key);
       if (value !== null) storage[key] = value;
     }
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     // Local cache is optional; cloud sync must never block the app.
   }
   return storage;
@@ -70,16 +84,35 @@ function applyStorage(snapshot = {}) {
 }
 
 async function readCloudState() {
-  if (!API_MODE && !CLOUD_STATE_URL) return null;
-  const response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
-    method: "GET", cache: "no-store", credentials: API_MODE ? "include" : "same-origin",
-  });
+  if (!API_MODE && !LEGACY_ENABLED) return null;
+  let response;
+  try {
+    response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
+      method: "GET", cache: "no-store", credentials: API_MODE ? "include" : "same-origin",
+      ...(API_MODE ? { redirect: "error", signal: AbortSignal.timeout(15000) } : {}),
+    });
+  } catch (error) {
+    if (!API_MODE) throw error;
+    throw cloudLoadFailure(error?.name === "TimeoutError" || error?.name === "AbortError"
+      ? "timeout" : "network_or_access");
+  }
   if (!API_MODE && response.status === 404) throw new Error("Cloud snapshot missing; manual recovery required");
-  if (!response.ok) throw new Error(`Cloud state GET failed (${response.status})`);
-  const value = validateCloudSnapshot(await response.json(), CLOUD_PROJECT_ID);
+  if (!response.ok) {
+    if (!API_MODE) throw new Error(`Cloud state GET failed (${response.status})`);
+    const codes = { 401: "authentication_required", 403: "access_denied", 404: "endpoint_not_found",
+      502: "storage_unavailable", 503: "service_unavailable" };
+    throw cloudLoadFailure(codes[response.status] || "http_error");
+  }
+  let value;
+  try {
+    value = validateCloudSnapshot(await response.json(), CLOUD_PROJECT_ID);
+  } catch (error) {
+    if (!API_MODE) throw error;
+    throw cloudLoadFailure("invalid_snapshot");
+  }
   if (API_MODE) {
     const etag = normalizeEtag(response.headers.get("x-plotflow-state-etag"));
-    if (!etag) throw new Error("State API did not provide a strong Azure version");
+    if (!etag) throw cloudLoadFailure("missing_read_version");
     remoteEtag = etag;
   }
   remoteStorage = { ...value.storage };
@@ -87,7 +120,7 @@ async function readCloudState() {
 }
 
 async function writeCloudState() {
-  if ((!API_MODE && !CLOUD_STATE_URL) || !bootstrapComplete || writeBlocked) return false;
+  if ((!API_MODE && !LEGACY_ENABLED) || !bootstrapComplete || writeBlocked) return false;
   if (API_MODE && !remoteEtag) return false;
   if (saving) {
     saveAgain = true;
@@ -114,6 +147,7 @@ async function writeCloudState() {
       },
       body: JSON.stringify(payload),
       cache: "no-store",
+      ...(API_MODE ? { redirect: "error", signal: AbortSignal.timeout(15000) } : {}),
     });
     if (API_MODE && response.status === 412) {
       writeBlocked = true;
@@ -131,6 +165,7 @@ async function writeCloudState() {
       remoteEtag = nextEtag;
     }
     remoteStorage = payload.storage;
+    if (API_MODE && !writeBlocked) notifyState("saved");
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-saved", {
       detail: { projectId: CLOUD_PROJECT_ID, updatedAt: payload.updatedAt },
     }));
@@ -149,7 +184,7 @@ async function writeCloudState() {
 }
 
 function scheduleCloudSave(delay = SAVE_DELAY_MS) {
-  if ((!API_MODE && !CLOUD_STATE_URL) || suspendTracking || !bootstrapComplete || writeBlocked) return;
+  if ((!API_MODE && !LEGACY_ENABLED) || suspendTracking || !bootstrapComplete || writeBlocked) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
@@ -181,6 +216,16 @@ function installStorageTracking() {
     if (hadSharedData) scheduleCloudSave();
   };
 
+  // Same-origin tabs share localStorage. Stop automatic writes when another
+  // tab changes a tracked key; ETag alone cannot isolate that shared cache.
+  if (API_MODE && stagingHost) window.addEventListener("storage", (event) => {
+    if (event.storageArea !== window.localStorage || (event.key !== null && !shouldShareKey(event.key))) return;
+    writeBlocked = true;
+    window.clearTimeout(saveTimer);
+    saveTimer = 0;
+    notifyState("version_conflict");
+  });
+
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && saveTimer) {
       window.clearTimeout(saveTimer);
@@ -191,7 +236,8 @@ function installStorageTracking() {
 }
 
 export async function bootstrapCloudProjectState() {
-  if ((!API_MODE && !CLOUD_STATE_URL) || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
+  if (!API_MODE && stagingBuild && stagingHost) { writeBlocked = true; notifyState("load_error", "transport_config"); }
+  if ((!API_MODE && !LEGACY_ENABLED) || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
     installStorageTracking();
     return { enabled: false, projectId: CLOUD_PROJECT_ID };
   }
@@ -207,24 +253,93 @@ export async function bootstrapCloudProjectState() {
     const cloudStorage = cloud.storage;
     const scoped = Object.fromEntries(Object.entries(cloudStorage).filter(([key]) => shouldShareKey(key)));
     if (Object.keys(scoped).length > 0) {
-      applyStorage(scoped);
-      console.info(`[PlotFlow] cloud project restored: ${CLOUD_PROJECT_ID}`);
+      const local = collectStorage();
+      const differs = Object.keys(local).length > 0 &&
+        (Object.keys(local).length !== Object.keys(scoped).length ||
+          Object.entries(local).some(([key, value]) => scoped[key] !== value));
+      if (API_MODE && stagingHost && differs) {
+        writeBlocked = true;
+        migrationReviewAvailable = true;
+        notifyState("manual_migration_required");
+      } else {
+        applyStorage(scoped);
+        console.info(`[PlotFlow] cloud project restored: ${CLOUD_PROJECT_ID}`);
+      }
     } else if (Object.keys(collectStorage()).length > 0) {
       // Never auto-publish a local cache into an empty or foreign-key snapshot.
       writeBlocked = true;
+      migrationReviewAvailable = API_MODE && stagingHost;
       notifyState("manual_migration_required");
     }
   } catch (error) {
     writeBlocked = true;
-    notifyState("load_error");
+    notifyState("load_error", API_MODE ? error?.cloudDiagnostic || "unknown" : null);
     console.warn("[PlotFlow] cloud state unavailable; using local cache:", error);
   }
 
   bootstrapComplete = true;
   installStorageTracking();
-  return { enabled: true, projectId: CLOUD_PROJECT_ID, transport: API_MODE ? "state-api" : "legacy" };
+  return { enabled: true, projectId: CLOUD_PROJECT_ID, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" };
 }
 
 export function flushCloudProjectState() {
   return writeCloudState();
+}
+
+
+// Read-only review of the last verified remote snapshot and the current local
+// project cache. Never expose credentials, ETag, or unrelated project keys.
+export function getCloudConflictReview() {
+  if (!API_MODE || !stagingHost || !bootstrapComplete || !writeBlocked
+      || !migrationReviewAvailable || !remoteEtag) return null;
+  const local = collectStorage({ strict: true });
+  const remote = Object.fromEntries(Object.entries(remoteStorage).filter(([key]) => shouldShareKey(key)));
+  const own = (object, key) => Object.hasOwn(object, key);
+  const comparison = [...new Set([...Object.keys(local), ...Object.keys(remote)])].sort().map(key => ({
+    key,
+    status: !own(local, key) ? "remote_only" : !own(remote, key) ? "local_only"
+      : local[key] === remote[key] ? "same" : "different",
+  }));
+  return {
+    format: "plotflow-staging-conflict-backup-v1",
+    projectId: CLOUD_PROJECT_ID,
+    capturedAt: new Date().toISOString(),
+    remoteSnapshot: "last_successful_read_this_session",
+    local: { version: 1, projectId: CLOUD_PROJECT_ID, storage: local },
+    remote: { version: 1, projectId: CLOUD_PROJECT_ID, storage: remote },
+    comparison,
+  };
+}
+
+
+// Reset only the backed-up, project-scoped local state. Cloud remains untouched.
+// Keep writes blocked until a fresh page bootstrap reads the current cloud version.
+export function resetStagingLocalConflict(expectedLocal) {
+  if (window.__plotflowCloudStateStatus?.status !== "manual_migration_required") return "unavailable";
+  const review = getCloudConflictReview();
+  if (!review || !expectedLocal || typeof expectedLocal !== "object") return "unavailable";
+  const current = review.local.storage;
+  const keys = Object.keys(current);
+  if (keys.length !== Object.keys(expectedLocal).length ||
+      keys.some(key => !Object.hasOwn(expectedLocal, key) || current[key] !== expectedLocal[key])) {
+    return "backup_stale";
+  }
+  writeBlocked = true;
+  window.clearTimeout(saveTimer);
+  saveTimer = 0;
+  suspendTracking = true;
+  try {
+    for (const key of keys) window.localStorage.removeItem(key);
+    if (Object.keys(collectStorage({ strict: true })).length) throw new Error("Local reset incomplete");
+    migrationReviewAvailable = false;
+    return "reset";
+  } catch {
+    // Best-effort rollback; the separately downloaded backup remains available.
+    for (const key of keys) {
+      try { window.localStorage.setItem(key, current[key]); } catch { /* retain backup */ }
+    }
+    return "storage_error";
+  } finally {
+    suspendTracking = false;
+  }
 }

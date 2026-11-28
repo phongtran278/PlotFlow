@@ -6,8 +6,12 @@ on:
       - qa/masterplan-browser-20261125
       - qa/detail-raster-lifecycle-20261125
       - qa/shared-sales-core-20261125
+      - qa/project-cloud-scope-20261125
+      - qa/project-workspace-boundary-20261125
+      - fix/masterplan-tl-index-on-qa-20261127
     paths:
       - 'app/**'
+      - 'services/state-api/**'
       - '.github/workflows/masterplan-browser-ci.yml'
 permissions:
   contents: read
@@ -43,6 +47,9 @@ jobs:
           node --input-type=module -e 'import fs from "node:fs"; for (const f of ["dependency-audit.json","dependency-audit-runtime.json"]) { const j=JSON.parse(fs.readFileSync(f)); if (!j.metadata?.vulnerabilities) throw Error("Audit unavailable: "+f); console.log(f, JSON.stringify(j.metadata.vulnerabilities)); for(const [name,v] of Object.entries(j.vulnerabilities||{})) console.log(JSON.stringify({name,severity:v.severity,direct:v.isDirect,range:v.range,fixAvailable:v.fixAvailable,advisories:(v.via||[]).filter(x=>typeof x==="object").map(x=>({title:x.title,url:x.url,severity:x.severity,range:x.range}))})); }'
       - run: npm run check:secrets
       - run: npm test
+      - name: State API regression (mocked Azure, no live credentials)
+        working-directory: services/state-api
+        run: npm test
       - name: Verify Excel import and export compatibility
         run: node --test tools/tests/excel-security.test.mjs
       - name: Test isolated image fixtures
@@ -56,7 +63,7 @@ jobs:
         run: npm run test:build
       - name: Verify no images missing or omitted
         run: |
-          node --input-type=module -e 'import fs from "node:fs";const a=JSON.parse(fs.readFileSync("asset-audit-report.json"));const o=JSON.parse(fs.readFileSync("dist/staging-omitted-assets.json"));const m=JSON.parse(fs.readFileSync("media-optimization-report.json"));if(!a.total||a.missingCount||a.oversizeCount||o.omitted.length||m.failed.length)throw Error("Incomplete media build");console.log(JSON.stringify({sourceImages:a.total,optimized:m.optimized,bytesBefore:m.bytesBefore,bytesAfter:m.bytesAfter,missing:a.missingCount,oversize:a.oversizeCount,omitted:o.omitted.length}));'
+          node --input-type=module -e 'import fs from "node:fs";const a=JSON.parse(fs.readFileSync("asset-audit-report.json"));const o=JSON.parse(fs.readFileSync("dist/staging-omitted-assets.json"));const m=JSON.parse(fs.readFileSync("media-optimization-report.json"));const native=JSON.parse(fs.readFileSync("dist/masterplan/generated/manifest.json")).nativeCoordinateSource;const validOmissions=o.omitted.length===0||(native&&o.omitted.length===1&&o.omitted[0].path==="masterplan/masterplan.pdf"&&o.omitted[0].reason==="canonical-masterplan-served-through-prepared-raster-runtime"&&Number(o.omitted[0].sizeBytes)>25*1024*1024&&!fs.existsSync("dist/masterplan/masterplan.pdf"));if(!a.total||a.missingCount||a.oversizeCount||!validOmissions||m.failed.length)throw Error("Incomplete media build");console.log(JSON.stringify({sourceImages:a.total,optimized:m.optimized,bytesBefore:m.bytesBefore,bytesAfter:m.bytesAfter,missing:a.missingCount,oversize:a.oversizeCount,omitted:o.omitted.length}));'
       - name: Test local media plan
         run: node --test tools/tests/media-plan.test.mjs
       - name: Create local project manifest (no Azure access)
@@ -65,8 +72,14 @@ jobs:
           node --input-type=module -e 'import fs from "node:fs";const p=JSON.parse(fs.readFileSync("media-sync-plan.json"));if(p.publicationAllowed||!p.sourceCount)throw Error("Unexpected plan");console.log(JSON.stringify({projectId:p.projectId,sourceCount:p.sourceCount,runtimeCount:p.runtimeCount,objects:p.objects.length,unverifiedProvenance:p.unverifiedProvenance,remoteState:p.remoteState}));'
       - name: Test synthetic tile rendering
         run: node --test tools/tests/masterplan-tiles.test.mjs
-      - name: Audit built PDF and page pyramid
-        run: node tools/audit-masterplan-build.mjs
+      - name: Audit Masterplan and test real lot shapes
+        run: |
+          if node -e 'process.exit(require("./dist/masterplan/generated/manifest.json").nativeCoordinateSource ? 0 : 1)'; then
+            node tools/native-masterplan-qa.mjs
+          else
+            node tools/audit-masterplan-build.mjs
+            node tools/test-auto-lot-shape-masterplan.mjs
+          fi
       - name: Install isolated browser tooling
         run: |
           mkdir -p "$RUNNER_TEMP/plotflow-browser"
@@ -86,6 +99,12 @@ jobs:
         run: |
           export PLOTFLOW_PLAYWRIGHT_MODULE="$RUNNER_TEMP/plotflow-browser/node_modules/playwright/index.mjs"
           node tools/browser-detail-raster.mjs
+      - name: Verify dedicated staging build with pinned public endpoint (no deployment)
+        env:
+          VITE_PROJECT_STATE_URL: ''
+          VITE_STATE_API_BASE_URL: 'https://plotflow-state-api-staging.phongtran7076.workers.dev'
+          VITE_CLOUD_PROJECT_ID: 'vinhomes-saigon-park'
+        run: node tools/build-private-state-staging.mjs
       - name: Security release gate
         run: |
           node --input-type=module -e 'import fs from "node:fs";for(const f of ["dependency-audit.json","dependency-audit-runtime.json"]){const v=JSON.parse(fs.readFileSync(f)).metadata?.vulnerabilities;if(!v||v.high||v.critical)throw Error("Unresolved high/critical findings: "+f);}'
@@ -98,6 +117,8 @@ jobs:
             app/package.json
             app/package-lock.json
             app/masterplan-audit-report.json
+            app/auto-lot-shape-masterplan-report.json
+            app/auto-lot-shape-samples/
             app/browser-check-output/browser-smoke-memory.json
             app/browser-check-output/detail-raster.json
             app/media-sync-plan.json

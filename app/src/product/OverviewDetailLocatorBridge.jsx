@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { normalizeUnitCode, resolveUnitsAgainstIndex } from "../floorplan/unitCodeCompat.js";
 
-const MANIFEST_URL = "/masterplan/generated/manifest.json";
+const MANIFEST_URL = "/masterplan/generated/manifest.json?v=native-10427-v1";
 const FLOORPLAN_OVERRIDE_KEY = "plotflow-floorplan-overrides-v6";
 
 function readJson(key, fallback = {}) {
@@ -49,7 +49,7 @@ export default function OverviewDetailLocatorBridge() {
 
     function loadManifest() {
       if (!manifestPromise) {
-        manifestPromise = fetch(MANIFEST_URL, { cache: "force-cache" })
+        manifestPromise = fetch(MANIFEST_URL, { cache: "no-store" })
           .then((response) => {
             if (!response.ok) throw new Error(`Overview manifest unavailable (${response.status})`);
             return response.json();
@@ -109,8 +109,29 @@ export default function OverviewDetailLocatorBridge() {
 
           const centerX = Number(match.x || 0) + Number(match.width || 0) / 2;
           const centerYFromBottom = Number(match.y || 0) + Number(match.height || 0) / 2;
-          const x = (centerX / pageWidth) * 100;
-          const y = ((pageHeight - centerYFromBottom) / pageHeight) * 100;
+          const parent = anchor.offsetParent || anchor.parentElement;
+          const css = getComputedStyle(parent);
+          const overlayW = parseFloat(css.width) || stage.clientWidth;
+          const overlayH = parseFloat(css.height) || stage.clientHeight;
+
+          const pdfX = Number(stage.dataset.pfPdfX);
+          const pdfY = Number(stage.dataset.pfPdfY);
+          const pdfW = Number(stage.dataset.pfPdfWidth);
+          const pdfH = Number(stage.dataset.pfPdfHeight);
+
+          const u = centerX / pageWidth;
+          const v = (pageHeight - centerYFromBottom) / pageHeight;
+
+          const valid = [pdfX, pdfY, pdfW, pdfH].every(Number.isFinite)
+            && pdfW > 0 && pdfH > 0;
+
+          const x = valid
+            ? (pdfX + u * pdfW) / overlayW * 100
+            : u * 100;
+
+          const y = valid
+            ? (pdfY + v * pdfH) / overlayH * 100
+            : v * 100;
 
           anchor.dataset.pfAutoDetectedX = String(x);
           anchor.dataset.pfAutoDetectedY = String(y);
@@ -181,6 +202,7 @@ export default function OverviewDetailLocatorBridge() {
 
     window.addEventListener("plotflow-floorplan-locator-updated", resetAndSchedule);
     window.addEventListener("pf-overview-group-changed", resetAndSchedule);
+    window.addEventListener("pf-overview-pdf-bounds", resetAndSchedule);
     window.addEventListener("plotflow-overview-sell-units", resetAndSchedule);
     schedule(true);
 
@@ -190,6 +212,7 @@ export default function OverviewDetailLocatorBridge() {
       window.clearTimeout(timer);
       window.removeEventListener("plotflow-floorplan-locator-updated", resetAndSchedule);
       window.removeEventListener("pf-overview-group-changed", resetAndSchedule);
+      window.removeEventListener("pf-overview-pdf-bounds", resetAndSchedule);
       window.removeEventListener("plotflow-overview-sell-units", resetAndSchedule);
       delete window.__plotflowOverviewLocator;
     };

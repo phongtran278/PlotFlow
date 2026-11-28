@@ -46,3 +46,50 @@ test('independent import calls do not share mutable row data across synthetic pr
  const a=normalizeRow({unitCode:'QA-01',priceStandard:100}),b=normalizeRow({unitCode:'QA-01',priceStandard:200});
  a.priceStandard=300;assert.equal(b.priceStandard,200);
 });
+
+test('Overview and Detail agree on area, type and handover for the same sales row', async () => {
+  const { normalizeOverviewRow } = await import('../src/core/sales/overviewRow.js');
+  const row = { MA_CAN: 'QA-01', DT_DAT_M2: 0, DTXD_M2: 189.6, LOAI_HINH_SAN_PHAM: 'Liền kề', TIEU_CHUAN_BAN_GIAO: 'Giãn xây', priceAllIn: 123 };
+  const detail = normalizeRow(row);
+  const overview = normalizeOverviewRow(row);
+  assert.deepEqual([overview.code, overview.land, overview.floor, overview.type, overview.handover],
+    [detail.unitCode, String(detail.landArea), String(detail.constructionArea), detail.type, detail.handover]);
+  assert.equal(overview.priceAllIn, '123');
+  assert.equal(normalizeOverviewRow({'Mã lô':'QA-02', 'DT sàn':100}).floor, '100');
+});
+
+test('Overview prefers explicitly named prices regardless of workbook column order', async () => {
+  const { normalizeOverviewRow } = await import('../src/core/sales/overviewRow.js');
+  const prices = [['price18', 3], ['priceEarly', 2], ['Giá All-in', 6], ['priceLandVat', 0]];
+  for (const entries of [prices, [...prices].reverse()]) {
+    const row = normalizeOverviewRow({ unitCode: 'QA-01', ...Object.fromEntries(entries) });
+    assert.deepEqual([row.priceAllIn, row.priceLandVat], ['6', '0']);
+  }
+  assert.equal(normalizeOverviewRow({unitCode: 'QA-01', price18: 3, priceAllIn: ''}).priceAllIn, '');
+  assert.equal(normalizeOverviewRow({unitCode: 'QA-01', price18: 3}).priceAllIn, '3');
+});
+
+test('project views share workbook selection while retaining both sets of prices', async () => {
+  const { normalizeProjectSalesRow } = await import('../src/core/sales/overviewRow.js');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ unitCode: 'GUIDE-01' }]), 'Guide');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
+    'Mã lô': 'TL12-51', 'TCBG': 'Thô', 'DT đất': 121, 'DT sàn': 177,
+    priceStandard: 8000000000, priceEarly: 8100000000,
+    price18: 8200000000, price24: 8300000000, priceAllIn: 8400000000,
+  }]), 'UNITS');
+  const { units: [unit], sheetName } = parseWorkbookUnits(wb, XLSX, normalizeProjectSalesRow);
+  assert.equal(sheetName, 'UNITS');
+  assert.deepEqual([unit.unitCode, unit.handover, unit.landArea, unit.constructionArea], ['TL12-51', 'Thô', '121', '177']);
+  assert.deepEqual([unit.priceStandard, unit.priceEarly, unit.price18, unit.price24], ['8000000000', '8100000000', '8200000000', '8300000000']);
+  assert.equal(unit.overview.priceAllIn, '8400000000');
+});
+
+test('disconnect clears the active Sheet while restoring a previously imported workbook if available', async () => {
+  const { activeSalesDataset, disconnectSalesSheet, overviewSalesUnits } = await import('../src/core/sales/projectSalesSource.js');
+  const sheet = { units: [{ overview: { code: 'SHEET-01' } }] };
+  const excel = { units: [{ overview: { code: 'EXCEL-01' } }] };
+  assert.deepEqual(overviewSalesUnits({ active: 'sheet', sheet, excel }), [{ code: 'SHEET-01' }]);
+  assert.equal(activeSalesDataset(disconnectSalesSheet({ active: 'sheet', sheet, excel })), excel);
+  assert.deepEqual(overviewSalesUnits(disconnectSalesSheet({ active: 'sheet', sheet, excel: null })), []);
+});

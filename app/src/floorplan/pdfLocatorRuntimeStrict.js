@@ -1,7 +1,7 @@
 import { calculateCropRect, FLOORPLAN_FRAME_ASPECT } from "./floorplanGeometry.js";
 import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
-const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
+const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json?v=native-10427-v1";
 const TILE_SIZE = 512;
 const MIN_LEVEL_WIDTH = 1800;
 const stablePreviewUrls = new Map();
@@ -185,12 +185,13 @@ function closeBitmap(bitmap) {
   publishRuntimeStats();
 }
 
-async function canvasToResult(canvas, crop, epoch, extra = {}) {
+async function canvasToResult(canvas, crop, epoch, extra = {}, independent = false) {
   const profile = getMemoryProfile();
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", profile.lowMemory ? 0.78 : 0.84));
   canvas.width = 1;
   canvas.height = 1;
-  if (!blob || epoch !== renderEpoch) return null;
+  if (!blob || (!independent && epoch !== renderEpoch)) return null;
+  if (independent) return { dataUrl: URL.createObjectURL(blob), crop, ...extra };
   revoke(activeViewportUrl);
   activeViewportUrl = URL.createObjectURL(blob);
   publishRuntimeStats();
@@ -211,14 +212,14 @@ async function canvasToResult(canvas, crop, epoch, extra = {}) {
 
 async function renderGlobalTiles(pageRender, view, options = {}, epoch) {
   const manifest = await loadManifest();
-  if (epoch !== renderEpoch) return null;
+  if (!options.independent && epoch !== renderEpoch) return null;
   const pageInfo = manifest?.pages?.[String(pageRender?.pageNumber || 1)];
   if (!pageInfo) return null;
   const tiles = recoverTiles(pageInfo);
   if (!tiles?.base || !tiles?.levels?.length) return null;
 
   const aspect = options.aspect || FLOORPLAN_FRAME_ASPECT;
-  const crop = calculateCropRect(pageRender, view, aspect);
+  const crop = options.independent && options.explicitCrop ? options.explicitCrop : calculateCropRect(pageRender, view, aspect);
   const outputWidth = boundedOutputWidth(options);
   const outputHeight = Math.max(2, Math.round(outputWidth / aspect));
   const level = chooseLevel(pageRender, tiles, crop, outputWidth);
@@ -252,7 +253,7 @@ async function renderGlobalTiles(pageRender, view, options = {}, epoch) {
 
   for (let row = firstRow; row <= lastRow; row += 1) {
     for (let col = firstCol; col <= lastCol; col += 1) {
-      if (epoch !== renderEpoch) {
+      if (!options.independent && epoch !== renderEpoch) {
         canvas.width = 1;
         canvas.height = 1;
         return null;
@@ -270,7 +271,7 @@ async function renderGlobalTiles(pageRender, view, options = {}, epoch) {
 
       const bitmap = await loadBitmap(`${tiles.base}/${level.width}/${col}_${row}.webp`);
       try {
-        if (epoch !== renderEpoch) continue;
+        if (!options.independent && epoch !== renderEpoch) continue;
         const srcX = ix0 - tileLeft;
         const srcY = iy0 - tileTop;
         const srcW = ix1 - ix0;
@@ -286,13 +287,17 @@ async function renderGlobalTiles(pageRender, view, options = {}, epoch) {
     }
   }
 
+  if (options.embedForExport) {
+    // html-to-image rewrites fetched URLs. Embed the bounded crop before releasing its canvas.
+    return { dataUrl: canvas.toDataURL("image/png"), crop, width: outputWidth, height: outputHeight };
+  }
   return await canvasToResult(canvas, crop, epoch, {
     width: outputWidth,
     height: outputHeight,
     preparedTier: `page-tiles-${level.width}`,
-  });
+  }, options.independent === true);
   } catch (error) {
-    if (epoch !== renderEpoch) return null;
+    if (!options.independent && epoch !== renderEpoch) return null;
     throw error;
   } finally {
     canvas.width = 1;
@@ -307,6 +312,7 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = {}, options = {
     return legacyRuntime.renderPdfRegion(pdfDoc, pageRender, view, options);
   }
 
+  if (options.independent) return renderGlobalTiles(pageRender, view, options, renderEpoch);
   const epoch = ++renderEpoch;
   const result = await renderGlobalTiles(pageRender, view, options, epoch);
   if (!result?.dataUrl) return result;
@@ -320,8 +326,8 @@ export async function renderPdfRegion(pdfDoc, pageRender, view = {}, options = {
   const key = previewKey(pageRender, view);
   let stableUrl;
   try { stableUrl = await cloneBlobUrl(result.dataUrl); }
-  catch (error) { if (epoch !== renderEpoch) return null; throw error; }
-  if (epoch !== renderEpoch) { revoke(stableUrl); return null; }
+  catch (error) { if (!options.independent && epoch !== renderEpoch) return null; throw error; }
+  if (!options.independent && epoch !== renderEpoch) { revoke(stableUrl); return null; }
   rememberStablePreview(key, stableUrl);
   return { ...result, dataUrl: stableUrl, stablePreview: true };
 }

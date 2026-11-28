@@ -59,6 +59,14 @@ try{
  const first=requests.splice(0);
  result=await run(2,'qa-b',v,preview);
  assert.deepEqual(requests.splice(0),first);assert.equal(result.stats.tileBitmapsActive,0);report.cases.push({name:'scaled coordinates',...result});
+ const embedded=await page.evaluate(async()=>{
+  const q=window.qa;
+  const r=await q.m.renderPdfRegion(null,q.make(),{zoom:250},{outputWidth:1084,independent:true,embedForExport:true});
+  const img=new Image();img.src=r.dataUrl;await img.decode();
+  return {inline:r.dataUrl.startsWith('data:image/png;'),width:img.naturalWidth};
+ });
+ assert.deepEqual(embedded,{inline:true,width:1084});
+ report.cases.push({name:'self-contained export crop',...embedded});
  for(let i=0;i<4;i++){
   result=await run(1,'qa-'+i,{zoom:350+i*50,offsetX:10*i,offsetY:0},fine);
   assert.ok(result.pdfFree&&result.width<=1280);assert.equal(result.stats.tileBitmapsActive,0);assert.ok(result.stats.stablePreviewUrls<=2);report.cases.push({name:'fine-tune-'+i,...result});

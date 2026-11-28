@@ -14,7 +14,6 @@ import { findCatalogAsset, houseCatalog, pinAssets } from "../data/assetCatalog.
 import { resolveArchitectureHouseAsset, withResolvedArchitecture } from "../data/architectureAutoMatch.js";
 import { renderPdfPageBase, renderPdfRegion } from "../floorplan/pdfLocator.js";
 
-const LOT_OVERLAY_KEY = "plotflow-lot-overlays-r1-v9";
 const MANUAL_FLOORPLAN_KEY = "plotflow-manual-floorplans-v1";
 const DESIGN_ASSIGNMENT_KEY = "plotflow-design-assignments-r1";
 
@@ -30,13 +29,6 @@ function normalizeCode(value) {
 
 function readJson(key) {
   try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
-}
-
-function readPersistedOverlay(unitCode) {
-  const code = normalizeCode(unitCode);
-  if (!code) return null;
-  const overlay = readJson(LOT_OVERLAY_KEY)?.[code] || null;
-  return overlay?.stale ? null : overlay;
 }
 
 function readManualFloorplan(unitCode) {
@@ -75,27 +67,26 @@ function missingHousePlaceholder(key = "HOUSE ASSET") {
 }
 
 function focusSheetInput() {
-  const input = document.querySelector(".sheet-connect input[type='text']");
-  input?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-  window.setTimeout(() => input?.focus?.(), 220);
+  document.querySelector(".sheet-connect [data-connect-sheet]")?.click();
 }
 
 function openExcelPicker() {
-  document.querySelector(".excel-import-button input[type='file']")?.click?.();
+  document.querySelector(".unit-sidebar button.excel-import-button")?.click();
 }
 
 export default function PosterCanvas({
   lotOverlay,
-  preferLotOverlay = false,
   previewZoom = 1,
   unit = {},
   assets = {},
   isEditing = false,
   floorplanStatus,
+  manualLocateRequest,
+  onManualFloorplanLocated,
+  floorplanDocument,
   placeholderMode = false,
   ...props
 }) {
-  const [persistedOverlay, setPersistedOverlay] = useState(() => placeholderMode ? null : readPersistedOverlay(unit?.unitCode));
   const [quickPinMode, setQuickPinMode] = useState(false);
   const [manualLocatorOpen, setManualLocatorOpen] = useState(false);
   const [manualFloorplanImage, setManualFloorplanImage] = useState(() => placeholderMode ? null : readManualFloorplan(unit?.unitCode));
@@ -105,21 +96,6 @@ export default function PosterCanvas({
   const [posterTarget, setPosterTarget] = useState(null);
   const [quickControlsTarget, setQuickControlsTarget] = useState(null);
   const [toolbarTarget, setToolbarTarget] = useState(null);
-
-  useEffect(() => {
-    if (placeholderMode) {
-      setPersistedOverlay(null);
-      return undefined;
-    }
-    const sync = () => setPersistedOverlay(readPersistedOverlay(unit?.unitCode));
-    sync();
-    window.addEventListener("plotflow-overlay-updated", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("plotflow-overlay-updated", sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, [unit?.unitCode, placeholderMode]);
 
   useEffect(() => {
     if (placeholderMode) {
@@ -147,6 +123,10 @@ export default function PosterCanvas({
   }, [unit?.unitCode, isEditing, placeholderMode]);
 
   useEffect(() => {
+    if (manualLocateRequest?.code === normalizeCode(unit?.unitCode)) setManualLocatorOpen(true);
+  }, [manualLocateRequest, unit?.unitCode]);
+
+  useEffect(() => {
     if (placeholderMode) return undefined;
     function openPinArrange(event) {
       const eventCode = normalizeCode(event?.detail?.unitCode);
@@ -164,10 +144,7 @@ export default function PosterCanvas({
     normalizeSidebarPriceText();
   });
 
-  const isUnifiedLivePreview = Math.abs(Number(previewZoom) - 0.27) < 0.0001;
-  const effectiveOverlay = placeholderMode ? null : ((preferLotOverlay || isUnifiedLivePreview)
-    ? lotOverlay
-    : (persistedOverlay || lotOverlay));
+  const effectiveOverlay = placeholderMode || manualFloorplanImage ? null : lotOverlay;
 
   const dataResolvedUnit = placeholderMode ? unit : withResolvedArchitecture(unit);
   const resolvedUnit = placeholderMode ? dataResolvedUnit : applyQuickTextOverride(dataResolvedUnit, quickTextOverride);
@@ -210,11 +187,14 @@ export default function PosterCanvas({
         outputWidth: 1084,
         includeHighlight: false,
         maxRenderScale: 128,
+        independent: true,
+        embedForExport: true,
       });
       const payload = { dataUrl: crop.dataUrl, pageNumber, x, y, zoom };
       saveManualFloorplan(unit?.unitCode, payload);
       setManualFloorplanImage(crop.dataUrl);
       setManualLocatorOpen(false);
+      onManualFloorplanLocated?.(normalizeCode(unit?.unitCode));
     } finally {
       setManualLocatorBusy(false);
     }
@@ -273,6 +253,7 @@ export default function PosterCanvas({
 
       {manualLocatorOpen && createPortal(
         <ManualFloorplanLocator
+          pdfDoc={floorplanDocument}
           initialPage={1}
           busy={manualLocatorBusy}
           onCancel={() => setManualLocatorOpen(false)}
