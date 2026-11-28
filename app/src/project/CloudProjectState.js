@@ -310,3 +310,36 @@ export function getCloudConflictReview() {
     comparison,
   };
 }
+
+
+// Reset only the backed-up, project-scoped local state. Cloud remains untouched.
+// Keep writes blocked until a fresh page bootstrap reads the current cloud version.
+export function resetStagingLocalConflict(expectedLocal) {
+  if (window.__plotflowCloudStateStatus?.status !== "manual_migration_required") return "unavailable";
+  const review = getCloudConflictReview();
+  if (!review || !expectedLocal || typeof expectedLocal !== "object") return "unavailable";
+  const current = review.local.storage;
+  const keys = Object.keys(current);
+  if (keys.length !== Object.keys(expectedLocal).length ||
+      keys.some(key => !Object.hasOwn(expectedLocal, key) || current[key] !== expectedLocal[key])) {
+    return "backup_stale";
+  }
+  writeBlocked = true;
+  window.clearTimeout(saveTimer);
+  saveTimer = 0;
+  suspendTracking = true;
+  try {
+    for (const key of keys) window.localStorage.removeItem(key);
+    if (Object.keys(collectStorage({ strict: true })).length) throw new Error("Local reset incomplete");
+    migrationReviewAvailable = false;
+    return "reset";
+  } catch {
+    // Best-effort rollback; the separately downloaded backup remains available.
+    for (const key of keys) {
+      try { window.localStorage.setItem(key, current[key]); } catch { /* retain backup */ }
+    }
+    return "storage_error";
+  } finally {
+    suspendTracking = false;
+  }
+}

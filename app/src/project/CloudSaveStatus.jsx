@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { getCloudConflictReview } from "./CloudProjectState.js";
+import { useEffect, useRef, useState } from "react";
+import { getCloudConflictReview, resetStagingLocalConflict } from "./CloudProjectState.js";
 
 const messages = {
   saved: { title: "Đã lưu lên staging", detail: "State API đã xác nhận ghi dữ liệu và phiên bản mới." },
@@ -44,6 +44,7 @@ export default function CloudSaveStatus() {
   const [state, setState] = useState(null);
   const [review, setReview] = useState(null);
   const [backupMessage, setBackupMessage] = useState("");
+  const backedUpLocal = useRef(null);
   const status = state?.status;
   const diagnostic = status === "load_error" ? loadDiagnostics[state?.diagnostic] : null;
   useEffect(() => {
@@ -58,6 +59,8 @@ export default function CloudSaveStatus() {
     return () => window.removeEventListener("plotflow-cloud-state-status", handler);
   }, []);
   function downloadConflictBackup() {
+    backedUpLocal.current = null;
+    setReview(null);
     try {
       const snapshot = getCloudConflictReview();
       if (!snapshot) { setBackupMessage("Chưa có bản cloud đã xác minh để đối chiếu."); return; }
@@ -68,11 +71,31 @@ export default function CloudSaveStatus() {
       a.download = "plotflow-staging-conflict-" + snapshot.capturedAt.replace(/[:.]/g, "-") + ".json";
       document.body.appendChild(a);
       try { a.click(); } finally { a.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 30000); }
-      // Only metadata remains in UI state; no data values or versions.
+      // Hold the local snapshot only in memory to reject changes since backup.
+      backedUpLocal.current = snapshot.local.storage;
       setReview(snapshot.comparison);
       setBackupMessage("Đã yêu cầu tải file sao lưu. Kiểm tra thư mục Downloads trước khi thao tác tiếp. File chứa dữ liệu dự án riêng tư; không gửi file lên chat.");
     } catch {
       setBackupMessage("Không tạo được bản sao lưu. Giữ nguyên dữ liệu và thử lại.");
+    }
+  }
+  function resetLocal() {
+    if (!backedUpLocal.current) return;
+    if (!window.confirm("Bạn đã kiểm tra file JSON trong Downloads chưa? Thao tác này xóa dữ liệu thiết lập cục bộ của dự án Vinhomes Saigon Park trên Staging, giữ nguyên Azure và tải lại dữ liệu cloud. Chỉ tiếp tục nếu đã có bản sao lưu và đã đóng các tab PlotFlow Staging khác.")) return;
+    try {
+      const result = resetStagingLocalConflict(backedUpLocal.current);
+      if (result === "reset") {
+        backedUpLocal.current = null;
+        window.location.reload();
+      } else {
+        backedUpLocal.current = null;
+        setReview(null);
+        setBackupMessage(result === "backup_stale" ? "Dữ liệu cục bộ đã thay đổi sau khi sao lưu. Hãy sao lưu lại." : "Chưa thể reset an toàn. Giữ file sao lưu, không xóa thủ công.");
+      }
+    } catch {
+      backedUpLocal.current = null;
+      setReview(null);
+      setBackupMessage("Không thể kiểm tra dữ liệu cục bộ. Giữ nguyên file sao lưu.");
     }
   }
   const message = messages[status];
@@ -95,6 +118,7 @@ export default function CloudSaveStatus() {
           {review.filter(item => item.status !== "same").map(item => <li key={item.key}>{item.key}: {({ different: "Khác nhau", local_only: "Chỉ cục bộ", remote_only: "Chỉ cloud" })[item.status]}</li>)}
         </ul>
         <span>Cloud: bản đọc thành công lúc khởi động trang. Không có dữ liệu nào được ghi hoặc xóa.</span>
+        <button type="button" onClick={resetLocal} style={{ display: "block", marginTop: 12, padding: "9px 12px", border: "1px solid #ad3838", borderRadius: 6, cursor: "pointer", background: "#fff", color: "#943030" }}>Reset local và tải lại từ cloud</button>
       </div>}
     </>}
   </div>;
