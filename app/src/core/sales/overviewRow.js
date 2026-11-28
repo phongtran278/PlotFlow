@@ -10,10 +10,11 @@ function normKey(value = "") {
 }
 
 function pick(row, aliases = []) {
-  const keys = Object.keys(row || {});
-  const wanted = new Set(aliases.map(normKey));
-  for (const key of keys) {
-    if (wanted.has(normKey(key))) return row[key];
+  const columns = Object.keys(row || {}).map(key => ({ key, normalized: normKey(key) }));
+  for (const alias of aliases) {
+    const name = normKey(alias);
+    const column = columns.find(item => item.normalized === name);
+    if (column) return row[column.key];
   }
   return "";
 }

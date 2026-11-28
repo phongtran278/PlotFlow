@@ -57,3 +57,14 @@ test('Overview and Detail agree on area, type and handover for the same sales ro
   assert.equal(overview.priceAllIn, '123');
   assert.equal(normalizeOverviewRow({'Mã lô':'QA-02', 'DT sàn':100}).floor, '100');
 });
+
+test('Overview prefers explicitly named prices regardless of workbook column order', async () => {
+  const { normalizeOverviewRow } = await import('../src/core/sales/overviewRow.js');
+  const prices = [['price18', 3], ['priceEarly', 2], ['Giá All-in', 6], ['priceLandVat', 0]];
+  for (const entries of [prices, [...prices].reverse()]) {
+    const row = normalizeOverviewRow({ unitCode: 'QA-01', ...Object.fromEntries(entries) });
+    assert.deepEqual([row.priceAllIn, row.priceLandVat], ['6', '0']);
+  }
+  assert.equal(normalizeOverviewRow({unitCode: 'QA-01', price18: 3, priceAllIn: ''}).priceAllIn, '');
+  assert.equal(normalizeOverviewRow({unitCode: 'QA-01', price18: 3}).priceAllIn, '3');
+});
