@@ -283,6 +283,7 @@ export default function OverviewAnchorRuntime() {
         <select aria-label="Chọn mã căn"></select>
         <button type="button" data-nav="next" title="Next unit">›</button>
         <button type="button" class="pf-unit-focus-button" data-nav="focus">Focus</button>
+        <button type="button" data-nav="auto-shape" title="Detect lot boundary from native Masterplan">Auto Shape</button>
         <button type="button" class="pf-unit-adjust-button" data-nav="adjust" title="Move the connector endpoint on the lot">Edit lot point</button>
         <button type="button" class="pf-unit-save-anchor" data-nav="save-anchor" hidden>Save position</button>
         <button type="button" class="pf-unit-reset-anchor" data-nav="reset-anchor">Reset position</button>
@@ -307,6 +308,12 @@ export default function OverviewAnchorRuntime() {
         if (button.dataset.nav === "prev") stepNavigator(-1);
         if (button.dataset.nav === "next") stepNavigator(1);
         if (button.dataset.nav === "focus") focusCode(code);
+        if (button.dataset.nav === "auto-shape") {
+          if (pendingDraft) { setStatus("Save or cancel the connector edit first"); return; }
+          focusCode(code);
+          setActive(code);
+          window.dispatchEvent(new CustomEvent("pf-overview-auto-shape", { detail: { code, stage, status: (message) => { if (activeCode === code) setStatus(message); } } }));
+        }
         if (button.dataset.nav === "adjust") editConnector(code);
         if (button.dataset.nav === "save-anchor") saveDraft();
         if (button.dataset.nav === "reset-anchor") resetAnchor(code);
