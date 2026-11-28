@@ -24,7 +24,7 @@ function harness({origin=ui, env={}, local={}, responses=[]}={}) {
   const input={VITE_PLOTFLOW_PRIVATE_STAGING:'1',VITE_STATE_API_BASE_URL:api,...env};
   const code=source.replace(/^import[^\n]*ProjectCloudScope\.js[^\n]*\n/m, '').replaceAll('import.meta.env', JSON.stringify(input)).replaceAll('export async function','async function').replaceAll('export function','function');
   vm.runInNewContext(code,context);
-  return {window,data,calls,events,bootstrap:context.bootstrapCloudProjectState,flush:context.flushCloudProjectState,review:context.getCloudConflictReview};
+  return {window,data,calls,events,bootstrap:context.bootstrapCloudProjectState,flush:context.flushCloudProjectState,review:context.getCloudConflictReview,reset:context.resetStagingLocalConflict};
 }
 const state={version:1,projectId:'vinhomes-saigon-park',storage:{[key]:'{}',untracked:'preserve'}};
 const get=()=>new Response(JSON.stringify(state),{headers:{'x-plotflow-state-etag':'"old"'}});
@@ -105,4 +105,41 @@ test('conflict review handles an empty remote scoped snapshot without enabling w
   const h=harness({local:{[key]:'local'},responses:[new Response(JSON.stringify({...state,storage:{}}),{headers:{'x-plotflow-state-etag':'"old"'}})]});
   await h.bootstrap();assert.equal(h.review().comparison[0].status,'local_only');
   assert.equal(await h.flush(),false);assert.equal(h.calls.length,1);
+});
+
+test('explicit local reset removes only backed-up scoped keys and never calls PUT',async()=>{
+  const other='plotflow:other-project:private';
+  const localOnly='plotflow:vinhomes-saigon-park:local-only';
+  const h=harness({local:{[key]:'local',[localOnly]:'extra',[other]:'preserve',unrelated:'preserve'},responses:[get()]});
+  await h.bootstrap();
+  const snapshot=h.review();
+  assert.equal(h.reset(snapshot.local.storage),'reset');
+  assert.deepEqual(Object.fromEntries(h.data),{[other]:'preserve',unrelated:'preserve'});
+  assert.equal(await h.flush(),false);
+  assert.equal(h.calls.length,1);
+  assert.equal(h.reset(snapshot.local.storage),'unavailable');
+  const fresh=harness({local:Object.fromEntries(h.data),responses:[get()]});
+  await fresh.bootstrap();
+  assert.equal(fresh.data.get(key),'{}');
+  assert.equal(fresh.data.get(other),'preserve');
+  assert.equal(fresh.calls.length,1);
+});
+test('reset rejects changed cache and cross-tab conflict after backup',async()=>{
+  const h=harness({local:{[key]:'local'},responses:[get()]});
+  await h.bootstrap();
+  const snapshot=h.review();
+  h.window.localStorage.setItem(key,'changed');
+  assert.equal(h.reset(snapshot.local.storage),'backup_stale');
+  assert.equal(h.data.get(key),'changed');
+  h.events.storage({storageArea:h.window.localStorage,key});
+  assert.equal(h.reset(h.review().local.storage),'unavailable');
+  assert.equal(await h.flush(),false);
+  assert.equal(h.calls.length,1);
+});
+test('reset is unavailable without a verified conflicting staging snapshot',async()=>{
+  const h=harness({responses:[get()]});await h.bootstrap();
+  assert.equal(h.reset({[key]:'{}'}),'unavailable');
+  assert.equal(h.data.get(key),'{}');
+  const preview=harness({origin:'https://preview-plotflow-ui-staging.phongtran7076.workers.dev',local:{[key]:'keep'}});
+  await preview.bootstrap();assert.equal(preview.reset({[key]:'keep'}),'unavailable');assert.equal(preview.data.get(key),'keep');
 });
