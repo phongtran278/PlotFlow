@@ -28,7 +28,14 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
     const origin = request.headers.get('Origin');
     const permitted = allowedOrigin(request, env);
     if (origin && !permitted) return deny(403, 'origin_not_allowed');
-    const cors = permitted ? { 'access-control-allow-origin': permitted, 'vary': 'Origin' } : {};
+    // Cross-origin staging UI requests use Cloudflare Access cookies. Expose the
+    // strong Azure ETag so the browser can send it back in If-Match on PUT.
+    const cors = permitted ? {
+      'access-control-allow-origin': permitted,
+      'access-control-allow-credentials': 'true',
+      'access-control-expose-headers': 'etag, x-plotflow-state-etag',
+      'vary': 'Origin',
+    } : {};
     const reply = (data, status = 200, headers = {}) => json(data, status, { ...cors, ...headers });
     if (request.method === 'OPTIONS') {
       if (!permitted) return deny(403, 'origin_not_allowed');
@@ -96,7 +103,7 @@ export function createApp({ authenticate = verifyAccessJwt, read = readState, wr
       const result = await write(env, match[1], payload, etag);
       if (result.status === 412) return reply({ error: 'version_conflict', message: 'Reload state before retrying.' }, 412);
       if (![200, 201].includes(result.status)) return reply({ error: 'storage_unavailable' }, 502);
-      return reply({ saved: true }, 200, result.etag ? { etag: result.etag } : {});
+      return reply({ saved: true }, 200, result.etag ? { etag: result.etag, 'x-plotflow-state-etag': result.etag } : {});
     } catch {
       return reply({ error: 'storage_unavailable' }, 502);
     }

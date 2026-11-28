@@ -133,6 +133,21 @@ test('same-origin browser PUT succeeds while foreign origins remain forbidden', 
   assert.equal((await other.json()).error, 'origin_not_allowed');
 });
 
+test('credentialed CORS exposes the strong ETag required by the browser client', async () => {
+  const app = handler('editor@example.org');
+  const stagingOrigin = 'https://staging.example.org';
+  const get = await app(request('GET', undefined, { Origin: stagingOrigin }), env);
+  assert.equal(get.status, 200);
+  assert.equal(get.headers.get('access-control-allow-origin'), stagingOrigin);
+  assert.equal(get.headers.get('access-control-allow-credentials'), 'true');
+  assert.match(get.headers.get('access-control-expose-headers'), /x-plotflow-state-etag/);
+
+  const options = await app(request('OPTIONS', undefined, { Origin: stagingOrigin }), env);
+  assert.equal(options.status, 204);
+  assert.equal(options.headers.get('access-control-allow-credentials'), 'true');
+  assert.match(options.headers.get('access-control-allow-headers'), /if-match/i);
+});
+
 test('missing and invalid If-Match are diagnosed without leaking actual ETags', async () => {
   const app = handler('editor@example.org');
   const missing = await app(request('PUT', state), env);
@@ -182,7 +197,7 @@ test('Preview disables both state GET and PUT even when credentials and ACL are 
   const previewEnv = {
     ...env,
     PLOTFLOW_PREVIEW_DISABLE_STATE_ACCESS: '1',
-    AZURE_BLOB_URLS_JSON: JSON.stringify({ 'project-a': 'https://storage.blob.core.windows.net/container/state.json?sig=not-real' }),
+    AZURE_BLOB_URLS_JSON: JSON.stringify({ 'project-a': 'https://storage.blob.core.windows.net/plotflow-state-private/project-a/state.json?sp=rw&sr=b&spr=https&sig=not-real' }),
   };
   for (const method of ['GET', 'PUT']) {
     const response = await preview(request(method, method === 'PUT' ? state : undefined, method === 'PUT' ? { 'If-Match': '"v1"' } : {}), previewEnv);

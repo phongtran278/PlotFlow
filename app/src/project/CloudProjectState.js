@@ -3,7 +3,15 @@ import { canUseLegacyProjectStorage, isProjectCloudKey, validateCloudSnapshot, m
 const CLOUD_STATE_URL = import.meta.env.VITE_PROJECT_STATE_URL || "";
 const CLOUD_PROJECT_ID = import.meta.env.VITE_CLOUD_PROJECT_ID || "vinhomes-saigon-park";
 const STATE_API_BASE_URL = (import.meta.env.VITE_STATE_API_BASE_URL || "").replace(/\/$/, "");
-const API_MODE = Boolean(STATE_API_BASE_URL);
+// The dedicated Cloudflare staging UI may only use the stable staging API.
+const STAGING_UI_ORIGIN = "https://plotflow-ui-staging.phongtran7076.workers.dev";
+const STAGING_API_ORIGIN = "https://plotflow-state-api-staging.phongtran7076.workers.dev";
+const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
+const cloudflareHost = typeof window !== "undefined" && window.location.hostname.endsWith(".workers.dev");
+const stagingHost = browserOrigin === STAGING_UI_ORIGIN;
+const stagingBuild = import.meta.env.VITE_PLOTFLOW_PRIVATE_STAGING === "1";
+const API_MODE = Boolean(STATE_API_BASE_URL) && (!stagingBuild && !cloudflareHost || stagingHost && STATE_API_BASE_URL === STAGING_API_ORIGIN && !CLOUD_STATE_URL);
+const LEGACY_ENABLED = Boolean(CLOUD_STATE_URL) && !cloudflareHost && !stagingBuild;
 const STATE_API_URL = API_MODE ? `${STATE_API_BASE_URL}/v1/projects/${encodeURIComponent(CLOUD_PROJECT_ID)}/state` : "";
 const SAVE_DELAY_MS = 900;
 
@@ -20,9 +28,9 @@ let writeBlocked = false;
 let bootstrapComplete = false;
 function notifyState(status) {
   if (typeof window !== "undefined") {
-    window.__plotflowCloudStateStatus = { status, transport: API_MODE ? "state-api" : "legacy" };
+    window.__plotflowCloudStateStatus = { status, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" };
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-status", {
-      detail: { status, projectId: CLOUD_PROJECT_ID, transport: API_MODE ? "state-api" : "legacy" },
+      detail: { status, projectId: CLOUD_PROJECT_ID, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" },
     }));
   }
 }
@@ -70,9 +78,10 @@ function applyStorage(snapshot = {}) {
 }
 
 async function readCloudState() {
-  if (!API_MODE && !CLOUD_STATE_URL) return null;
+  if (!API_MODE && !LEGACY_ENABLED) return null;
   const response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
     method: "GET", cache: "no-store", credentials: API_MODE ? "include" : "same-origin",
+    ...(API_MODE ? { redirect: "error", signal: AbortSignal.timeout(15000) } : {}),
   });
   if (!API_MODE && response.status === 404) throw new Error("Cloud snapshot missing; manual recovery required");
   if (!response.ok) throw new Error(`Cloud state GET failed (${response.status})`);
@@ -87,7 +96,7 @@ async function readCloudState() {
 }
 
 async function writeCloudState() {
-  if ((!API_MODE && !CLOUD_STATE_URL) || !bootstrapComplete || writeBlocked) return false;
+  if ((!API_MODE && !LEGACY_ENABLED) || !bootstrapComplete || writeBlocked) return false;
   if (API_MODE && !remoteEtag) return false;
   if (saving) {
     saveAgain = true;
@@ -114,6 +123,7 @@ async function writeCloudState() {
       },
       body: JSON.stringify(payload),
       cache: "no-store",
+      ...(API_MODE ? { redirect: "error", signal: AbortSignal.timeout(15000) } : {}),
     });
     if (API_MODE && response.status === 412) {
       writeBlocked = true;
@@ -131,6 +141,7 @@ async function writeCloudState() {
       remoteEtag = nextEtag;
     }
     remoteStorage = payload.storage;
+    if (API_MODE && !writeBlocked) notifyState("saved");
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-saved", {
       detail: { projectId: CLOUD_PROJECT_ID, updatedAt: payload.updatedAt },
     }));
@@ -149,7 +160,7 @@ async function writeCloudState() {
 }
 
 function scheduleCloudSave(delay = SAVE_DELAY_MS) {
-  if ((!API_MODE && !CLOUD_STATE_URL) || suspendTracking || !bootstrapComplete || writeBlocked) return;
+  if ((!API_MODE && !LEGACY_ENABLED) || suspendTracking || !bootstrapComplete || writeBlocked) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
@@ -181,6 +192,16 @@ function installStorageTracking() {
     if (hadSharedData) scheduleCloudSave();
   };
 
+  // Same-origin tabs share localStorage. Stop automatic writes when another
+  // tab changes a tracked key; ETag alone cannot isolate that shared cache.
+  if (API_MODE && stagingHost) window.addEventListener("storage", (event) => {
+    if (event.storageArea !== window.localStorage || (event.key !== null && !shouldShareKey(event.key))) return;
+    writeBlocked = true;
+    window.clearTimeout(saveTimer);
+    saveTimer = 0;
+    notifyState("version_conflict");
+  });
+
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && saveTimer) {
       window.clearTimeout(saveTimer);
@@ -191,7 +212,8 @@ function installStorageTracking() {
 }
 
 export async function bootstrapCloudProjectState() {
-  if ((!API_MODE && !CLOUD_STATE_URL) || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
+  if (!API_MODE && stagingBuild && stagingHost) { writeBlocked = true; notifyState("load_error"); }
+  if ((!API_MODE && !LEGACY_ENABLED) || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
     installStorageTracking();
     return { enabled: false, projectId: CLOUD_PROJECT_ID };
   }
@@ -207,8 +229,17 @@ export async function bootstrapCloudProjectState() {
     const cloudStorage = cloud.storage;
     const scoped = Object.fromEntries(Object.entries(cloudStorage).filter(([key]) => shouldShareKey(key)));
     if (Object.keys(scoped).length > 0) {
-      applyStorage(scoped);
-      console.info(`[PlotFlow] cloud project restored: ${CLOUD_PROJECT_ID}`);
+      const local = collectStorage();
+      const differs = Object.keys(local).length > 0 &&
+        (Object.keys(local).length !== Object.keys(scoped).length ||
+          Object.entries(local).some(([key, value]) => scoped[key] !== value));
+      if (API_MODE && stagingHost && differs) {
+        writeBlocked = true;
+        notifyState("manual_migration_required");
+      } else {
+        applyStorage(scoped);
+        console.info(`[PlotFlow] cloud project restored: ${CLOUD_PROJECT_ID}`);
+      }
     } else if (Object.keys(collectStorage()).length > 0) {
       // Never auto-publish a local cache into an empty or foreign-key snapshot.
       writeBlocked = true;
@@ -222,7 +253,7 @@ export async function bootstrapCloudProjectState() {
 
   bootstrapComplete = true;
   installStorageTracking();
-  return { enabled: true, projectId: CLOUD_PROJECT_ID, transport: API_MODE ? "state-api" : "legacy" };
+  return { enabled: true, projectId: CLOUD_PROJECT_ID, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" };
 }
 
 export function flushCloudProjectState() {

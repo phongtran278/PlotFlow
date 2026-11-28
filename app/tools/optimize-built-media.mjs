@@ -13,6 +13,8 @@ const maxWidth = Number(process.env.PLOTFLOW_MEDIA_MAX_WIDTH || 3200);
 const maxPixels = 100_000_000;
 const targetBytes = Math.round(Number(process.env.PLOTFLOW_MEDIA_TARGET_MIB || 2.5) * 1024 * 1024);
 const dryRun = process.argv.includes('--dry-run');
+// Staging preserves every in-limit image. Explicit non-staging optimization can still use a smaller target.
+const optimizeThreshold = process.env.PLOTFLOW_MEDIA_ONLY_OVERSIZED === '1' || !process.env.PLOTFLOW_MEDIA_TARGET_MIB ? limitBytes : targetBytes;
 if (!Number.isInteger(maxWidth) || maxWidth < 400 || maxWidth > 8192 || !Number.isFinite(targetBytes) || targetBytes < 64 * 1024 || targetBytes > limitBytes) {
   throw new Error('Invalid PLOTFLOW_MEDIA_MAX_WIDTH or PLOTFLOW_MEDIA_TARGET_MIB');
 }
@@ -31,7 +33,7 @@ if (!fs.existsSync(dist)) throw new Error('Missing app/dist; run npm run build f
 images.sort();
 const report = { scanned: images.length, optimized: 0, unchanged: 0, failed: [], bytesBefore: 0, bytesAfter: 0, entries: [], sourcePreserved: true, mode: dryRun ? 'dry-run' : 'optimize' };
 let sharp;
-if (!dryRun && images.length) {
+if (!dryRun && images.some(file => fs.statSync(file).size > optimizeThreshold)) {
   try { ({ default: sharp } = await import('sharp')); }
   catch { throw new Error('Image optimizer requires sharp. Install it in the build environment before enabling this step.'); }
   sharp.cache(false);
@@ -44,13 +46,13 @@ for (const file of images) {
   report.bytesBefore += before;
   if (dryRun) {
     report.bytesAfter += before;
-    report.entries.push({ path: name, inputBytes: before, action: 'would-check' });
+    report.entries.push({ path: name, inputBytes: before, action: before > optimizeThreshold ? 'would-optimize' : 'within-limit' });
     continue;
   }
-  if (before <= targetBytes) {
+  if (before <= optimizeThreshold) {
     report.unchanged++;
     report.bytesAfter += before;
-    report.entries.push({ path: name, inputBytes: before, outputBytes: before, optimized: false, exceedsCloudflareLimit: false });
+    report.entries.push({ path: name, inputBytes: before, outputBytes: before, optimized: false, skippedReason: 'within-cloudflare-limit', exceedsCloudflareLimit: false });
     continue;
   }
   const ext = path.extname(file).toLowerCase();

@@ -11,6 +11,7 @@ on:
       - fix/masterplan-tl-index-on-qa-20261127
     paths:
       - 'app/**'
+      - 'services/state-api/**'
       - '.github/workflows/masterplan-browser-ci.yml'
 permissions:
   contents: read
@@ -46,6 +47,9 @@ jobs:
           node --input-type=module -e 'import fs from "node:fs"; for (const f of ["dependency-audit.json","dependency-audit-runtime.json"]) { const j=JSON.parse(fs.readFileSync(f)); if (!j.metadata?.vulnerabilities) throw Error("Audit unavailable: "+f); console.log(f, JSON.stringify(j.metadata.vulnerabilities)); for(const [name,v] of Object.entries(j.vulnerabilities||{})) console.log(JSON.stringify({name,severity:v.severity,direct:v.isDirect,range:v.range,fixAvailable:v.fixAvailable,advisories:(v.via||[]).filter(x=>typeof x==="object").map(x=>({title:x.title,url:x.url,severity:x.severity,range:x.range}))})); }'
       - run: npm run check:secrets
       - run: npm test
+      - name: State API regression (mocked Azure, no live credentials)
+        working-directory: services/state-api
+        run: npm test
       - name: Verify Excel import and export compatibility
         run: node --test tools/tests/excel-security.test.mjs
       - name: Test isolated image fixtures
@@ -95,6 +99,12 @@ jobs:
         run: |
           export PLOTFLOW_PLAYWRIGHT_MODULE="$RUNNER_TEMP/plotflow-browser/node_modules/playwright/index.mjs"
           node tools/browser-detail-raster.mjs
+      - name: Verify dedicated staging build with pinned public endpoint (no deployment)
+        env:
+          VITE_PROJECT_STATE_URL: ''
+          VITE_STATE_API_BASE_URL: 'https://plotflow-state-api-staging.phongtran7076.workers.dev'
+          VITE_CLOUD_PROJECT_ID: 'vinhomes-saigon-park'
+        run: node tools/build-private-state-staging.mjs
       - name: Security release gate
         run: |
           node --input-type=module -e 'import fs from "node:fs";for(const f of ["dependency-audit.json","dependency-audit-runtime.json"]){const v=JSON.parse(fs.readFileSync(f)).metadata?.vulnerabilities;if(!v||v.high||v.critical)throw Error("Unresolved high/critical findings: "+f);}'
