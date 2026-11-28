@@ -13,7 +13,6 @@ import App from "./App.jsx";
 import HomeLanding from "./components/HomeLanding.jsx";
 import PricingPage from "./components/PricingPage.jsx";
 import UnitReviewBar from "./components/UnitReviewBar.jsx";
-import PerformanceFeedback from "./components/PerformanceFeedback.jsx";
 import WorkspaceController from "./components/WorkspaceController.jsx";
 import WorkspaceScrollSurfaceFix from "./components/WorkspaceScrollSurfaceFix.jsx";
 import ProjectSettings from "./components/ProjectSettings.jsx";
@@ -37,7 +36,6 @@ import OverviewControlRailRuntime from "./product/OverviewControlRailRuntime.jsx
 import OverviewPrecisionArrangeRuntime from "./product/OverviewPrecisionArrangeRuntime.jsx";
 import OverviewV2Runtime from "./product/OverviewV2Runtime.jsx";
 import OverviewArrangeLogicRuntimeV3 from "./product/OverviewArrangeLogicRuntimeV3.jsx";
-import OverviewSellDataRuntime from "./product/OverviewSellDataRuntime.jsx";
 import OverviewPenRuntime from "./product/OverviewPenRuntime.jsx";
 import OverviewHighlightPointEditRuntime from "./product/OverviewHighlightPointEditRuntime.jsx";
 import OverviewSimplifiedRuntime from "./product/OverviewSimplifiedRuntime.jsx";
@@ -146,7 +144,7 @@ function WorkspaceAuxiliaryRuntimes() {
   const overviewActive = useOverviewActive();
   const lotHighlightEditing = useLotHighlightEditing();
   if (lotHighlightEditing) return <MemoryGovernor/>;
-  return <><OverviewSellDataRuntime/><AutoFloorplanSource/><MemoryGovernor/><LotTileRuntime/><UnitReviewBar/><PerformanceFeedback/><WorkspaceController/><WorkspaceScrollSurfaceFix/><ProjectSettings/><PinScaleControl/><EmptyWorkspaceEnhancer/><DetailModeRecovery/>{overviewActive && <OverviewRuntimes/>}</>;
+  return <><AutoFloorplanSource/><MemoryGovernor/><LotTileRuntime/><UnitReviewBar/><WorkspaceController/><WorkspaceScrollSurfaceFix/><ProjectSettings/><PinScaleControl/><EmptyWorkspaceEnhancer/><DetailModeRecovery/>{overviewActive && <OverviewRuntimes/>}</>;
 }
 
 function PlotFlowExperience() {

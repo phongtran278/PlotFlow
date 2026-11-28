@@ -68,3 +68,28 @@ test('Overview prefers explicitly named prices regardless of workbook column ord
   assert.equal(normalizeOverviewRow({unitCode: 'QA-01', price18: 3, priceAllIn: ''}).priceAllIn, '');
   assert.equal(normalizeOverviewRow({unitCode: 'QA-01', price18: 3}).priceAllIn, '3');
 });
+
+test('project views share workbook selection while retaining both sets of prices', async () => {
+  const { normalizeProjectSalesRow } = await import('../src/core/sales/overviewRow.js');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ unitCode: 'GUIDE-01' }]), 'Guide');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{
+    'Mã lô': 'TL12-51', 'TCBG': 'Thô', 'DT đất': 121, 'DT sàn': 177,
+    priceStandard: 8000000000, priceEarly: 8100000000,
+    price18: 8200000000, price24: 8300000000, priceAllIn: 8400000000,
+  }]), 'UNITS');
+  const { units: [unit], sheetName } = parseWorkbookUnits(wb, XLSX, normalizeProjectSalesRow);
+  assert.equal(sheetName, 'UNITS');
+  assert.deepEqual([unit.unitCode, unit.handover, unit.landArea, unit.constructionArea], ['TL12-51', 'Thô', '121', '177']);
+  assert.deepEqual([unit.priceStandard, unit.priceEarly, unit.price18, unit.price24], ['8000000000', '8100000000', '8200000000', '8300000000']);
+  assert.equal(unit.overview.priceAllIn, '8400000000');
+});
+
+test('disconnect clears the active Sheet while restoring a previously imported workbook if available', async () => {
+  const { activeSalesDataset, disconnectSalesSheet, overviewSalesUnits } = await import('../src/core/sales/projectSalesSource.js');
+  const sheet = { units: [{ overview: { code: 'SHEET-01' } }] };
+  const excel = { units: [{ overview: { code: 'EXCEL-01' } }] };
+  assert.deepEqual(overviewSalesUnits({ active: 'sheet', sheet, excel }), [{ code: 'SHEET-01' }]);
+  assert.equal(activeSalesDataset(disconnectSalesSheet({ active: 'sheet', sheet, excel })), excel);
+  assert.deepEqual(overviewSalesUnits(disconnectSalesSheet({ active: 'sheet', sheet, excel: null })), []);
+});

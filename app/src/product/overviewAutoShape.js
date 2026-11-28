@@ -1,7 +1,6 @@
-import { detectLotShape } from "../floorplan/autoLotShape.js";
+import { detectNativeLotShape } from "../floorplan/detectNativeLotShape.js";
 import { resolveUnitsAgainstIndex, normalizeUnitCode } from "../floorplan/unitCodeCompat.js";
 import { mergeTlHyphenIndex } from "../floorplan/mergeTlHyphenIndex.js";
-import { renderPdfRegion } from "../floorplan/pdfLocatorRuntimeStrict.js";
 import { cropToPagePoints } from "./overviewAutoShapeGeometry.js";
 
 let manifestPromise;
@@ -28,17 +27,10 @@ export async function detectOverviewShape(rawCode, isCurrent) {
   const x=match.bbox?(Number(match.bbox.x0)+Number(match.bbox.x1))/2:Number(match.x)+Number(match.width)/2;
   const y=match.bbox?(Number(match.bbox.y0)+Number(match.bbox.y1))/2:Number(page.height)-Number(match.y)-Number(match.height)/2;
   const width=Number(page.width),height=Number(page.height);
-  if(![x,y,width,height].every(Number.isFinite)||x<=0||x>=width||y<=0||y>=height) throw Error("Invalid lot anchor");
-  // Same 24x18 PDF-point neighborhood used by native real-lot QA.
-  const crop={x:Math.max(0,x-12),y:Math.max(0,y-9),w:0,h:0};
-  crop.w=Math.min(width,x+12)-crop.x;crop.h=Math.min(height,y+9)-crop.y;
-  const result=await renderPdfRegion(null,{__plotflowPrepared:true,pageNumber:1,width,height,scale:1,anchorX:x,anchorY:y,unitCode:code},{},{outputWidth:720,aspect:crop.w/crop.h,explicitCrop:crop,independent:true});
-  if(!result?.dataUrl) throw Error("Lot crop unavailable");
-  try {
-    if(!isCurrent()) return null;
-    const detected=await detectLotShape(result.dataUrl,{x:(x-crop.x)/crop.w,y:(y-crop.y)/crop.h});
-    if(!isCurrent()) return null;
-    if(!detected.accepted) throw Error("No reliable closed boundary; use manual Highlight");
-    return cropToPagePoints(detected.shape.points,result.crop,{width,height});
-  } finally {URL.revokeObjectURL(result.dataUrl);}
+  const detection = await detectNativeLotShape({
+    __plotflowPrepared: true, pageNumber: 1, width, height, scale: 1, anchorX: x, anchorY: y, unitCode: code,
+  }, isCurrent);
+  if (!detection) return null;
+  if (!detection.result.accepted) throw Error("No reliable closed boundary; use manual Highlight");
+  return cropToPagePoints(detection.result.shape.points, detection.crop, { width, height });
 }

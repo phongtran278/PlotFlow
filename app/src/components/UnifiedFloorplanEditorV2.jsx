@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PosterCanvas from "./PosterCanvas";
+import { detectNativeLotShape } from "../floorplan/detectNativeLotShape.js";
 import { detectLotShape } from "../floorplan/autoLotShape";
 import { getMemoryProfile } from "../runtime/memoryProfile";
 import {
@@ -128,9 +129,12 @@ export default function UnifiedFloorplanEditorV2({
   onSave,
   onCandidateChange,
   onRenderVectorPreview,
+  onBoundaryResult,
+  startManual = false,
 }) {
   const stageRef = useRef(null);
   const renderSequence = useRef(0);
+  const detectionSequence = useRef(0);
   const autoRanRef = useRef(false);
   const cameraIdleTimerRef = useRef(null);
 
@@ -152,7 +156,7 @@ export default function UnifiedFloorplanEditorV2({
 
   const [view, setView] = useState(initialViewValue);
   const [pageOverlay, setPageOverlay] = useState(() => overlayToPageSpace(initialOverlay, initialCrop, initialAnchor));
-  const [tool, setTool] = useState("select");
+  const [tool, setTool] = useState(startManual ? "pen" : "select");
   const [selectedObject, setSelectedObject] = useState(() => {
     if (initialOverlay?.shape?.points?.length) return "shape";
     if (initialOverlay?.pin?.visible) return "pin";
@@ -166,6 +170,7 @@ export default function UnifiedFloorplanEditorV2({
   const [liveCrop, setLiveCrop] = useState(null);
   const [cameraSettled, setCameraSettled] = useState(true);
   const [renderState, setRenderState] = useState("idle");
+  const [saveState, setSaveState] = useState({ pending: false, error: "" });
   const [detectState, setDetectState] = useState({ state: "idle", message: "" });
 
   const crop = useMemo(() => {
@@ -191,6 +196,7 @@ export default function UnifiedFloorplanEditorV2({
     return () => {
       document.body.classList.remove("plotflow-floorplan-editing");
       renderSequence.current += 1;
+      detectionSequence.current += 1;
       if (cameraIdleTimerRef.current) window.clearTimeout(cameraIdleTimerRef.current);
       releasePreparedDetailRaster();
     };
@@ -216,7 +222,7 @@ export default function UnifiedFloorplanEditorV2({
   }, [pageRender, view.zoom, view.offsetX, view.offsetY, cameraSettled, onRenderVectorPreview]);
 
   useEffect(() => {
-    if (!liveCrop?.dataUrl || initialOverlay?.shape?.points?.length || autoRanRef.current) return;
+    if (startManual || !liveCrop?.dataUrl || initialOverlay?.shape?.points?.length || autoRanRef.current) return;
     autoRanRef.current = true;
     runAutoDetect();
   }, [liveCrop?.dataUrl]);
@@ -281,6 +287,8 @@ export default function UnifiedFloorplanEditorV2({
 
   function patchView(patch) {
     renderSequence.current += 1;
+    detectionSequence.current += 1;
+    setDetectState(current => current.state === "scanning" ? { state: "idle", message: "" } : current);
     setRenderState("preview");
     setLiveCrop(null);
     releasePreparedDetailRaster();
@@ -348,11 +356,18 @@ export default function UnifiedFloorplanEditorV2({
   async function runAutoDetect() {
     const src = liveCrop?.dataUrl;
     if (!src || !crop || detectState.state === "scanning") return;
+    const sequence = ++detectionSequence.current;
+    const isCurrent = () => sequence === detectionSequence.current;
     setDetectState({ state: "scanning", message: "Đang dò shape quanh mã lô…" });
     try {
-      const result = await detectLotShape(src, autoAnchor);
+      const detection = pageRender.nativeTextCoordinates
+        ? await detectNativeLotShape(pageRender, isCurrent)
+        : { result: await detectLotShape(src, autoAnchor), crop };
+      if (!detection || !isCurrent()) return;
+      const { result, crop: detectionCrop } = detection;
+      onBoundaryResult?.(result.accepted);
       if (result.accepted) {
-        const pagePoints = (result.shape?.points || []).map((point) => cropPointToPage(point, crop));
+        const pagePoints = result.shape.points.map((point) => cropPointToPage(point, detectionCrop));
         setPageOverlay((current) => ({
           ...current,
           shape: { ...result.shape, points: pagePoints },
@@ -366,9 +381,10 @@ export default function UnifiedFloorplanEditorV2({
         setTool("select");
         setDetectState({ state: "detected", message: formatDetection(result) });
       } else {
-        setDetectState({ state: "fallback", message: `${formatDetection(result)} Dùng Rectangle/Pen nếu cần.` });
+        setDetectState({ state: "fallback", message: `${formatDetection(result)} Dùng Pen / Path để nối các đỉnh rồi nhấn Enter.` });
       }
     } catch (error) {
+      if (!isCurrent()) return;
       setDetectState({ state: "fallback", message: error.message || "Auto Shape thất bại." });
     }
   }
@@ -555,11 +571,15 @@ export default function UnifiedFloorplanEditorV2({
     setSelectedObject(null);
   }
 
-  function saveAndDone() {
-    if (!crop) return;
-    const pendingSave = onSave?.(view, { ...overlayToCropSpace(pageOverlay, crop), stale: false });
-    onCancel?.();
-    pendingSave?.catch?.((error) => console.error(error));
+  async function saveAndDone() {
+    if (!crop || !liveCrop || saveState.pending) return;
+    setSaveState({ pending: true, error: "" });
+    try {
+      await onSave?.(view, { ...overlayToCropSpace(pageOverlay, crop), stale: false });
+      setSaveState({ pending: false, error: "" });
+    } catch (error) {
+      setSaveState({ pending: false, error: error.message || "Không lưu được bản đồ." });
+    }
   }
 
   if (!locatorResult || !pageRender || !crop) {
@@ -584,14 +604,15 @@ export default function UnifiedFloorplanEditorV2({
   return (
     <div className={`unified-floorplan unified-floorplan-v2 ${LOW_MEMORY_EDITOR ? "memory-editor" : ""}`}>
       <header className="unified-floorplan-topbar">
-        <button type="button" className="unified-back" onClick={onCancel}>← Back</button>
+        <button type="button" className="unified-back" onClick={onCancel}>← Hủy và quay lại</button>
         <div>
           <span>EDIT FLOORPLAN</span>
           <strong>{unit?.unitCode}</strong>
-          <small>One canvas · View · Highlight · 2D Pin</small>
+          <small>Bản đồ lô đất · Highlight · Ghim 2D</small>
         </div>
-        <button type="button" className="unified-save" onClick={saveAndDone}>Save & Done</button>
+        <button type="button" className="unified-save" onClick={saveAndDone} disabled={!liveCrop || saveState.pending || detectState.state === "scanning"}>{saveState.pending ? "Đang lưu…" : "Save & Done"}</button>
       </header>
+      {saveState.error && <p role="alert">{saveState.error}</p>}
 
       <div className="unified-floorplan-workspace">
         <aside className="unified-tools">
@@ -828,7 +849,6 @@ export default function UnifiedFloorplanEditorV2({
                 assets={previewAssets}
                 isEditing={false}
                 lotOverlay={{ ...overlay, stale: false }}
-                preferLotOverlay
                 previewZoom={1}
               />
             </div>

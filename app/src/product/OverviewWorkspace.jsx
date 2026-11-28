@@ -18,12 +18,12 @@ export default function OverviewWorkspace({
   overviewGroup,
   onOverviewGroup,
   sellUnits,
-  units,
+  salesStatus,
+  onManageSource,
   visibleSellUnits,
 }) {
   const overviewConfigured = Boolean(project?.profile?.overview?.configured && project.masterplan);
-  const liveUnitCount = sellUnits.length ? uniqueUnitCount(sellUnits) : uniqueUnitCount(units);
-  const groupUnitCount = sellUnits.length ? uniqueUnitCount(visibleSellUnits) : liveUnitCount;
+  const groupUnitCount = uniqueUnitCount(visibleSellUnits);
   const countForGroup = (group) => {
     if (!sellUnits.length) return group === overviewGroup ? groupUnitCount : 0;
     const key = normalizedGroup(group);
@@ -36,6 +36,7 @@ export default function OverviewWorkspace({
         <div className="pf-overview-intro-copy">
           <h1>{project.name}</h1>
         </div>
+        {salesStatus === "error" && sellUnits.length > 0 && <p role="status">Đang xem dữ liệu đã lưu. Kết nối hoặc làm mới nguồn không thành công.</p>}
 
         {overviewConfigured && (
           <div className="pf-overview-header-tools">
@@ -99,8 +100,8 @@ export default function OverviewWorkspace({
               {overviewConfigured && sellUnits.length > 0 && visibleSellUnits.length === 0 && (
                 <div className="pf-overview-coming"><strong>{overviewGroup}</strong><span>Không có căn nào thuộc đúng tiêu chuẩn bàn giao này trong file sell đang kết nối.</span></div>
               )}
-              {overviewConfigured && sellUnits.length === 0 && units.length === 0 && (
-                <div className="pf-overview-coming"><strong>Chưa có dữ liệu căn thật</strong><span>Connect Sheet ở Detail. Overview sẽ đọc nguyên dữ liệu sell và không dùng dữ liệu demo.</span></div>
+              {overviewConfigured && sellUnits.length === 0 && (
+                <div className="pf-overview-coming"><strong>Chưa có dữ liệu căn thật</strong><span>{salesStatus === "loading" ? "Đang tải nguồn dữ liệu dự án…" : "Kết nối Google Sheet hoặc import Excel cho dự án."}</span>{onManageSource && <button type="button" onClick={onManageSource}>Quản lý nguồn dữ liệu</button>}</div>
               )}
             </div>
           </section>
