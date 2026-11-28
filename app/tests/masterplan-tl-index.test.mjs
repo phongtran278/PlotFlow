@@ -144,3 +144,25 @@ test("runtime merge rejects TL anchors outside the calibrated source region", ()
   });
   assert.throws(() => mergeTlHyphenIndex(manifest, supplement), /ngoài vùng hiệu chuẩn/);
 });
+
+test("Detail opens the shipped native manifest and preserves native lot coordinates", async (t) => {
+  const { openVectorPdf, buildFloorplanIndex } = await import("../src/floorplan/pdfLocatorFacade.js");
+  const manifest = JSON.parse(fs.readFileSync(
+    new URL("../public/masterplan/generated/manifest.json", import.meta.url), "utf8",
+  ));
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const file = new URL(url, "https://staging.example").pathname;
+    assert.ok(["/masterplan/generated/manifest.json", "/masterplan/generated/tl-hyphen-index.json"].includes(file));
+    return Response.json(file.endsWith("/manifest.json") ? manifest : supplement);
+  });
+  const doc = await openVectorPdf("/masterplan/masterplan.pdf");
+  assert.equal(doc.__plotflowRasterOnly, true);
+  const index = await buildFloorplanIndex(doc);
+  assert.equal(Object.keys(index).length, 10427);
+  for (const code of ["AS48A-54", "AS80-03", "AS69-18", "AS70-17", "TL12-05", "TL12-51", "TL-01", "TL-81", "TL30-01", "TL31-02"]) {
+    assert.ok(index[code]?.length, code);
+    assert.deepEqual(index[code], manifest.index[code]);
+  }
+  manifest.nativeCoordinateSource.coordinateMode = "unexpected";
+  await assert.rejects(() => openVectorPdf("/masterplan/masterplan.pdf"), /Native Masterplan source mismatch/);
+});
