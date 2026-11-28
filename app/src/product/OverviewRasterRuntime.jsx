@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { syncMasterplanHeader, removeMasterplanHeader } from "./overviewMasterplanHeader.js";
 import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
 const BASE_WIDTH = 42000;
@@ -148,6 +149,7 @@ export default function OverviewRasterRuntime() {
       stage.style.setProperty("--pf-pdf-width", `${width}px`);
       stage.style.setProperty("--pf-pdf-height", `${height}px`);
       window.dispatchEvent(new CustomEvent("pf-overview-pdf-bounds", { detail: { x, y, width, height } }));
+      syncMasterplanHeader(stage, bounds, camera);
       return bounds;
     }
 
@@ -369,6 +371,7 @@ export default function OverviewRasterRuntime() {
       const next = event.detail || {};
       if (!Number.isFinite(next.scale)) return;
       camera = { scale: next.scale, tx: next.tx || 0, ty: next.ty || 0 };
+      syncMasterplanHeader(stage, bounds, camera);
       repositionExistingTiles();
       window.clearTimeout(settleTimer);
       if (!windowsFixedLevel && !next.dragging) scheduleRefresh(isFitCamera() ? 0 : SETTLE_MS);
@@ -390,6 +393,7 @@ export default function OverviewRasterRuntime() {
       window.removeEventListener("pf-overview-camera", onCamera);
       releaseAll();
       if (stage) {
+        removeMasterplanHeader(stage);
         stage.classList.remove("pf-pdf-crisp-ready");
         delete stage.dataset.pfPdfX;
         delete stage.dataset.pfPdfY;
@@ -424,8 +428,10 @@ export default function OverviewRasterRuntime() {
 
     function sync() {
       const next = document.querySelector('.pf-masterplan-stage[data-overview-render-mode="raster"]');
-      if (next) attach(next);
-      else if (stage) detachStage();
+      if (next) {
+        attach(next);
+        syncMasterplanHeader(stage, bounds, camera);
+      } else if (stage) detachStage();
     }
 
     sync();
@@ -434,7 +440,7 @@ export default function OverviewRasterRuntime() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-overview-render-mode", "data-overview-group"],
+      attributeFilter: ["data-overview-render-mode", "data-overview-group", "data-overview-project-id"],
     });
 
     return () => {

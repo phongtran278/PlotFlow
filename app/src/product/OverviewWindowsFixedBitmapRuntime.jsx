@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { syncMasterplanHeader, removeMasterplanHeader } from "./overviewMasterplanHeader.js";
 
 const BASE_WIDTH = 42000;
 const BASE_HEIGHT = 29709;
@@ -88,6 +89,7 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       stage.style.setProperty("--pf-pdf-width", `${width}px`);
       stage.style.setProperty("--pf-pdf-height", `${height}px`);
       window.dispatchEvent(new CustomEvent("pf-overview-pdf-bounds", { detail: { x, y, width, height } }));
+      syncMasterplanHeader(stage, bounds, camera);
       return bounds;
     }
 
@@ -300,6 +302,7 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       const next = event.detail || {};
       if (!Number.isFinite(next.scale)) return;
       camera = { scale: next.scale, tx: next.tx || 0, ty: next.ty || 0 };
+      syncMasterplanHeader(stage, bounds, camera);
       scheduleDraw();
       scheduleSharpSettle();
     }
@@ -324,6 +327,7 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       canvas = null;
       ctx = null;
       if (stage) {
+        removeMasterplanHeader(stage);
         stage.classList.remove("pf-pdf-crisp-ready");
         delete stage.dataset.pfPdfX;
         delete stage.dataset.pfPdfY;
@@ -350,8 +354,10 @@ export default function OverviewWindowsFixedBitmapRuntime() {
 
     function sync() {
       const next = document.querySelector('.pf-masterplan-stage[data-overview-render-mode="raster"]');
-      if (next) attach(next);
-      else if (stage) detachStage();
+      if (next) {
+        attach(next);
+        syncMasterplanHeader(stage, bounds, camera);
+      } else if (stage) detachStage();
     }
 
     sync();
@@ -360,7 +366,7 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["data-overview-render-mode", "data-overview-group"],
+      attributeFilter: ["data-overview-render-mode", "data-overview-group", "data-overview-project-id"],
     });
 
     return () => {

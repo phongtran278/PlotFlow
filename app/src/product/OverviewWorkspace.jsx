@@ -79,6 +79,7 @@ export default function OverviewWorkspace({
             <div
               className={`pf-masterplan-stage ${overviewConfigured ? "has-real-pdf has-callouts" : "is-project-wireframe"}`}
               data-overview-group={overviewConfigured ? overviewGroup : ""}
+              data-overview-project-id={project?.id || ""}
               data-overview-render-mode={overviewConfigured ? OVERVIEW_RENDER_MODE : "wireframe"}
               data-overview-raster-source={overviewConfigured ? "prepared-masterplan-page-1" : ""}
             >
