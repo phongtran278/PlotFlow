@@ -186,7 +186,15 @@ export default function OverviewControlRailRuntime() {
       scheduleSync();
     }
     function onConnectorEndpointSelected() { /* endpoint selection does not rebuild the rail */ }
+    function onCameraChanged(event) {
+      const output = document.querySelector(".pf-overview-header-view output");
+      const scale = event.detail?.scale;
+      if (!output || !Number.isFinite(scale)) return;
+      const value = `${Math.round(scale * 100)}%`;
+      if (output.textContent !== value) output.textContent = value;
+    }
     function onProductViewChanged() { scheduleInitialSync(); }
+    window.addEventListener("pf-overview-camera", onCameraChanged);
     window.addEventListener("plotflow-product-view-changed", onProductViewChanged);
     window.addEventListener("pf-overview-group-changed", onGroupChanged);
     window.addEventListener("pf-overview-live-units-ready", scheduleSync);
@@ -196,6 +204,7 @@ export default function OverviewControlRailRuntime() {
     scheduleInitialSync();
     return () => {
       cancelAnimationFrame(frame); cancelAnimationFrame(startupFrame); stage?.removeEventListener("click", onStageClick);
+      window.removeEventListener("pf-overview-camera", onCameraChanged);
       window.removeEventListener("plotflow-product-view-changed", onProductViewChanged);
       window.removeEventListener("pf-overview-group-changed", onGroupChanged);
       window.removeEventListener("pf-overview-live-units-ready", scheduleSync);
