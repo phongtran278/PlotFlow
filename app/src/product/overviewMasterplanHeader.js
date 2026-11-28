@@ -14,14 +14,21 @@ const HEADER_FILES = Object.freeze({
   "xay tho": "VSP_HEADER_XAY_THO_20261127_v01_cropped.png",
   "hoan thien": "VSP_HEADER_HOAN_THIEN_20261127_v01_cropped.png",
 });
+// Live sales sheets can use short handover labels rather than the default tab names.
+const HEADER_GROUP_ALIASES = Object.freeze({
+  "gian": "gian xay",
+  "tho": "xay tho",
+  "ht": "hoan thien",
+});
 const IMAGE = Object.freeze({ width: 16544, height: 1838 });
 
 export function headerAsset(projectId, group) {
   if (projectId !== HEADER_PROJECT_ID) return null;
   const key = String(group ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .trim().toLowerCase().replace(/\s+/g, " ");
-  if (!Object.hasOwn(HEADER_FILES, key)) return null;
-  return "/masterplan/headers/" + HEADER_FILES[key];
+  const canonicalKey = Object.hasOwn(HEADER_GROUP_ALIASES, key) ? HEADER_GROUP_ALIASES[key] : key;
+  if (!Object.hasOwn(HEADER_FILES, canonicalKey)) return null;
+  return "/masterplan/headers/" + HEADER_FILES[canonicalKey];
 }
 
 export function coverHeader(rect, image = IMAGE) {
