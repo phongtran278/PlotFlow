@@ -46,3 +46,14 @@ test('independent import calls do not share mutable row data across synthetic pr
  const a=normalizeRow({unitCode:'QA-01',priceStandard:100}),b=normalizeRow({unitCode:'QA-01',priceStandard:200});
  a.priceStandard=300;assert.equal(b.priceStandard,200);
 });
+
+test('Overview and Detail agree on area, type and handover for the same sales row', async () => {
+  const { normalizeOverviewRow } = await import('../src/core/sales/overviewRow.js');
+  const row = { MA_CAN: 'QA-01', DT_DAT_M2: 0, DTXD_M2: 189.6, LOAI_HINH_SAN_PHAM: 'Liền kề', TIEU_CHUAN_BAN_GIAO: 'Giãn xây', priceAllIn: 123 };
+  const detail = normalizeRow(row);
+  const overview = normalizeOverviewRow(row);
+  assert.deepEqual([overview.code, overview.land, overview.floor, overview.type, overview.handover],
+    [detail.unitCode, String(detail.landArea), String(detail.constructionArea), detail.type, detail.handover]);
+  assert.equal(overview.priceAllIn, '123');
+  assert.equal(normalizeOverviewRow({'Mã lô':'QA-02', 'DT sàn':100}).floor, '100');
+});
