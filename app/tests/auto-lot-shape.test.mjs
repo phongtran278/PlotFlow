@@ -108,3 +108,20 @@ test("invalid image buffers fail closed", async () => {
     { accepted: false, reason: "invalid-image-data" },
   );
 });
+
+test("boundary refinement reaches the dark stroke center without crossing into the adjacent parcel", async () => {
+  const image = imageData();
+  drawLot(image, 270, 180, 330, 270);
+  drawLot(image, 330, 180, 390, 270);
+  const result = await detectLotShapeFromImageData(image, {
+    x: 300 / (WIDTH - 1), y: 225 / (HEIGHT - 1),
+  });
+  assert.equal(result.accepted, true);
+  assert.equal(result.vertices, 4);
+  assert.equal(result.diagnostics.snappedEdges, 4);
+  const box = bounds(result.shape.points);
+  for (const [actual, expected] of [
+    [box.minX * (WIDTH - 1), 270], [box.maxX * (WIDTH - 1), 330],
+    [box.minY * (HEIGHT - 1), 180], [box.maxY * (HEIGHT - 1), 270],
+  ]) assert.ok(Math.abs(actual - expected) <= 1.5, JSON.stringify(box));
+});

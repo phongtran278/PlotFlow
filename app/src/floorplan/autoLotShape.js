@@ -425,6 +425,60 @@ function mapCandidateToImage(candidate, rect, imageWidth, imageHeight, ratio) {
   };
 }
 
+// Recover the center of the first dark stroke outside each interior edge.
+// Require agreement along the edge, not just a nearby dark pixel or label.
+function snapBoundaryEdges(image, points, anchor) {
+  const { width, height } = image;
+  const gray = buildGray(image);
+  const p = points.map(v => ({ x: v.x * (width - 1), y: v.y * (height - 1) }));
+  const area = polygonArea(p);
+  if (area < 30 || p.length < 4) return null;
+  const center = p.reduce((s, v) => ({ x: s.x + v.x / p.length, y: s.y + v.y / p.length }), { x: 0, y: 0 });
+  const maxOffset = Math.min(6, Math.max(2, Math.sqrt(area) * 0.14));
+  const sample = (x, y) => {
+    x = Math.round(x); y = Math.round(y);
+    return x < 0 || y < 0 || x >= width || y >= height ? 255 : gray[y * width + x];
+  };
+  const lines = p.map((a, i) => {
+    const b = p[(i + 1) % p.length];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    if (length < 5) return null;
+    let nx = (b.y - a.y) / length, ny = (a.x - b.x) / length;
+    if ((center.x - a.x) * nx + (center.y - a.y) * ny > 0) { nx = -nx; ny = -ny; }
+    const offsets = [];
+    const count = Math.max(5, Math.min(25, Math.floor(length / 2)));
+    for (let k = 0; k < count; k++) {
+      const t = 0.18 + 0.64 * k / (count - 1);
+      const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+      let start = null, end = null;
+      for (let d = 0; d <= maxOffset + 2; d += 0.5) {
+        if (sample(x + nx * d, y + ny * d) < 135) {
+          if (start === null) start = d;
+          end = d;
+        } else if (start !== null) break;
+      }
+      // A complete narrow stroke, not a dark filled region.
+      if (start !== null && end < maxOffset + 1.5 && end - start <= 5 && (start + end) / 2 <= maxOffset) offsets.push((start + end) / 2);
+    }
+    offsets.sort((a, b) => a - b);
+    const median = offsets[Math.floor(offsets.length / 2)] ?? 0;
+    const supported = offsets.filter(d => Math.abs(d - median) <= 1.25).length >= Math.ceil(count * 0.7);
+    const offset = supported ? median : 0;
+    return { nx, ny, c: nx * a.x + ny * a.y + offset, offset };
+  });
+  if (lines.some(l => !l) || !lines.some(l => l.offset > 0)) return null;
+  const snapped = p.map((v, i) => {
+    const a = lines[(i + lines.length - 1) % lines.length], b = lines[i];
+    const det = a.nx * b.ny - a.ny * b.nx;
+    if (Math.abs(det) < 0.2) return null;
+    return { x: (a.c * b.ny - a.ny * b.c) / det, y: (a.nx * b.c - a.c * b.nx) / det };
+  });
+  if (snapped.some((v, i) => !v || v.x < 0 || v.y < 0 || v.x >= width || v.y >= height || Math.hypot(v.x - p[i].x, v.y - p[i].y) > maxOffset * 1.6)) return null;
+  if (convexHull(snapped).length !== p.length || polygonArea(snapped) < area || polygonArea(snapped) > area * 1.65) return null;
+  if (!pointInPolygon({ x: anchor.x * (width - 1), y: anchor.y * (height - 1) }, snapped)) return null;
+  return { points: snapped.map(v => ({ x: v.x / (width - 1), y: v.y / (height - 1) })), edges: lines.filter(l => l.offset > 0).length };
+}
+
 export async function detectLotShapeFromImageData(imageData, anchor = { x: 0.5, y: 0.5 }) {
   const width = Math.floor(Number(imageData?.width) || 0);
   const height = Math.floor(Number(imageData?.height) || 0);
@@ -467,8 +521,10 @@ export async function detectLotShapeFromImageData(imageData, anchor = { x: 0.5, 
   const accepted = best.confidence >= 0.68
     && best.diagnostics?.anchorContained === true
     && best.diagnostics?.anchorBoundsDistance <= 0.18;
+  const snap = accepted ? snapBoundaryEdges(imageData, best.shape.points, safeAnchor) : null;
   return {
     ...best,
+    ...(snap ? { shape: { ...best.shape, points: snap.points }, diagnostics: { ...best.diagnostics, snappedEdges: snap.edges } } : {}),
     accepted,
     method: "multi-scale-local-boundary-fill",
     reason: accepted ? "closed-boundary" : "low-confidence",
