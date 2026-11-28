@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import sharp from "sharp";
+import { fileURLToPath } from "node:url";
 import { headerAsset, coverHeader, projectHeaderRect, headerSpec, MASTERPLAN_HEADER_CALIBRATION } from "../src/product/overviewMasterplanHeader.js";
 
 const project = "vinhomes-saigon-park";
@@ -24,10 +26,37 @@ test("native placement follows fit, zoom, pan and resize", () => {
   assert.deepEqual(projectHeaderRect(r, { x: 20, y: 30, width: 420 }, { scale: 2, tx: -11, ty: 5 }), { x: 113, y: 107, width: 168, height: 84 });
   assert.deepEqual(projectHeaderRect(r, { x: 0, y: 10, width: 840 }), { x: 84, y: 52, width: 168, height: 84 });
 });
-test("unverified calibration stays disabled; reject bleed outside page", () => {
-  assert.equal(MASTERPLAN_HEADER_CALIBRATION, null);
-  assert.equal(headerSpec(project, "Giãn xây"), null);
-  assert.equal(headerSpec(project, "Giãn xây", { x: 0, y: 0, width: 100, height: 100 }), null);
-  assert.ok(headerSpec(project, "Giãn xây", { x: 10000, y: 1000, width: 8000, height: 500 }));
-  assert.equal(headerSpec("other", "Giãn xây", { x: 10000, y: 1000, width: 8000, height: 500 }), null);
+test("calibrated full-width cover is top-aligned and preserves image ratio", () => {
+  assert.deepEqual(MASTERPLAN_HEADER_CALIBRATION, { x: 0, y: 0, width: 42000, height: 4420 });
+  const { rect } = headerSpec(project, "Giãn xây");
+  assert.equal(rect.x, 0);
+  assert.equal(rect.y, 0);
+  assert.ok(Math.abs(rect.width - 42000) < 1e-6);
+  assert.ok(Math.abs(rect.width / rect.height - 16544 / 1838) < 1e-6);
+  assert.ok(rect.height >= 4420 && rect.height < 4700);
+  assert.equal(headerSpec(project, "Giãn xây", null), null);
+  assert.equal(headerSpec(project, "Giãn xây", { x: 0, y: 0, width: 100, height: 5000 }), null);
+  assert.equal(headerSpec("other", "Giãn xây"), null);
+});
+test("all original PNGs have opaque coverage of the calibrated old header rectangle", async () => {
+  for (const group of ["Giãn xây", "Xây thô", "Hoàn thiện"]) {
+    const { src, rect } = headerSpec(project, group);
+    const assetPath = fileURLToPath(new URL("../public" + src, import.meta.url));
+    const meta = await sharp(assetPath).metadata();
+    assert.equal(meta.width, 16544, group);
+    assert.equal(meta.height, 1838, group);
+    assert.equal(meta.hasAlpha, true, group);
+    const { data, info } = await sharp(assetPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const rows = Math.ceil(MASTERPLAN_HEADER_CALIBRATION.height * info.height / rect.height);
+    let uncovered = 0, first = null, minAlpha = 255;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < info.width; x++) {
+        const a = data[(y * info.width + x) * info.channels + 3];
+        minAlpha = Math.min(minAlpha, a);
+        if (a < 254) { uncovered++; if (!first) first = { x, y, alpha: a }; }
+      }
+    }
+    console.log("[header-alpha]", JSON.stringify({ group, rows, minAlpha, uncovered, first }));
+    assert.equal(uncovered, 0, group + " does not fully cover the old header rectangle");
+  }
 });

@@ -1,6 +1,9 @@
 // Shared native-coordinate geometry for Overview and Export.
-// Keep disabled until the canonical PDF and all three alpha footprints are verified.
-export const MASTERPLAN_HEADER_CALIBRATION = null;
+// Measured on the canonical PDF at native scale. Green edge slopes from y=4411
+// (left) to y=4252 (right); 4420 encloses the measured edge with a small margin.
+// The full-width PNG is top-aligned, never stretched. Release requires alpha audit.
+export const MASTERPLAN_HEADER_CALIBRATION = Object.freeze({ x: 0, y: 0, width: 42000, height: 4420 });
+export const MASTERPLAN_HEADER_SOURCE_SHA256 = "1a7f0462b384321487c8eaafc45e66853e797a4a5bb3198f633cb8d4d5ee1dfa";
 export const MASTERPLAN_NATIVE = Object.freeze({ width: 42000, height: 29709 });
 export const CANONICAL_MASTERPLAN_URL = "/masterplan/masterplan.pdf";
 export const HEADER_PROJECT_ID = "vinhomes-saigon-park";
@@ -45,10 +48,18 @@ export function projectHeaderRect(rect, bounds, camera = { scale: 1, tx: 0, ty: 
 export function headerSpec(projectId, group, calibration = MASTERPLAN_HEADER_CALIBRATION) {
   const src = headerAsset(projectId, group);
   if (!src || !calibration) return null;
-  const rect = coverHeader(calibration);
-  if (!rect || rect.x < 0 || rect.y < 0
-    || rect.x + rect.width > MASTERPLAN_NATIVE.width
-    || rect.y + rect.height > MASTERPLAN_NATIVE.height) return null;
+  const covered = coverHeader(calibration);
+  if (!covered || covered.width > MASTERPLAN_NATIVE.width + 1e-6
+    || covered.height > MASTERPLAN_NATIVE.height) return null;
+  // At page edges shift the uniform cover inside the page, not off-page.
+  const rect = { ...covered,
+    x: Math.max(0, Math.min(covered.x, MASTERPLAN_NATIVE.width - covered.width)),
+    y: Math.max(0, Math.min(covered.y, MASTERPLAN_NATIVE.height - covered.height)),
+  };
+  const epsilon = 1e-6;
+  if (rect.x > calibration.x + epsilon || rect.y > calibration.y + epsilon
+    || rect.x + rect.width < calibration.x + calibration.width - epsilon
+    || rect.y + rect.height < calibration.y + calibration.height - epsilon) return null;
   return { src, rect };
 }
 
