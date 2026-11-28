@@ -106,11 +106,60 @@ try {
   if (!(await autoShapeTool.evaluate(el => el.previousElementSibling?.classList.contains("pf-pen-tool-button") && !el.closest(".pf-unit-navigator")))) throw Error("Auto Shape must be beside manual Highlight");
   if (await page.locator('.pf-unit-navigator [data-nav="auto-shape"]').count()) throw Error("Obsolete Focus Auto Shape control");
   results.autoShapeToolbar = "visible beside manual Highlight";
+  // Test the actual DOM image and backing, not merely the geometry helper.
+  const headerGroups = [
+    { group: "Giãn xây", asset: "GIAN_XAY" },
+    { group: "Xây thô", asset: "XAY_THO" },
+    { group: "Hoàn thiện", asset: "HOAN_THIEN" },
+  ];
+  results.headerOverlay = [];
+  async function verifyHeader(expected, camera) {
+    await page.waitForFunction(({ expected, camera }) => {
+      const stage = document.querySelector('.pf-masterplan-stage[data-overview-render-mode="raster"]');
+      const layer = stage?.querySelector(':scope > .pf-overview-masterplan-header');
+      const img = layer?.querySelector('img');
+      const backing = layer?.querySelector('.pf-overview-masterplan-header-backing');
+      if (!stage || !layer || !img || !backing || !img.complete
+        || stage.dataset.overviewProjectId !== "vinhomes-saigon-park"
+        || stage.dataset.overviewGroup !== expected.group
+        || !img.getAttribute("src")?.includes("VSP_HEADER_" + expected.asset + "_")
+        || img.naturalWidth !== 16544 || img.naturalHeight !== 1838) return false;
+      const fit = Number(stage.dataset.pfPdfWidth) / 42000;
+      const x = camera.tx + Number(stage.dataset.pfPdfX) * camera.scale;
+      const y = camera.ty + Number(stage.dataset.pfPdfY) * camera.scale;
+      const width = 42000 * fit * camera.scale;
+      const near = (actual, target) => Math.abs(actual - target) < 1;
+      const style = getComputedStyle(img);
+      const bs = getComputedStyle(backing);
+      const ls = getComputedStyle(layer);
+      return fit > 0 && near(parseFloat(style.left), x) && near(parseFloat(style.top), y)
+        && near(parseFloat(style.width), width)
+        && near(parseFloat(style.height), width * 1838 / 16544)
+        && near(parseFloat(bs.left), x) && near(parseFloat(bs.top), y)
+        && near(parseFloat(bs.width), width) && near(parseFloat(bs.height), 4420 * fit * camera.scale)
+        && bs.backgroundColor === "rgb(255, 255, 255)"
+        && ls.zIndex === "2" && ls.pointerEvents === "none";
+    }, { expected, camera }, { timeout: 15000 });
+    if (await page.locator(".pf-overview-masterplan-header").count() !== 1) throw Error("Duplicate header overlay");
+    results.headerOverlay.push({ group: expected.group, camera, originalDimensions: true, aligned: true });
+  }
+  const fitCamera = { scale: 1, tx: 0, ty: 0 };
+  async function selectHeader(expected) {
+    await page.locator(".pf-overview-handover-tabs button").filter({ hasText: expected.group }).click();
+    await verifyHeader(expected, fitCamera);
+  }
+  for (const expected of headerGroups) await selectHeader(expected);
+  await selectHeader(headerGroups[0]);
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await verifyHeader(headerGroups[0], fitCamera);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await verifyHeader(headerGroups[0], fitCamera);
   results.raster=[];
   for(const camera of [{scale:1,tx:0,ty:0},{scale:4,tx:-250,ty:-100},{scale:4,tx:-450,ty:-250},{scale:1,tx:0,ty:0}]){
     await page.evaluate(c=>window.dispatchEvent(new CustomEvent("pf-overview-camera",{detail:{...c,dragging:false}})),camera);
     await page.waitForTimeout(350);
     await page.waitForFunction(()=>{const s=window.__plotflowOverviewRuntime;return s?.activeTiles>0&&s.pendingTiles===0;},null,{timeout:20000});
+    await verifyHeader(headerGroups[0], camera);
     const s=await page.evaluate(()=>({...window.__plotflowOverviewRuntime}));
     results.raster.push({camera,level:s.currentLevel,activeTiles:s.activeTiles,tileCeiling:s.tileCeiling,failedTiles:s.failedTiles,multiLevelOverlap:s.multiLevelOverlap});
     if(s.failedTiles||s.multiLevelOverlap||s.activeTiles>s.tileCeiling)throw Error("Raster runtime failed settled bounds or tile load checks");
@@ -139,6 +188,7 @@ try {
     await page.locator('[data-active-project="vinhomes-green-paradise"][data-legacy-workspace="inactive"]').waitFor({state:"visible"});
     if(await page.locator(".pf-product-workspace > *").count())throw Error("Legacy editor mounted in another project");
     if(mode==="overview")await page.locator('[data-overview-render-mode="wireframe"]').waitFor({state:"visible"});
+    if(await page.locator(".pf-overview-masterplan-header").count())throw Error("VSP header leaked into another project");
     if(mode==="detail")await page.locator('[data-project-detail-unconfigured="true"]').waitFor({state:"visible"});
     const saved=await page.evaluate(keys=>Object.fromEntries(keys.map(k=>[k,localStorage.getItem(k)])),Object.keys(synthetic));
     if(JSON.stringify(saved)!==JSON.stringify(synthetic))throw Error("Foreign project changed legacy data");
@@ -172,6 +222,7 @@ try {
   await page.locator(".pf-hub-project-card").filter({hasText:"Vinhomes Green Paradise"}).click();
   await page.getByRole("button",{name:"Detail",exact:true}).click();
   await verifyForeign("detail");
+  console.log("Masterplan header QA passed: "+results.headerOverlay.length+" live DOM alignment checks");
   console.log("Project isolation QA passed: "+results.projectIsolation.length+" foreign-view checks");
   await context.close();
   console.log(`Browser smoke passed: ${results.routes.length} route visits; ${results.memory.length} memory samples`);
