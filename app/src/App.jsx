@@ -6,8 +6,6 @@ import PosterCanvas from "./components/PosterCanvas";
 import { formatPriceBillions } from "./components/UnitInfoCard";
 import FloorplanFineTune, { DEFAULT_FLOORPLAN_VIEW } from "./components/FloorplanFineTune";
 import AssetPicker from "./components/AssetPicker";
-import LotHighlightEditor from "./components/LotHighlightEditor";
-import FocusDeck from "./components/FocusDeck";
 import { assetLibrary } from "./data/assetLibrary";
 import {
   amenityCatalog,
@@ -20,15 +18,18 @@ import {
 import { brandFont, buildBrandFontCss } from "./data/brandConfig";
 import { getMemoryProfile } from "./runtime/memoryProfile";
 import { useProjectContext } from "./project/ProjectContext.jsx";
+import { normalizeProjectSalesRow } from "./core/sales/overviewRow.js";
+import {
+  activeSalesDataset, disconnectSalesSheet, isSalesSourceInitialized,
+  overviewSalesUnits, readSalesSource, SALES_EVENT, writeSalesSource,
+} from "./core/sales/projectSalesSource.js";
 import { parseCSV, parseWorkbookUnits, getGoogleSheetCSVUrl } from "./core/sales/unitImport.js";
 import {
   attachMatchToPageRender,
   buildFloorplanIndex,
-  calculateCropRect,
   FLOORPLAN_FRAME_ASPECT,
   normalizeUnitCode,
   openVectorPdf,
-  releasePreparedDetailRaster,
   renderPdfPageBase,
   renderPdfRegion,
   resolvePdfSourceUrl,
@@ -42,6 +43,7 @@ const DEFAULT_MASTER_PDF_URL = "/masterplan/masterplan.pdf";
 const DEFAULT_MASTER_PDF_LABEL = "Masterplan mặc định";
 const LEGACY_SHEET_HISTORY_KEY = "plotflow-sheet-history-r1";
 
+const EMPTY_UNITS = [];
 const EMPTY_PREVIEW_UNIT = {
   unitCode: "",
   type: "",
@@ -179,7 +181,7 @@ async function renderUnitToPngBlob(unit, floorplanImages, assignment, lotOverlay
       <PosterCanvas
         unit={unit}
         assets={getAssetsForUnit(unit, floorplanImages, assignment)}
-        lotOverlay={lotOverlay?.stale ? null : lotOverlay}
+        lotOverlay={lotOverlay}
         isEditing={false}
         previewZoom={1}
       />
@@ -263,14 +265,17 @@ function extractFilenameFromDisposition(value = "") {
 
 function App() {
   const { projectId, storage } = useProjectContext();
-  const [units, setUnits] = useState([]);
+  const [salesSource, setSalesSource] = useState(() => readSalesSource(projectId));
+  const activeDataset = activeSalesDataset(salesSource);
+  const units = activeDataset?.units ?? EMPTY_UNITS;
+  const connectedSheetUrl = salesSource.active === "sheet" ? salesSource.sheet?.url || "" : "";
   const [selectedUnitCode, setSelectedUnitCode] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetHistory, setSheetHistory] = useState(() => readProjectSheetHistory(storage));
-  const [connectedSheetUrl, setConnectedSheetUrl] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
   const [message, setMessage] = useState("Chưa kết nối dữ liệu. Hãy chọn Google Sheet hoặc Excel khi cần.");
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const sheetDialogRef = useRef(null);
+  const sourceBusyRef = useRef(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0 });
@@ -281,8 +286,6 @@ function App() {
   const [designAssignments, setDesignAssignments] = useState(() => loadLocalJson("plotflow-design-assignments-r1", {}));
   const [lotOverlays, setLotOverlays] = useState(() => loadLocalJson("plotflow-lot-overlays-r1-v9", {}));
   const [assetPickerType, setAssetPickerType] = useState(null);
-  const [lotEditorCode, setLotEditorCode] = useState(null);
-  const [lotEditorData, setLotEditorData] = useState(null);
   const componentCanvasRef = useRef(null);
   const sheetInputRef = useRef(null);
   const autoConnectSheetRef = useRef(false);
@@ -303,6 +306,17 @@ function App() {
   const [locatorResults, setLocatorResults] = useState({});
   const [floorplanImages, setFloorplanImages] = useState({});
   const [overrides, setOverrides] = useState(loadOverrides);
+  const [manuallyLocated, setManuallyLocated] = useState(() => Object.fromEntries(
+    Object.entries(loadLocalJson("plotflow-manual-floorplans-v1", {}))
+      .filter(([, item]) => item?.dataUrl?.startsWith("data:image/"))
+      .map(([code]) => [code, true])
+  ));
+  const [manualLocateRequest, setManualLocateRequest] = useState(null);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+  const [boundaryFailures, setBoundaryFailures] = useState({});
+  const [fineTuneCandidateIndex, setFineTuneCandidateIndex] = useState(0);
+  const [fineTuneManual, setFineTuneManual] = useState(false);
+  const fineTuneRequestRef = useRef(0);
   const [fineTuneUnitCode, setFineTuneUnitCode] = useState(null);
   const [fineTunePageRender, setFineTunePageRender] = useState(null);
   const [fineTuneLoading, setFineTuneLoading] = useState(false);
@@ -321,7 +335,13 @@ function App() {
     () => selectedUnit ? getAssetsForUnit(selectedUnit, floorplanImages, selectedAssignment) : getAssetsForUnit(null),
     [selectedUnit, floorplanImages, selectedAssignment]
   );
-  const selectedLotOverlay = selectedCode ? lotOverlays[selectedCode] || null : null;
+  function lotOverlayForCrop(code) {
+    const saved = lotOverlays[code];
+    if (!saved || saved.stale) return null;
+    if (saved.cropSignature && saved.cropSignature !== floorplanPreviewSignature(code, locatorResults[code])) return null;
+    return saved;
+  }
+  const selectedLotOverlay = selectedCode ? lotOverlayForCrop(selectedCode) : null;
   const previewUnit = selectedUnit || EMPTY_PREVIEW_UNIT;
 
   useEffect(() => {
@@ -329,23 +349,25 @@ function App() {
   }, [projectId, storage]);
 
   useEffect(() => {
-    autoConnectSheetRef.current = false;
-  }, [projectId]);
+    if (autoConnectSheetRef.current || !sheetHistory.length || isSalesSourceInitialized(projectId)) return;
+    autoConnectSheetRef.current = true;
+    void connectGoogleSheet(sheetHistory[0].url, { restore: true });
+  }, [sheetHistory, projectId]);
 
   useEffect(() => {
-    if (autoConnectSheetRef.current || connectedSheetUrl || connectionState === "loading" || !sheetHistory.length) return;
-    autoConnectSheetRef.current = true;
-    void connectGoogleSheet(sheetHistory[0].url);
-  }, [sheetHistory, connectedSheetUrl, connectionState]);
+    window.dispatchEvent(new CustomEvent(SALES_EVENT, {
+      detail: { projectId, units: overviewSalesUnits(salesSource), status: connectionState },
+    }));
+  }, [projectId, salesSource, connectionState]);
 
   const locatorSummary = useMemo(() => {
     const values = units.map((unit) => locatorResults[normalizeUnitCode(unit.unitCode)]).filter(Boolean);
     return {
-      ready: values.filter((item) => item.status === "ready" || overrides[item.unitCode]).length,
+      ready: values.filter((item) => item.status === "ready" || overrides[item.unitCode] || manuallyLocated[item.unitCode]).length,
       review: values.filter((item) => item.status === "review" && !overrides[item.unitCode]).length,
-      notFound: values.filter((item) => item.status === "not_found").length,
+      notFound: values.filter((item) => item.status === "not_found" && !manuallyLocated[item.unitCode]).length,
     };
-  }, [units, locatorResults, overrides]);
+  }, [units, locatorResults, overrides, manuallyLocated]);
 
   useEffect(() => {
     if (!brandFont.regular && !brandFont.medium && !brandFont.semibold && !brandFont.bold) return;
@@ -379,11 +401,11 @@ function App() {
   }
 
   useEffect(() => {
-    if (isLayoutEditing || fineTuneUnitCode || lotEditorCode) return;
+    if (isLayoutEditing || fineTuneUnitCode) return;
     const timer = setTimeout(fitPreview, 30);
     window.addEventListener("resize", fitPreview);
     return () => { clearTimeout(timer); window.removeEventListener("resize", fitPreview); };
-  }, [isLayoutEditing, fineTuneUnitCode, lotEditorCode]);
+  }, [isLayoutEditing, fineTuneUnitCode]);
 
   useEffect(() => {
     function keydown(event) {
@@ -415,46 +437,6 @@ function App() {
   function viewSignature(view) {
     const v = { ...DEFAULT_FLOORPLAN_VIEW, ...(view || {}) };
     return JSON.stringify({ zoom: v.zoom, offsetX: v.offsetX, offsetY: v.offsetY });
-  }
-
-  async function openLotEditor(code = selectedCode) {
-    const result = locatorResults[code];
-    if (!result?.matches?.length || !pdfDocRef.current) return;
-    setIsLayoutEditing(false);
-    const override = overrides[code];
-    const index = Math.min(override?.selectedMatchIndex ?? result.selectedMatchIndex ?? 0, result.matches.length - 1);
-    const pageRender = await getPageRender(result.matches[index]);
-    const view = { ...DEFAULT_FLOORPLAN_VIEW, ...(override?.view || {}) };
-    const crop = calculateCropRect(pageRender, view);
-    const anchor = {
-      x: Math.max(0, Math.min(1, (pageRender.anchorX - crop.x) / crop.w)),
-      y: Math.max(0, Math.min(1, (pageRender.anchorY - crop.y) / crop.h)),
-    };
-    const clean = await renderPdfRegion(pdfDocRef.current, pageRender, view, {
-      outputWidth: MEMORY_PROFILE.lotEditorWidth,
-      aspect: FLOORPLAN_FRAME_ASPECT,
-      includeHighlight: false,
-      maxRenderScale: 128,
-    });
-    if (!clean?.dataUrl) return;
-    const imageSrc = clean.dataUrl;
-    const existing = lotOverlays[code];
-    const sig = viewSignature(view);
-    setLotEditorData({ imageSrc, autoAnchor: anchor, viewSignature: sig, initialOverlay: existing?.stale ? null : existing });
-    setLotEditorCode(code);
-  }
-
-  function closeLotEditor() {
-    setLotEditorCode(null);
-    setLotEditorData(null);
-    releasePreparedDetailRaster();
-  }
-
-  function saveLotOverlay(overlay) {
-    const next = { ...lotOverlays, [lotEditorCode]: { ...overlay, stale: false } };
-    setLotOverlays(next);
-    localStorage.setItem("plotflow-lot-overlays-r1-v9", JSON.stringify(next));
-    closeLotEditor();
   }
 
   function saveSheetHistoryEntry(url, suggestedName) {
@@ -494,58 +476,79 @@ function App() {
   async function fetchSheetData(sourceUrl) {
     const response = await fetch(getGoogleSheetCSVUrl(sourceUrl), { cache: "no-store" });
     if (!response.ok) throw new Error(`Không tải được Google Sheet (${response.status}).`);
-    const importedUnits = await parseCSV(await response.text());
+    const importedUnits = await parseCSV(await response.text(), normalizeProjectSalesRow);
     if (!importedUnits.length) throw new Error("Không tìm thấy căn hợp lệ trong Google Sheet.");
     const disposition = response.headers?.get?.("content-disposition") || "";
     const displayName = extractFilenameFromDisposition(disposition) || fallbackSheetName(sourceUrl);
     return { units: importedUnits, displayName };
   }
 
-  async function connectGoogleSheet(sourceUrl) {
-    const candidateUrl = typeof sourceUrl === "string" ? sourceUrl : sheetUrl;
-    const targetUrl = String(candidateUrl || "").trim();
-    if (!targetUrl) return;
+  function commitSalesSource(next) {
+    const saved = writeSalesSource(projectId, next);
+    setSalesSource(next);
+    return saved;
+  }
+
+  async function connectGoogleSheet(sourceUrl = sheetUrl, { restore = false, refresh = false } = {}) {
+    const targetUrl = sourceUrl.trim();
+    if (!targetUrl || sourceBusyRef.current) return;
+    sourceBusyRef.current = true;
     try {
-      setSheetUrl(targetUrl);
-      setConnectionState("loading"); setMessage("Đang kết nối Google Sheet...");
+      setConnectionState("loading");
+      setMessage(refresh ? "Đang làm mới Google Sheet…" : "Đang kết nối Google Sheet…");
       const { units: importedUnits, displayName } = await fetchSheetData(targetUrl);
-      setUnits(importedUnits); setSelectedUnitCode(importedUnits[0].unitCode); setConnectedSheetUrl(targetUrl);
-      saveSheetHistoryEntry(targetUrl, displayName);
-      setConnectionState("connected"); setLastUpdated(new Date()); setMessage(`${displayName} · ${importedUnits.length} căn`);
+      const saved = commitSalesSource({
+        ...salesSource,
+        active: "sheet",
+        sheet: { url: targetUrl, label: displayName, units: importedUnits, updatedAt: Date.now() },
+      });
+      if (!restore) saveSheetHistoryEntry(targetUrl, displayName);
+      if (!refresh) setSelectedUnitCode(importedUnits[0].unitCode);
+      setConnectionState("idle");
+      setMessage(saved ? "" : "Chỉ dùng dữ liệu trong phiên này vì không lưu được trên trình duyệt.");
     } catch (error) {
-      setConnectionState("error"); setMessage(error.message || "Không kết nối được Google Sheet.");
+      setConnectionState("error");
+      setMessage(error.message || "Không tải được Google Sheet.");
+    } finally {
+      sourceBusyRef.current = false;
     }
   }
 
-  async function refreshGoogleSheet() {
-    if (!connectedSheetUrl) return;
-    try {
-      setConnectionState("loading"); setMessage("Đang refresh dữ liệu...");
-      const { units: importedUnits, displayName } = await fetchSheetData(connectedSheetUrl);
-      setUnits(importedUnits);
-      setSelectedUnitCode(importedUnits.some((u) => u.unitCode === selectedUnitCode) ? selectedUnitCode : importedUnits[0].unitCode);
-      saveSheetHistoryEntry(connectedSheetUrl, displayName);
-      setConnectionState("connected"); setLastUpdated(new Date()); setMessage(`Đã refresh · ${displayName} · ${importedUnits.length} căn`);
-    } catch (error) {
-      setConnectionState("error"); setMessage(error.message || "Refresh thất bại.");
-    }
+  function disconnectGoogleSheet() {
+    if (sourceBusyRef.current || !connectedSheetUrl) return;
+    const saved = commitSalesSource(disconnectSalesSheet(salesSource));
+    setConnectionState("idle");
+    setMessage(saved ? "Đã ngắt Google Sheet." : "Đã ngắt trong phiên này. Trình duyệt không lưu được thay đổi.");
   }
 
   async function handleExcelImport(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file || sourceBusyRef.current) return;
+    sourceBusyRef.current = true;
     try {
-      setConnectionState("loading"); setMessage("Đang đọc Excel...");
+      setConnectionState("loading");
+      setMessage("Đang đọc Excel…");
       const XLSX = await import("xlsx");
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-      const { units: importedUnits, sheetName } = parseWorkbookUnits(workbook, XLSX);
+      const { units: importedUnits, sheetName } = parseWorkbookUnits(workbook, XLSX, normalizeProjectSalesRow);
       if (!importedUnits.length) throw new Error("Không có căn hợp lệ trong Excel. Hãy kiểm tra sheet UNITS hoặc cột mã căn.");
-      setUnits(importedUnits); setSelectedUnitCode(importedUnits[0].unitCode); setConnectedSheetUrl("");
-      setConnectionState("excel"); setLastUpdated(new Date()); setMessage(`Excel loaded · ${sheetName || "data"} · ${importedUnits.length} căn`);
+      const saved = commitSalesSource({
+        ...salesSource,
+        sheet: null,
+        active: "excel",
+        excel: { label: sheetName, units: importedUnits, updatedAt: Date.now() },
+      });
+      setSelectedUnitCode(importedUnits[0].unitCode);
+      setConnectionState("idle");
+      setMessage(saved ? "" : "Chỉ dùng Excel trong phiên này vì không lưu được trên trình duyệt.");
     } catch (error) {
-      setConnectionState("error"); setMessage(error.message || "Không đọc được Excel.");
+      setConnectionState("error");
+      setMessage(error.message || "Không đọc được Excel.");
+    } finally {
+      sourceBusyRef.current = false;
+      input.value = "";
     }
-    event.target.value = "";
   }
 
   async function getPageRender(match) {
@@ -565,13 +568,17 @@ function App() {
     return attachMatchToPageRender(await task, match);
   }
 
+  function cropSignature(match, index, view) {
+    return `${match.pageNumber}:${index}:${match.x}:${match.y}:${JSON.stringify(match.bbox ?? null)}:${viewSignature(view)}`;
+  }
+
   function floorplanPreviewSignature(code, result) {
     if (!result?.matches?.length) return "";
     const override = overrides[code];
     const matchIndex = Math.min(override?.selectedMatchIndex ?? result.selectedMatchIndex ?? 0, result.matches.length - 1);
     const match = result.matches[matchIndex];
     const view = { ...DEFAULT_FLOORPLAN_VIEW, ...(override?.view || {}) };
-    return `${match.pageNumber}:${matchIndex}:${match.x}:${match.y}:${viewSignature(view)}`;
+    return cropSignature(match, matchIndex, view);
   }
 
   function commitFloorplanPreview(code, signature, dataUrl) {
@@ -675,6 +682,7 @@ function App() {
   async function indexMasterPdf(source, sourceLabel, sourceType = "upload") {
     try {
       setLocatorState("indexing");
+      setBoundaryFailures({});
       setLocatorFileName(sourceLabel);
       setLocatorMessage(sourceType === "link" ? "Đang kết nối PDF từ link..." : sourceType === "local" ? "Đang mở masterplan mặc định..." : "Đang đọc text vector trong PDF...");
       pageCacheRef.current.clear();
@@ -752,50 +760,63 @@ function App() {
     event.target.value = "";
   }
 
-  async function openFineTune(code = selectedCode) {
-    const result = locatorResults[code];
-    if (!result?.matches?.length) return;
-    try {
-      setFineTuneLoading(true); setIsLayoutEditing(false); setFineTuneUnitCode(code);
-      const override = overrides[code];
-      const index = Math.min(override?.selectedMatchIndex ?? result.selectedMatchIndex ?? 0, result.matches.length - 1);
-      const pageRender = await getPageRender(result.matches[index]);
-      setFineTunePageRender(pageRender);
-    } finally {
-      setFineTuneLoading(false);
-    }
-  }
-
-  async function changeFineTuneCandidate(index) {
-    const result = locatorResults[fineTuneUnitCode];
-    if (!result?.matches?.[index]) return;
-    setLocatorResults((prev) => ({ ...prev, [fineTuneUnitCode]: { ...prev[fineTuneUnitCode], selectedMatchIndex: index } }));
-    setFineTuneLoading(true);
-    setFineTunePageRender(await getPageRender(result.matches[index]));
+  function closeFineTune() {
+    fineTuneRequestRef.current += 1;
+    setFineTuneUnitCode(null);
+    setFineTunePageRender(null);
     setFineTuneLoading(false);
   }
 
-  async function saveFineTune(view) {
-    const code = fineTuneUnitCode;
+  async function loadFineTuneCandidate(code, index, manual = false) {
     const result = locatorResults[code];
-    if (!result || !fineTunePageRender) return;
-    const selectedMatchIndex = result.selectedMatchIndex ?? 0;
-    const nextOverride = { selectedMatchIndex, view };
-    const nextOverrides = { ...overrides, [code]: nextOverride };
-    setOverrides(nextOverrides);
-    localStorage.setItem("plotflow-floorplan-overrides-v6", JSON.stringify(nextOverrides));
-    if (lotOverlays[code]) {
-      const nextLots = { ...lotOverlays, [code]: { ...lotOverlays[code], stale: true } };
-      setLotOverlays(nextLots);
-      localStorage.setItem("plotflow-lot-overlays-r1-v9", JSON.stringify(nextLots));
+    if (!result?.matches[index]) return;
+    const request = ++fineTuneRequestRef.current;
+    setFineTuneLoading(true);
+    setFineTunePageRender(null);
+    setIsLayoutEditing(false);
+    setFineTuneUnitCode(code);
+    setFineTuneCandidateIndex(index);
+    setFineTuneManual(manual);
+    try {
+      const pageRender = await getPageRender(result.matches[index]);
+      if (request === fineTuneRequestRef.current) setFineTunePageRender(pageRender);
+    } catch (error) {
+      if (request === fineTuneRequestRef.current) {
+        setLocatorMessage(error.message || "Không mở được bản đồ lô đất.");
+        closeFineTune();
+      }
+    } finally {
+      if (request === fineTuneRequestRef.current) setFineTuneLoading(false);
     }
-    const hq = await renderPdfRegion(pdfDocRef.current, fineTunePageRender, view, { outputWidth: 1084, aspect: FLOORPLAN_FRAME_ASPECT, includeHighlight: false });
-    if (!hq?.dataUrl) return;
-    const match = result.matches[selectedMatchIndex];
-    const signature = `${match.pageNumber}:${selectedMatchIndex}:${match.x}:${match.y}:${viewSignature(view)}`;
+  }
+
+  function openFineTune(code = selectedCode, manual = false) {
+    const result = locatorResults[code];
+    if (!result?.matches?.length) return;
+    const index = Math.min(overrides[code]?.selectedMatchIndex ?? result.selectedMatchIndex ?? 0, result.matches.length - 1);
+    return loadFineTuneCandidate(code, index, manual);
+  }
+
+  async function saveFineTune(view, overlay) {
+    const code = fineTuneUnitCode;
+    const match = locatorResults[code]?.matches[fineTuneCandidateIndex];
+    if (!match || !fineTunePageRender) return;
+    const request = fineTuneRequestRef.current;
+    const hq = await renderPdfRegion(pdfDocRef.current, fineTunePageRender, view, {
+      outputWidth: 1084, aspect: FLOORPLAN_FRAME_ASPECT, includeHighlight: false,
+    });
+    if (request !== fineTuneRequestRef.current) return;
+    if (!hq?.dataUrl) throw new Error("Khung bản đồ đã đổi. Hãy chờ tải ảnh rồi lưu lại.");
+    const signature = cropSignature(match, fineTuneCandidateIndex, view);
+    const nextOverrides = { ...overrides, [code]: { selectedMatchIndex: fineTuneCandidateIndex, view } };
+    const nextLots = { ...lotOverlays, [code]: { ...overlay, cropSignature: signature, stale: false } };
+    previewGenerationRef.current += 1;
+    setOverrides(nextOverrides);
+    setLotOverlays(nextLots);
+    localStorage.setItem("plotflow-floorplan-overrides-v6", JSON.stringify(nextOverrides));
+    localStorage.setItem("plotflow-lot-overlays-r1-v9", JSON.stringify(nextLots));
     commitFloorplanPreview(code, signature, hq.dataUrl);
-    setLocatorResults((prev) => ({ ...prev, [code]: { ...prev[code], status: "ready" } }));
-    setFineTuneUnitCode(null); setFineTunePageRender(null);
+    closeFineTune();
   }
 
   async function renderFineTuneVectorPreview(view) {
@@ -829,15 +850,29 @@ function App() {
     return vector?.dataUrl ? { ...floorplanImages, [code]: vector.dataUrl } : floorplanImages;
   }
 
-  function reviewIssues() {
-    const issue = units.find((unit) => {
-      const result = locatorResults[normalizeUnitCode(unit.unitCode)];
-      return result && result.status !== "ready" && !overrides[normalizeUnitCode(unit.unitCode)];
-    });
-    if (!issue) return;
+  const issues = units.flatMap((unit) => {
+    const code = normalizeUnitCode(unit.unitCode);
+    const result = locatorResults[code];
+    if (!result) return [];
+    if (result.status === "not_found") {
+      return manuallyLocated[code] ? [] : [{ code, unitCode: unit.unitCode, text: "Bản đồ · Không tìm thấy mã lô", action: "Mở bản đồ và chọn vị trí thủ công", kind: "missing" }];
+    }
+    const items = [];
+    if (result.status === "review" && !overrides[code]) {
+      items.push({ code, unitCode: unit.unitCode, text: `Bản đồ · Có ${result.matches.length} vị trí trùng mã`, action: "Mở bản đồ và xác nhận vị trí", kind: "candidate" });
+    }
+    const index = overrides[code]?.selectedMatchIndex ?? result.selectedMatchIndex;
+    if (boundaryFailures[code] === index && !lotOverlayForCrop(code)?.shape?.points?.length) {
+      items.push({ code, unitCode: unit.unitCode, text: "Highlight · Chưa xác định được viền lô", action: "Mở Highlight thủ công", kind: "boundary" });
+    }
+    return items;
+  });
+
+  function openIssue(issue) {
+    setIssuesOpen(false);
     setSelectedUnitCode(issue.unitCode);
-    const code = normalizeUnitCode(issue.unitCode);
-    if (locatorResults[code]?.matches?.length) openFineTune(code);
+    if (issue.kind === "missing") setManualLocateRequest({ code: issue.code });
+    else openFineTune(issue.code, issue.kind === "boundary");
   }
 
   async function exportCurrentPng() {
@@ -866,7 +901,7 @@ function App() {
         const code = normalizeUnitCode(unit.unitCode);
         const assignment = resolveDesignAssignment(unit, designAssignments);
         const exportFloorplans = await floorplanImagesForExport(unit, exportScale);
-        zip.file(`${unit.unitCode}.png`, await renderUnitToPngBlob(unit, exportFloorplans, assignment, lotOverlays[code], exportScale));
+        zip.file(`${unit.unitCode}.png`, await renderUnitToPngBlob(unit, exportFloorplans, assignment, lotOverlayForCrop(code), exportScale));
       }
       setExportMessage("Đang đóng gói ZIP...");
       const zipBlob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
@@ -877,24 +912,65 @@ function App() {
   }
 
   const fineTuneUnit = fineTuneUnitCode ? units.find((unit) => normalizeUnitCode(unit.unitCode) === fineTuneUnitCode) : null;
-  const fineTuneResult = fineTuneUnitCode ? locatorResults[fineTuneUnitCode] : null;
-  const fineTuneInitialView = fineTuneUnitCode ? overrides[fineTuneUnitCode]?.view || DEFAULT_FLOORPLAN_VIEW : DEFAULT_FLOORPLAN_VIEW;
-  const connectionLabel = connectionState === "connected" ? "Connected" : connectionState === "loading" ? "Loading" : connectionState === "error" ? "Error" : connectionState === "excel" ? "Excel" : "Waiting";
+  const fineTuneLocator = locatorResults[fineTuneUnitCode];
+  const fineTuneResult = fineTuneLocator ? { ...fineTuneLocator, selectedMatchIndex: fineTuneCandidateIndex } : null;
+  const fineTuneOverride = overrides[fineTuneUnitCode];
+  const editingSavedCandidate = fineTuneCandidateIndex === (fineTuneOverride?.selectedMatchIndex ?? fineTuneLocator?.selectedMatchIndex ?? 0);
+  const fineTuneInitialView = editingSavedCandidate ? fineTuneOverride?.view || DEFAULT_FLOORPLAN_VIEW : DEFAULT_FLOORPLAN_VIEW;
+  const sourceClass = connectionState !== "idle" ? connectionState
+    : salesSource.active === "sheet" ? "connected" : salesSource.active || "idle";
+  const connectionLabel = sourceClass === "error" ? (activeDataset ? "Đang xem dữ liệu đã lưu" : "Không tải được dữ liệu")
+    : sourceClass === "connected" ? "Google Sheet" : sourceClass === "excel" ? "Excel"
+      : sourceClass === "loading" ? "Đang tải" : "Chưa có nguồn dữ liệu";
 
   return (
     <div className="plotflow-shell">
+      {issuesOpen && (
+        <div className="unit-review-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIssuesOpen(false); }} onKeyDown={(event) => { if (event.key === "Escape") setIssuesOpen(false); }}>
+          <section className="unit-review-modal" role="dialog" aria-modal="true" aria-label="Vấn đề cần kiểm tra">
+            <header className="unit-review-modal-head">
+              <h3>{issues.length} vấn đề cần kiểm tra</h3>
+              <button type="button" autoFocus onClick={() => setIssuesOpen(false)} aria-label="Đóng">×</button>
+            </header>
+            <ul className="detail-issue-list">
+              {issues.map(issue => (
+                <li key={`${issue.code}-${issue.kind}`}>
+                  <button type="button" onClick={() => openIssue(issue)}>
+                    <strong>{issue.unitCode} · {issue.text}</strong>
+                    <span>{issue.action} →</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      )}
       <aside className="unit-sidebar">
         <div><h1>PlotFlow</h1><p>Đời lắm Phong Trần · Plot smarter.</p></div>
 
         <div className="sheet-connect">
           <span>GOOGLE SHEETS</span>
-          <input ref={sheetInputRef} type="text" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="Paste Google Sheet link..." />
+          <dialog ref={sheetDialogRef} className="sheet-source-dialog" aria-label="Kết nối Google Sheet">
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              sheetDialogRef.current?.close();
+              void connectGoogleSheet();
+            }}>
+              <label>Link Google Sheet
+                <input ref={sheetInputRef} value={sheetUrl} onChange={(event) => setSheetUrl(event.target.value)} placeholder="Paste Google Sheet link..." required />
+              </label>
+              <div>
+                <button type="button" onClick={() => sheetDialogRef.current?.close()}>Hủy</button>
+                <button type="submit" disabled={!sheetUrl.trim()}>Kết nối</button>
+              </div>
+            </form>
+          </dialog>
           {sheetHistory.length > 0 && (
             <div className="sheet-history">
               <div className="sheet-history-title"><span>RECENT SHEETS</span><em>{sheetHistory.length}/10</em></div>
               {sheetHistory.slice(0, 10).map((item) => (
                 <div className={`sheet-history-row ${connectedSheetUrl === item.url ? "active" : ""}`} key={item.url}>
-                  <button type="button" className="sheet-history-open" title={item.url} onClick={() => connectGoogleSheet(item.url)}>
+                  <button type="button" className="sheet-history-open" title={item.url} onClick={() => connectGoogleSheet(item.url)} disabled={sourceBusyRef.current || isExporting}>
                     <strong>{item.name || fallbackSheetName(item.url)}</strong>
                     <small>{extractSheetId(item.url).slice(-8) || "saved link"}</small>
                   </button>
@@ -904,16 +980,23 @@ function App() {
               ))}
             </div>
           )}
-          <button type="button" onClick={() => connectGoogleSheet()} disabled={connectionState === "loading" || isExporting}>{connectionState === "loading" ? "Loading..." : "Connect Sheet"}</button>
-          <button type="button" className="refresh-button" onClick={refreshGoogleSheet} disabled={connectionState === "loading" || !connectedSheetUrl || isExporting}>↻ Refresh Data</button>
-          <div className={`connection-status ${connectionState}`}>
+          <button type="button" data-connect-sheet onClick={() => {
+            setSheetUrl(connectedSheetUrl);
+            sheetDialogRef.current?.showModal();
+          }} disabled={sourceClass === "loading" || isExporting}>Connect Sheet</button>
+          <button type="button" className="refresh-button" onClick={() => connectGoogleSheet(connectedSheetUrl, { refresh: true })} disabled={sourceClass === "loading" || !connectedSheetUrl || isExporting}>↻ Refresh Data</button>
+          {connectedSheetUrl && <button type="button" className="refresh-button" onClick={disconnectGoogleSheet} disabled={sourceClass === "loading" || isExporting}>Ngắt Google Sheet</button>}
+          <div className={`connection-status ${sourceClass}`} role="status">
             <div className="status-line"><span className="status-dot" /><strong>{connectionLabel}</strong></div>
-            <p>{message}</p>{lastUpdated && <small>Last updated: {formatTime(lastUpdated)}</small>}
+            {activeDataset && <p>{activeDataset.label} · {units.length} căn</p>}
+            {message && !activeDataset && <p>{message}</p>}
+            {message && activeDataset && <small>{message}</small>}
+            {activeDataset?.updatedAt && <small>Lần tải thành công: {formatTime(new Date(activeDataset.updatedAt))}</small>}
           </div>
         </div>
 
         <div className="source-divider"><span>OR</span></div>
-        <label className={`excel-import-button ${isExporting ? "disabled" : ""}`}>Import Excel<input type="file" accept=".xlsx,.xls" onChange={handleExcelImport} disabled={isExporting} hidden /></label>
+        <label className={`excel-import-button ${isExporting ? "disabled" : ""}`}>Import Excel<input type="file" accept=".xlsx,.xls" onChange={handleExcelImport} disabled={isExporting || sourceClass === "loading"} hidden /></label>
 
         <div className="locator-card">
           <div className="unit-list-header"><span>FLOORPLAN LOCATOR</span><strong>ON DEMAND</strong></div>
@@ -956,7 +1039,7 @@ function App() {
               <div><strong>{locatorSummary.notFound}</strong><span>Not Found</span></div>
             </div>
           )}
-          <button className="review-issues-button" onClick={reviewIssues} disabled={!locatorSummary.review && !locatorSummary.notFound}>Review Issues</button>
+          <button type="button" className="review-issues-button" data-issue-count={issues.length} onClick={() => setIssuesOpen(true)} disabled={!issues.length || isExporting}>Review Issues</button>
         </div>
 
         <div className="export-panel">
@@ -976,9 +1059,9 @@ function App() {
           {units.map((unit) => {
             const code = normalizeUnitCode(unit.unitCode);
             const result = locatorResults[code];
-            const badge = statusLabel(result?.status, overrides[code]);
+            const badge = statusLabel(result?.status, overrides[code] || manuallyLocated[code]);
             return (
-              <button key={unit.unitCode} className={`unit-select ${selectedUnit?.unitCode === unit.unitCode ? "active" : ""}`} onClick={() => { setSelectedUnitCode(unit.unitCode); setFineTuneUnitCode(null); }} disabled={isExporting}>
+              <button key={unit.unitCode} className={`unit-select ${selectedUnit?.unitCode === unit.unitCode ? "active" : ""}`} onClick={() => { setSelectedUnitCode(unit.unitCode); closeFineTune(); }} disabled={isExporting}>
                 <span className="unit-main"><strong>{unit.unitCode}</strong><em className={`floorplan-badge ${badge.className}`}>{badge.icon} {badge.text}</em></span>
                 <span>{unit.priceEarly ? `${formatPriceBillions(unit.priceEarly)} tỷ` : "—"}</span>
               </button>
@@ -988,11 +1071,21 @@ function App() {
       </aside>
 
       <main className={`component-stage ${isLayoutEditing ? "layout-studio-mode" : ""} ${fineTuneUnitCode ? "finetune-mode" : ""}`}>
-        {lotEditorCode ? (
-          <LotHighlightEditor unit={units.find((item) => normalizeUnitCode(item.unitCode) === lotEditorCode)} imageSrc={lotEditorData?.imageSrc} initialOverlay={lotEditorData?.initialOverlay} autoAnchor={lotEditorData?.autoAnchor} viewSignature={lotEditorData?.viewSignature} pinSrc={pinAssets.pin2D} onCancel={closeLotEditor} onSave={saveLotOverlay} />
-        ) : fineTuneUnitCode ? (
+        {fineTuneUnitCode ? (
           fineTuneLoading ? <div className="finetune-loading">Rendering PDF page…</div> : (
-            <FloorplanFineTune key={`${fineTuneUnitCode}-${fineTuneResult?.selectedMatchIndex || 0}`} unit={fineTuneUnit} locatorResult={fineTuneResult} pageRender={fineTunePageRender} initialView={fineTuneInitialView} onCancel={() => { setFineTuneUnitCode(null); setFineTunePageRender(null); }} onSave={saveFineTune} onCandidateChange={changeFineTuneCandidate} onRenderVectorPreview={renderFineTuneVectorPreview} />
+            <FloorplanFineTune
+              key={`${fineTuneUnitCode}-${fineTuneCandidateIndex}`}
+              unit={fineTuneUnit} locatorResult={fineTuneResult} pageRender={fineTunePageRender}
+              initialView={fineTuneInitialView}
+              initialOverlay={editingSavedCandidate ? lotOverlayForCrop(fineTuneUnitCode) : null}
+              onCancel={closeFineTune} onSave={saveFineTune}
+              onCandidateChange={(index) => loadFineTuneCandidate(fineTuneUnitCode, index, fineTuneManual)}
+              onRenderVectorPreview={renderFineTuneVectorPreview}
+              onBoundaryResult={(accepted) => setBoundaryFailures((previous) => ({
+                ...previous, [fineTuneUnitCode]: accepted ? null : fineTuneCandidateIndex,
+              }))}
+              startManual={fineTuneManual}
+            />
           )
         ) : (
           <>
@@ -1009,8 +1102,7 @@ function App() {
                     <button type="button" onClick={() => setDetailPreviewZoom(1)}>100%</button>
                   </div>
                 )}
-                {selectedLocator?.matches?.length > 0 && !isLayoutEditing && <button className="edit-floorplan-top" onClick={() => openFineTune()}>⌖ Edit Floorplan View</button>}
-                {selectedLocator?.matches?.length > 0 && !isLayoutEditing && <button className="edit-floorplan-top lot-button" onClick={() => openLotEditor()}>✦ Lot Highlight</button>}
+                {selectedLocator?.matches?.length > 0 && !isLayoutEditing && <button className="edit-floorplan-top lot-button" onClick={() => openFineTune()}>Mở bản đồ lô</button>}
                 <button type="button" className={isLayoutEditing ? "edit-layout-button active" : "edit-layout-button"} onClick={() => setIsLayoutEditing((current) => !current)} disabled={isExporting}>{isLayoutEditing ? "✓ Done" : "⌘ Edit Layout"}</button>
               </div>
             </header>
@@ -1020,16 +1112,22 @@ function App() {
               style={{ "--detail-preview-zoom": previewZoomRef.current }}
             >
               <PosterCanvas
+                key={selectedCode}
                 unit={previewUnit}
                 assets={selectedAssets}
                 isEditing={isLayoutEditing}
                 placeholderMode={!selectedUnit}
                 floorplanStatus={selectedLocator?.status}
+                manualLocateRequest={manualLocateRequest}
+                onManualFloorplanLocated={(code) => {
+                  setManualLocateRequest(null);
+                  setManuallyLocated(current => ({ ...current, [code]: true }));
+                }}
+                floorplanDocument={pdfDocRef.current}
                 onEditFloorplan={selectedLocator?.matches?.length ? () => openFineTune() : null}
-                onEditLot={selectedLocator?.matches?.length ? () => openLotEditor() : null}
                 onChooseAsset={selectedUnit ? (type) => setAssetPickerType(type) : null}
-                lotOverlay={selectedLotOverlay?.stale ? null : selectedLotOverlay}
-              />
+                lotOverlay={selectedLotOverlay}
+                      />
 
               {selectedUnit && !isLayoutEditing && (
                 <aside className="design-assignment-dock">
@@ -1053,7 +1151,6 @@ function App() {
         )}
       </main>
 
-      <FocusDeck />
 
       <AssetPicker open={assetPickerType === "house"} title="Choose House Model" subtitle="Chọn bằng thumbnail; Sheet vẫn có thể preset bằng tên mẫu nhà." catalog={houseCatalog} value={selectedAssignment.houseId} onSelect={(id) => { patchSelectedAssignment({ houseId: id }); setAssetPickerType(null); }} onClose={() => setAssetPickerType(null)} />
       <AssetPicker open={assetPickerType === "amenity1" || assetPickerType === "amenity2"} title={assetPickerType === "amenity1" ? "Choose Amenity 01" : "Choose Amenity 02"} subtitle="Featured amenities only." catalog={amenityCatalog} value={assetPickerType === "amenity1" ? selectedAssignment.amenity1Id : selectedAssignment.amenity2Id} onSelect={(id) => { patchSelectedAssignment(assetPickerType === "amenity1" ? { amenity1Id: id } : { amenity2Id: id }); setAssetPickerType(null); }} onClose={() => setAssetPickerType(null)} />

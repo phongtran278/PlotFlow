@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { formatPriceBillions } from "../components/UnitInfoCard.jsx";
 import "./OverviewLiveUnitsRuntime.css";
 
-const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
+import { overviewSalesUnits, readSalesSource, SALES_EVENT } from "../core/sales/projectSalesSource.js";
+import { useProjectContext } from "../project/ProjectContext.jsx";
 const CARD_LAYOUT_KEY = "phongflow-overview-card-layout-v2";
 const GROUP_STYLE_KEY = "plotflow-overview-group-style-v1";
 
@@ -13,14 +14,6 @@ function canonicalOverviewGroup(value = "") {
   if (normalized.includes("giãn xây") || normalized.includes("gian xay")) return "Giãn xây";
   if (normalized.includes("xây thô") || normalized.includes("xay tho") || normalized.includes("bàn giao thô") || normalized.includes("ban giao tho")) return "Xây thô";
   return raw;
-}
-
-function readSellUnits() {
-  if (Array.isArray(window.__plotflowOverviewSellUnits)) return window.__plotflowOverviewSellUnits;
-  try {
-    const value = JSON.parse(localStorage.getItem(SELL_STORAGE_KEY) || "[]");
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
 }
 
 function readSavedCardLayout() {
@@ -40,18 +33,6 @@ function readGroupScale(group) {
 
 function saveCardLayout(value) {
   try { localStorage.setItem(CARD_LAYOUT_KEY, JSON.stringify(value)); } catch { /* noop */ }
-}
-
-function readFallbackUnits() {
-  return Array.from(document.querySelectorAll(".unit-select")).map((button) => ({
-    code: button.querySelector(".unit-main strong")?.textContent?.trim() || "",
-    handover: "",
-    land: "",
-    floor: "",
-    type: "",
-    priceLandVat: Array.from(button.children).at(-1)?.textContent?.trim() || "",
-    priceAllIn: "",
-  })).filter((item) => item.code);
 }
 
 function escapeHtml(value = "") {
@@ -79,6 +60,7 @@ function objectScale(card) {
 }
 
 export default function OverviewLiveUnitsRuntime() {
+  const { projectId } = useProjectContext();
   useEffect(() => {
     let stage = null;
     let layer = null;
@@ -95,13 +77,10 @@ export default function OverviewLiveUnitsRuntime() {
       return canonicalOverviewGroup(stage?.dataset?.overviewGroup || document.querySelector(".pf-overview-groups button.active")?.textContent?.trim() || "");
     }
 
-    function sourceUnits() {
-      const sell = readSellUnits();
-      return sell.length ? sell : readFallbackUnits();
-    }
+    let sourceUnits = overviewSalesUnits(readSalesSource(projectId));
 
     function visibleUnits() {
-      const all = sourceUnits();
+      const all = sourceUnits;
       const group = currentGroup();
       if (!group || !all.some((item) => item.handover)) return all;
       return all.filter((item) => canonicalOverviewGroup(item.handover) === group);
@@ -350,7 +329,11 @@ export default function OverviewLiveUnitsRuntime() {
       timer = window.setTimeout(() => sync(force), delay);
     }
 
-    const onSell = () => schedule(true);
+    const onSell = (event) => {
+      if (event.detail?.projectId !== projectId) return;
+      sourceUnits = event.detail.units;
+      schedule(false);
+    };
     const onGroup = () => {
       window.clearTimeout(timer);
       window.clearTimeout(clampTimer);
@@ -363,7 +346,7 @@ export default function OverviewLiveUnitsRuntime() {
     };
     const onPdfBounds = () => enforcePdfBoundsSoon();
 
-    window.addEventListener("plotflow-overview-sell-units", onSell);
+    window.addEventListener(SALES_EVENT, onSell);
     window.addEventListener("pf-overview-group-changed", onGroup);
     window.addEventListener("pf-overview-pdf-bounds", onPdfBounds);
 
@@ -381,7 +364,7 @@ export default function OverviewLiveUnitsRuntime() {
     return () => {
       disposed = true;
       observer?.disconnect();
-      window.removeEventListener("plotflow-overview-sell-units", onSell);
+      window.removeEventListener(SALES_EVENT, onSell);
       window.removeEventListener("pf-overview-group-changed", onGroup);
       window.removeEventListener("pf-overview-pdf-bounds", onPdfBounds);
       window.clearTimeout(timer);
@@ -393,7 +376,7 @@ export default function OverviewLiveUnitsRuntime() {
       layer = null;
       stage?.classList.remove("pf-live-overview-ready");
     };
-  }, []);
+  }, [projectId]);
 
   return null;
 }

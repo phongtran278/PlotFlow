@@ -37,9 +37,7 @@ export default function PosterCanvas({
   unit,
   assets,
   isEditing = false,
-  floorplanStatus = null,
   onEditFloorplan = null,
-  onEditLot = null,
   onChooseAsset = null,
   lotOverlay = null,
   previewZoom = 1,
@@ -691,17 +689,13 @@ export default function PosterCanvas({
                     }}
                   />
                 )}
-                {!isEditing && onEditLot && (
-                  <button type="button" className="floorplan-lot-edit" onClick={(e) => { e.stopPropagation(); onEditLot(); }}>✦ Highlight Lot</button>
-                )}
                 {!isEditing && onEditFloorplan && (
                   <button
                     type="button"
                     className="floorplan-edit-view"
                     onClick={(e) => { e.stopPropagation(); onEditFloorplan(); }}
                   >
-                    <span>{floorplanStatus === "review" ? "△ Review" : floorplanStatus === "not_found" ? "✕ Not Found" : "⌖ Floorplan"}</span>
-                    <strong>Edit View</strong>
+                    <strong>Mở bản đồ lô</strong>
                   </button>
                 )}
                 {isEditing && <><SlotTag text="FLOORPLAN" /><ResizeHandle onMouseDown={(e) => beginResize("floorplan", e)} /></>}

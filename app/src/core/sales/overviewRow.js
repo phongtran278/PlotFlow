@@ -54,3 +54,20 @@ export function normalizeOverviewRow(row) {
     ])),
   };
 }
+
+// Both screens project the same accepted source row. Keep explicit Overview
+// prices alongside the Detail fields rather than inferring one from the other.
+export function normalizeProjectSalesRow(row) {
+  const detail = normalizeSalesRow(row);
+  const overview = normalizeOverviewRow(row);
+  if (!overview) return detail;
+  return {
+    ...detail,
+    unitCode: overview.code,
+    landArea: detail.landArea === "" ? overview.land : detail.landArea,
+    constructionArea: detail.constructionArea === "" ? overview.floor : detail.constructionArea,
+    type: overview.type,
+    handover: overview.handover,
+    overview,
+  };
+}

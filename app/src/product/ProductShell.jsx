@@ -5,11 +5,12 @@ import ProjectLanding from "./ProjectLanding.jsx";
 import WorkspaceNav from "./WorkspaceNav.jsx";
 import OverviewWorkspace from "./OverviewWorkspace.jsx";
 import { PROJECTS } from "./projectCatalog.js";
+import { overviewSalesUnits, readSalesSource, SALES_EVENT } from "../core/sales/projectSalesSource.js";
 import { ProjectProvider } from "../project/ProjectContext.jsx";
 import { canMountLegacyWorkspace, projectRouteId } from "../project/ProjectWorkspacePolicy.js";
 
 const DEFAULT_OVERVIEW_GROUPS = ["Hoàn thiện", "Giãn xây", "Xây thô"];
-const SELL_STORAGE_KEY = "plotflow-overview-sell-units-v1";
+
 const VALID_MODES = new Set(["landing", "overview", "detail"]);
 
 function productPath(screen, project, mode) {
@@ -54,21 +55,6 @@ function canonicalOverviewGroup(value = "") {
   if (normalized.includes("giãn xây") || normalized.includes("gian xay")) return "Giãn xây";
   if (normalized.includes("xây thô") || normalized.includes("xay tho") || normalized.includes("bàn giao thô") || normalized.includes("ban giao tho")) return "Xây thô";
   return raw;
-}
-
-function readAvailableUnits() {
-  return Array.from(document.querySelectorAll(".unit-select .unit-main strong"))
-    .map((node) => node.textContent?.trim())
-    .filter(Boolean);
-}
-
-function readSellUnits() {
-  try {
-    const value = JSON.parse(localStorage.getItem(SELL_STORAGE_KEY) || "[]");
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
 }
 
 function hibernateImages(root, preserveEditor = false) {
@@ -125,8 +111,9 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   const [overviewGroup, setOverviewGroup] = useState(DEFAULT_OVERVIEW_GROUPS[0]);
   const legacyWorkspace = canMountLegacyWorkspace(project, screen);
   const exclusiveEditor = editorRequested && legacyWorkspace;
-  const [units, setUnits] = useState(() => legacyWorkspace ? readAvailableUnits() : []);
-  const [sellUnits, setSellUnits] = useState(() => legacyWorkspace ? readSellUnits() : []);
+  const [salesView, setSalesView] = useState(null);
+  const currentSalesView = salesView?.projectId === project.id ? salesView : null;
+  const sellUnits = legacyWorkspace ? (currentSalesView?.units ?? overviewSalesUnits(readSalesSource(project.id))) : [];
   const workspaceRef = useRef(null);
   const overviewSyncReadyRef = useRef(false);
 
@@ -147,17 +134,13 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
   }, [exclusiveEditor]);
 
   useEffect(() => {
-    if (!legacyWorkspace) { setUnits([]); setSellUnits([]); return undefined; }
-    setSellUnits(readSellUnits());
-    setUnits(readAvailableUnits());
-    const fn = (event) => {
-      if (exclusiveEditor) return;
-      setSellUnits(Array.isArray(event.detail?.units) ? event.detail.units : readSellUnits());
-      setUnits(readAvailableUnits());
+    if (!legacyWorkspace) return undefined;
+    const sync = (event) => {
+      if (event.detail?.projectId === project.id) setSalesView(event.detail);
     };
-    window.addEventListener("plotflow-overview-sell-units", fn);
-    return () => window.removeEventListener("plotflow-overview-sell-units", fn);
-  }, [exclusiveEditor, legacyWorkspace]);
+    window.addEventListener(SALES_EVENT, sync);
+    return () => window.removeEventListener(SALES_EVENT, sync);
+  }, [project.id, legacyWorkspace]);
 
   useEffect(() => {
     if (exclusiveEditor) return undefined;
@@ -332,7 +315,8 @@ export default function ProductShell({ children, onExitWorkspace, exclusiveEdito
           overviewGroup={overviewGroup}
           onOverviewGroup={setOverviewGroup}
           sellUnits={legacyWorkspace ? sellUnits : []}
-          units={legacyWorkspace ? units : []}
+          salesStatus={currentSalesView?.status}
+          onManageSource={legacyWorkspace ? () => openMode("detail") : undefined}
           visibleSellUnits={legacyWorkspace ? visibleSellUnits : []}
         />
       )}

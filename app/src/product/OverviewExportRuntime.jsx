@@ -122,8 +122,59 @@ function isBackgroundNode(node) {
   const element = node instanceof Element ? node : null;
   if (!element) return false;
   return Boolean(element.closest(
-    ".pf-overview-masterplan-header,.pf-overview-windows-fixed-bitmap-canvas,.pf-overview-pdf-canvas,.pf-masterplan-pdf,.pf-overview-raster-viewport,.pf-overview-raster-tile-layer,.pf-overview-pdf-trim-frame,.pf-overview-guide-line"
+    ".pf-overview-masterplan-header,.pf-overview-windows-fixed-bitmap-canvas,.pf-overview-pdf-canvas,.pf-masterplan-pdf,.pf-overview-raster-viewport,.pf-overview-raster-tile-layer,.pf-overview-pdf-trim-frame,.pf-overview-guide-line,.pf-live-callout-lines"
   ));
+}
+
+// html-to-image clones SVG viewBoxes into a foreignObject. In that path
+// Chromium can interpret non-scaling strokes in viewBox units. Measure the
+// live endpoints and paint the screen stroke once at output resolution.
+function readConnectors(stage, bounds) {
+  const rect = stage.getBoundingClientRect();
+  const scaleX = rect.width / stage.clientWidth;
+  const scaleY = rect.height / stage.clientHeight;
+  const page = {
+    x: rect.left + bounds.x * scaleX,
+    y: rect.top + bounds.y * scaleY,
+    width: bounds.width * scaleX,
+    height: bounds.height * scaleY,
+  };
+  return [...stage.querySelectorAll(".pf-live-callout-lines line")].flatMap(line => {
+    if (line.closest(".pf-callouts-leaving")) return [];
+    const style = getComputedStyle(line);
+    const matrix = line.getScreenCTM();
+    const width = parseFloat(style.strokeWidth);
+    const opacity = Number(style.opacity) * Number(style.strokeOpacity);
+    if (!matrix || !width || opacity <= 0 || style.visibility !== "visible" || style.display === "none" || style.stroke === "none") return [];
+    const point = (x, y) => {
+      const screen = new DOMPoint(x.baseVal.value, y.baseVal.value).matrixTransform(matrix);
+      return [(screen.x - page.x) / page.width, (screen.y - page.y) / page.height];
+    };
+    return [{
+      start: point(line.x1, line.y1),
+      end: point(line.x2, line.y2),
+      width: width / page.width,
+      stroke: style.stroke,
+      opacity,
+      cap: style.strokeLinecap,
+    }];
+  });
+}
+
+function paintConnectors(ctx, connectors) {
+  const { width, height } = ctx.canvas;
+  ctx.save();
+  for (const connector of connectors) {
+    ctx.strokeStyle = connector.stroke;
+    ctx.globalAlpha = connector.opacity;
+    ctx.lineWidth = connector.width * width;
+    ctx.lineCap = connector.cap;
+    ctx.beginPath();
+    ctx.moveTo(connector.start[0] * width, connector.start[1] * height);
+    ctx.lineTo(connector.end[0] * width, connector.end[1] * height);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 async function captureComposite(stage, requestedWidth) {
@@ -140,6 +191,7 @@ async function captureComposite(stage, requestedWidth) {
   if (stage.dataset.overviewGroup !== group || stage.dataset.overviewProjectId !== projectId || !stage.isConnected) {
     throw new Error("Overview changed during export. Please retry.");
   }
+  const connectors = readConnectors(stage, bounds);
   const overlayDataUrl = await toPng(stage, {
     pixelRatio,
     cacheBust: true,
@@ -169,6 +221,7 @@ async function captureComposite(stage, requestedWidth) {
     ctx.fillRect(b.x * sx, b.y * sy, b.width * sx, b.height * sy);
     ctx.drawImage(headerImage, x * sx, y * sy, width * sx, height * sy);
   }
+  paintConnectors(ctx, connectors);
   ctx.drawImage(overlayCanvas, 0, 0, composite.width, composite.height);
   return composite;
 }

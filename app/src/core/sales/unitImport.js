@@ -47,14 +47,14 @@ export function normalizeRow(row) {
   };
 }
 
-export async function parseCSV(text) {
+export async function parseCSV(text, mapRow = normalizeRow) {
   const XLSX = await import("xlsx");
   const workbook = XLSX.read(text, { type: "string" });
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map(normalizeRow).filter((unit) => unit.unitCode);
+  return XLSX.utils.sheet_to_json(worksheet, { defval: "" }).map(mapRow).filter((unit) => unit.unitCode);
 }
 
-export function parseWorkbookUnits(workbook, XLSX) {
+export function parseWorkbookUnits(workbook, XLSX, mapRow = normalizeRow) {
   const orderedNames = [
     ...workbook.SheetNames.filter((name) => String(name).trim().toUpperCase() === "UNITS"),
     ...workbook.SheetNames.filter((name) => String(name).trim().toUpperCase() !== "UNITS"),
@@ -64,7 +64,7 @@ export function parseWorkbookUnits(workbook, XLSX) {
     const worksheet = workbook.Sheets[sheetName];
     if (!worksheet) continue;
     const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: false });
-    const units = rows.map(normalizeRow).filter((unit) => unit.unitCode);
+    const units = rows.map(mapRow).filter((unit) => unit.unitCode);
     if (units.length > best.units.length) best = { units, sheetName };
     if (String(sheetName).trim().toUpperCase() === "UNITS" && units.length) return { units, sheetName };
   }
