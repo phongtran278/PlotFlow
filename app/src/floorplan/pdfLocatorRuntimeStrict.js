@@ -287,6 +287,10 @@ async function renderGlobalTiles(pageRender, view, options = {}, epoch) {
     }
   }
 
+  if (options.embedForExport) {
+    // html-to-image rewrites fetched URLs. Embed the bounded crop before releasing its canvas.
+    return { dataUrl: canvas.toDataURL("image/png"), crop, width: outputWidth, height: outputHeight };
+  }
   return await canvasToResult(canvas, crop, epoch, {
     width: outputWidth,
     height: outputHeight,

@@ -820,6 +820,8 @@ function App() {
     const view = { ...DEFAULT_FLOORPLAN_VIEW, ...(override?.view || {}) };
     const vector = await renderPdfRegion(pdfDocRef.current, pageRender, view, {
       outputWidth: Math.max(1084, Math.round(506 * Math.max(1, scale))),
+      independent: true,
+      embedForExport: true,
       aspect: FLOORPLAN_FRAME_ASPECT,
       includeHighlight: false,
       maxRenderScale: 128,

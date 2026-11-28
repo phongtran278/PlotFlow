@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { headerSpec, CANONICAL_MASTERPLAN_URL, MASTERPLAN_NATIVE } from "./overviewMasterplanHeader.js";
+import { headerSpec, MASTERPLAN_NATIVE } from "./overviewMasterplanHeader.js";
+import { renderOverviewExportBase } from "./renderOverviewExportBase.js";
 import { toPng } from "html-to-image";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
@@ -132,10 +133,9 @@ async function captureComposite(stage, requestedWidth) {
   const group = stage.dataset.overviewGroup;
   const projectId = stage.dataset.overviewProjectId;
   const header = headerSpec(projectId, group);
-  const sourcePdf = header ? CANONICAL_MASTERPLAN_URL : currentPdfSource(stage);
-  if (!sourcePdf) throw new Error("Không tìm thấy PDF nguồn của view hiện tại.");
-
-  const baseCanvas = await renderSourcePdf(sourcePdf, targetWidth);
+  const baseCanvas = header
+    ? await renderOverviewExportBase(targetWidth)
+    : await renderSourcePdf(currentPdfSource(stage), targetWidth);
   const headerImage = header ? await imageFromDataUrl(header.src) : null;
   if (stage.dataset.overviewGroup !== group || stage.dataset.overviewProjectId !== projectId || !stage.isConnected) {
     throw new Error("Overview changed during export. Please retry.");
