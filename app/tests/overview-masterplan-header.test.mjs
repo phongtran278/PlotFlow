@@ -12,6 +12,15 @@ test("maps only supported VSP handover groups to original assets", () => {
   assert.equal(headerAsset("other", "Giãn xây"), null);
   assert.equal(headerAsset(project, "unknown"), null);
 });
+test("live sales handover abbreviations map to the same header and export spec", () => {
+  for (const [short, full] of [["Giãn", "Giãn xây"], ["Thô", "Xây thô"], ["HT", "Hoàn thiện"]]) {
+    assert.equal(headerAsset(project, short), headerAsset(project, full));
+    assert.deepEqual(headerSpec(project, short), headerSpec(project, full));
+    assert.equal(headerAsset("other", short), null);
+  }
+  assert.equal(headerAsset(project, " THÔ "), headerAsset(project, "Xây thô"));
+  assert.equal(headerAsset(project, "thô khác"), null);
+});
 test("uniform cover keeps aspect ratio, covers both axes and centers bleed", () => {
   const target = { x: 100, y: 200, width: 200, height: 100 };
   const r = coverHeader(target, { width: 4, height: 1 });
