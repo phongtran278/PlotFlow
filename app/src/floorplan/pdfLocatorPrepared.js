@@ -146,6 +146,7 @@ export function attachMatchToPageRender(pageBase, match) {
   return result;
 }
 
+
 function preparedRasterFor(lot, options = {}) {
   const profile = getMemoryProfile();
   const requestedWidth = Math.max(480, Math.round(options.outputWidth || 1626));
@@ -158,6 +159,8 @@ function preparedRasterFor(lot, options = {}) {
       height: Number(lot.previewHeight || 493),
       tier: "preview",
       detail: false,
+      outputMimeType: "image/webp",
+      sourceCrop: lot.crop,
     };
   }
 
@@ -168,6 +171,20 @@ function preparedRasterFor(lot, options = {}) {
       height: Number(lot.mediumHeight || 1233),
       tier: "medium",
       detail: true,
+      outputMimeType: "image/webp",
+      sourceCrop: lot.crop,
+    };
+  }
+
+  if (lot.deepDetailPng && lot.displayCrop?.pagePoints) {
+    return {
+      url: lot.deepDetailPng,
+      width: Number(lot.deepDetailPngWidth || 9768),
+      height: Number(lot.deepDetailPngHeight || 7529),
+      tier: "deep-native-png",
+      detail: true,
+      outputMimeType: "image/png",
+      sourceCrop: lot.displayCrop.pagePoints,
     };
   }
 
@@ -177,6 +194,8 @@ function preparedRasterFor(lot, options = {}) {
     height: Number(lot.detailHeight || lot.mediumHeight || 1670),
     tier: "detail",
     detail: true,
+    outputMimeType: "image/webp",
+    sourceCrop: lot.crop,
   };
 }
 
@@ -202,12 +221,19 @@ function cropInsidePreparedLot(target, prepared) {
 function boundedOutputWidth(options = {}) {
   const profile = getMemoryProfile();
   const requested = Math.max(480, Math.round(options.outputWidth || 1626));
-  return profile.lowMemory ? Math.min(requested, 1280) : Math.min(requested, 1640);
+  return profile.lowMemory ? Math.min(requested, 1280) : Math.min(requested, 2400);
 }
 
 async function canvasToPreparedResult(canvas, targetCrop, sourceKey, epoch, extra = {}) {
   const profile = getMemoryProfile();
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", profile.lowMemory ? 0.82 : 0.88));
+  const outputMimeType = extra.outputMimeType || "image/webp";
+  const blob = await new Promise((resolve) => {
+    if (outputMimeType === "image/png") {
+      canvas.toBlob(resolve, "image/png");
+    } else {
+      canvas.toBlob(resolve, "image/webp", profile.lowMemory ? 0.82 : 0.88);
+    }
+  });
   canvas.width = 1;
   canvas.height = 1;
   if (!blob || epoch !== preparedRenderEpoch) return null;
@@ -367,10 +393,11 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
   }
   const sourceWidth = image.naturalWidth || raster.width;
   const sourceHeight = image.naturalHeight || raster.height;
-  const relativeX = (targetCrop.x - lot.crop.x) / lot.crop.w;
-  const relativeY = (targetCrop.y - lot.crop.y) / lot.crop.h;
-  const relativeW = targetCrop.w / lot.crop.w;
-  const relativeH = targetCrop.h / lot.crop.h;
+  const sourceCrop = raster.sourceCrop || lot.crop;
+  const relativeX = (targetCrop.x - sourceCrop.x) / sourceCrop.w;
+  const relativeY = (targetCrop.y - sourceCrop.y) / sourceCrop.h;
+  const relativeW = targetCrop.w / sourceCrop.w;
+  const relativeH = targetCrop.h / sourceCrop.h;
   const sx = Math.max(0, relativeX * sourceWidth);
   const sy = Math.max(0, relativeY * sourceHeight);
   const sw = Math.min(sourceWidth - sx, relativeW * sourceWidth);
@@ -391,7 +418,12 @@ async function renderFromPreparedLot(lot, pageRender, view, options = {}) {
     targetCrop,
     `prepared:${pageRender.unitCode}:${Date.now()}`,
     epoch,
-    { width: outputWidth, height: outputHeight, preparedTier: `${raster.tier}-cropped` }
+    {
+      width: outputWidth,
+      height: outputHeight,
+      preparedTier: `${raster.tier}-cropped`,
+      outputMimeType: raster.outputMimeType,
+    }
   );
 }
 

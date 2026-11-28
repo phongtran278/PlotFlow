@@ -21,23 +21,52 @@ const MAX_BYTES = 25 * 1024 * 1024;
   if (result.status !== 0) throw new Error('Media optimization failed; refusing to publish incomplete output');
 }
 let scanned = 0;
+const omitted = [];
 
 function visit(dir) {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
     const absolute = path.join(dir, item.name);
-    if (item.isDirectory()) { visit(absolute); continue; }
+
+    if (item.isDirectory()) {
+      visit(absolute);
+      continue;
+    }
+
     if (!item.isFile()) continue;
+
     scanned++;
+
     const size = fs.statSync(absolute).size;
-    if (size <= MAX_BYTES) continue;
     const relative = path.relative(root, absolute).split(path.sep).join('/');
+
+    if (size <= MAX_BYTES) continue;
+
+    // The canonical Masterplan PDF is retained in Git LFS.
+    // Bundled runtime opens this source through the prepared raster manifest.
+    if (relative === 'masterplan/masterplan.pdf') {
+      fs.unlinkSync(absolute);
+      omitted.push({
+        path: relative,
+        sizeBytes: size,
+        reason: 'canonical-masterplan-served-through-prepared-raster-runtime',
+      });
+      console.log('[staging-assets] Omitted canonical Masterplan PDF:', relative);
+      continue;
+    }
+
     throw new Error('Built asset exceeds Cloudflare 25 MiB limit: ' + relative);
   }
 }
+
 visit(root);
+
 console.log('[staging-assets] Scanned', scanned, 'built files.');
-console.log('[staging-assets] Omitted oversized media files: 0');
-fs.writeFileSync(path.join(root, 'staging-omitted-assets.json'), JSON.stringify({ omitted: [] }, null, 2));
+console.log('[staging-assets] Omitted oversized assets:', omitted.length);
+
+fs.writeFileSync(
+  path.join(root, 'staging-omitted-assets.json'),
+  JSON.stringify({ omitted }, null, 2)
+);
 {
   const result = spawnSync(process.execPath, ['tools/audit-runtime-assets.mjs', '--strict'], { stdio: 'inherit' });
   if (result.error) throw result.error;

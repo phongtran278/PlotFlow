@@ -71,7 +71,7 @@ export default function OverviewWindowsFixedBitmapRuntime() {
 
     function publishBounds() {
       if (!stage) return null;
-      const rect = stage.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return null;
       const fit = Math.min(rect.width / BASE_WIDTH, rect.height / BASE_HEIGHT);
       const width = BASE_WIDTH * fit;
@@ -140,16 +140,35 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       const top = camera.ty + baseTop * camera.scale;
       const right = camera.tx + baseRight * camera.scale;
       const bottom = camera.ty + baseBottom * camera.scale;
-      if (right <= 0 || bottom <= 0 || left >= canvas.width || top >= canvas.height) return;
+      if (right <= 0 || bottom <= 0 || left >= bounds.rectWidth || top >= bounds.rectHeight) return;
       ctx.drawImage(entry.bitmap, left, top, right - left + overlap, bottom - top + overlap);
     }
 
     function drawNow() {
       raf = 0;
       if (disposed || !ctx || !canvas || !bounds) return;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.setTransform(
+        canvas.width / bounds.rectWidth,
+        0,
+        0,
+        canvas.height / bounds.rectHeight,
+        0,
+        0
+      );
+      stats.geometryVersion = "canvas-coordinate-v2";
+      stats.geometry = {
+        cssWidth: bounds.rectWidth,
+        cssHeight: bounds.rectHeight,
+        bitmapWidth: canvas.width,
+        bitmapHeight: canvas.height,
+        pdfX: bounds.x,
+        pdfY: bounds.y,
+        pdfWidth: bounds.width,
+        pdfHeight: bounds.height
+      };
+      stats.camera = { ...camera };
       ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, bounds.rectWidth, bounds.rectHeight);
       for (const entry of bitmaps.values()) drawEntry(entry, FIXED_LEVEL, 1);
       for (const entry of sharpBitmaps.values()) drawEntry(entry, entry.level, 0.5);
       stats.drawCount += 1;
@@ -176,8 +195,8 @@ export default function OverviewWindowsFixedBitmapRuntime() {
       const level = levelInfo(levelWidth);
       const leftBase = (((0 - camera.tx) / camera.scale) - bounds.x) / Math.max(bounds.fit, 0.000001);
       const topBase = (((0 - camera.ty) / camera.scale) - bounds.y) / Math.max(bounds.fit, 0.000001);
-      const rightBase = (((canvas.width - camera.tx) / camera.scale) - bounds.x) / Math.max(bounds.fit, 0.000001);
-      const bottomBase = (((canvas.height - camera.ty) / camera.scale) - bounds.y) / Math.max(bounds.fit, 0.000001);
+      const rightBase = (((bounds.rectWidth - camera.tx) / camera.scale) - bounds.x) / Math.max(bounds.fit, 0.000001);
+      const bottomBase = (((bounds.rectHeight - camera.ty) / camera.scale) - bounds.y) / Math.max(bounds.fit, 0.000001);
       const minBaseX = Math.max(0, Math.min(BASE_WIDTH, Math.min(leftBase, rightBase)));
       const maxBaseX = Math.max(0, Math.min(BASE_WIDTH, Math.max(leftBase, rightBase)));
       const minBaseY = Math.max(0, Math.min(BASE_HEIGHT, Math.min(topBase, bottomBase)));

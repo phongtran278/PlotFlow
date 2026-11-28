@@ -1,4 +1,4 @@
-const UNIT_CODE_RE = /\b(?:TL\s*-\s*\d{1,5}|[A-Z]{1,8}\d{1,5}\s*-\s*\d{1,5})\b/g;
+const UNIT_CODE_RE = /\b(?:TL\s*-\s*\d{1,5}|[A-Z]{1,8}\d{1,5}[A-Z]?\s*-\s*\d{1,5})\b/g;
 
 export function normalizeUnitCode(value) {
   return String(value || "")

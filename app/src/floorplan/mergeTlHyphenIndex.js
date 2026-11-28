@@ -4,6 +4,41 @@ export function mergeTlHyphenIndex(manifest, supplement) {
   if (!manifest?.index || !manifest?.pages) {
     throw new Error("Prepared masterplan manifest thiếu index/pages.");
   }
+
+  // Synchronized native Masterplan index.
+  if (
+    Number(manifest.version) === 9 &&
+    !manifest.coordinateTransformId &&
+    Object.keys(manifest.index).length === 9995 &&
+    Number(manifest.pages["1"]?.tiles?.sourceWidth) === 41991 &&
+    Number(manifest.pages["1"]?.tiles?.sourceHeight) === 29703 &&
+    supplement?.entries?.length === 57 &&
+    supplement.entries.every(
+      entry => manifest.index[entry.unitCode]?.length
+    )
+  ) {
+    return manifest;
+  }
+
+
+  // Native synchronized PDF coordinates.
+  if (manifest.nativeCoordinateSource) {
+    const native = manifest.nativeCoordinateSource;
+    const page = manifest.pages["1"];
+
+    if (
+      native.pdfSha256 !== "1a7f0462b384321487c8eaafc45e66853e797a4a5bb3198f633cb8d4d5ee1dfa" ||
+      native.renderer !== "pymupdf" ||
+      Number(page?.tiles?.sourceWidth) !== 42000 ||
+      Number(page?.tiles?.sourceHeight) !== 29709 ||
+      manifest.coordinateTransformId
+    ) {
+      throw new Error("Native Masterplan source mismatch");
+    }
+
+    return manifest;
+  }
+
   if (manifest.coordinateTransformId) {
     if (manifest.coordinateTransformId === supplement?.coordinateCalibration?.id) return manifest;
     throw new Error("Masterplan manifest đã dùng một coordinate transform khác.");

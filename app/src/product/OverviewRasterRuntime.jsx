@@ -4,7 +4,7 @@ import { getMemoryProfile } from "../runtime/memoryProfile.js";
 const BASE_WIDTH = 42000;
 const BASE_HEIGHT = 29709;
 const TILE_SIZE = 512;
-const LEVEL_WIDTHS = [1800, 2625, 5250, 10500, 21000, 42000];
+const LEVEL_WIDTHS = [1800,2625,5250,10500,21000,42000];
 const TILE_BASE = "/masterplan/generated/page-tiles/page-1";
 const SETTLE_MS = 90;
 const FIT_EPSILON = 0.02;
@@ -282,14 +282,23 @@ export default function OverviewRasterRuntime() {
       const fitView = isFitCamera() && nextLevel === LEVEL_WIDTHS[0];
       const lowZoomBase = nextLevel === LEVEL_WIDTHS[0] && camera.scale <= 1.05;
       const changingLevel = nextLevel !== currentLevel;
-      const oldTileCount = changingLevel ? Array.from(tiles.values()).filter((entry) => entry.level !== nextLevel).length : 0;
 
       if (changingLevel) {
         currentLevel = nextLevel;
         updateStats();
-      } else {
-        releaseExcept(keep);
       }
+
+      // Remove obsolete tiles only from the incoming level.
+      // Keep previous levels as visual fallback during transition.
+      for (const [key, entry] of tiles) {
+        if (entry.level !== nextLevel || keep.has(key)) continue;
+        tiles.delete(key);
+        releaseImage(entry.image);
+        stats.releasedTiles += 1;
+      }
+
+      const oldTileCount = Array.from(tiles.values())
+        .filter((entry) => entry.level !== nextLevel).length;
 
       const epoch = ++renderEpoch;
       const missing = jobs.filter((job) => !tiles.has(tileKey(nextLevel, job.col, job.row)));
@@ -335,9 +344,15 @@ export default function OverviewRasterRuntime() {
       await Promise.all(Array.from({ length: parallelLoads }, () => worker()));
       if (disposed || epoch !== renderEpoch) return;
 
-      const nextLevelReady = Array.from(tiles.values()).some((entry) => entry.level === nextLevel);
-      if (changingLevel && nextLevelReady) releaseOtherLevels(nextLevel);
-      else if (!changingLevel) releaseExcept(keep);
+      // Switch levels only after every requested visible tile is ready.
+      const nextLevelReady = keep.size > 0
+        && Array.from(keep).every((key) => tiles.has(key));
+
+      if (nextLevelReady) {
+        releaseOtherLevels(nextLevel);
+        releaseExcept(keep);
+      }
+      // Otherwise retain previous level tiles to prevent blank background.
 
       stats.pendingTiles = 0;
       repositionExistingTiles();
