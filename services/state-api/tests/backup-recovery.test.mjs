@@ -49,14 +49,17 @@ test('local restore rehearsal is byte exact and refuses to overwrite an existing
 });
 test('synthetic restore through State API and Azure adapter rejects stale ETag and keeps other project unchanged',async()=>{
   const other='qa-other-project';
-  const env={PROJECT_ACL_JSON:JSON.stringify({[projectId]:{'qa@example.org':'admin'},[other]:{'qa@example.org':'admin'}}),AZURE_BLOB_URLS_JSON:JSON.stringify({[projectId]:'https://mock.blob.core.windows.net/qa/restore.json?sig=synthetic',[other]:'https://mock.blob.core.windows.net/qa/other.json?sig=synthetic'})};
-  const entries=new Map([['/qa/restore.json',{state:{...original,storage:{layout:'changed'}},etag:'"v2"'}],['/qa/other.json',{state:{version:1,projectId:other,storage:{layout:'untouched'}},etag:'"other"'}]]);
+  const sas = new URLSearchParams({sp:'rw',sr:'b',spr:'https',se:new Date(Date.now()+7*24*60*60*1000).toISOString(),sig:'synthetic'}).toString();
+  const env={AZURE_STATE_CONTAINER_NAME:'plotflow-state-private',PROJECT_ACL_JSON:JSON.stringify({[projectId]:{'qa@example.org':'admin'},[other]:{'qa@example.org':'admin'}}),AZURE_BLOB_URLS_JSON:JSON.stringify({[projectId]:'https://mock.blob.core.windows.net/plotflow-state-private/restore.json?'+sas,[other]:'https://mock.blob.core.windows.net/plotflow-state-private/other.json?'+sas})};
+  const entries=new Map([['/plotflow-state-private/restore.json',{state:{...original,storage:{layout:'changed'}},etag:'"v2"'}],['/plotflow-state-private/other.json',{state:{version:1,projectId:other,storage:{layout:'untouched'}},etag:'"other"'}]]);
   let writes=0;
+  let attempts=0;
   const mockFetch=async(url,opts)=>{
     const u=new URL(url);assert.equal(u.hostname,'mock.blob.core.windows.net');
     const entry=entries.get(u.pathname);assert.ok(entry);
     if(opts.method==='GET')return new Response(JSON.stringify(entry.state),{status:200,headers:{etag:entry.etag}});
     assert.equal(opts.method,'PUT');
+    attempts++;
     if(opts.headers['If-Match']!==entry.etag)return new Response(null,{status:412});
     writes++;entry.state=JSON.parse(opts.body);entry.etag='"v3"';
     return new Response(null,{status:201,headers:{etag:entry.etag}});
@@ -65,9 +68,12 @@ test('synthetic restore through State API and Azure adapter rejects stale ETag a
   const url='https://qa.example.org/v1/projects/'+projectId+'/state';
   const snapshot=inspectBackup(bytes,{projectId,expectedSha256:sha256}).state;
   const put=(etag,state=snapshot)=>new Request(url,{method:'PUT',headers:{'If-Match':etag},body:JSON.stringify(state)});
-  assert.equal((await app(put('"v1"'),env)).status,412);
+  const stale=await app(put('"v1"'),env);
+  assert.equal(stale.status,412);
+  assert.equal((await stale.json()).error,'version_conflict');
+  assert.equal(attempts,1,'stale ETag must reach the mock Azure adapter');
   assert.equal(writes,0);
-  assert.deepEqual(entries.get('/qa/restore.json').state.storage,{layout:'changed'});
+  assert.deepEqual(entries.get('/plotflow-state-private/restore.json').state.storage,{layout:'changed'});
   assert.equal((await app(put('"v2"',{...snapshot,projectId:other}),env)).status,400);
   assert.equal(writes,0);
   const current=await app(new Request(url),env);
@@ -75,7 +81,7 @@ test('synthetic restore through State API and Azure adapter rejects stale ETag a
   assert.equal(response.status,200);
   assert.equal(writes,1);
   assert.deepEqual(await (await app(new Request(url),env)).json(),original);
-  assert.deepEqual(entries.get('/qa/other.json').state.storage,{layout:'untouched'});
+  assert.deepEqual(entries.get('/plotflow-state-private/other.json').state.storage,{layout:'untouched'});
   assert.equal((await app(put('"v2"'),{...env,PLOTFLOW_PREVIEW_DISABLE_STATE_ACCESS:'1'})).status,503);
   assert.equal(writes,1);
 });
