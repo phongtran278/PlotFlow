@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getCloudConflictReview } from "./CloudProjectState.js";
 
 const messages = {
   saved: { title: "Đã lưu lên staging", detail: "State API đã xác nhận ghi dữ liệu và phiên bản mới." },
@@ -41,6 +42,8 @@ const loadDiagnostics = {
 
 export default function CloudSaveStatus() {
   const [state, setState] = useState(null);
+  const [review, setReview] = useState(null);
+  const [backupMessage, setBackupMessage] = useState("");
   const status = state?.status;
   const diagnostic = status === "load_error" ? loadDiagnostics[state?.diagnostic] : null;
   useEffect(() => {
@@ -54,6 +57,24 @@ export default function CloudSaveStatus() {
     }
     return () => window.removeEventListener("plotflow-cloud-state-status", handler);
   }, []);
+  function downloadConflictBackup() {
+    try {
+      const snapshot = getCloudConflictReview();
+      if (!snapshot) { setBackupMessage("Chưa có bản cloud đã xác minh để đối chiếu."); return; }
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "plotflow-staging-conflict-" + snapshot.capturedAt.replace(/[:.]/g, "-") + ".json";
+      document.body.appendChild(a);
+      try { a.click(); } finally { a.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 30000); }
+      // Only metadata remains in UI state; no data values or versions.
+      setReview(snapshot.comparison);
+      setBackupMessage("Đã yêu cầu tải file sao lưu. Kiểm tra thư mục Downloads trước khi thao tác tiếp. File chứa dữ liệu dự án riêng tư; không gửi file lên chat.");
+    } catch {
+      setBackupMessage("Không tạo được bản sao lưu. Giữ nguyên dữ liệu và thử lại.");
+    }
+  }
   const message = messages[status];
   if (!message) return null;
   return <div role={status === "saved" ? "status" : "alert"} aria-live={status === "saved" ? "polite" : "assertive"} style={{
@@ -65,5 +86,16 @@ export default function CloudSaveStatus() {
     <strong style={{ display: "block", marginBottom: 8, fontSize: 16 }}>{message.title}</strong>
     <span style={{ fontSize: 13, lineHeight: 1.5 }}>{message.detail}</span>
     {diagnostic && <p style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.5 }}>{diagnostic}</p>}
+    {status === "manual_migration_required" && <>
+      <button type="button" onClick={downloadConflictBackup} style={{ display: "block", marginTop: 12, padding: "9px 12px", border: "1px solid #666", borderRadius: 6, cursor: "pointer", background: "#fff", color: "#272727" }}>Sao lưu và đối chiếu</button>
+      {backupMessage && <p role="status" style={{ fontSize: 12, lineHeight: 1.5 }}>{backupMessage}</p>}
+      {review && <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+        <p>{review.filter(item => item.status === "same").length} giống nhau · {review.filter(item => item.status === "different").length} khác nhau · {review.filter(item => item.status === "local_only").length} chỉ cục bộ · {review.filter(item => item.status === "remote_only").length} chỉ cloud</p>
+        <ul style={{ maxHeight: 120, overflowY: "auto", overflowWrap: "anywhere", paddingLeft: 18 }}>
+          {review.filter(item => item.status !== "same").map(item => <li key={item.key}>{item.key}: {({ different: "Khác nhau", local_only: "Chỉ cục bộ", remote_only: "Chỉ cloud" })[item.status]}</li>)}
+        </ul>
+        <span>Cloud: bản đọc thành công lúc khởi động trang. Không có dữ liệu nào được ghi hoặc xóa.</span>
+      </div>}
+    </>}
   </div>;
 }
