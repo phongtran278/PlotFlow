@@ -287,6 +287,7 @@ function App() {
   const [lotOverlays, setLotOverlays] = useState(() => loadLocalJson("plotflow-lot-overlays-r1-v9", {}));
   const [assetPickerType, setAssetPickerType] = useState(null);
   const componentCanvasRef = useRef(null);
+  const excelInputRef = useRef(null);
   const sheetInputRef = useRef(null);
   const autoConnectSheetRef = useRef(false);
 
@@ -995,8 +996,8 @@ function App() {
           </div>
         </div>
 
-        <div className="source-divider"><span>OR</span></div>
-        <label className={`excel-import-button ${isExporting ? "disabled" : ""}`}>Import Excel<input type="file" accept=".xlsx,.xls" onChange={handleExcelImport} disabled={isExporting || sourceClass === "loading"} hidden /></label>
+        <button type="button" className="excel-import-button" onClick={() => excelInputRef.current?.click()} disabled={isExporting || sourceClass === "loading"}>Import Excel</button>
+        <input type="file" ref={excelInputRef} accept=".xlsx,.xls" onChange={handleExcelImport} disabled={isExporting || sourceClass === "loading"} hidden />
 
         <div className="locator-card">
           <div className="unit-list-header"><span>FLOORPLAN LOCATOR</span><strong>ON DEMAND</strong></div>

@@ -71,7 +71,7 @@ function focusSheetInput() {
 }
 
 function openExcelPicker() {
-  document.querySelector(".excel-import-button input[type='file']")?.click?.();
+  document.querySelector(".unit-sidebar button.excel-import-button")?.click();
 }
 
 export default function PosterCanvas({
