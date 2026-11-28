@@ -110,6 +110,7 @@ export async function renderPdfPageBase(pdfDoc, pageNumber, scale = 1) {
       scale,
       __plotflowPrepared: true,
       coordinateOnlyPage: true,
+      nativeTextCoordinates: Boolean(preparedManifest.nativeCoordinateSource),
     };
   }
   const custom = await customLocator();
@@ -121,8 +122,10 @@ export function attachMatchToPageRender(pageBase, match) {
     const bboxMatch = attachBboxMatchToPageRender(pageBase, match);
     if (bboxMatch) return bboxMatch;
     const [rawX, rawY] = pageBase.viewport.convertToViewportPoint(match.x, match.y);
-    const anchorW = Math.max(14, Number(match.width || 0) * pageBase.scale);
-    const anchorH = Math.max(14, Number(match.height || 0) * pageBase.scale);
+    // A minimum display size shifts the center by several parcels in native PDF points.
+    const minExtent = pageBase.nativeTextCoordinates ? 0 : 14;
+    const anchorW = Math.max(minExtent, Number(match.width || 0) * pageBase.scale);
+    const anchorH = Math.max(minExtent, Number(match.height || 0) * pageBase.scale);
     return {
       ...pageBase,
       anchorX: rawX + anchorW / 2,

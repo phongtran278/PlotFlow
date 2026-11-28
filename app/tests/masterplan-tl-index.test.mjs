@@ -146,7 +146,7 @@ test("runtime merge rejects TL anchors outside the calibrated source region", ()
 });
 
 test("Detail opens the shipped native manifest and preserves native lot coordinates", async (t) => {
-  const { openVectorPdf, buildFloorplanIndex } = await import("../src/floorplan/pdfLocatorFacade.js");
+  const { openVectorPdf, buildFloorplanIndex, renderPdfPageBase, attachMatchToPageRender } = await import("../src/floorplan/pdfLocatorFacade.js");
   const manifest = JSON.parse(fs.readFileSync(
     new URL("../public/masterplan/generated/manifest.json", import.meta.url), "utf8",
   ));
@@ -162,6 +162,14 @@ test("Detail opens the shipped native manifest and preserves native lot coordina
   for (const code of ["AS48A-54", "AS80-03", "AS69-18", "AS70-17", "TL12-05", "TL12-51", "TL-01", "TL-81", "TL30-01", "TL31-02"]) {
     assert.ok(index[code]?.length, code);
     assert.deepEqual(index[code], manifest.index[code]);
+  }
+  for (const scale of [1, 2]) {
+    const page = await renderPdfPageBase(doc, 1, scale);
+    const match = index["AS80-03"][0];
+    const anchor = attachMatchToPageRender(page, match);
+    const center = page.viewport.convertToViewportPoint(match.x + match.width / 2, match.y + match.height / 2);
+    assert.ok(Math.abs(anchor.anchorX - center[0]) < 1e-8, "native text x center");
+    assert.ok(Math.abs(anchor.anchorY - center[1]) < 1e-8, "native text y center");
   }
   manifest.nativeCoordinateSource.coordinateMode = "unexpected";
   await assert.rejects(() => openVectorPdf("/masterplan/masterplan.pdf"), /Native Masterplan source mismatch/);
