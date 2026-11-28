@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { detectLotShapeFromImageData } from "../src/floorplan/autoLotShape.js";
+import { detectLotShapeFromImageData, fitBoundaryOffsets } from "../src/floorplan/autoLotShape.js";
 
 const WIDTH = 640;
 const HEIGHT = 480;
@@ -124,4 +124,20 @@ test("boundary refinement reaches the dark stroke center without crossing into t
     [box.minX * (WIDTH - 1), 270], [box.maxX * (WIDTH - 1), 330],
     [box.minY * (HEIGHT - 1), 180], [box.maxY * (HEIGHT - 1), 270],
   ]) assert.ok(Math.abs(actual - expected) <= 1.5, JSON.stringify(box));
+});
+
+test("adaptive boundary fit recovers a small tilt despite a stroke outlier", () => {
+  const samples = Array.from({ length: 21 }, (_, i) => ({ u: 20 + i * 3, d: 1 + (20 + i * 3) * 0.04 }));
+  samples[10].d = 0;
+  const fit = fitBoundaryOffsets(samples, 21, 100, 6);
+  assert.ok(fit);
+  assert.ok(Math.abs(fit.slope - 0.04) < 0.005);
+  assert.ok(Math.abs(fit.intercept - 1) < 0.1);
+});
+
+test("adaptive boundary fit rejects sparse, parallel, and excessive rotation evidence", () => {
+  const samples = Array.from({ length: 21 }, (_, i) => ({ u: 20 + i * 3, d: 2 }));
+  assert.equal(fitBoundaryOffsets(samples.slice(0, 10), 21, 100, 6), null);
+  assert.equal(fitBoundaryOffsets(samples, 21, 100, 6), null);
+  assert.equal(fitBoundaryOffsets(samples.map(v => ({ u: v.u, d: v.u * 0.12 })), 21, 100, 6), null);
 });
