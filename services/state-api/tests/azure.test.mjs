@@ -6,7 +6,16 @@ const env = (url) => ({
   AZURE_STATE_CONTAINER_NAME: 'plotflow-state-private',
   AZURE_BLOB_URLS_JSON: JSON.stringify({ 'project-a': url }),
 });
-const valid = 'https://account.blob.core.windows.net/plotflow-state-private/project-a/state.json?sp=rw&sr=b&spr=https&se=2026-12-10T00%3A00%3A00Z&sig=redacted';
+const day = 24 * 60 * 60 * 1000;
+const expiry = (days) => new Date(Date.now() + days * day).toISOString();
+const valid = 'https://account.blob.core.windows.net/plotflow-state-private/project-a/state.json?' +
+  new URLSearchParams({sp:'rw',sr:'b',spr:'https',se:expiry(7),sig:'redacted'});
+function withExpiry(days) {
+  const url = new URL(valid);
+  if (days === null) url.searchParams.delete('se');
+  else url.searchParams.set('se', expiry(days));
+  return url.toString();
+}
 
 test('accepts a blob-scoped HTTPS SAS in the configured private container', () => {
   assert.equal(getBlobUrl(env(valid), 'project-a'), valid);
@@ -28,9 +37,9 @@ test('rejects read-only and broader permissions', () => {
 });
 
 test('rejects missing, expired, or long-lived SAS credentials', () => {
-  assert.throws(() => getBlobUrl(env(valid.replace('&se=2026-12-10T00%3A00%3A00Z', '')), 'project-a'), /Invalid private Azure state blob URL/);
-  assert.throws(() => getBlobUrl(env(valid.replace('2026-12-10', '2026-11-20')), 'project-a'), /Invalid private Azure state blob URL/);
-  assert.throws(() => getBlobUrl(env(valid.replace('2026-12-10', '2027-12-10')), 'project-a'), /Invalid private Azure state blob URL/);
+  assert.throws(() => getBlobUrl(env(withExpiry(null)), 'project-a'), /Invalid private Azure state blob URL/);
+  assert.throws(() => getBlobUrl(env(withExpiry(-1)), 'project-a'), /Invalid private Azure state blob URL/);
+  assert.throws(() => getBlobUrl(env(withExpiry(31)), 'project-a'), /Invalid private Azure state blob URL/);
 });
 
 test('rejects missing blob mapping and untrusted hosts', () => {
