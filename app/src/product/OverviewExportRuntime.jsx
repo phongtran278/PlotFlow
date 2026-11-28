@@ -164,6 +164,9 @@ async function captureComposite(stage, requestedWidth) {
     const { x, y, width, height } = header.rect;
     const sx = composite.width / MASTERPLAN_NATIVE.width;
     const sy = composite.height / MASTERPLAN_NATIVE.height;
+    const b = header.backing.rect;
+    ctx.fillStyle = header.backing.color;
+    ctx.fillRect(b.x * sx, b.y * sy, b.width * sx, b.height * sy);
     ctx.drawImage(headerImage, x * sx, y * sy, width * sx, height * sy);
   }
   ctx.drawImage(overlayCanvas, 0, 0, composite.width, composite.height);

@@ -3,6 +3,8 @@
 // (left) to y=4252 (right); 4420 encloses the measured edge with a small margin.
 // The full-width PNG is top-aligned, never stretched. Release requires alpha audit.
 export const MASTERPLAN_HEADER_CALIBRATION = Object.freeze({ x: 0, y: 0, width: 42000, height: 4420 });
+// Opaque paper backing prevents old PDF pixels showing through antialiased PNG edges.
+export const MASTERPLAN_HEADER_BACKING_COLOR = "#ffffff";
 export const MASTERPLAN_HEADER_SOURCE_SHA256 = "1a7f0462b384321487c8eaafc45e66853e797a4a5bb3198f633cb8d4d5ee1dfa";
 export const MASTERPLAN_NATIVE = Object.freeze({ width: 42000, height: 29709 });
 export const CANONICAL_MASTERPLAN_URL = "/masterplan/masterplan.pdf";
@@ -60,7 +62,7 @@ export function headerSpec(projectId, group, calibration = MASTERPLAN_HEADER_CAL
   if (rect.x > calibration.x + epsilon || rect.y > calibration.y + epsilon
     || rect.x + rect.width < calibration.x + calibration.width - epsilon
     || rect.y + rect.height < calibration.y + calibration.height - epsilon) return null;
-  return { src, rect };
+  return { src, rect, backing: { rect: { ...calibration }, color: MASTERPLAN_HEADER_BACKING_COLOR } };
 }
 
 export function removeMasterplanHeader(stage) {
@@ -72,18 +74,33 @@ export function syncMasterplanHeader(stage, bounds, camera) {
   const spec = headerSpec(stage.dataset.overviewProjectId, stage.dataset.overviewGroup);
   const rect = spec && projectHeaderRect(spec.rect, bounds, camera);
   if (!rect) { removeMasterplanHeader(stage); return; }
-  let img = stage.querySelector(":scope > .pf-overview-masterplan-header");
-  if (!img) {
-    img = document.createElement("img");
-    img.className = "pf-overview-masterplan-header";
+  const backingRect = projectHeaderRect(spec.backing.rect, bounds, camera);
+  if (!backingRect) { removeMasterplanHeader(stage); return; }
+  let layer = stage.querySelector(":scope > .pf-overview-masterplan-header");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.className = "pf-overview-masterplan-header";
+    layer.setAttribute("aria-hidden", "true");
+    Object.assign(layer.style, { position: "absolute", inset: "0", overflow: "hidden",
+      pointerEvents: "none", zIndex: "2" });
+    const backing = document.createElement("div");
+    backing.className = "pf-overview-masterplan-header-backing";
+    backing.style.position = "absolute";
+    const img = document.createElement("img");
     img.alt = "";
     img.draggable = false;
-    img.setAttribute("aria-hidden", "true");
-    Object.assign(img.style, { position: "absolute", pointerEvents: "none", zIndex: "2",
-      maxWidth: "none", maxHeight: "none", objectFit: "fill", transform: "none" });
-    stage.append(img);
+    Object.assign(img.style, { position: "absolute", maxWidth: "none",
+      maxHeight: "none", objectFit: "fill", transform: "none" });
+    layer.append(backing, img);
+    stage.append(layer);
   }
+  const [backing, img] = layer.children;
+  function position(element, box) {
+    Object.assign(element.style, { left: box.x + "px", top: box.y + "px",
+      width: box.width + "px", height: box.height + "px" });
+  }
+  backing.style.backgroundColor = spec.backing.color;
+  position(backing, backingRect);
   if (img.getAttribute("src") !== spec.src) img.setAttribute("src", spec.src);
-  Object.assign(img.style, { left: rect.x + "px", top: rect.y + "px",
-    width: rect.width + "px", height: rect.height + "px" });
+  position(img, rect);
 }

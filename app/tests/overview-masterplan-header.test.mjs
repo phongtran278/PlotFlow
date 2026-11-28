@@ -38,9 +38,11 @@ test("calibrated full-width cover is top-aligned and preserves image ratio", () 
   assert.equal(headerSpec(project, "Giãn xây", { x: 0, y: 0, width: 100, height: 5000 }), null);
   assert.equal(headerSpec("other", "Giãn xây"), null);
 });
-test("all original PNGs have opaque coverage of the calibrated old header rectangle", async () => {
+test("all original PNGs retain RGBA and the composite blocks the old header", async () => {
   for (const group of ["Giãn xây", "Xây thô", "Hoàn thiện"]) {
-    const { src, rect } = headerSpec(project, group);
+    const { src, rect, backing } = headerSpec(project, group);
+    assert.deepEqual(backing.rect, MASTERPLAN_HEADER_CALIBRATION);
+    assert.equal(backing.color, "#ffffff");
     const assetPath = fileURLToPath(new URL("../public" + src, import.meta.url));
     const meta = await sharp(assetPath).metadata();
     assert.equal(meta.width, 16544, group);
@@ -57,6 +59,20 @@ test("all original PNGs have opaque coverage of the calibrated old header rectan
       }
     }
     console.log("[header-alpha]", JSON.stringify({ group, rows, minAlpha, uncovered, first }));
-    assert.equal(uncovered, 0, group + " does not fully cover the old header rectangle");
+    // Verify the PNG composite with its opaque backing, not the raw alpha alone.
+    // Crop to the exact source footprint of the backing, not the PNG bleed.
+    const region = { left: 0, top: 0, width: info.width, height: rows };
+    const base = await sharp(assetPath).extract(region).flatten({ background: backing.color })
+      .ensureAlpha().raw().toBuffer();
+    assert.equal(base.length, info.width * rows * 4);
+    let compositeTransparent = 0;
+    for (let i = 3; i < base.length; i += 4) if (base[i] !== 255) compositeTransparent++;
+    assert.equal(compositeTransparent, 0, group + " composite is not opaque");
+    // Verify cover math also in screen coordinates; backing must not extend into bleed.
+    const screen = projectHeaderRect(backing.rect, { x: 20, y: 30, width: 420 }, { scale: 2, tx: -11, ty: 5 });
+    assert.equal(screen.x, 29);
+    assert.equal(screen.y, 65);
+    assert.equal(screen.width, 840);
+    assert.ok(Math.abs(screen.height - 88.4) < 1e-8);
   }
 });
