@@ -24,16 +24,33 @@ const messages = {
   },
 };
 
+const loadDiagnostics = {
+  transport_config: "Cấu hình kết nối staging chưa hợp lệ.",
+  authentication_required: "Phiên đăng nhập State API chưa được xác thực (401).",
+  access_denied: "Tài khoản hoặc nguồn truy cập chưa được cấp quyền (403).",
+  endpoint_not_found: "Không tìm thấy endpoint State API (404).",
+  storage_unavailable: "State API không đọc được dữ liệu lưu trữ (502).",
+  service_unavailable: "State API hoặc cấu hình xác thực chưa sẵn sàng (503).",
+  network_or_access: "Trình duyệt không kết nối được State API; cần kiểm tra mạng, CORS hoặc Cloudflare Access.",
+  timeout: "State API phản hồi quá thời gian chờ.",
+  invalid_snapshot: "Phản hồi dữ liệu không đúng định dạng dự án.",
+  missing_read_version: "Phản hồi thiếu phiên bản ETag hợp lệ.",
+  http_error: "State API trả về lỗi HTTP.",
+  unknown: "Chưa xác định được nguyên nhân.",
+};
+
 export default function CloudSaveStatus() {
-  const [status, setStatus] = useState(null);
+  const [state, setState] = useState(null);
+  const status = state?.status;
+  const diagnostic = status === "load_error" ? loadDiagnostics[state?.diagnostic] : null;
   useEffect(() => {
     const handler = (event) => {
       if (event.detail?.transport !== "state-api") return;
-      setStatus(event.detail?.status || null);
+      setState(event.detail || null);
     };
     window.addEventListener("plotflow-cloud-state-status", handler);
     if (window.__plotflowCloudStateStatus?.transport === "state-api") {
-      setStatus(window.__plotflowCloudStateStatus.status);
+      setState(window.__plotflowCloudStateStatus);
     }
     return () => window.removeEventListener("plotflow-cloud-state-status", handler);
   }, []);
@@ -47,5 +64,6 @@ export default function CloudSaveStatus() {
   }}>
     <strong style={{ display: "block", marginBottom: 8, fontSize: 16 }}>{message.title}</strong>
     <span style={{ fontSize: 13, lineHeight: 1.5 }}>{message.detail}</span>
+    {diagnostic && <p style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.5 }}>{diagnostic}</p>}
   </div>;
 }
