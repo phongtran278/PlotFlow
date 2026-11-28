@@ -33,6 +33,33 @@ if(!report.pdf.sourceMatches)throw Error('Built PDF differs from original');
 const tlIndexPath=path.join(master,'generated','tl-hyphen-index.json');
 if(!exists(tlIndexPath))throw Error('Missing bundled TL hyphen index');
 const tlIndex=JSON.parse(fs.readFileSync(tlIndexPath,'utf8'));
+const calibration=tlIndex.coordinateCalibration;
+const calibrationPage=manifest.pages?.[String(tlIndex.pageNumber)];
+const expectedTiles=calibration?.runtimeTileSource;
+const actualTiles=calibrationPage?.tiles;
+if(!calibration?.id||calibration.sourcePdfSha256!==tlIndex.sourceSha256
+  ||calibration.runtimePdfSha256!==builtHash
+  ||!Array.isArray(calibration.sourceToRuntime)||calibration.sourceToRuntime.length!==2
+  ||calibration.sourceToRuntime.some(row=>!Array.isArray(row)||row.length!==3||!row.every(Number.isFinite))
+  ||!expectedTiles||!actualTiles)throw Error('TL coordinate calibration is missing or belongs to a different runtime PDF');
+const expectedWidths=expectedTiles.levelWidths||[];
+const actualWidths=(actualTiles.levels||[]).map(level=>Number(level.width));
+if(Number(actualTiles.sourceWidth)!==Number(expectedTiles.width)
+  ||Number(actualTiles.sourceHeight)!==Number(expectedTiles.height)
+  ||Number(actualTiles.tileSize)!==Number(expectedTiles.tileSize)
+  ||JSON.stringify(actualWidths)!==JSON.stringify(expectedWidths)
+  ||String(calibrationPage.sourceManifest||'').replace(/\\/g,'/')!==calibration.runtimeTileSourceManifest)throw Error('TL coordinate calibration does not match the bundled page-tile source');
+function transformBbox(box,matrix){
+  const points=[[box.x0,box.y0],[box.x1,box.y0],[box.x1,box.y1],[box.x0,box.y1]].map(([x,y])=>[
+    matrix[0][0]*x+matrix[0][1]*y+matrix[0][2],
+    matrix[1][0]*x+matrix[1][1]*y+matrix[1][2],
+  ]);
+  const xs=points.map(point=>point[0]),ys=points.map(point=>point[1]);
+  return {x0:Math.min(...xs),y0:Math.min(...ys),x1:Math.max(...xs),y1:Math.max(...ys)};
+}
+function insideRegion(box,region){
+  return box.x0>=region.x0&&box.y0>=region.y0&&box.x1<=region.x1&&box.y1<=region.y1;
+}
 const tlCodes=new Set();
 const indexPage=manifest.pages?.[String(tlIndex.pageNumber)];
 if(tlIndex.version!==1||tlIndex.codePatternVersion!==2||!Array.isArray(tlIndex.entries)
@@ -43,6 +70,19 @@ const numericTlCodes=Object.keys(manifest.index||{}).filter((code)=>/^TL\d{1,5}-
 let numericTlHash=2166136261;
 for(const char of numericTlCodes.join('\n')){numericTlHash^=char.charCodeAt(0);numericTlHash=Math.imul(numericTlHash,16777619)>>>0;}
 const numericTlHashHex=(numericTlHash>>>0).toString(16);
+let numericTlCoordinateCount=0;
+for(const [code,matches] of Object.entries(manifest.index||{})){
+  if(!code.startsWith('TL')||!Array.isArray(matches))continue;
+  for(const match of matches){
+    const x=Number(match.x),y=Number(match.y),w=Number(match.width),h=Number(match.height);
+    const box=match.bbox||{x0:x,y0:Number(indexPage.height)-y-h,x1:x+w,y1:Number(indexPage.height)-y};
+    if(![box.x0,box.y0,box.x1,box.y1].every(Number.isFinite)||!insideRegion(box,calibration.sourceRegion))throw Error('TL index entry is outside the calibrated source region: '+code);
+    const mapped=transformBbox(box,calibration.sourceToRuntime);
+    if(mapped.x0<0||mapped.y0<0||mapped.x1<=mapped.x0||mapped.y1<=mapped.y0
+      ||mapped.x1>Number(indexPage.width)||mapped.y1>Number(indexPage.height))throw Error('TL index entry maps outside runtime page: '+code);
+    numericTlCoordinateCount++;
+  }
+}
 if(numericTlCodes.length!==Number(tlIndex.baseNumericTlIndex?.count)
   ||numericTlHashHex!==tlIndex.baseNumericTlIndex?.sortedKeyHash)throw Error('Existing numeric TL index differs from the supplied source PDF');
 for(const entry of tlIndex.entries){
@@ -54,7 +94,7 @@ for(const entry of tlIndex.entries){
     ||b.x1>Number(indexPage.width)||b.y1>Number(indexPage.height))throw Error('Invalid TL hyphen locator entry: '+code);
   tlCodes.add(code);
 }
-report.tlHyphenIndex={count:tlCodes.size,baseNumericTlCount:numericTlCodes.length,baseNumericTlHash:numericTlHashHex,sourcePdf:tlIndex.sourcePdf,sourceSha256:tlIndex.sourceSha256,pageCoordinateMatch:true};
+report.tlHyphenIndex={count:tlCodes.size,baseNumericTlCount:numericTlCodes.length,baseNumericTlHash:numericTlHashHex,baseNumericTlCoordinateCount:numericTlCoordinateCount,coordinateTransformId:calibration.id,runtimePdfSha256:calibration.runtimePdfSha256,sourcePdf:tlIndex.sourcePdf,sourceSha256:tlIndex.sourceSha256,pageCoordinateMatch:true};
 const page=manifest.pages?.['1'];
 if(!page?.tiles)throw Error('Missing page-1 pyramid declaration');
 const pyramid=page.tiles;

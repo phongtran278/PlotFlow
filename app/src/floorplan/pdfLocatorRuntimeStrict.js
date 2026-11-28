@@ -1,7 +1,7 @@
 import { calculateCropRect, FLOORPLAN_FRAME_ASPECT } from "./floorplanGeometry.js";
 import { getMemoryProfile } from "../runtime/memoryProfile.js";
 
-const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
+const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json?v=native-10427-v1";
 const TILE_SIZE = 512;
 const MIN_LEVEL_WIDTH = 1800;
 const stablePreviewUrls = new Map();

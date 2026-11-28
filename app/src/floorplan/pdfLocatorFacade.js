@@ -16,7 +16,7 @@ import {
   releasePreparedFallbackPdf,
 } from "./pdfLocatorRuntimeStrict.js";
 
-const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json";
+const PREPARED_MANIFEST_URL = "/masterplan/generated/manifest.json?v=native-10427-v1";
 const TL_HYPHEN_INDEX_URL = "/masterplan/generated/tl-hyphen-index.json";
 let preparedManifest = null;
 let customLocatorPromise = null;
@@ -48,6 +48,30 @@ async function loadBundledManifest() {
   if (!supplementResponse.ok) throw new Error(`Không tải được TL lot index (${supplementResponse.status}).`);
   const manifest = await response.json();
   const supplement = await supplementResponse.json();
+  if (manifest.nativeCoordinateSource) {
+    const native = manifest.nativeCoordinateSource;
+    const page = manifest.pages?.["1"];
+
+    const valid =
+      native.mode === "same-pdf-native-v1" &&
+      /^[a-f0-9]{64}$/i.test(native.pdfSha256 || "") &&
+      !manifest.coordinateTransformId &&
+      native.indexCount === Object.keys(manifest.index || {}).length &&
+      page?.tiles?.sourceWidth === native.rasterWidth &&
+      page?.tiles?.sourceHeight === native.rasterHeight &&
+      Array.isArray(supplement.entries) &&
+      supplement.entries.length === supplement.count &&
+      supplement.entries.every(
+        entry => manifest.index?.[entry.unitCode]?.length
+      );
+
+    if (!valid) {
+      throw new Error("Invalid native Masterplan coordinate source.");
+    }
+
+    return manifest;
+  }
+
   return mergeTlHyphenIndex(manifest, supplement);
 }
 
