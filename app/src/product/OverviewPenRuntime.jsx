@@ -96,6 +96,8 @@ export default function OverviewPenRuntime() {
     let layer = null;
     let anchorLayer = null;
     let button = null;
+    let autoButton = null;
+    let autoStatus = null;
     let doneButton = null;
     let styleMenu = null;
     let cursor = null;
@@ -397,6 +399,7 @@ export default function OverviewPenRuntime() {
       const ticket=++autoSequence;
       const current=()=>!disposed && ticket===autoSequence && stage===requestedStage && stage.isConnected && stage.dataset.overviewGroup===group && normalizeUnitCode(stage.dataset.pfActiveAnchor)===code;
       autoBusy=true;
+      if (autoButton) autoButton.disabled = true;
       status?.("Detecting shape…");
       try {
         const pagePoints=await detectOverviewShape(code,current);
@@ -410,7 +413,7 @@ export default function OverviewPenRuntime() {
         selectShape(next.id);
         status?.("Auto Shape ready · drag corners to refine");
       } catch(error) {if(current()) status?.(error.message||"Auto Shape failed");}
-      finally {autoBusy=false;}
+      finally {autoBusy=false; if (autoButton) autoButton.disabled = false;}
     }
 
     function render() {
@@ -702,7 +705,7 @@ export default function OverviewPenRuntime() {
     }
 
     function installButton() {
-      const tools = document.querySelector(".pf-overview-zoom-toolbar .pf-editor-tools");
+      const tools = document.querySelector(".pf-overview-header-commandbar .pf-editor-tools, .pf-overview-zoom-toolbar .pf-editor-tools");
       if (!tools) return false;
       tools.querySelector('[data-tool="rect"]')?.remove();
 
@@ -723,6 +726,38 @@ export default function OverviewPenRuntime() {
         if (!divider) tools.appendChild(button);
       }
 
+      if (!autoButton?.isConnected) {
+        autoButton = document.createElement("button");
+        autoButton.type = "button";
+        autoButton.className = "pf-pen-tool-button pf-auto-shape-tool";
+        autoButton.title = "Automatically detect the selected lot boundary";
+        autoButton.setAttribute("aria-label", "Auto Shape");
+        autoButton.innerHTML = "<span aria-hidden='true'>✦</span><b>Auto Shape</b>";
+        autoButton.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          const status = message => {
+            if (autoStatus) autoStatus.textContent = message;
+            if (autoButton) autoButton.title = message || "Automatically detect the selected lot boundary";
+          };
+          if (draft.length || vertexDrag || transformDrag) {
+            status("Finish current highlight edit first");
+            return;
+          }
+          if (autoBusy) { status("Auto Shape already running"); return; }
+          window.dispatchEvent(new CustomEvent("pf-overview-auto-shape-request", { detail: { status } }));
+        });
+      }
+      if (autoButton.previousElementSibling !== button) button.after(autoButton);
+      if (!autoStatus?.isConnected) {
+        autoStatus = document.createElement("span");
+        autoStatus.className = "pf-auto-shape-status";
+        autoStatus.setAttribute("role", "status");
+        autoStatus.setAttribute("aria-live", "polite");
+        autoStatus.style.cssText = "font-size:9px;max-width:170px;overflow-wrap:anywhere;color:var(--pf-muted)";
+      }
+      if (autoStatus.previousElementSibling !== autoButton) autoButton.after(autoStatus);
+      autoButton.hidden = storage.projectId !== "vinhomes-saigon-park";
       if (!doneButton?.isConnected) {
         doneButton = document.createElement("button");
         doneButton.type = "button";
@@ -735,7 +770,7 @@ export default function OverviewPenRuntime() {
           event.stopPropagation();
           completeAndExit();
         });
-        button.after(doneButton);
+        autoStatus.after(doneButton);
         syncDoneButton();
       }
 
@@ -801,7 +836,7 @@ export default function OverviewPenRuntime() {
 
     syncWithRetry();
     domObserver = new MutationObserver(() => {
-      if (!button?.isConnected || !styleMenu?.isConnected || !layer?.isConnected) syncWithRetry();
+      if (!button?.isConnected || !autoButton?.isConnected || !autoStatus?.isConnected || !styleMenu?.isConnected || !layer?.isConnected) syncWithRetry();
     });
     domObserver.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("pf-overview-live-units-ready", syncWithRetry);
@@ -838,6 +873,8 @@ export default function OverviewPenRuntime() {
       anchorLayer?.remove();
       cursor?.remove();
       button?.remove();
+      autoButton?.remove();
+      autoStatus?.remove();
       doneButton?.remove();
       styleMenu?.remove();
     };

@@ -100,6 +100,12 @@ try {
   const rasterStage=page.locator('[data-overview-render-mode="raster"]').first();
   await rasterStage.waitFor({state:"visible",timeout:20000});
   await page.waitForFunction(()=>{const s=window.__plotflowOverviewRuntime;return s?.activeTiles>0&&s.pendingTiles===0;},null,{timeout:20000});
+  const autoShapeTool = page.getByRole("button", { name: "Auto Shape", exact: true });
+  await autoShapeTool.waitFor({ state:"visible", timeout:15000 });
+  if (await autoShapeTool.count() !== 1) throw Error("Duplicate Auto Shape toolbar controls");
+  if (!(await autoShapeTool.evaluate(el => el.previousElementSibling?.classList.contains("pf-pen-tool-button") && !el.closest(".pf-unit-navigator")))) throw Error("Auto Shape must be beside manual Highlight");
+  if (await page.locator('.pf-unit-navigator [data-nav="auto-shape"]').count()) throw Error("Obsolete Focus Auto Shape control");
+  results.autoShapeToolbar = "visible beside manual Highlight";
   results.raster=[];
   for(const camera of [{scale:1,tx:0,ty:0},{scale:4,tx:-250,ty:-100},{scale:4,tx:-450,ty:-250},{scale:1,tx:0,ty:0}]){
     await page.evaluate(c=>window.dispatchEvent(new CustomEvent("pf-overview-camera",{detail:{...c,dragging:false}})),camera);
