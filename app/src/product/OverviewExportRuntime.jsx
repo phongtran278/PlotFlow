@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { headerSpec, CANONICAL_MASTERPLAN_URL, MASTERPLAN_NATIVE } from "./overviewMasterplanHeader.js";
 import { toPng } from "html-to-image";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
@@ -120,7 +121,7 @@ function isBackgroundNode(node) {
   const element = node instanceof Element ? node : null;
   if (!element) return false;
   return Boolean(element.closest(
-    ".pf-overview-pdf-canvas,.pf-masterplan-pdf,.pf-overview-raster-viewport,.pf-overview-raster-tile-layer,.pf-overview-pdf-trim-frame,.pf-overview-guide-line"
+    ".pf-overview-masterplan-header,.pf-overview-windows-fixed-bitmap-canvas,.pf-overview-pdf-canvas,.pf-masterplan-pdf,.pf-overview-raster-viewport,.pf-overview-raster-tile-layer,.pf-overview-pdf-trim-frame,.pf-overview-guide-line"
   ));
 }
 
@@ -128,10 +129,17 @@ async function captureComposite(stage, requestedWidth) {
   const bounds = exportBounds(stage);
   const targetWidth = Math.min(MAX_EXPORT_WIDTH, Math.max(1000, Math.round(Number(requestedWidth) || 4000)));
   const pixelRatio = targetWidth / Math.max(1, bounds.width);
-  const sourcePdf = currentPdfSource(stage);
+  const group = stage.dataset.overviewGroup;
+  const projectId = stage.dataset.overviewProjectId;
+  const header = headerSpec(projectId, group);
+  const sourcePdf = header ? CANONICAL_MASTERPLAN_URL : currentPdfSource(stage);
   if (!sourcePdf) throw new Error("Không tìm thấy PDF nguồn của view hiện tại.");
 
   const baseCanvas = await renderSourcePdf(sourcePdf, targetWidth);
+  const headerImage = header ? await imageFromDataUrl(header.src) : null;
+  if (stage.dataset.overviewGroup !== group || stage.dataset.overviewProjectId !== projectId || !stage.isConnected) {
+    throw new Error("Overview changed during export. Please retry.");
+  }
   const overlayDataUrl = await toPng(stage, {
     pixelRatio,
     cacheBust: true,
@@ -152,6 +160,12 @@ async function captureComposite(stage, requestedWidth) {
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, composite.width, composite.height);
   ctx.drawImage(baseCanvas, 0, 0, composite.width, composite.height);
+  if (headerImage) {
+    const { x, y, width, height } = header.rect;
+    const sx = composite.width / MASTERPLAN_NATIVE.width;
+    const sy = composite.height / MASTERPLAN_NATIVE.height;
+    ctx.drawImage(headerImage, x * sx, y * sy, width * sx, height * sy);
+  }
   ctx.drawImage(overlayCanvas, 0, 0, composite.width, composite.height);
   return composite;
 }
