@@ -26,6 +26,7 @@ let remoteEtag = null;
 let remoteStorage = {};
 let writeBlocked = false;
 let bootstrapComplete = false;
+let migrationReviewAvailable = false;
 // Only expose bounded, non-sensitive diagnostic codes, never response bodies or URLs.
 function cloudLoadFailure(code) {
   return Object.assign(new Error("Cloud state load failed: " + code), { cloudDiagnostic: code });
@@ -47,7 +48,7 @@ function shouldShareKey(key = "") {
   return isProjectCloudKey(CLOUD_PROJECT_ID, key);
 }
 
-function collectStorage() {
+function collectStorage({ strict = false } = {}) {
   const storage = {};
   try {
     for (let index = 0; index < window.localStorage.length; index += 1) {
@@ -56,7 +57,8 @@ function collectStorage() {
       const value = window.localStorage.getItem(key);
       if (value !== null) storage[key] = value;
     }
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     // Local cache is optional; cloud sync must never block the app.
   }
   return storage;
@@ -257,6 +259,7 @@ export async function bootstrapCloudProjectState() {
           Object.entries(local).some(([key, value]) => scoped[key] !== value));
       if (API_MODE && stagingHost && differs) {
         writeBlocked = true;
+        migrationReviewAvailable = true;
         notifyState("manual_migration_required");
       } else {
         applyStorage(scoped);
@@ -265,6 +268,7 @@ export async function bootstrapCloudProjectState() {
     } else if (Object.keys(collectStorage()).length > 0) {
       // Never auto-publish a local cache into an empty or foreign-key snapshot.
       writeBlocked = true;
+      migrationReviewAvailable = API_MODE && stagingHost;
       notifyState("manual_migration_required");
     }
   } catch (error) {
@@ -280,4 +284,29 @@ export async function bootstrapCloudProjectState() {
 
 export function flushCloudProjectState() {
   return writeCloudState();
+}
+
+
+// Read-only review of the last verified remote snapshot and the current local
+// project cache. Never expose credentials, ETag, or unrelated project keys.
+export function getCloudConflictReview() {
+  if (!API_MODE || !stagingHost || !bootstrapComplete || !writeBlocked
+      || !migrationReviewAvailable || !remoteEtag) return null;
+  const local = collectStorage({ strict: true });
+  const remote = Object.fromEntries(Object.entries(remoteStorage).filter(([key]) => shouldShareKey(key)));
+  const own = (object, key) => Object.hasOwn(object, key);
+  const comparison = [...new Set([...Object.keys(local), ...Object.keys(remote)])].sort().map(key => ({
+    key,
+    status: !own(local, key) ? "remote_only" : !own(remote, key) ? "local_only"
+      : local[key] === remote[key] ? "same" : "different",
+  }));
+  return {
+    format: "plotflow-staging-conflict-backup-v1",
+    projectId: CLOUD_PROJECT_ID,
+    capturedAt: new Date().toISOString(),
+    remoteSnapshot: "last_successful_read_this_session",
+    local: { version: 1, projectId: CLOUD_PROJECT_ID, storage: local },
+    remote: { version: 1, projectId: CLOUD_PROJECT_ID, storage: remote },
+    comparison,
+  };
 }

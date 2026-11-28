@@ -24,7 +24,7 @@ function harness({origin=ui, env={}, local={}, responses=[]}={}) {
   const input={VITE_PLOTFLOW_PRIVATE_STAGING:'1',VITE_STATE_API_BASE_URL:api,...env};
   const code=source.replace(/^import[^\n]*ProjectCloudScope\.js[^\n]*\n/m, '').replaceAll('import.meta.env', JSON.stringify(input)).replaceAll('export async function','async function').replaceAll('export function','function');
   vm.runInNewContext(code,context);
-  return {window,data,calls,events,bootstrap:context.bootstrapCloudProjectState,flush:context.flushCloudProjectState};
+  return {window,data,calls,events,bootstrap:context.bootstrapCloudProjectState,flush:context.flushCloudProjectState,review:context.getCloudConflictReview};
 }
 const state={version:1,projectId:'vinhomes-saigon-park',storage:{[key]:'{}',untracked:'preserve'}};
 const get=()=>new Response(JSON.stringify(state),{headers:{'x-plotflow-state-etag':'"old"'}});
@@ -66,4 +66,43 @@ test('staging transport mismatch reports configuration without any network reque
   assert.equal(h.window.__plotflowCloudStateStatus.diagnostic,'transport_config');
   assert.equal(await h.flush(),false);
   assert.equal(h.calls.length,0);
+});
+
+test('conflict review preserves both scoped snapshots without writes or unrelated data',async()=>{
+  const localOnly='plotflow:vinhomes-saigon-park:local-only';
+  const remoteOnly='plotflow:vinhomes-saigon-park:remote-only';
+  const same='plotflow:vinhomes-saigon-park:same';
+  const foreign='plotflow:other-project:private';
+  const h=harness({local:{[key]:'{"local":true}',[localOnly]:'local',[same]:'same',[foreign]:'foreign'},
+    responses:[new Response(JSON.stringify({...state,storage:{...state.storage,[remoteOnly]:'remote',[same]:'same',[foreign]:'foreign'}}),{headers:{'x-plotflow-state-etag':'"old"'}})]});
+  await h.bootstrap();
+  const before=[...h.data];
+  const review=h.review();
+  assert.equal(review.projectId,state.projectId);
+  assert.equal(review.local.storage[key],'{"local":true}');
+  assert.equal(review.remote.storage[key],'{}');
+  assert.equal(review.local.storage[foreign],undefined);
+  assert.equal(review.remote.storage[foreign],undefined);
+  assert.equal(review.remote.storage.untracked,undefined);
+  assert.equal(review.etag,undefined);
+  const map=Object.fromEntries(review.comparison.map(item=>[item.key,item.status]));
+  assert.deepEqual(map,{[key]:'different',[localOnly]:'local_only',[remoteOnly]:'remote_only',[same]:'same'});
+  assert.deepEqual([...h.data],before);
+  h.window.localStorage.setItem(key,'{"newerLocal":true}');
+  assert.equal(h.review().local.storage[key],'{"newerLocal":true}');
+  assert.equal(await h.flush(),false);
+  assert.equal(h.calls.length,1);
+});
+test('conflict review is unavailable without verified staging snapshot or a mismatch',async()=>{
+  const failed=harness({responses:[new Response('{}',{status:503})]});
+  await failed.bootstrap();assert.equal(failed.review(),null);
+  const synced=harness({responses:[get()]});
+  await synced.bootstrap();assert.equal(synced.review(),null);
+  const preview=harness({origin:'https://preview-plotflow-ui-staging.phongtran7076.workers.dev'});
+  await preview.bootstrap();assert.equal(preview.review(),null);
+});
+test('conflict review handles an empty remote scoped snapshot without enabling writes',async()=>{
+  const h=harness({local:{[key]:'local'},responses:[new Response(JSON.stringify({...state,storage:{}}),{headers:{'x-plotflow-state-etag':'"old"'}})]});
+  await h.bootstrap();assert.equal(h.review().comparison[0].status,'local_only');
+  assert.equal(await h.flush(),false);assert.equal(h.calls.length,1);
 });
