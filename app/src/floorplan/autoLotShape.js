@@ -427,7 +427,38 @@ function mapCandidateToImage(candidate, rect, imageWidth, imageHeight, ratio) {
 
 // Recover the center of the first dark stroke outside each interior edge.
 // Require agreement along the edge, not just a nearby dark pixel or label.
-function snapBoundaryEdges(image, points, anchor) {
+// Fit a bounded slope to stroke centers along an edge. Robust pairwise slopes
+// avoid a single noisy pixel or a label fragment rotating the boundary.
+export function fitBoundaryOffsets(samples, count, length, maxOffset) {
+  if (samples.length < Math.ceil(count * 0.7)) return null;
+  const median = values => {
+    const a = values.slice().sort((x, y) => x - y);
+    return (a[Math.floor((a.length - 1) / 2)] + a[Math.floor(a.length / 2)]) / 2;
+  };
+  const slopes = [];
+  for (let i = 0; i < samples.length; i++) {
+    for (let j = i + 1; j < samples.length; j++) {
+      const dx = samples[j].u - samples[i].u;
+      if (Math.abs(dx) >= length * 0.2) slopes.push((samples[j].d - samples[i].d) / dx);
+    }
+  }
+  if (!slopes.length) return null;
+  const slope = median(slopes);
+  const intercept = median(samples.map(v => v.d - slope * v.u));
+  if (Math.abs(slope) > Math.tan(5 * Math.PI / 180)) return null;
+  const ends = [intercept, intercept + slope * length];
+  if (ends.some(d => d < -0.5 || d > maxOffset)) return null;
+  const inliers = samples.filter(v => Math.abs(v.d - intercept - slope * v.u) <= 1);
+  if (inliers.length < Math.ceil(count * 0.7)) return null;
+  if (Math.min(...inliers.map(v => v.u)) > length * 0.35 ||
+      Math.max(...inliers.map(v => v.u)) < length * 0.65) return null;
+  const constant = median(samples.map(v => v.d));
+  const loss = (m, c) => samples.reduce((sum, v) => sum + Math.min(3, Math.abs(v.d - m * v.u - c)), 0);
+  if (loss(slope, intercept) + samples.length * 0.12 >= loss(0, constant)) return null;
+  return { slope, intercept };
+}
+
+function snapBoundaryEdges(image, points, anchor, adaptive = false) {
   const { width, height } = image;
   const gray = buildGray(image);
   const p = points.map(v => ({ x: v.x * (width - 1), y: v.y * (height - 1) }));
@@ -446,6 +477,7 @@ function snapBoundaryEdges(image, points, anchor) {
     let nx = (b.y - a.y) / length, ny = (a.x - b.x) / length;
     if ((center.x - a.x) * nx + (center.y - a.y) * ny > 0) { nx = -nx; ny = -ny; }
     const offsets = [];
+    const samples = [];
     const count = Math.max(5, Math.min(25, Math.floor(length / 2)));
     for (let k = 0; k < count; k++) {
       const t = 0.18 + 0.64 * k / (count - 1);
@@ -458,12 +490,21 @@ function snapBoundaryEdges(image, points, anchor) {
         } else if (start !== null) break;
       }
       // A complete narrow stroke, not a dark filled region.
-      if (start !== null && end < maxOffset + 1.5 && end - start <= 5 && (start + end) / 2 <= maxOffset) offsets.push((start + end) / 2);
+      if (start !== null && end < maxOffset + 1.5 && end - start <= 5 && (start + end) / 2 <= maxOffset) { const d = (start + end) / 2; offsets.push(d); samples.push({ u: t * length, d }); }
     }
     offsets.sort((a, b) => a - b);
     const median = offsets[Math.floor(offsets.length / 2)] ?? 0;
     const supported = offsets.filter(d => Math.abs(d - median) <= 1.25).length >= Math.ceil(count * 0.7);
     const offset = supported ? median : 0;
+    if (adaptive) {
+      const fit = fitBoundaryOffsets(samples, count, length, maxOffset);
+      if (fit) {
+        const tx = (b.x - a.x) / length, ty = (b.y - a.y) / length;
+        const fx = nx - fit.slope * tx, fy = ny - fit.slope * ty;
+        const norm = Math.hypot(fx, fy);
+        return { nx: fx / norm, ny: fy / norm, c: (fx * a.x + fy * a.y + fit.intercept) / norm, offset: Math.max(0, fit.intercept, fit.intercept + fit.slope * length), fitted: true };
+      }
+    }
     return { nx, ny, c: nx * a.x + ny * a.y + offset, offset };
   });
   if (lines.some(l => !l) || !lines.some(l => l.offset > 0)) return null;
@@ -476,7 +517,7 @@ function snapBoundaryEdges(image, points, anchor) {
   if (snapped.some((v, i) => !v || v.x < 0 || v.y < 0 || v.x >= width || v.y >= height || Math.hypot(v.x - p[i].x, v.y - p[i].y) > maxOffset * 1.6)) return null;
   if (convexHull(snapped).length !== p.length || polygonArea(snapped) < area || polygonArea(snapped) > area * 1.65) return null;
   if (!pointInPolygon({ x: anchor.x * (width - 1), y: anchor.y * (height - 1) }, snapped)) return null;
-  return { points: snapped.map(v => ({ x: v.x / (width - 1), y: v.y / (height - 1) })), edges: lines.filter(l => l.offset > 0).length };
+  return { points: snapped.map(v => ({ x: v.x / (width - 1), y: v.y / (height - 1) })), edges: lines.filter(l => l.offset > 0).length, fittedEdges: lines.filter(l => l.fitted).length };
 }
 
 export async function detectLotShapeFromImageData(imageData, anchor = { x: 0.5, y: 0.5 }) {
@@ -521,10 +562,12 @@ export async function detectLotShapeFromImageData(imageData, anchor = { x: 0.5, 
   const accepted = best.confidence >= 0.68
     && best.diagnostics?.anchorContained === true
     && best.diagnostics?.anchorBoundsDistance <= 0.18;
-  const snap = accepted ? snapBoundaryEdges(imageData, best.shape.points, safeAnchor) : null;
+  const baseline = accepted ? snapBoundaryEdges(imageData, best.shape.points, safeAnchor) : null;
+  const fitted = accepted ? snapBoundaryEdges(imageData, best.shape.points, safeAnchor, true) : null;
+  const snap = fitted?.fittedEdges > 0 ? fitted : baseline;
   return {
     ...best,
-    ...(snap ? { shape: { ...best.shape, points: snap.points }, diagnostics: { ...best.diagnostics, snappedEdges: snap.edges } } : {}),
+    ...(snap ? { shape: { ...best.shape, points: snap.points }, diagnostics: { ...best.diagnostics, snappedEdges: snap.edges, fittedEdges: snap.fittedEdges } } : {}),
     accepted,
     method: "multi-scale-local-boundary-fill",
     reason: accepted ? "closed-boundary" : "low-confidence",
