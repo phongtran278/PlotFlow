@@ -26,11 +26,15 @@ let remoteEtag = null;
 let remoteStorage = {};
 let writeBlocked = false;
 let bootstrapComplete = false;
-function notifyState(status) {
+// Only expose bounded, non-sensitive diagnostic codes, never response bodies or URLs.
+function cloudLoadFailure(code) {
+  return Object.assign(new Error("Cloud state load failed: " + code), { cloudDiagnostic: code });
+}
+function notifyState(status, diagnostic = null) {
   if (typeof window !== "undefined") {
-    window.__plotflowCloudStateStatus = { status, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" };
+    window.__plotflowCloudStateStatus = { status, diagnostic, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" };
     window.dispatchEvent(new CustomEvent("plotflow-cloud-state-status", {
-      detail: { status, projectId: CLOUD_PROJECT_ID, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" },
+      detail: { status, diagnostic, projectId: CLOUD_PROJECT_ID, transport: (API_MODE || stagingBuild) ? "state-api" : "legacy" },
     }));
   }
 }
@@ -79,16 +83,34 @@ function applyStorage(snapshot = {}) {
 
 async function readCloudState() {
   if (!API_MODE && !LEGACY_ENABLED) return null;
-  const response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
-    method: "GET", cache: "no-store", credentials: API_MODE ? "include" : "same-origin",
-    ...(API_MODE ? { redirect: "error", signal: AbortSignal.timeout(15000) } : {}),
-  });
+  let response;
+  try {
+    response = await fetch(API_MODE ? STATE_API_URL : CLOUD_STATE_URL, {
+      method: "GET", cache: "no-store", credentials: API_MODE ? "include" : "same-origin",
+      ...(API_MODE ? { redirect: "error", signal: AbortSignal.timeout(15000) } : {}),
+    });
+  } catch (error) {
+    if (!API_MODE) throw error;
+    throw cloudLoadFailure(error?.name === "TimeoutError" || error?.name === "AbortError"
+      ? "timeout" : "network_or_access");
+  }
   if (!API_MODE && response.status === 404) throw new Error("Cloud snapshot missing; manual recovery required");
-  if (!response.ok) throw new Error(`Cloud state GET failed (${response.status})`);
-  const value = validateCloudSnapshot(await response.json(), CLOUD_PROJECT_ID);
+  if (!response.ok) {
+    if (!API_MODE) throw new Error(`Cloud state GET failed (${response.status})`);
+    const codes = { 401: "authentication_required", 403: "access_denied", 404: "endpoint_not_found",
+      502: "storage_unavailable", 503: "service_unavailable" };
+    throw cloudLoadFailure(codes[response.status] || "http_error");
+  }
+  let value;
+  try {
+    value = validateCloudSnapshot(await response.json(), CLOUD_PROJECT_ID);
+  } catch (error) {
+    if (!API_MODE) throw error;
+    throw cloudLoadFailure("invalid_snapshot");
+  }
   if (API_MODE) {
     const etag = normalizeEtag(response.headers.get("x-plotflow-state-etag"));
-    if (!etag) throw new Error("State API did not provide a strong Azure version");
+    if (!etag) throw cloudLoadFailure("missing_read_version");
     remoteEtag = etag;
   }
   remoteStorage = { ...value.storage };
@@ -212,7 +234,7 @@ function installStorageTracking() {
 }
 
 export async function bootstrapCloudProjectState() {
-  if (!API_MODE && stagingBuild && stagingHost) { writeBlocked = true; notifyState("load_error"); }
+  if (!API_MODE && stagingBuild && stagingHost) { writeBlocked = true; notifyState("load_error", "transport_config"); }
   if ((!API_MODE && !LEGACY_ENABLED) || typeof window === "undefined" || new URLSearchParams(window.location.search).get("design-system") === "1") {
     installStorageTracking();
     return { enabled: false, projectId: CLOUD_PROJECT_ID };
@@ -247,7 +269,7 @@ export async function bootstrapCloudProjectState() {
     }
   } catch (error) {
     writeBlocked = true;
-    notifyState("load_error");
+    notifyState("load_error", API_MODE ? error?.cloudDiagnostic || "unknown" : null);
     console.warn("[PlotFlow] cloud state unavailable; using local cache:", error);
   }
 

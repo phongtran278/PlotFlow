@@ -20,7 +20,7 @@ function harness({origin=ui, env={}, local={}, responses=[]}={}) {
   }
   const window={location:new URL(origin),localStorage:new Storage(),dispatchEvent(){},addEventListener(n,f){events[n]=f},clearTimeout(){},setTimeout(){return 1}};
   const context={window,Storage,canUseLegacyProjectStorage,isProjectCloudKey,validateCloudSnapshot,mergeProjectCloudStorage,document:{addEventListener(){}},console:{info(){},warn(){}},CustomEvent:class{},URLSearchParams,AbortSignal,
-    fetch:async(url,opts)=>{calls.push({url,opts});assert.ok(responses.length,'unexpected network call');return responses.shift()}};
+    fetch:async(url,opts)=>{calls.push({url,opts});assert.ok(responses.length,'unexpected network call');const next=responses.shift();if(next instanceof Error)throw next;return next}};
   const input={VITE_PLOTFLOW_PRIVATE_STAGING:'1',VITE_STATE_API_BASE_URL:api,...env};
   const code=source.replace(/^import[^\n]*ProjectCloudScope\.js[^\n]*\n/m, '').replaceAll('import.meta.env', JSON.stringify(input)).replaceAll('export async function','async function').replaceAll('export function','function');
   vm.runInNewContext(code,context);
@@ -35,3 +35,35 @@ test('credentialed writes preserve unrelated keys and stop after stale ETag',asy
 test('same-origin tab storage change blocks future writes',async()=>{const h=harness({responses:[get()]});await h.bootstrap();h.events.storage({storageArea:h.window.localStorage,key});assert.equal(await h.flush(),false);assert.equal(h.calls.length,1)});
 
 test('foreign projects cannot acquire legacy VSP keys',()=>{assert.equal(isProjectCloudKey('other-project',key),false);assert.equal(isProjectCloudKey('vinhomes-saigon-park',key),true)});
+
+test('load failure diagnostic is bounded and never enables writes or clears local data',async()=>{
+  const cases=[
+    [new Response('secret body',{status:401}),'authentication_required'],
+    [new Response('secret body',{status:403}),'access_denied'],
+    [new Response('secret body',{status:404}),'endpoint_not_found'],
+    [new Response('secret body',{status:502}),'storage_unavailable'],
+    [new Response('secret body',{status:503}),'service_unavailable'],
+    [new Response('secret body',{status:500}),'http_error'],
+    [new TypeError('secret URL'),'network_or_access'],
+    [Object.assign(new Error('secret URL'),{name:'TimeoutError'}),'timeout'],
+    [new Response('not JSON'),'invalid_snapshot'],
+    [new Response(JSON.stringify(state)),'missing_read_version'],
+  ];
+  for(const [response,diagnostic] of cases){
+    const h=harness({local:{[key]:'{"local":true}'},responses:[response]});
+    await h.bootstrap();
+    assert.equal(h.window.__plotflowCloudStateStatus.status,'load_error');
+    assert.equal(h.window.__plotflowCloudStateStatus.diagnostic,diagnostic);
+    assert.equal(h.data.get(key),'{"local":true}');
+    assert.equal(await h.flush(),false);
+    assert.equal(h.calls.length,1);
+    assert.equal(h.calls[0].opts.method,'GET');
+  }
+});
+test('staging transport mismatch reports configuration without any network request',async()=>{
+  const h=harness({env:{VITE_STATE_API_BASE_URL:'https://wrong.invalid'}});
+  await h.bootstrap();
+  assert.equal(h.window.__plotflowCloudStateStatus.diagnostic,'transport_config');
+  assert.equal(await h.flush(),false);
+  assert.equal(h.calls.length,0);
+});
