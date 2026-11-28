@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { useProjectContext } from "../project/ProjectContext.jsx";
 import "./OverviewPenRuntime.css";
+import { detectOverviewShape } from "./overviewAutoShape.js";
+import { pageToStage, stageToPage, addAutoShape } from "./overviewAutoShapeGeometry.js";
+import { normalizeUnitCode } from "../floorplan/unitCodeCompat.js";
 
 const SHAPES_DOMAIN = "overview-highlight-shapes";
 const STYLE_DOMAIN = "overview-highlight-style";
@@ -55,6 +58,7 @@ function readShapes(storage) {
       id: shape.id || `${Date.now()}-${Math.random()}`,
       points: shape.points.map(normalizePoint),
       style: normalizeStyle(shape.style),
+      ...(shape.autoSource === "native-masterplan" && Array.isArray(shape.pagePoints) ? {autoSource:shape.autoSource, unitCode:shape.unitCode, pagePoints:shape.pagePoints} : {}),
     }));
 }
 
@@ -104,6 +108,8 @@ export default function OverviewPenRuntime() {
     let selectedId = null;
     let camera = { scale: 1, tx: 0, ty: 0 };
     let disposed = false;
+    let autoSequence = 0;
+    let autoBusy = false;
     let retryRaf = 0;
     let retryCount = 0;
     let domObserver = null;
@@ -199,7 +205,7 @@ export default function OverviewPenRuntime() {
       const shapeIndex = shapes.findIndex((shape) => String(shape.id) === String(selectedId));
       if (shapeIndex < 0) return;
       const shape = shapes[shapeIndex];
-      shapes = shapes.map((item, indexShape) => indexShape === shapeIndex ? { ...shape, points: points.map(normalizePoint) } : item);
+      shapes = shapes.map((item, indexShape) => indexShape === shapeIndex ? updateGeometry(shape, points.map(normalizePoint)) : item);
       if (persist) saveShapes(storage, shapes);
       render();
     }
@@ -209,7 +215,7 @@ export default function OverviewPenRuntime() {
       if (shapeIndex < 0 || !point) return;
       const shape = shapes[shapeIndex];
       const points = shape.points.map((current, pointIndex) => pointIndex === index ? normalizePoint(point) : current);
-      shapes = shapes.map((item, indexShape) => indexShape === shapeIndex ? { ...shape, points } : item);
+      shapes = shapes.map((item, indexShape) => indexShape === shapeIndex ? updateGeometry(shape, points) : item);
       saveShapes(storage, shapes);
       render();
       emitHighlightsChanged();
@@ -361,6 +367,50 @@ export default function OverviewPenRuntime() {
         });
         anchorLayer.appendChild(node);
       });
+    }
+
+    function overviewBounds() {
+      if (!stage) return null;
+      const b={x:Number(stage.dataset.pfPdfX),y:Number(stage.dataset.pfPdfY),width:Number(stage.dataset.pfPdfWidth),height:Number(stage.dataset.pfPdfHeight),stageWidth:stage.clientWidth,stageHeight:stage.clientHeight};
+      try {pageToStage({x:0,y:0},b);return b;} catch {return null;}
+    }
+    function reprojectAutoShapes() {
+      const b=overviewBounds();
+      if (!b) return;
+      shapes=shapes.map(s=>s.pagePoints ? {...s,points:s.pagePoints.map(q=>pageToStage(q,b))}:s);
+      render();
+    }
+    function updateGeometry(shape,points) {
+      const b=overviewBounds();
+      return {...shape,points,...(shape.pagePoints && b ? {pagePoints:points.map(q=>stageToPage(q,b))}: {})};
+    }
+    async function onAutoShape(event) {
+      const {code:rawCode,stage:requestedStage,status}=event.detail||{};
+      const code=normalizeUnitCode(rawCode);
+      if (!code||!stage||stage!==requestedStage||!stage.isConnected) return;
+      if (storage.projectId!=="vinhomes-saigon-park" || stage.dataset.overviewRenderMode!=="raster") {status?.("Native Masterplan required");return;}
+      if (draft.length||vertexDrag||transformDrag) {status?.("Finish current highlight edit first");return;}
+      if (autoBusy) {status?.("Auto Shape already running");return;}
+      const existing=shapes.find(s=>s.unitCode===code && s.autoSource==="native-masterplan");
+      if(existing){selectShape(existing.id);status?.("Existing highlight selected");return;}
+      const group=stage.dataset.overviewGroup;
+      const ticket=++autoSequence;
+      const current=()=>!disposed && ticket===autoSequence && stage===requestedStage && stage.isConnected && stage.dataset.overviewGroup===group && normalizeUnitCode(stage.dataset.pfActiveAnchor)===code;
+      autoBusy=true;
+      status?.("Detecting shape…");
+      try {
+        const pagePoints=await detectOverviewShape(code,current);
+        if(!pagePoints||!current()) return;
+        const b=overviewBounds();
+        if(!b || draft.length || vertexDrag || transformDrag) throw Error("Overview changed; retry Auto Shape");
+        const shape={id:`auto-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,unitCode:code,autoSource:"native-masterplan",pagePoints,points:pagePoints.map(q=>pageToStage(q,b)),style:{...currentStyle}};
+        const next=addAutoShape(shapes,shape);
+        shapes=next.shapes;
+        saveShapes(storage,shapes);
+        selectShape(next.id);
+        status?.("Auto Shape ready · drag corners to refine");
+      } catch(error) {if(current()) status?.(error.message||"Auto Shape failed");}
+      finally {autoBusy=false;}
     }
 
     function render() {
@@ -583,6 +633,7 @@ export default function OverviewPenRuntime() {
     }
 
     function onClearHighlights() {
+      autoSequence += 1;
       shapes = [];
       draft = [];
       selectedId = null;
@@ -617,6 +668,7 @@ export default function OverviewPenRuntime() {
       if (!nextStage || nextStage === stage) return;
       detachStage();
       stage = nextStage;
+      autoSequence += 1;
       layer?.remove();
       anchorLayer?.remove();
       cursor?.remove();
@@ -633,6 +685,7 @@ export default function OverviewPenRuntime() {
       stage.appendChild(anchorLayer);
 
       applyCamera();
+      reprojectAutoShapes();
       render();
       emitHighlightsChanged();
 
@@ -755,6 +808,8 @@ export default function OverviewPenRuntime() {
     window.addEventListener("pf-overview-group-changed", syncWithRetry);
     window.addEventListener("plotflow-product-view-changed", syncWithRetry);
     window.addEventListener("pf-overview-camera", onCamera);
+    window.addEventListener("pf-overview-auto-shape", onAutoShape);
+    window.addEventListener("pf-overview-pdf-bounds", reprojectAutoShapes);
     window.addEventListener("pf-overview-clear-highlights", onClearHighlights);
     window.addEventListener("pf-overview-select-highlight", onSelectHighlight);
     window.addEventListener("pf-overview-delete-highlight", onDeleteHighlight);
@@ -768,6 +823,8 @@ export default function OverviewPenRuntime() {
       window.removeEventListener("pf-overview-group-changed", syncWithRetry);
       window.removeEventListener("plotflow-product-view-changed", syncWithRetry);
       window.removeEventListener("pf-overview-camera", onCamera);
+      window.removeEventListener("pf-overview-auto-shape", onAutoShape);
+      window.removeEventListener("pf-overview-pdf-bounds", reprojectAutoShapes);
       window.removeEventListener("pf-overview-clear-highlights", onClearHighlights);
       window.removeEventListener("pf-overview-select-highlight", onSelectHighlight);
       window.removeEventListener("pf-overview-delete-highlight", onDeleteHighlight);
